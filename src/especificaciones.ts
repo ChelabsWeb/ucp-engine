@@ -54,7 +54,7 @@ export function especificacionesDe(texto: string): Especificacion[] {
       String.raw`(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?|not less than|no menos de)?\s*` +
       String.raw`(\d+(?:[.,]\d+)?)\s*` +
       String.raw`(pct|percent|%|ppm|mg\s*\/\s*kg|g\s*\/\s*kg)\s*` +
-      String.raw`(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?)?`,
+      "(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?)?",
     "gi",
   );
 
