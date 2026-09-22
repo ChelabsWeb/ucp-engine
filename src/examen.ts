@@ -3,6 +3,13 @@ import { ablandarPorISBP } from "./isbp";
 import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
+import {
+  operacionDesdeCredito,
+  type Presentacion,
+  reglasDeGiro,
+  type SaldoCredito,
+  saldoDelCredito,
+} from "./presentaciones";
 import { type ContextoCredito, type DocSeguro, reglasUCP } from "./reglas-ucp";
 import type { LcSwift } from "./swift-lc";
 import type { LcInfo, OperationDetail } from "./types";
@@ -25,6 +32,8 @@ export interface ResultadoExamen extends ResultadoPresentacion {
   avisosDeLectura: string[];
   /** cuántas reglas salieron de las UCP 600 más allá de lo que pide el crédito */
   reglasUCP: number;
+  /** cuánto queda del crédito después de esta presentación */
+  saldo: SaldoCredito | null;
   /** lo que el motor no puede verificar y tiene que mirar una persona */
   manuales: VerificacionManual[];
 }
@@ -54,7 +63,12 @@ export function examinarPresentacion(input: {
   seguro?: DocSeguro;
   /** los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario */
   certificados?: DocCertificado[];
-  op: OperationDetail;
+  /** el giro que se examina; con él el motor arma solo lo que el examen base necesita */
+  presentacion?: Presentacion;
+  /** los giros anteriores contra el mismo crédito */
+  anteriores?: Presentacion[];
+  /** solo si se quiere pasar una operación ya armada, como hace romai */
+  op?: OperationDetail;
   empresaRazonSocial: string;
   empresaDireccion?: string | null;
   hoy: Date;
@@ -68,10 +82,30 @@ export function examinarPresentacion(input: {
     return { ...d, campos: p.campos };
   });
 
+  // un banco no tiene una operación de compraventa: tiene un crédito y giros contra él.
+  // Si no le pasan una, se arma desde el propio crédito.
+  const op =
+    input.op ??
+    operacionDesdeCredito({
+      lc: input.lc,
+      presentacion: input.presentacion ?? { referencia: "", fecha: input.hoy, importe: null },
+      ordenante: input.credito?.aplicante ?? null,
+      mercaderia: input.credito?.mercaderia ?? null,
+    });
+
+  const deGiro = input.presentacion
+    ? reglasDeGiro({
+        lc: input.lc,
+        actual: input.presentacion,
+        anteriores: input.anteriores,
+        parciales: input.credito?.parciales,
+      })
+    : [];
+
   const base = precheckPresentacion({
     lc: input.lc,
     docs,
-    op: input.op,
+    op,
     empresaRazonSocial: input.empresaRazonSocial,
     empresaDireccion: input.empresaDireccion,
     hoy: input.hoy,
@@ -95,7 +129,7 @@ export function examinarPresentacion(input: {
 
   // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
   // de considerarse discrepancia, como la falta del número del crédito en un documento
-  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados]);
+  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro]);
   const faltan = CUENTA(reglas, "FALTA");
   const discrepancias = CUENTA(reglas, "DISCREPANCIA");
 
@@ -107,7 +141,8 @@ export function examinarPresentacion(input: {
     listo: faltan === 0 && discrepancias === 0 && (input.lc.documentosExigidos ?? []).length > 0,
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
-    reglasUCP: extra.length + deCertificados.length,
+    reglasUCP: extra.length + deCertificados.length + deGiro.length,
+    saldo: input.presentacion ? saldoDelCredito(input.lc, input.anteriores ?? []) : null,
     manuales: verificacionesManuales({ lc: input.lc, docs, haySeguro: Boolean(input.seguro) }),
     avisosDeLectura,
   };

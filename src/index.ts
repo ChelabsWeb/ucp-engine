@@ -112,6 +112,9 @@ export {
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
 export { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
+export type { Presentacion, SaldoCredito, VencimientoEfectivo } from "./presentaciones";
+/** El crédito como lo ve un banco: giros contra un compromiso, no una compraventa. */
+export { operacionDesdeCredito, reglasDeGiro, saldoDelCredito, vencimientoEfectivo } from "./presentaciones";
 /** El prompt de lectura propio de Cotejo: neutro y con los campos de transporte y seguro. */
 export { PROMPT_EXAMEN } from "./prompt-extraccion";
 export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
