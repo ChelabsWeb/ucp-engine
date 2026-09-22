@@ -1,0 +1,25 @@
+{
+  "name": "@cotejo/ucp-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "El examen documental de una carta de crédito contra las UCP 600, como motor puro y determinista.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.11",
+    "fast-check": "^4.9.0",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.10"
+  }
+}
