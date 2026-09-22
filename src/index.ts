@@ -25,6 +25,9 @@ export {
 export type { DocCertificado } from "./certificados";
 /** Los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario. */
 export { aparearConExigencias, reglasCertificados } from "./certificados";
+export type { AvisoRechazo, DestinoDocumentos, EncabezadoChecking } from "./checking-list";
+/** La hoja que el examinador firma y el aviso de rechazo del artículo 16. */
+export { avisoDeRechazo, checkingList } from "./checking-list";
 /** Checklist de documentos derivado del crédito y del incoterm. */
 export { generarChecklist } from "./checklist";
 export type {
