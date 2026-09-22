@@ -1,5 +1,6 @@
 import type { CamposDoc } from "./consistencia";
 import { normISBP } from "./isbp";
+import { esLugar } from "./jurisdicciones";
 import type { DocAnalizado } from "./presentacion";
 import type { ContextoCredito } from "./reglas-ucp";
 import type { LcInfo } from "./types";
@@ -176,6 +177,15 @@ export function partesAScreenear(input: {
 
 /** ¿Este nombre coincide con esta entrada de la lista? */
 function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "parte" | "fuente"> | null {
+  /*
+   * Un puerto no se coteja por nombre. Las listas son de personas, entidades y buques, y sus
+   * alias incluyen ubicaciones: «TAMILS REHABILITATION ORGANISATION» tiene entre sus alias
+   * «TSUNAMI RELIEF FUND -- COLOMBO, SRI LANKA», y con eso el puerto «COLOMBO,SRI LANKA» del
+   * expediente real daba una coincidencia parcial que no significa nada. El control que le
+   * corresponde a un puerto es en qué jurisdicción está, y eso lo hace `jurisdicciones.ts`.
+   */
+  if (esLugar(parte.rol)) return null;
+
   // un buque coincide por su número IMO antes que por su nombre: el nombre cambia, el IMO no
   if (parte.rol === "BUQUE" && e.imo) {
     const imo = /\b(\d{7})\b/.exec(parte.valor)?.[1];

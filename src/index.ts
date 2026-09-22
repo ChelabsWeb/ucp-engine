@@ -88,6 +88,14 @@ export {
   normISBP,
   versionIncoterm,
 } from "./isbp";
+export type { Alcance, AlertaJurisdiccion, Jurisdiccion } from "./jurisdicciones";
+export {
+  describirAlerta,
+  esLugar,
+  JURISDICCIONES,
+  JURISDICCIONES_REVISADAS_EN,
+  screenearJurisdicciones,
+} from "./jurisdicciones";
 export type { AvisoAseguradora, CobroEstimado, LimitePresentacion } from "./lc";
 /** Reglas de las UCP 600 como código: plazos, tolerancias, tenor, cobro estimado. */
 export {
