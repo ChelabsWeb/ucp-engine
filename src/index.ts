@@ -62,6 +62,20 @@ export { contextoDesdeSwift, examinarPresentacion } from "./examen";
 export { diffDias, fmtFecha, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente real con el que se validó el motor, para tests y demostraciones. */
 export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099 } from "./fixtures";
+export type { EmisorAdmitido, VeredictoISBP } from "./isbp";
+/** Práctica bancaria estándar (ISBP 821): compara como compara un examinador. */
+export {
+  ablandarPorISBP,
+  comparaISBP,
+  cotejarIncotermISBP,
+  emisorAdmitido,
+  esCertificadoDeOrigen,
+  esErrorDeTipeo,
+  esFacturaComercial,
+  exigePrevioAlEmbarque,
+  normISBP,
+  versionIncoterm,
+} from "./isbp";
 export type { AvisoAseguradora, CobroEstimado, LimitePresentacion } from "./lc";
 /** Reglas de las UCP 600 como código: plazos, tolerancias, tenor, cobro estimado. */
 export {
@@ -84,7 +98,6 @@ export { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentac
 /** El prompt de lectura propio de Cotejo: neutro y con los campos de transporte y seguro. */
 export { PROMPT_EXAMEN } from "./prompt-extraccion";
 export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
-
 /** Las reglas de las UCP 600 que el examen base no cubre (transporte, seguro, art. 14 y 18). */
 export { reglasUCP } from "./reglas-ucp";
 /** Higiene: qué no se le manda nunca a un modelo. */

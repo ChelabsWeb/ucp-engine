@@ -1,3 +1,4 @@
+import { ablandarPorISBP } from "./isbp";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import { type ContextoCredito, type DocSeguro, reglasUCP } from "./reglas-ucp";
@@ -69,7 +70,9 @@ export function examinarPresentacion(input: {
     hoy: input.hoy,
   });
 
-  const reglas = [...base.reglas, ...extra];
+  // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
+  // de considerarse discrepancia, como la falta del número del crédito en un documento
+  const reglas = ablandarPorISBP([...base.reglas, ...extra]);
   const faltan = CUENTA(reglas, "FALTA");
   const discrepancias = CUENTA(reglas, "DISCREPANCIA");
 
