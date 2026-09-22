@@ -102,6 +102,7 @@ export interface CamposDoc {
   onDeck?: CampoDoc; // "SHIPPED ON DECK" / "may be carried on deck"
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
+  precioUnitario?: CampoDoc; // "USD 800,00" — con él y el total se desambigua una cantidad
   /* documento de seguro (UCP 600 art. 28) */
   tipoSeguro?: CampoDoc; // "INSURANCE POLICY" / "CERTIFICATE" / "COVER NOTE"
   emisorSeguro?: CampoDoc; // la compañía que lo emite y firma
@@ -609,6 +610,7 @@ export const SCHEMA_DOC = {
     onDeck: campoSchema,
     clausulaDefecto: campoSchema,
     juegoOriginales: campoSchema,
+    precioUnitario: campoSchema,
     tipoSeguro: campoSchema,
     emisorSeguro: campoSchema,
     fechaSeguro: campoSchema,

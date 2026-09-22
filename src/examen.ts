@@ -1,4 +1,5 @@
 import { ablandarPorISBP } from "./isbp";
+import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import { type ContextoCredito, type DocSeguro, reglasUCP } from "./reglas-ucp";
@@ -19,6 +20,8 @@ import { type VerificacionManual, verificacionesManuales } from "./verificacione
  */
 
 export interface ResultadoExamen extends ResultadoPresentacion {
+  /** números que hubo que resolver o que quedaron dudosos antes de comparar */
+  avisosDeLectura: string[];
   /** cuántas reglas salieron de las UCP 600 más allá de lo que pide el crédito */
   reglasUCP: number;
   /** lo que el motor no puede verificar y tiene que mirar una persona */
@@ -53,9 +56,18 @@ export function examinarPresentacion(input: {
   empresaDireccion?: string | null;
   hoy: Date;
 }): ResultadoExamen {
+  // antes de comparar, dejar los números en forma inequívoca: una cantidad escrita
+  // "53,960" leída como 53.960 en vez de 53,96 inventa una discrepancia de mil veces
+  const avisosDeLectura: string[] = [];
+  const docs = input.docs.map((d) => {
+    const p = prepararCampos(d.campos);
+    for (const a of p.avisos) avisosDeLectura.push(`${d.nombreArchivo ?? d.tipo}: ${a}`);
+    return { ...d, campos: p.campos };
+  });
+
   const base = precheckPresentacion({
     lc: input.lc,
-    docs: input.docs,
+    docs,
     op: input.op,
     empresaRazonSocial: input.empresaRazonSocial,
     empresaDireccion: input.empresaDireccion,
@@ -65,7 +77,7 @@ export function examinarPresentacion(input: {
   const extra = reglasUCP({
     lc: input.lc,
     credito: input.credito,
-    docs: input.docs,
+    docs,
     seguro: input.seguro,
     hoy: input.hoy,
   });
@@ -85,6 +97,7 @@ export function examinarPresentacion(input: {
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
     reglasUCP: extra.length,
-    manuales: verificacionesManuales({ lc: input.lc, docs: input.docs, haySeguro: Boolean(input.seguro) }),
+    manuales: verificacionesManuales({ lc: input.lc, docs, haySeguro: Boolean(input.seguro) }),
+    avisosDeLectura,
   };
 }

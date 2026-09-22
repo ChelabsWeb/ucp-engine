@@ -92,6 +92,17 @@ export {
   UCP_DIAS_EXAMEN,
   UCP_DIAS_PRESENTACION,
 } from "./lc";
+export type { CamposPreparados, CantidadResuelta, ComoSeResolvio } from "./numeros";
+/** Números escritos de formas distintas sobre el mismo embarque: cantidades y contenedores. */
+export {
+  contenedoresEn,
+  desambiguarCantidad,
+  esAmbiguo,
+  lecturasPosibles,
+  mismoContenedor,
+  normalizarContenedor,
+  prepararCampos,
+} from "./numeros";
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
 export { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
