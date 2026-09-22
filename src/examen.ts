@@ -1,3 +1,4 @@
+import { type DocCertificado, reglasCertificados } from "./certificados";
 import { ablandarPorISBP } from "./isbp";
 import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
@@ -51,6 +52,8 @@ export function examinarPresentacion(input: {
   docs: DocAnalizado[];
   /** el documento de seguro, cuando el crédito lo exige */
   seguro?: DocSeguro;
+  /** los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario */
+  certificados?: DocCertificado[];
   op: OperationDetail;
   empresaRazonSocial: string;
   empresaDireccion?: string | null;
@@ -74,6 +77,14 @@ export function examinarPresentacion(input: {
     hoy: input.hoy,
   });
 
+  const deCertificados = reglasCertificados({
+    lc: input.lc,
+    certificados: input.certificados ?? [],
+    docs,
+    beneficiario: input.empresaRazonSocial,
+    hoy: input.hoy,
+  });
+
   const extra = reglasUCP({
     lc: input.lc,
     credito: input.credito,
@@ -84,7 +95,7 @@ export function examinarPresentacion(input: {
 
   // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
   // de considerarse discrepancia, como la falta del número del crédito en un documento
-  const reglas = ablandarPorISBP([...base.reglas, ...extra]);
+  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados]);
   const faltan = CUENTA(reglas, "FALTA");
   const discrepancias = CUENTA(reglas, "DISCREPANCIA");
 
@@ -96,7 +107,7 @@ export function examinarPresentacion(input: {
     listo: faltan === 0 && discrepancias === 0 && (input.lc.documentosExigidos ?? []).length > 0,
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
-    reglasUCP: extra.length,
+    reglasUCP: extra.length + deCertificados.length,
     manuales: verificacionesManuales({ lc: input.lc, docs, haySeguro: Boolean(input.seguro) }),
     avisosDeLectura,
   };

@@ -22,6 +22,9 @@ export {
   REGLA_DATO,
   sanearCampos,
 } from "./blindaje";
+export type { DocCertificado } from "./certificados";
+/** Los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario. */
+export { aparearConExigencias, reglasCertificados } from "./certificados";
 /** Checklist de documentos derivado del crédito y del incoterm. */
 export { generarChecklist } from "./checklist";
 export type {
