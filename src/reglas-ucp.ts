@@ -223,14 +223,48 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado): ReglaPresenta
   // 26a: la mercadería no puede ir declarada sobre cubierta
   const onDeck = val(bl, "onDeck");
   if (onDeck) {
-    const mayLoad = /may be loaded|podr[ií]a|puede ser/i.test(onDeck);
+    // el artículo distingue dos cosas: declarar que la mercadería VA sobre cubierta (discrepancia)
+    // y la cláusula de opción que los transportistas imprimen en todos sus conocimientos (aceptable)
+    const declara = /\b(shipped|loaded|stowed|carried)\s+on\s+deck\b|sobre cubierta\b(?!.*\bpodr)/i.test(onDeck);
+    const opcion = /\b(may|can|option|entitled|reserves?)\b/i.test(onDeck);
+    const esOpcion =
+      opcion && !/\b(is|are|was|were|has been|have been)\s+(shipped|loaded|stowed|carried)\s+on\s+deck\b/i.test(onDeck);
     out.push(
       regla(
         "ucp-26a",
         "UCP 600 26a",
         "La mercadería no viaja declarada sobre cubierta",
-        mayLoad ? "OK" : "DISCREPANCIA",
-        mayLoad ? `cláusula admitida: "${onDeck}"` : `el documento dice "${onDeck}"`,
+        esOpcion ? "OK" : declara ? "DISCREPANCIA" : "OK",
+        esOpcion
+          ? `cláusula de opción del transportista, admitida por el artículo: "${onDeck.slice(0, 90)}"`
+          : declara
+            ? `el documento declara la carga sobre cubierta: "${onDeck.slice(0, 90)}"`
+            : `cláusula leída: "${onDeck.slice(0, 90)}"`,
+      ),
+    );
+  }
+
+  // 20a-iv: hay que presentar el juego completo de originales. Un conocimiento marcado
+  // "COPY NON NEGOTIABLE", o con cero originales emitidos, no es el documento que el crédito pide.
+  const juego = val(bl, "juegoOriginales");
+  if (juego) {
+    const esCopia = /\bcopy\b|no negociable|non.?negotiable|\bzero\b|\b0\b/i.test(juego);
+    out.push(
+      regla(
+        "ucp-20a-iv",
+        "UCP 600 20a-iv",
+        "Se presenta el juego completo de originales, no una copia",
+        esCopia ? "DISCREPANCIA" : "OK",
+        esCopia ? `el documento dice "${juego}"` : `originales emitidos: "${juego}"`,
+      ),
+    );
+  } else {
+    out.push(
+      sinLeer(
+        "ucp-20a-iv",
+        "UCP 600 20a-iv",
+        "Se presenta el juego completo de originales",
+        "cuántos originales se emitieron",
       ),
     );
   }

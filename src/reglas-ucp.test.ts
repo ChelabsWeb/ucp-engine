@@ -254,3 +254,51 @@ describe("el paquete real del caso CSU2025099", () => {
     expect(r.filter((x) => x.estado === "DISCREPANCIA")).toEqual([]);
   });
 });
+
+describe("el conocimiento de embarque real, leído del papel escaneado", () => {
+  /* Los valores salen de las dos hojas del BL MVD0990117 de OCEANLINE — el documento que el
+     Meridian Bank aceptó. Si alguna de estas reglas lo marca, la regla está mal. */
+  const BL_REAL: DocAnalizado = {
+    tipo: "BL",
+    campos: doc({
+      puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+      puertoDestino: campo("COLOMBO, SRI LANKA"),
+      onBoard: campo("Shipped on Board STELLA AUSTRAL 08-APR-2025 OCEANLINE Uruguay As agents for the Carrier"),
+      buque: campo("STELLA AUSTRAL"),
+      onDeck: campo(
+        "The shipper acknowledges that the Carrier may carry the goods identified in this bill of lading on the deck of any vessel",
+      ),
+      juegoOriginales: campo("three (3) original Bills of Lading"),
+      numeroLC: campo("LCMRDN25000471"),
+    }),
+  };
+
+  it("26a: la cláusula de opción que OCEANLINE imprime en todos sus conocimientos NO es discrepancia", () => {
+    expect(buscar([BL_REAL], "ucp-26a")?.estado).toBe("OK");
+  });
+
+  it("26a: pero declarar la carga sobre cubierta sí lo es", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ onDeck: campo("CARGO SHIPPED ON DECK AT SHIPPER'S RISK") }) }],
+      "ucp-26a",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("20a-ii: la anotación de a bordo real, con buque y fecha, pasa", () => {
+    expect(buscar([BL_REAL], "ucp-20a-ii")?.estado).toBe("OK");
+  });
+
+  it("20a-iv: tres originales emitidos es el juego completo", () => {
+    expect(buscar([BL_REAL], "ucp-20a-iv")?.estado).toBe("OK");
+  });
+
+  it("20a-iv: presentar la copia no negociable en lugar del original es discrepancia", () => {
+    const r = buscar([{ tipo: "BL", campos: doc({ juegoOriginales: campo("COPY NON NEGOTIABLE") }) }], "ucp-20a-iv");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("el conocimiento real no levanta ninguna discrepancia", () => {
+    expect(corre([BL_REAL]).filter((r) => r.estado === "DISCREPANCIA")).toEqual([]);
+  });
+});

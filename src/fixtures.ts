@@ -243,9 +243,26 @@ export const DOCUMENTOS_CSU2025099: Partial<Record<TipoDocExterno, CamposDoc>> =
       valor: "FREIGHT PREPAID",
       confianza: 0.95,
     },
+    onBoard: {
+      valor: "Shipped on Board STELLA AUSTRAL 08-APR-2025 OCEANLINE Uruguay As agents for the Carrier",
+      confianza: 0.95,
+    },
+    buque: {
+      valor: "STELLA AUSTRAL",
+      confianza: 0.95,
+    },
+    onDeck: {
+      valor:
+        "The shipper acknowledges that the Carrier may carry the goods identified in this bill of lading on the deck of any vessel",
+      confianza: 0.9,
+    },
+    juegoOriginales: {
+      valor: "three (3) original Bills of Lading",
+      confianza: 0.9,
+    },
     numeroLC: {
-      valor: "",
-      confianza: 0,
+      valor: "LCMRDN25000471",
+      confianza: 0.95,
     },
     referenciaProforma: {
       valor: "",
