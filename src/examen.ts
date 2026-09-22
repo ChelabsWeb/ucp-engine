@@ -3,6 +3,7 @@ import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import { type ContextoCredito, type DocSeguro, reglasUCP } from "./reglas-ucp";
 import type { LcSwift } from "./swift-lc";
 import type { LcInfo, OperationDetail } from "./types";
+import { type VerificacionManual, verificacionesManuales } from "./verificaciones-manuales";
 
 /**
  * El examen completo: lo que exige el crédito más lo que exigen las UCP 600.
@@ -19,6 +20,8 @@ import type { LcInfo, OperationDetail } from "./types";
 export interface ResultadoExamen extends ResultadoPresentacion {
   /** cuántas reglas salieron de las UCP 600 más allá de lo que pide el crédito */
   reglasUCP: number;
+  /** lo que el motor no puede verificar y tiene que mirar una persona */
+  manuales: VerificacionManual[];
 }
 
 /** El contexto del crédito que las reglas necesitan, sacado del propio mensaje SWIFT. */
@@ -79,5 +82,6 @@ export function examinarPresentacion(input: {
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
     reglasUCP: extra.length,
+    manuales: verificacionesManuales({ lc: input.lc, docs: input.docs, haySeguro: Boolean(input.seguro) }),
   };
 }

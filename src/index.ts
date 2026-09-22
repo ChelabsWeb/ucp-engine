@@ -94,3 +94,6 @@ export type { CampoSwift, LcSwift } from "./swift-lc";
 export { esMensajeSwift, fechaSwift, listaSwift, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
 /** Tipos del dominio (crédito, documentos, operación, matriz). */
 export type * from "./types";
+export type { VerificacionManual } from "./verificaciones-manuales";
+/** Lo que el motor no puede verificar y queda del lado humano, dicho explícitamente. */
+export { verificacionesManuales } from "./verificaciones-manuales";
