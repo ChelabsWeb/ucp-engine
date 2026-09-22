@@ -139,3 +139,4 @@ export type * from "./types";
 export type { VerificacionManual } from "./verificaciones-manuales";
 /** Lo que el motor no puede verificar y queda del lado humano, dicho explícitamente. */
 export { verificacionesManuales } from "./verificaciones-manuales";
+export { VERSION_MOTOR } from "./version";

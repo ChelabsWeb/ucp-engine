@@ -1,5 +1,5 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "rootDir": "src", "types": ["vitest/globals"] },
-  "include": ["src/**/*.ts"]
+  "compilerOptions": { "rootDir": ".", "types": ["vitest/globals"], "resolveJsonModule": true },
+  "include": ["src/**/*.ts", "package.json"]
 }
