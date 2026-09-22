@@ -64,6 +64,9 @@ export { describirObservacion, resumenRevision, revisarCredito, revisarLcInfo } 
 export type { CambioLC, Enmienda } from "./enmiendas";
 /** Enmiendas MT707: qué cambia contra el crédito vigente y cómo se aplica. */
 export { aplicarEnmienda, diffEnmienda, esEnmienda, montoResultante, parseMT707 } from "./enmiendas";
+export type { CotejoSpec, Especificacion, Operador, VeredictoSpec } from "./especificaciones";
+/** La calidad que el crédito exige contra la que el análisis certifica. */
+export { cotejarEspecificaciones, especificacionesDe, pareceVariosDocumentos } from "./especificaciones";
 export type { ResultadoExamen } from "./examen";
 /** El examen completo: lo que exige el crédito más lo que exigen las UCP 600. */
 export { contextoDesdeSwift, examinarPresentacion } from "./examen";

@@ -1,4 +1,5 @@
 import { type CamposDoc, claveDoc, parseNumero } from "./consistencia";
+import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { parseFecha } from "./fechas";
 import { comparaISBP, emisorAdmitido, esCertificadoDeOrigen, exigePrevioAlEmbarque } from "./isbp";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
@@ -51,6 +52,8 @@ export function reglasCertificados(input: {
   /** los documentos principales, para cotejar pesos y fechas contra ellos */
   docs: DocAnalizado[];
   beneficiario?: string | null;
+  /** la descripción del campo 45A: de ahí sale la calidad que el crédito exige */
+  mercaderiaDelCredito?: string | null;
   hoy: Date;
 }): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
@@ -168,6 +171,36 @@ export function reglasCertificados(input: {
               "ATENCION",
               "no se leyó un peso comparable: verificar a mano",
             ),
+      );
+    }
+
+    /* la calidad que el crédito exige, contra la que el análisis certifica */
+    if (claveDoc(c.exigencia) === "ANALISIS" && input.mercaderiaDelCredito) {
+      const texto = [val(c.campos.mercaderia), val(c.campos.numeroDoc), c.nombreArchivo].filter(Boolean).join(" ");
+      for (const [j, sp] of cotejarEspecificaciones(input.mercaderiaDelCredito, texto).entries()) {
+        out.push(
+          regla(
+            `cert-spec-${sufijo}-${j}`,
+            "45A",
+            `${nombre}: ${sp.exigida.parametro || "la especificación"} que el crédito exige`,
+            sp.veredicto === "CUMPLE" ? "OK" : sp.veredicto === "NO_CUMPLE" ? "DISCREPANCIA" : "ATENCION",
+            sp.detalle,
+          ),
+        );
+      }
+    }
+
+    /* un archivo que trae más de un documento adentro mezcla los campos de todos */
+    const variosEn = pareceVariosDocumentos(val(c.campos.mercaderia) ?? "");
+    if (variosEn.length > 1) {
+      out.push(
+        regla(
+          `cert-varios-${sufijo}`,
+          "ISBP 821 A24",
+          `${nombre}: el archivo parece traer más de un documento`,
+          "ATENCION",
+          `se reconocieron: ${variosEn.join(" · ")} — conviene separarlos para que los campos no se mezclen`,
+        ),
       );
     }
 

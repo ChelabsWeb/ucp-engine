@@ -116,6 +116,7 @@ export function examinarPresentacion(input: {
     certificados: input.certificados ?? [],
     docs,
     beneficiario: input.empresaRazonSocial,
+    mercaderiaDelCredito: input.credito?.mercaderia ?? null,
     hoy: input.hoy,
   });
 
