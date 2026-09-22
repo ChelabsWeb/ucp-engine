@@ -58,6 +58,9 @@ export {
   SCHEMA_LC,
   TIPO_DOC_LABEL,
 } from "./consistencia";
+export type { Gravedad, Observacion } from "./emision";
+/** La otra cara: ¿este crédito se puede cumplir? Revisión antes de emitirlo o al recibirlo. */
+export { describirObservacion, resumenRevision, revisarCredito, revisarLcInfo } from "./emision";
 export type { CambioLC, Enmienda } from "./enmiendas";
 /** Enmiendas MT707: qué cambia contra el crédito vigente y cómo se aplica. */
 export { aplicarEnmienda, diffEnmienda, esEnmienda, montoResultante, parseMT707 } from "./enmiendas";
