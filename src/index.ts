@@ -55,6 +55,9 @@ export {
 export type { CambioLC, Enmienda } from "./enmiendas";
 /** Enmiendas MT707: qué cambia contra el crédito vigente y cómo se aplica. */
 export { aplicarEnmienda, diffEnmienda, esEnmienda, montoResultante, parseMT707 } from "./enmiendas";
+export type { ResultadoExamen } from "./examen";
+/** El examen completo: lo que exige el crédito más lo que exigen las UCP 600. */
+export { contextoDesdeSwift, examinarPresentacion } from "./examen";
 /** Fechas de comercio exterior: "08-APR-2025", "16 ABR 2025", "04.03.2025", ISO. */
 export { diffDias, fmtFecha, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente real con el que se validó el motor, para tests y demostraciones. */
@@ -78,6 +81,12 @@ export {
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
 export { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
+/** El prompt de lectura propio de Cotejo: neutro y con los campos de transporte y seguro. */
+export { PROMPT_EXAMEN } from "./prompt-extraccion";
+export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
+
+/** Las reglas de las UCP 600 que el examen base no cubre (transporte, seguro, art. 14 y 18). */
+export { reglasUCP } from "./reglas-ucp";
 /** Higiene: qué no se le manda nunca a un modelo. */
 export { scrubForLLM } from "./scrub";
 export type { CampoSwift, LcSwift } from "./swift-lc";

@@ -1,0 +1,83 @@
+import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
+import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
+import { type ContextoCredito, type DocSeguro, reglasUCP } from "./reglas-ucp";
+import type { LcSwift } from "./swift-lc";
+import type { LcInfo, OperationDetail } from "./types";
+
+/**
+ * El examen completo: lo que exige el crédito más lo que exigen las UCP 600.
+ *
+ * `precheckPresentacion` mira el propio crédito — los documentos del 46A, las condiciones
+ * del 47A, los plazos, el cotejo entre documentos. `reglasUCP` agrega las reglas que las
+ * UCP imponen aunque el crédito no las mencione: los puertos del documento de transporte,
+ * la anotación de a bordo, el documento limpio, la cobertura mínima del seguro.
+ *
+ * Las dos listas se concatenan en una sola y los contadores se recalculan sobre el total,
+ * porque para el examinador es un único dictamen.
+ */
+
+export interface ResultadoExamen extends ResultadoPresentacion {
+  /** cuántas reglas salieron de las UCP 600 más allá de lo que pide el crédito */
+  reglasUCP: number;
+}
+
+/** El contexto del crédito que las reglas necesitan, sacado del propio mensaje SWIFT. */
+export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
+  const campo = (v: { valor: string; confianza: number } | undefined): string | null =>
+    v && v.valor.trim() ? v.valor.trim() : null;
+  return {
+    puertoEmbarque: campo(p.campos.puertoEmbarque),
+    puertoDestino: campo(p.campos.puertoDestino),
+    mercaderia: campo(p.campos.mercaderia),
+    aplicante: p.extra.aplicante[0] ?? null,
+    parciales: p.extra.parciales,
+    transbordo: p.extra.transbordo,
+  };
+}
+
+const CUENTA = (rs: ReglaPresentacion[], e: ReglaPresentacion["estado"]) => rs.filter((r) => r.estado === e).length;
+
+export function examinarPresentacion(input: {
+  lc: LcInfo;
+  /** lo que dice el propio crédito de los puertos, la mercadería y el ordenante */
+  credito?: ContextoCredito;
+  docs: DocAnalizado[];
+  /** el documento de seguro, cuando el crédito lo exige */
+  seguro?: DocSeguro;
+  op: OperationDetail;
+  empresaRazonSocial: string;
+  empresaDireccion?: string | null;
+  hoy: Date;
+}): ResultadoExamen {
+  const base = precheckPresentacion({
+    lc: input.lc,
+    docs: input.docs,
+    op: input.op,
+    empresaRazonSocial: input.empresaRazonSocial,
+    empresaDireccion: input.empresaDireccion,
+    hoy: input.hoy,
+  });
+
+  const extra = reglasUCP({
+    lc: input.lc,
+    credito: input.credito,
+    docs: input.docs,
+    seguro: input.seguro,
+    hoy: input.hoy,
+  });
+
+  const reglas = [...base.reglas, ...extra];
+  const faltan = CUENTA(reglas, "FALTA");
+  const discrepancias = CUENTA(reglas, "DISCREPANCIA");
+
+  return {
+    reglas,
+    faltan,
+    discrepancias,
+    atencion: CUENTA(reglas, "ATENCION"),
+    listo: faltan === 0 && discrepancias === 0 && (input.lc.documentosExigidos ?? []).length > 0,
+    feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
+    diasParaPresentar: base.diasParaPresentar,
+    reglasUCP: extra.length,
+  };
+}

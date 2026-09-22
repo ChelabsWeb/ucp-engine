@@ -95,6 +95,20 @@ export interface CamposDoc {
   flete?: CampoDoc; // BL: "FREIGHT PREPAID" / "FREIGHT COLLECT"; factura: el flete desglosado ("FREIGHT 8.094,00")
   notify?: CampoDoc; // BL: notify party
   hsCode?: CampoDoc; // "2301.20.00" (D4)
+  /* documento de transporte (UCP 600 arts. 20, 26, 27) */
+  onBoard?: CampoDoc; // "SHIPPED ON BOARD 08-APR-2025"
+  buque?: CampoDoc; // "STELLA AUSTRAL" — o "INTENDED VESSEL …"
+  charterParty?: CampoDoc; // indicación de estar sujeto a contrato de fletamento
+  onDeck?: CampoDoc; // "SHIPPED ON DECK" / "may be carried on deck"
+  clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
+  /* documento de seguro (UCP 600 art. 28) */
+  tipoSeguro?: CampoDoc; // "INSURANCE POLICY" / "CERTIFICATE" / "COVER NOTE"
+  emisorSeguro?: CampoDoc; // la compañía que lo emite y firma
+  fechaSeguro?: CampoDoc; // fecha de emisión del seguro
+  montoAsegurado?: CampoDoc; // "USD 56.388,20"
+  monedaAsegurada?: CampoDoc;
+  coberturaDesde?: CampoDoc; // lugar donde empieza la cobertura
+  coberturaHasta?: CampoDoc; // lugar donde termina
 }
 
 /* ------------------------- helpers de normalización ------------------------- */
@@ -588,6 +602,18 @@ export const SCHEMA_DOC = {
     flete: campoSchema,
     notify: campoSchema,
     hsCode: campoSchema,
+    onBoard: campoSchema,
+    buque: campoSchema,
+    charterParty: campoSchema,
+    onDeck: campoSchema,
+    clausulaDefecto: campoSchema,
+    tipoSeguro: campoSchema,
+    emisorSeguro: campoSchema,
+    fechaSeguro: campoSchema,
+    montoAsegurado: campoSchema,
+    monedaAsegurada: campoSchema,
+    coberturaDesde: campoSchema,
+    coberturaHasta: campoSchema,
   },
   required: [
     "exportador",

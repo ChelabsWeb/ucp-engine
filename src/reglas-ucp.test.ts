@@ -1,0 +1,256 @@
+import { describe, expect, it } from "vitest";
+import type { CamposDoc } from "./consistencia";
+import { contextoDesdeSwift } from "./examen";
+import { SWIFT_CSU2025099 } from "./fixtures";
+import type { DocAnalizado } from "./presentacion";
+import { type ContextoCredito, reglasUCP } from "./reglas-ucp";
+import { parseMT700 } from "./swift-lc";
+import type { LcInfo } from "./types";
+
+/**
+ * Las reglas de las UCP 600 que el examen base no cubre, probadas contra el crédito real
+ * del caso CSU2025099 y contra documentos armados para romper cada regla a propósito.
+ */
+
+const swift = parseMT700(SWIFT_CSU2025099)!;
+const LC: LcInfo = swift.lc;
+const CTX: ContextoCredito = contextoDesdeSwift(swift);
+
+const campo = (valor: string, confianza = 0.95) => ({ valor, confianza });
+const vacio = { valor: "", confianza: 0 };
+
+function doc(over: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>>): CamposDoc {
+  const base = {
+    exportador: vacio,
+    importador: vacio,
+    montoTotal: vacio,
+    moneda: vacio,
+    cantidad: vacio,
+    unidad: vacio,
+    mercaderia: vacio,
+    puertoEmbarque: vacio,
+    puertoDestino: vacio,
+    fechaEmbarque: vacio,
+    incoterm: vacio,
+    numeroDoc: vacio,
+  } as CamposDoc;
+  return { ...base, ...over } as CamposDoc;
+}
+
+const HOY = new Date(2025, 3, 22);
+const corre = (docs: DocAnalizado[], seguro?: { campos: CamposDoc }) =>
+  reglasUCP({ lc: LC, credito: CTX, docs, seguro, hoy: HOY });
+const buscar = (docs: DocAnalizado[], id: string, seguro?: { campos: CamposDoc }) =>
+  corre(docs, seguro).find((r) => r.id === id);
+
+describe("contexto del crédito", () => {
+  it("saca del SWIFT los puertos, la mercadería y el ordenante", () => {
+    expect(CTX.puertoEmbarque).toMatch(/MONTEVIDEO/i);
+    expect(CTX.puertoDestino).toMatch(/COLOMBO/i);
+    expect(CTX.aplicante).toBe("ORIENT FEED (PVT) LTD");
+    expect(CTX.parciales).toMatch(/ALLOWED/i);
+  });
+});
+
+describe("factura — artículo 18", () => {
+  it("18a-ii: a nombre de quien no es el ordenante es discrepancia", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ importador: campo("OTRA EMPRESA LTD") }) }], "ucp-18a-ii");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("18a-ii: a nombre del ordenante del crédito pasa", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ importador: campo("ORIENT FEED (PVT) LTD") }) }], "ucp-18a-ii");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("18a-iii: una factura en euros contra un crédito en dólares es discrepancia", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ moneda: campo("EUR") }) }], "ucp-18a-iii");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("EUR");
+  });
+
+  it("no inventa reglas cuando el campo no se leyó: queda a verificar, nunca conforme", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({}) }], "ucp-18a-ii");
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  it("un campo leído con baja confianza se trata como no leído", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ moneda: campo("EUR", 0.2) }) }], "ucp-18a-iii");
+    expect(r?.estado).toBe("ATENCION");
+  });
+});
+
+describe("documento de transporte — artículos 20, 26 y 27", () => {
+  it("20a-iii: un puerto de carga distinto del que fija el crédito es discrepancia", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ puertoEmbarque: campo("BUENOS AIRES, ARGENTINA") }) }],
+      "ucp-20a-iii-puertoEmbarque",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("20a-iii: el puerto del caso real coincide con el 44E del crédito", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") }) }],
+      "ucp-20a-iii-puertoEmbarque",
+    );
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("20a-ii: la anotación de a bordo con fecha legible pasa", () => {
+    const r = buscar([{ tipo: "BL", campos: doc({ onBoard: campo("SHIPPED ON BOARD 08-APR-2025") }) }], "ucp-20a-ii");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("20a-ii: «intended vessel» sin anotación de a bordo es discrepancia", () => {
+    const r = buscar([{ tipo: "BL", campos: doc({ buque: campo("INTENDED VESSEL EVER LINKING") }) }], "ucp-20a-ii");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("20a-vi: un conocimiento sujeto a contrato de fletamento es discrepancia", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-2025") }) }],
+      "ucp-20a-vi",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("26a: mercadería declarada sobre cubierta es discrepancia; «may be carried on deck» no lo es", () => {
+    expect(buscar([{ tipo: "BL", campos: doc({ onDeck: campo("SHIPPED ON DECK") }) }], "ucp-26a")?.estado).toBe(
+      "DISCREPANCIA",
+    );
+    expect(
+      buscar([{ tipo: "BL", campos: doc({ onDeck: campo("goods may be loaded on deck") }) }], "ucp-26a")?.estado,
+    ).toBe("OK");
+  });
+
+  it("27: una cláusula que declara el embalaje defectuoso ensucia el documento", () => {
+    const r = buscar([{ tipo: "BL", campos: doc({ clausulaDefecto: campo("BAGS TORN AND STAINED") }) }], "ucp-27");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+describe("seguro — artículo 28", () => {
+  const facturaCIF: DocAnalizado = {
+    tipo: "FACTURA",
+    campos: doc({ montoTotal: campo("51.262,00"), moneda: campo("USD"), fechaEmbarque: campo("08-APR-2025") }),
+  };
+
+  it("28f-ii: cubrir menos del 110 % del valor de la mercadería es discrepancia", () => {
+    const r = buscar([facturaCIF], "ucp-28f-ii", { campos: doc({ montoAsegurado: campo("52.000,00") }) });
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("56.388,2");
+  });
+
+  it("28f-ii: justo el 110 % alcanza", () => {
+    const r = buscar([facturaCIF], "ucp-28f-ii", { campos: doc({ montoAsegurado: campo("56.388,20") }) });
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("28f-i: el seguro en otra moneda que el crédito es discrepancia", () => {
+    const r = buscar([facturaCIF], "ucp-28f-i", { campos: doc({ monedaAsegurada: campo("EUR") }) });
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("28e: un seguro fechado después del embarque es discrepancia", () => {
+    const r = buscar([facturaCIF], "ucp-28e", { campos: doc({ fechaSeguro: campo("15-APR-2025") }) });
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("28e: fechado el mismo día del embarque pasa", () => {
+    const r = buscar([facturaCIF], "ucp-28e", { campos: doc({ fechaSeguro: campo("08-APR-2025") }) });
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("28c: una nota de cobertura no se acepta", () => {
+    const r = buscar([facturaCIF], "ucp-28c", { campos: doc({ tipoSeguro: campo("COVER NOTE") }) });
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("28a: emitido por alguien que no es una aseguradora queda a verificar", () => {
+    const r = buscar([facturaCIF], "ucp-28a", { campos: doc({ emisorSeguro: campo("MOLSUR S.A.") }) });
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  it("no corre ninguna regla de seguro si no se presentó el documento", () => {
+    expect(corre([facturaCIF]).some((r) => r.id.startsWith("ucp-28"))).toBe(false);
+  });
+});
+
+describe("reglas generales", () => {
+  it("14i: un documento fechado después de la presentación es discrepancia", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ fechaDocumento: campo("30-APR-2025") }) }], "ucp-14i-FACTURA");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("14i: fechado antes de la presentación pasa", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ fechaDocumento: campo("08-APR-2025") }) }], "ucp-14i-FACTURA");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("14e: en un documento que no es la factura, una mercadería que no se parece queda a verificar", () => {
+    const r = buscar([{ tipo: "PACKING", campos: doc({ mercaderia: campo("SOYBEAN MEAL") }) }], "ucp-14e-PACKING");
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  it("14e: la misma mercadería del crédito pasa", () => {
+    const r = buscar(
+      [{ tipo: "PACKING", campos: doc({ mercaderia: campo("FISH MEAL 54PCT MIN") }) }],
+      "ucp-14e-PACKING",
+    );
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("30b: el crédito del caso fija tolerancia propia, así que la regla por defecto no aparece", () => {
+    expect(LC.tolerancia).toBe(0.1);
+    expect(corre([{ tipo: "FACTURA", campos: doc({}) }]).some((r) => r.id === "ucp-30b")).toBe(false);
+  });
+
+  it("30b: sin tolerancia en el crédito, se explicita el ±5 % sobre la cantidad", () => {
+    const sinTol = reglasUCP({
+      lc: { ...LC, tolerancia: null },
+      credito: { mercaderia: "FISH MEAL IN BULK" },
+      docs: [{ tipo: "FACTURA", campos: doc({}) }],
+      hoy: HOY,
+    });
+    const r = sinTol.find((x) => x.id === "ucp-30b");
+    expect(r?.evidencia).toContain("±5 %");
+  });
+
+  it("30b: cuando la cantidad va en bultos, la tolerancia del 5 % no corre", () => {
+    const enBultos = reglasUCP({
+      lc: { ...LC, tolerancia: null },
+      credito: { mercaderia: "1360 BAGS OF FISH MEAL" },
+      docs: [{ tipo: "FACTURA", campos: doc({}) }],
+      hoy: HOY,
+    });
+    expect(enBultos.find((x) => x.id === "ucp-30b")?.regla).toContain("no corre la tolerancia");
+  });
+});
+
+describe("el paquete real del caso CSU2025099", () => {
+  it("no levanta ninguna discrepancia nueva sobre los documentos que el banco aceptó", () => {
+    const docs: DocAnalizado[] = [
+      {
+        tipo: "FACTURA",
+        campos: doc({
+          importador: campo("ORIENT FEED (PVT) LTD"),
+          moneda: campo("USD"),
+          mercaderia: campo("FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)"),
+          fechaDocumento: campo("08/04/25"),
+        }),
+      },
+      {
+        tipo: "BL",
+        campos: doc({
+          puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+          puertoDestino: campo("COLOMBO, SRI LANKA"),
+          onBoard: campo("SHIPPED ON BOARD 08-APR-2025"),
+          mercaderia: campo("FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)"),
+        }),
+      },
+    ];
+    const r = corre(docs);
+    expect(r.filter((x) => x.estado === "DISCREPANCIA")).toEqual([]);
+  });
+});
