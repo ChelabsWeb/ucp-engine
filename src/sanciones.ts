@@ -179,6 +179,35 @@ const VACIAS = new Set([
  */
 const LARGO_DISTINTIVO = 6;
 
+/**
+ * Qué tipo de entrada tiene sentido para cada rol.
+ *
+ * Las listas dicen si una entrada es una persona, una entidad, un buque o una aeronave, y usarlo saca
+ * una familia entera de ruido. Salió de screenear los bancos reales del ERP de un trader: «BANCO
+ * REPUBLICA ORIENTAL DEL URUGUAY» coincidía con **FELICITY**, un buque cuyo alias es «ORIENTAL», y
+ * «BANCO SANTANDER» con **Salvatore MANCUSO GOMEZ**, una persona. Un banco no es un barco.
+ *
+ * Un exportador o un consignatario sí pueden ser una persona física, así que ahí se admiten las dos.
+ * Y una entrada **sin tipo** se mira igual: no se descarta lo que no se sabe.
+ */
+const TIPOS_PARA_ROL: Partial<Record<RolParte, ("PERSONA" | "ENTIDAD" | "BUQUE" | "AERONAVE")[]>> = {
+  BUQUE: ["BUQUE"],
+  BANCO_EMISOR: ["ENTIDAD"],
+  BANCO_AVISADOR: ["ENTIDAD"],
+  BANCO_LIBRADO: ["ENTIDAD"],
+  BENEFICIARIO: ["ENTIDAD", "PERSONA"],
+  ORDENANTE: ["ENTIDAD", "PERSONA"],
+  EMBARCADOR: ["ENTIDAD", "PERSONA"],
+  CONSIGNATARIO: ["ENTIDAD", "PERSONA"],
+  NOTIFY: ["ENTIDAD", "PERSONA"],
+};
+
+function tipoCompatible(rol: RolParte, tipo: EntradaSancion["tipo"]): boolean {
+  if (!tipo) return true;
+  const admitidos = TIPOS_PARA_ROL[rol];
+  return !admitidos || admitidos.includes(tipo);
+}
+
 function significativas(s: string): string[] {
   return normISBP(s)
     .split(" ")
@@ -239,6 +268,9 @@ function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "p
    */
   if (esLugar(parte.rol)) return null;
 
+  // Un banco contra un buque, o contra una persona, no es una coincidencia: es ruido.
+  if (!tipoCompatible(parte.rol, e.tipo)) return null;
+
   // un buque coincide por su número IMO antes que por su nombre: el nombre cambia, el IMO no
   if (parte.rol === "BUQUE" && e.imo) {
     const imo = /\b(\d{7})\b/.exec(parte.valor)?.[1];
@@ -265,10 +297,19 @@ function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "p
     // parcial: todas las palabras propias de la entrada aparecen en la parte, o al revés
     const cc = significativas(c.texto);
     if (cc.length === 0) continue;
-    // Una parcial apoyada en una sola palabra corta es ruido: ver LARGO_DISTINTIVO.
+    /*
+     * Las dos direcciones de una parcial no valen lo mismo.
+     *
+     * `enParte` —el nombre sancionado **entero** dentro de uno más largo— es la que vale: «GAZPROM»
+     * dentro de «GAZPROM NEFT LLC». Basta una palabra si es distintiva (ver LARGO_DISTINTIVO).
+     *
+     * `enEntrada` —la parte dentro de un nombre sancionado más largo— se apoya en un **fragmento**
+     * del sancionado, y con una sola palabra es ruido: así «BANCO SANTANDER» coincidía con «SERVICIO
+     * AEREO DE SANTANDER», una de tres palabras y encima un topónimo. Ahí se exigen dos.
+     */
     const bastaSola = (ws: string[]) => ws.length > 1 || (ws[0]?.length ?? 0) >= LARGO_DISTINTIVO;
     const enParte = bastaSola(cc) && cc.every((w) => claves.includes(w));
-    const enEntrada = bastaSola(claves) && claves.every((w) => cc.includes(w));
+    const enEntrada = claves.length > 1 && claves.every((w) => cc.includes(w));
     if (enParte || enEntrada) {
       return { entradaId: e.id, entradaNombre: e.nombre, porQue: c.que, grado: "PARCIAL", programa: e.programa };
     }

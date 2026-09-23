@@ -187,6 +187,29 @@ export function aKg(n: number, unidadTexto: string): number | null {
   return null;
 }
 
+/**
+ * La unidad, reducida a una sola forma.
+ *
+ * El catálogo del ERP de un trader escribe la misma unidad de dos maneras —CABEZAS y CAB,
+ * CONTENEDORES y CNRS, LITRES y LTS— y los documentos las mezclan. Esto las agrupa para poder
+ * comparar cantidades que no se miden en kilos: antes solo se comparaba lo convertible a peso, así
+ * que «120 CABEZAS» contra «118 CABEZAS» no se marcaba. Ganado en pie es algo que este trader vende.
+ *
+ * Devuelve `null` para lo que no reconoce: sin saber que son la misma unidad no se comparan dos
+ * números, porque 120 cabezas y 53.960 kilos pueden ser la misma carga.
+ */
+export function unidadNormal(texto: string): string | null {
+  const u = sinAcentos(texto.toLowerCase());
+  if (/(^|[^a-z])(cab|cabeza|cabezas|head|heads)($|[^a-z])/.test(u)) return "cabeza";
+  if (/(^|[^a-z])(cnr|cnrs|cntr|contenedor|contenedores|container|containers)($|[^a-z])/.test(u)) return "contenedor";
+  if (/(^|[^a-z])(lt|lts|l|litro|litros|litre|litres|liter|liters)($|[^a-z])/.test(u)) return "litro";
+  if (/(^|[^a-z])(un|unit|units|unidad|unidades|pza|pzas|piece|pieces)($|[^a-z])/.test(u)) return "unidad";
+  if (/(^|[^a-z])(bag|bags|bolsa|bolsas|sack|sacks)($|[^a-z])/.test(u)) return "bolsa";
+  if (/(^|[^a-z])(carton|cartons|caja|cajas|box|boxes)($|[^a-z])/.test(u)) return "caja";
+  if (/(^|[^a-z])(pallet|pallets|palet|palets)($|[^a-z])/.test(u)) return "pallet";
+  return null;
+}
+
 /* ---------------------------- comparadores puros ---------------------------- */
 
 /* ±5 % es la tolerancia habitual en comex; si la operación tiene LC con tolerancia
@@ -810,12 +833,23 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
           u = d.campos.unidad;
         if (!c || !c.valor.trim() || c.confianza < 0.4) return null;
         const n = parseNumero(c.valor);
-        const kg = n == null ? null : aKg(n, (u && u.confianza >= 0.4 && u.valor) || c.valor);
-        return kg == null
-          ? null
-          : { tipo: d.tipo, valor: c.valor + (u?.valor && !c.valor.includes(u.valor) ? ` ${u.valor}` : ""), kg };
+        if (n == null) return null;
+        const texto = (u && u.confianza >= 0.4 && u.valor) || c.valor;
+        const kg = aKg(n, texto);
+        // En kilos cuando se puede; si no, en su propia unidad, y solo se comparan entre sí las que
+        // están en la misma. Sin esto, todo lo que no fuera peso quedaba sin comparar.
+        const unidad = kg == null ? unidadNormal(texto) : "kg";
+        if (unidad == null) return null;
+        return {
+          tipo: d.tipo,
+          valor: c.valor + (u?.valor && !c.valor.includes(u.valor) ? ` ${u.valor}` : ""),
+          kg: kg ?? n,
+          unidad,
+        };
       })
-      .filter((x): x is { tipo: TipoDocExterno; valor: string; kg: number } => x != null);
+      .filter((x): x is { tipo: TipoDocExterno; valor: string; kg: number; unidad: string } => x != null)
+      // Magnitudes distintas no se comparan: 120 cabezas y 53.960 kilos pueden ser la misma carga.
+      .filter((x, _i, todos) => x.unidad === todos[0]!.unidad);
     if (con.length >= 2 && con.some((x) => Math.abs(x.kg - con[0].kg) / Math.max(con[0].kg, 1) > 0.005)) {
       out.push({
         campo: "Cantidad",
@@ -823,7 +857,9 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
         severidad: "MEDIA",
         titulo: `Cantidad: ${con.map((x) => `${TIPO_DOC_LABEL[x.tipo].toLowerCase()} dice "${x.valor}"`).join(", ")}`,
         detalle:
-          "Cantidades distintas entre documentos (comparadas en kilos): la LC puede fijar la contratada y el BL/packing lo embarcado — dentro de la tolerancia es normal; fuera, discrepancia.",
+          con[0]!.unidad === "kg"
+            ? "Cantidades distintas entre documentos (comparadas en kilos): la LC puede fijar la contratada y el BL/packing lo embarcado — dentro de la tolerancia es normal; fuera, discrepancia."
+            : `Cantidades distintas entre documentos (en ${con[0]!.unidad}s): la LC puede fijar la contratada y el BL/packing lo embarcado — dentro de la tolerancia es normal; fuera, discrepancia.`,
       });
     }
   }

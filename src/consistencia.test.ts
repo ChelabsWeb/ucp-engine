@@ -10,6 +10,7 @@ import {
   LC_DEMO,
   normConfianza,
   parseNumero,
+  type TipoDocExterno,
 } from "./consistencia";
 import { operationDetails } from "./mock";
 import type { ChecklistRow, Empresa, MatrixRow } from "./types";
@@ -543,5 +544,58 @@ describe("D4: el HS code de la LC contra el de cada documento", () => {
       { tipo: "BL", campos: { ...DOC_DEMO, hsCode: { valor: "230990", confianza: 0.9 } } },
     ]);
     expect(c.find((x) => x.campo === "HS code")).toMatchObject({ severidad: "ALTA" });
+  });
+});
+
+describe("cantidades que no se miden en kilos", () => {
+  /**
+   * Del catálogo de unidades del ERP del trader: además de KILOGRAMS y TONES hay **CABEZAS**,
+   * **CONTENEDORES**, **LITRES** y **UNIT**. El motor solo comparaba cantidades que pudiera pasar a
+   * kilos, así que «120 CABEZAS» en la factura y «118 CABEZAS» en el packing **no se marcaban**: un
+   * falso negativo en una operación de ganado en pie, que es algo que este trader vende.
+   *
+   * Cuando la unidad es la misma en los dos documentos, los números se comparan tal cual. Cuando son
+   * unidades distintas y no convertibles —cabezas contra kilos— no se dice nada: son magnitudes
+   * distintas y puede ser correcto.
+   */
+  /** Un documento con solo la cantidad y la unidad cargadas. */
+  const doc = (tipo: TipoDocExterno, cantidad: string, unidad: string) => ({
+    tipo,
+    campos: {
+      cantidad: { valor: cantidad, confianza: 1 },
+      unidad: { valor: unidad, confianza: 1 },
+    } as unknown as CamposDoc,
+  });
+
+  const hayCantidadDistinta = (a: ReturnType<typeof doc>, b: ReturnType<typeof doc>) =>
+    compararEntreDocumentos([a, b] as never).some((d) => d.campo === "Cantidad");
+
+  it("**120 cabezas contra 118 cabezas se marca**", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "120", "CABEZAS"), doc("PACKING", "118", "CABEZAS"))).toBe(true);
+  });
+
+  it("y 120 contra 120 no molesta a nadie", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "120", "CABEZAS"), doc("PACKING", "120", "CABEZAS"))).toBe(false);
+  });
+
+  it("los sinónimos del ERP son la misma unidad", () => {
+    // CAB y CABEZAS, CNRS y CONTENEDORES, LTS y LITRES: el mismo campo escrito de dos formas.
+    expect(hayCantidadDistinta(doc("FACTURA", "120", "CABEZAS"), doc("PACKING", "120", "CAB"))).toBe(false);
+    expect(hayCantidadDistinta(doc("FACTURA", "3", "CNRS"), doc("PACKING", "3", "CONTENEDORES"))).toBe(false);
+    expect(hayCantidadDistinta(doc("FACTURA", "24000", "LTS"), doc("PACKING", "24000", "LITRES"))).toBe(false);
+  });
+
+  it("y con distinto número también se marcan", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "3", "CNRS"), doc("PACKING", "4", "CONTENEDORES"))).toBe(true);
+  });
+
+  it("unidades que no se pueden comparar entre sí no inventan un hallazgo", () => {
+    // 120 cabezas y 53.960 kilos pueden ser la misma carga: son magnitudes distintas.
+    expect(hayCantidadDistinta(doc("FACTURA", "120", "CABEZAS"), doc("PACKING", "53960", "KGS"))).toBe(false);
+  });
+
+  it("lo de siempre sigue igual: kilos contra toneladas se compara convertido", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "53,96", "TON"))).toBe(false);
+    expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "48", "TON"))).toBe(true);
   });
 });

@@ -165,3 +165,108 @@ describe("los sufijos societarios no identifican a nadie", () => {
     expect(screenear([parte("SBERBANK OF RUSSIA")], [lista("SBERBANK")])).toHaveLength(1);
   });
 });
+
+describe("el tipo de la entrada tiene que tener sentido para el rol de la parte", () => {
+  /**
+   * Dos falsos positivos que salieron de screenear los bancos reales del ERP del trader:
+   *
+   * - «BANCO REPUBLICA ORIENTAL DEL URUGUAY» coincidía con **FELICITY**, que es un *buque* cuyo
+   *   alias es «ORIENTAL». Un banco no es un barco.
+   * - «BANCO SANTANDER S.A.» coincidía con **Salvatore MANCUSO GOMEZ**, que es una *persona*.
+   *
+   * Las listas dicen de qué tipo es cada entrada. Usarlo cuesta nada y saca una familia entera de
+   * ruido.
+   */
+  const entrada = (nombre: string, tipo: "PERSONA" | "ENTIDAD" | "BUQUE" | "AERONAVE", alias?: string[]) => ({
+    fuente: "OFAC SDN",
+    publicada: "09/23/2026",
+    entradas: [{ id: "1", nombre, tipo, alias }],
+  });
+  const como = (rol: string, valor: string) => [{ rol, valor, origen: "x" }] as never[];
+
+  it("un banco no coincide con un buque", () => {
+    const buque = entrada("FELICITY", "BUQUE", ["ORIENTAL"]);
+    expect(screenear(como("BANCO_EMISOR", "BANCO REPUBLICA ORIENTAL DEL URUGUAY"), [buque])).toEqual([]);
+  });
+
+  it("ni con una persona", () => {
+    const persona = entrada("Salvatore MANCUSO SANTANDER", "PERSONA");
+    expect(screenear(como("BANCO_EMISOR", "BANCO SANTANDER S.A."), [persona])).toEqual([]);
+  });
+
+  it("**un buque sí coincide con un buque**", () => {
+    const buque = entrada("EBANO", "BUQUE", ["SAND SWAN"]);
+    expect(screenear(como("BUQUE", "SAND SWAN"), [buque])).toHaveLength(1);
+  });
+
+  it("y una empresa con una entidad o con una persona, que puede ser unipersonal", () => {
+    expect(screenear(como("ORDENANTE", "ORIENT FEED PVT LTD"), [entrada("ORIENT FEED LIMITED", "ENTIDAD")])).toHaveLength(
+      1,
+    );
+    expect(
+      screenear(como("BENEFICIARIO", "RODRIGUEZ HERMANOS"), [entrada("RODRIGUEZ HERMANOS", "PERSONA")]),
+    ).toHaveLength(1);
+  });
+
+  it("una entrada sin tipo se mira igual: no se descarta lo que no se sabe", () => {
+    const sinTipo = { fuente: "X", publicada: "1", entradas: [{ id: "1", nombre: "ORIENT FEED LIMITED" }] };
+    expect(screenear(como("ORDENANTE", "ORIENT FEED PVT LTD"), [sinTipo as never])).toHaveLength(1);
+  });
+});
+
+describe("una parcial que se apoya en un fragmento del nombre sancionado", () => {
+  const entidad = (nombre: string) => ({
+    fuente: "OFAC SDN",
+    publicada: "09/23/2026",
+    entradas: [{ id: "1", nombre, tipo: "ENTIDAD" as const }],
+  });
+  const como = (valor: string) => [{ rol: "BANCO_EMISOR", valor, origen: "campo 52A" }] as never[];
+
+  it("**«BANCO SANTANDER» no coincide con «SERVICIO AEREO DE SANTANDER»**", () => {
+    // Una sola palabra de las tres del sancionado, y encima un topónimo. El umbral de longitud no
+    // alcanza para distinguir un nombre propio de una ciudad: lo que distingue es cuánto del nombre
+    // sancionado se comparte.
+    expect(screenear(como("BANCO SANTANDER S.A."), [entidad("SERVICIO AEREO DE SANTANDER E.U.")])).toEqual([]);
+  });
+
+  it("pero el nombre sancionado entero dentro de otro más largo sí coincide", () => {
+    // Acá se comparte TODO el nombre del sancionado, que es la parcial que vale.
+    expect(screenear(como("GAZPROM NEFT LLC"), [entidad("GAZPROM")])).toHaveLength(1);
+    expect(
+      screenear(como("SBERBANK OF RUSSIA"), [entidad("PUBLIC JOINT STOCK COMPANY SBERBANK OF RUSSIA")]),
+    ).toHaveLength(1);
+  });
+});
+
+describe("qué se pierde con estos umbrales, dicho a propósito", () => {
+  /**
+   * Bajar el ruido tiene un costo y conviene que esté escrito y probado, no que aparezca el día que
+   * alguien se pregunte por qué no salió algo.
+   *
+   * Exigir dos palabras cuando la parte está contenida en un nombre sancionado más largo descarta
+   * una contraparte que comparte **un solo apellido** con una persona de la lista. «PASQUALE SRL»
+   * contra «Pasquale ZAGARIA» era una coincidencia real que ahora no sale.
+   *
+   * Es una decisión de riesgo, no un olvido: contra las listas completas, esa clase de match
+   * producía veintidós alertas falsas sobre once contrapartes, y un screening que nadie mira no
+   * protege de nada. Si un banco quiere esa sensibilidad, el umbral es el lugar donde se toca.
+   */
+  const entrada = (nombre: string, tipo: "PERSONA" | "ENTIDAD") => ({
+    fuente: "OFAC SDN",
+    publicada: "09/23/2026",
+    entradas: [{ id: "1", nombre, tipo }],
+  });
+  const como = (valor: string) => [{ rol: "ORDENANTE", valor, origen: "campo 50" }] as never[];
+
+  it("un solo apellido compartido ya no sale", () => {
+    expect(screenear(como("PASQUALE SRL"), [entrada("Pasquale ZAGARIA", "PERSONA")])).toEqual([]);
+  });
+
+  it("pero dos palabras compartidas sí", () => {
+    expect(screenear(como("PEREZ RODRIGUEZ S.A."), [entrada("Juan PEREZ RODRIGUEZ", "PERSONA")])).toHaveLength(1);
+  });
+
+  it("y el nombre completo, exacto, siempre", () => {
+    expect(screenear(como("ZAGARIA"), [entrada("ZAGARIA", "PERSONA")])).toHaveLength(1);
+  });
+});
