@@ -89,6 +89,52 @@ describe("dónde no se propone nada", () => {
   });
 });
 
+describe("el emisor que se sugiere sale de la práctica, no de la nada", () => {
+  /**
+   * Las sugerencias vienen del catálogo de tipos de documento del ERP de Cerealsur, que un trader usa
+   * en producción desde 2017. No es una lista de memoria: es lo que un exportador contesta cuando le
+   * preguntan quién le firma cada papel.
+   */
+  it.each([
+    ["FIRST CLASS CERTIFICATE OF ORIGIN IN 02 FOLD", /chamber of commerce/i],
+    ["FIRST CLASS HEALTH CERTIFICATE", /veterinary or health authority/i],
+    ["WELL KNOWN CERTIFICATE OF ANALYSIS", /accredited surveyor/i],
+    ["FIRST CLASS WEIGHT CERTIFICATE", /accredited surveyor/i],
+    ["FIRST CLASS FUMIGATION CERTIFICATE", /fumigation surveyor/i],
+  ])("para %s sugiere el emisor habitual", (documento, esperado) => {
+    const pr = redaccionesPara([observacion("emision-emisor-vago-0", "46A+1")], {
+      documentosExigidos: [documento],
+    })[0]!;
+    expect(pr.texto).toMatch(esperado);
+    // Y el hueco sigue siendo un hueco: el emisor exacto depende del país y del acuerdo.
+    expect(pr.decidir.length).toBeGreaterThan(0);
+    expect(pr.texto).toMatch(/confirm the exact issuer/i);
+  });
+
+  it("un documento que no reconoce cae en la sugerencia general, no inventa un emisor", () => {
+    const pr = redaccionesPara([observacion("emision-emisor-vago-0", "46A+1")], {
+      documentosExigidos: ["FIRST CLASS DOCUMENT OF SOME KIND NOBODY HAS SEEN"],
+    })[0]!;
+    expect(pr.texto).toMatch(/name the issuer/i);
+  });
+
+  it("y a un certificado de inspección del ordenante le propone el tercero que corresponde", () => {
+    const pr = redaccionesPara([observacion("emision-doc-ordenante-0", "46A+1")], {
+      documentosExigidos: ["INSPECTION CERTIFICATE ISSUED AND SIGNED BY THE APPLICANT"],
+    })[0]!;
+    expect(pr.texto).toMatch(/named inspection company/i);
+    expect(pr.texto).toMatch(/NOT BY THE APPLICANT/i);
+  });
+
+  it("al documento de seguro le recuerda que la nota de cobertura no sirve (art. 28c)", () => {
+    const pr = redaccionesPara([observacion("emision-emisor-vago-0", "46A+1")], {
+      documentosExigidos: ["FIRST CLASS INSURANCE POLICY FOR 110 PCT OF CIF VALUE"],
+    })[0]!;
+    expect(pr.texto).toMatch(/cover note/i);
+    expect(pr.texto).toMatch(/28\(c\)/);
+  });
+});
+
 describe("una propuesta se distingue de otra igual", () => {
   const credito = {
     documentosExigidos: ["SIGNED COMMERCIAL INVOICE", "FIRST CLASS CERTIFICATE OF ORIGIN IN 02 FOLD"],

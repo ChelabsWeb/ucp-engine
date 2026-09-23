@@ -43,6 +43,54 @@ export interface Propuesta {
   decidir: string[];
 }
 
+/**
+ * Quién emite cada tipo de documento, según la práctica del comercio de alimentos.
+ *
+ * No es una lista de memoria: sale del catálogo de tipos de documento del ERP de Cerealsur, que un
+ * trader usa en producción desde 2017 —«Certificate of Origin issued by Chamber of Commerce»,
+ * «Sanitary/Health Certificate issued by government authorities», «Certificate of Analysis and
+ * Quality issued by accredited surveyor»—. Es la respuesta que un exportador de carne o de harina de
+ * pescado daría a «¿quién te lo firma?».
+ *
+ * Sigue siendo una **sugerencia** y el hueco queda: el emisor depende del país y de lo que las partes
+ * hayan acordado, y un crédito a Sri Lanka puede exigir un organismo determinado. Lo que cambia es
+ * que el hueco viene con la respuesta más probable adentro en vez de en blanco.
+ */
+const EMISOR_HABITUAL: { re: RegExp; sugerencia: string }[] = [
+  {
+    re: /\bcertificate\s+of\s+origin|origin\s+certificate\b/i,
+    sugerencia: "the chamber of commerce of the country of origin",
+  },
+  {
+    re: /\b(health|sanitary|veterinary)\s+certificate\b/i,
+    sugerencia: "the competent government veterinary or health authority",
+  },
+  {
+    re: /\b(analysis|quality)\s+certificate|certificate\s+of\s+analysis\b/i,
+    sugerencia: "an accredited surveyor, or the shipper if the credit allows it",
+  },
+  {
+    re: /\b(weight|quantity)\s+(certificate|note)|certificate\s+of\s+(weight|quantity)\b/i,
+    sugerencia: "an accredited surveyor",
+  },
+  { re: /\bfumigation\s+certificate\b/i, sugerencia: "an accredited fumigation surveyor" },
+  { re: /\bradiation\s+certificate\b/i, sugerencia: "the competent government authority" },
+  {
+    re: /\binspection\s+certificate\b/i,
+    sugerencia: "a named inspection company such as the one the parties agreed on",
+  },
+  {
+    re: /\binsurance\s+(policy|certificate)\b/i,
+    sugerencia: "the insurance company or its agent — never a broker's cover note (UCP 600 28(c))",
+  },
+];
+
+/** Qué emisor sugerirle a un documento, si se reconoce de qué documento se trata. */
+function emisorPara(original: string | null): string | null {
+  if (!original) return null;
+  return EMISOR_HABITUAL.find((e) => e.re.test(original))?.sugerencia ?? null;
+}
+
 /** Los huecos que una persona tiene que llenar, sacados del propio texto propuesto. */
 function huecos(texto: string): string[] {
   return [...texto.matchAll(/\[([^\]]+)\]/g)].map((m) => m[1]!);
@@ -86,22 +134,28 @@ export function proponerRedaccion(o: Observacion, original: string | null = null
   }
 
   if (id.startsWith("emision-emisor-vago")) {
+    const habitual = emisorPara(original);
     return p(
       id,
       o.donde,
       "REEMPLAZAR",
-      "… ISSUED BY [name the issuer: e.g. the chamber of commerce of the country of origin, a named inspection company, the competent government authority of …]",
+      habitual
+        ? `… ISSUED BY [${habitual} — confirm the exact issuer with the applicant]`
+        : "… ISSUED BY [name the issuer: e.g. the chamber of commerce of the country of origin, a named inspection company, the competent government authority of …]",
       "Article 3 strips «first class», «well known», «independent» and the like of any effect: with those words the document may be issued by anyone other than the beneficiary — the opposite of what was meant. Naming the issuer is the only thing that restricts it.",
       original,
     );
   }
 
   if (id.startsWith("emision-doc-ordenante")) {
+    const habitual = emisorPara(original);
     return p(
       id,
       o.donde,
       "REEMPLAZAR",
-      "… ISSUED AND SIGNED BY [an independent third party: name the inspection company, surveyor or authority], NOT BY THE APPLICANT.",
+      habitual
+        ? `… ISSUED AND SIGNED BY [${habitual}], NOT BY THE APPLICANT.`
+        : "… ISSUED AND SIGNED BY [an independent third party: name the inspection company, surveyor or authority], NOT BY THE APPLICANT.",
       "ISBP 821, preliminary consideration vii warns against it, and article 2 is the reason: a credit is a definite undertaking of the issuing bank. A document the applicant issues or signs leaves the beneficiary's payment at the buyer's will — if he does not sign it, there is no complying presentation. A third party attests the same thing, and the undertaking stays with the bank.",
       original,
     );
