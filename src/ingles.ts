@@ -1,0 +1,324 @@
+import type { ReglaPresentacion } from "./presentacion";
+import type { VerificacionManual } from "./verificaciones-manuales";
+
+/**
+ * Los hallazgos del motor, en inglés.
+ *
+ * El motor produce sus textos en español porque viene de romai, que sirve a un trader uruguayo.
+ * Cotejo sirve a bancos fuera de Uruguay, y el aviso de rechazo del artículo 16 se transmite al
+ * banco presentador —que puede estar en Colombo— y tiene que decirle cosas concretas. Un aviso
+ * que invoca «No está en el paquete · 2 originales» no le dice nada a quien lo recibe, y el 16(c)
+ * exige que cada discrepancia esté expresada: si el destinatario no la entiende, no está expresada.
+ *
+ * La alternativa era traducir el motor, pero `presentacion.ts` se mantiene en paridad con romai a
+ * propósito (ver CLAUDE.md) y ahí el español es lo correcto. Así que la traducción es una capa: el
+ * mismo motor, dos presentaciones.
+ *
+ * **Lo que va entre comillas no se traduce nunca.** Es cita literal de lo que dice el documento o
+ * el crédito, y un aviso de rechazo que reescribiera lo que el papel dice sería inservible: el
+ * banco presentador tiene que poder buscar esa frase exacta en su propio juego.
+ */
+
+/**
+ * Los reemplazos.
+ *
+ * Se aplican **de lo más específico a lo más general**, y ese orden no depende de cómo estén
+ * escritos acá: lo calcula `PorEspecificidad`. Al principio el orden era el de escritura y bastó
+ * agregar una sección abajo para que una palabra suelta —«beneficiario» por «beneficiary»— actuara
+ * antes que la frase que la contenía y la dejara mitad traducida. Ordenar por especificidad quita
+ * esa trampa de una vez, en vez de pedirle a quien agregue un patrón que adivine dónde ponerlo.
+ */
+const REEMPLAZOS: [RegExp, string][] = [
+  // ── las frases enteras, antes que cualquier palabra suelta ──
+  [
+    /^Los documentos de un mismo embarque no pueden contradecirse \(UCP 600 art\. 14d\): el banco lo marca como discrepancia\. Unificar la descripción de los bultos antes de presentar\.$/g,
+    "Documents covering the same shipment must not conflict with one another (UCP 600 art. 14(d)): the bank raises this as a discrepancy. Align the description of the packages before presenting.",
+  ],
+  [
+    /^La factura la emite el beneficiario y el BL\/packing el productor que embarca: es normal si la LC admite documentos de terceros \(47A\); si no, es discrepancia\.$/g,
+    "The invoice is issued by the beneficiary while the bill of lading and packing list are issued by the producer who ships: this is usual where the credit allows third party documents (field 47A); where it does not, it is a discrepancy.",
+  ],
+  [
+    /^La factura la emite el beneficiario y el BL\/packing el productor que embarca: es normal si la LC admite documentos de terceros \(47A\); si no, es discrepancia\.$/g,
+    "The invoice is issued by the beneficiary while the bill of lading and packing list are issued by the producer who ships: this is usual where the credit allows third party documents (field 47A); where it does not, it is a discrepancy.",
+  ],
+  [
+    /^no se leyó un número de LC en el documento: verificar a mano$/g,
+    "no credit number was read in the document: check by hand",
+  ],
+  [
+    /^no se leyó si hay cláusula de mercadería defectuosa en el documento: verificar a mano$/g,
+    "it could not be read whether the document bears a clause about defective goods: check by hand",
+  ],
+  [
+    /^sin fecha real de BL en el seguimiento: la cuenta no arranca$/g,
+    "no actual bill of lading date on file: the count cannot start",
+  ],
+  [
+    /^La descripción de la mercadería en la factura se corresponde con la del crédito$/g,
+    "The goods description in the invoice corresponds to the one in the credit",
+  ],
+  [
+    /^Se presenta el juego completo de originales, no una copia$/g,
+    "The full set of originals is presented, not a copy",
+  ],
+  [
+    /^cláusula de opción del transportista, admitida por el artículo:/g,
+    "carrier's option clause, permitted by the article:",
+  ],
+
+  // ── los nombres de los documentos, que el motor escribe en mayúsculas como clave ──
+  [/\bFACTURA\b(?=:)/g, "INVOICE"],
+  [/\bPACKING\b(?=:)/g, "PACKING LIST"],
+  [/\(FACTURA\)/g, "(INVOICE)"],
+  [/\(PACKING\)/g, "(PACKING LIST)"],
+  [/\(BL\)/g, "(B/L)"],
+
+  // ── plantillas de regla ──
+  [/\bcita el número de la LC\b/g, "quotes the credit number"],
+  [/\bfechado el día de la LC o después\b/g, "dated on or after the credit date"],
+  [/^BL consignado\b/g, "B/L consigned"],
+  [/^BL marcado\b/g, "B/L marked"],
+  [/^BL notify: el ordenante \(applicant\)$/g, "B/L notify party: the applicant"],
+  [/^BL: /g, "B/L: "],
+  [/\bvalor FOB y flete por separado\b/g, "FOB value and freight shown separately"],
+  [/\bdentro del monto de la LC\b/g, "within the credit amount"],
+  [/\bemitida por el beneficiario\b/g, "issued by the beneficiary"],
+  [/\bemitida a nombre del ordenante\b/g, "made out in the name of the applicant"],
+  [/\ben la moneda del crédito\b/g, "in the currency of the credit"],
+  [
+    /\bla descripción de la mercadería no contradice al crédito\b/g,
+    "the goods description does not conflict with the credit",
+  ],
+  [/^Tipo de bulto: /g, "Package type: "],
+  [/^Exportador \/ shipper: /g, "Shipper: "],
+  [/^Plazo de presentación$/g, "Presentation period"],
+  [/^A bordo a más tardar el /g, "On board no later than "],
+  [/^Puerto de carga el que indica el crédito\b/g, "Port of loading as stated in the credit"],
+  [/^Puerto de descarga el que indica el crédito\b/g, "Port of discharge as stated in the credit"],
+  [/^Anotación de a bordo con fecha de embarque$/g, "On board notation bearing the date of shipment"],
+  [/^La mercadería no viaja declarada sobre cubierta$/g, "The goods are not declared as shipped on deck"],
+  [/^Documento de transporte limpio$/g, "Clean transport document"],
+  [/\bno está fechado después de la presentación\b/g, "not dated after the presentation"],
+  [/^Factura comercial: /g, "Commercial invoice: "],
+  [/^Packing list: /g, "Packing list: "],
+  [/^Conocimiento de embarque: /g, "Bill of lading: "],
+  [/^Factura: /g, "Invoice: "],
+  [/^Factura /g, "Invoice "],
+
+  // ── plantillas de evidencia ──
+  [/^Analizado\b/g, "Examined"],
+  [/^No está en el paquete\b/g, "Not in the set"],
+  [/\bsin cantidad indicada\b/g, "no number of copies stated"],
+  [/\b(\d+) originales\b/g, "$1 originals"],
+  [/\b(\d+) copias\b/g, "$1 copies"],
+  [/^documento /g, "document "],
+  [/\bLC emitida\b/g, "credit issued"],
+  [/^dice\b/g, "says"],
+  [/\bdice\b/g, "says"],
+  [/\bordenante\b/g, "applicant"],
+  [/^flete desglosado:/g, "freight shown separately:"],
+  [/^factura /g, "invoice "],
+  [/\bfactura:/g, "invoice:"],
+  [/\bfactura comercial\b/g, "commercial invoice"],
+  [/^emisor\b/g, "issuer"],
+  [/\bbeneficiario\b/g, "beneficiary"],
+  // Sobre el texto original, no sobre el ya traducido: ningún patrón puede dar por hecho
+  // que otro corrió antes, porque el orden lo decide la especificidad y no la escritura.
+  [/^el documento dice\b/g, "the document says"],
+  [/^BL a bordo\b/g, "B/L on board"],
+  [/^originales emitidos:/g, "originals issued:"],
+  [/\bel crédito nombra a\b/g, "the credit names"],
+  [/\bcrédito 45A:/g, "credit field 45A:"],
+  [/\bpresentación (\d)/g, "presentation $1"],
+
+  // ── los giros parciales del artículo 31, que solo aparecen del segundo giro en adelante ──
+  [
+    /^El crédito prohíbe los giros parciales y ya hay una presentación anterior$/g,
+    "The credit prohibits partial drawings and there is already an earlier presentation",
+  ],
+  [/^Giro número (\d+) contra el mismo crédito$/g, "Drawing number $1 against the same credit"],
+  [/^los parciales están permitidos por defecto$/g, "partial drawings are allowed by default"],
+  [/^los parciales están permitidos /g, "partial drawings are allowed "],
+  [/^ya se giró (.+) en (\d+) presentaciones$/g, "$1 has already been drawn in $2 presentations"],
+  [/^ya se giró (.+) en (\d+) presentación$/g, "$1 has already been drawn in $2 presentation"],
+  [
+    /^Documentos propios con la dirección del beneficiario que dice la LC$/g,
+    "The beneficiary's own documents show the address stated in the credit",
+  ],
+
+  // ── el saldo del crédito (presentaciones.ts) ──
+  [/^El total girado no supera el crédito\b/g, "The total drawn does not exceed the credit"],
+  [/\bgirados \+ /g, "drawn + "],
+  [/\bde esta presentación = /g, "of this presentation = "],
+  [/ · tope /g, " · cap "],
+
+  // ── los plazos: estas reglas solo aparecen cuando una fecha pasó, así que se cubren con un
+  //    escenario vencido y no con el del expediente al día ──
+  [
+    /^Presentar dentro de (\d+) días del BL y antes del vencimiento$/g,
+    "Present within $1 days of the bill of lading date and before expiry",
+  ],
+  [
+    /^Presentada antes del vencimiento, corrido al primer día hábil /g,
+    "Presented before expiry, rolled to the first banking day ",
+  ],
+  [/^Presentada antes del vencimiento /g, "Presented before expiry "],
+  [/^presentada el /g, "presented on "],
+  [/\bquedan (\d+) días\b/g, "$1 days left"],
+  [/\bvenció hace (\d+) días\b/g, "expired $1 days ago"],
+  [/\b(\d+) días después del vencimiento\b/g, "$1 days after expiry"],
+  [/^BL (\S+) → límite /g, "B/L $1 → limit "],
+
+  // ── los avisos de cómo se leyó una cifra (numeros.ts) ──
+  // Sin ancla, porque el aviso llega con el documento adelante («INVOICE: Cantidad …»), y por
+  // palabras y no por frase, porque para cuando esto corre la cita ya es un marcador y un patrón
+  // que la incluyera no coincidiría.
+  [/\bCantidad\b/g, "Quantity"],
+  [/\bleída como\b/g, "read as"],
+  [/^el número se lee de una sola forma$/g, "the figure can only be read one way"],
+  [/\bdividido\b/g, "divided by"],
+  [/\bda ([\d.,]+): la cantidad es\b/g, "gives $1: the quantity is"],
+  [
+    /\bse puede leer como ([\d.,]+) o como ([\d.,]+): verificar contra el documento\b/g,
+    "can be read as $1 or as $2: check against the document",
+  ],
+
+  // ── las fechas que el motor embute en el texto: «30-abr-25» dentro de un aviso en inglés ──
+  [/\b(\d{2})-ene-(\d{2})\b/g, "$1-Jan-20$2"],
+  [/\b(\d{2})-feb-(\d{2})\b/g, "$1-Feb-20$2"],
+  [/\b(\d{2})-mar-(\d{2})\b/g, "$1-Mar-20$2"],
+  [/\b(\d{2})-abr-(\d{2})\b/g, "$1-Apr-20$2"],
+  [/\b(\d{2})-may-(\d{2})\b/g, "$1-May-20$2"],
+  [/\b(\d{2})-jun-(\d{2})\b/g, "$1-Jun-20$2"],
+  [/\b(\d{2})-jul-(\d{2})\b/g, "$1-Jul-20$2"],
+  [/\b(\d{2})-ago-(\d{2})\b/g, "$1-Aug-20$2"],
+  [/\b(\d{2})-sep-(\d{2})\b/g, "$1-Sep-20$2"],
+  [/\b(\d{2})-oct-(\d{2})\b/g, "$1-Oct-20$2"],
+  [/\b(\d{2})-nov-(\d{2})\b/g, "$1-Nov-20$2"],
+  [/\b(\d{2})-dic-(\d{2})\b/g, "$1-Dec-20$2"],
+
+  // ── lo que queda a la persona ──
+  [
+    /^Que cada documento esté firmado, sellado o autenticado por quien corresponde$/g,
+    "That each document is signed, stamped or authenticated by whoever must do so",
+  ],
+  [
+    /^el motor lee el texto de la firma y el rol que declara, pero no puede juzgar si la firma es auténtica$/g,
+    "the engine reads the text of the signature and the capacity it states, but cannot judge whether the signature is genuine",
+  ],
+  [
+    /^Que los ejemplares presentados sean originales: firma, sello o papel membretado del emisor$/g,
+    "That the copies presented are originals: signature, stamp or the issuer's letterhead",
+  ],
+  [
+    /^un archivo escaneado no permite distinguir un original de una fotocopia$/g,
+    "a scanned file does not allow an original to be told apart from a photocopy",
+  ],
+  [
+    /^Que toda corrección o enmienda esté autenticada por quien emitió el documento$/g,
+    "That every correction or amendment is authenticated by whoever issued the document",
+  ],
+  [
+    /^la marca de autenticación es física y suele ser manuscrita$/g,
+    "the mark of authentication is physical and usually handwritten",
+  ],
+  [
+    /^Que sellos, estampillas y anotaciones manuscritas se lean con claridad$/g,
+    "That stamps, seals and handwritten notations can be read clearly",
+  ],
+  [
+    /^lo ilegible para una persona también lo es para el modelo, y no se puede dar por bueno$/g,
+    "what a person cannot read the model cannot read either, and it cannot be taken as good",
+  ],
+  [
+    /^Contar los originales del documento de transporte que efectivamente se presentan$/g,
+    "Count the originals of the transport document actually presented",
+  ],
+  [
+    /^el documento declara cuántos se emitieron, pero cuántos llegaron se cuenta a mano$/g,
+    "the document states how many were issued, but how many arrived is counted by hand",
+  ],
+  [
+    /^Que cada certificado lo emita el organismo que el crédito nombra$/g,
+    "That each certificate is issued by the body the credit names",
+  ],
+  [
+    /^el nombre del emisor se lee, pero que esté habilitado para emitirlo no surge del papel$/g,
+    "the issuer's name can be read, but whether it is entitled to issue it does not appear on the paper",
+  ],
+];
+
+/**
+ * Cuán específico es un patrón: primero las frases ancladas en los dos extremos, después las
+ * ancladas en uno, al final las libres. A igual anclaje, gana el patrón más largo, que es el que
+ * describe más texto.
+ */
+function especificidad([re]: [RegExp, string]): number {
+  const f = re.source;
+  const anclas = (f.startsWith("^") ? 2 : 0) + (f.endsWith("$") ? 2 : 0);
+  return anclas * 10_000 + f.length;
+}
+
+/** Los mismos reemplazos, ordenados una sola vez al cargar el módulo. */
+const POR_ESPECIFICIDAD = [...REEMPLAZOS].sort((a, b) => especificidad(b) - especificidad(a));
+
+/** Las partes entre comillas, que son cita y quedan intactas. */
+const CITA = /"[^"]*"/g;
+
+/**
+ * Traduce un texto del motor dejando las citas como están.
+ *
+ * El procedimiento: se sacan las citas, se traduce el resto, se reponen. Así una cita que
+ * contenga una palabra que el diccionario traduciría —«dice», por ejemplo, si el documento
+ * estuviera en español— no se toca.
+ */
+export function textoEnIngles(texto: string): string {
+  if (!texto) return texto;
+  const citas: string[] = [];
+  const conHuecos = texto.replace(CITA, (m) => {
+    citas.push(m);
+    return `\u0000${citas.length - 1}\u0000`;
+  });
+
+  let out = conHuecos;
+  for (const [re, con] of POR_ESPECIFICIDAD) out = out.replace(re, con);
+
+  return out.replace(/\u0000(\d+)\u0000/g, (_, i) => citas[Number(i)] ?? "");
+}
+
+/** Un hallazgo entero en inglés. La fuente y el estado no se traducen: son claves. */
+export function reglaEnIngles(r: ReglaPresentacion): ReglaPresentacion {
+  return { ...r, regla: textoEnIngles(r.regla), evidencia: textoEnIngles(r.evidencia ?? "") };
+}
+
+export function manualEnIngles(m: VerificacionManual): VerificacionManual {
+  return { ...m, que: textoEnIngles(m.que), porQue: textoEnIngles(m.porQue) };
+}
+
+/**
+ * Las palabras que solo existen en español, para detectar lo que el diccionario no cubre.
+ *
+ * Se usa en el test: si un hallazgo del expediente real queda con una de estas afuera de las
+ * comillas, es que hay una plantilla nueva sin traducir. Preferimos que el test falle antes que
+ * mandarle a un banco un aviso a medias.
+ */
+const SOLO_ESPANOL =
+  // «no» queda afuera a propósito: en inglés significa lo mismo y aparece en «no number stated».
+  // Lo mismo «la», que es una nota musical, y «sin», que es una palabra inglesa.
+  /\b(el|los|las|una|del|al|que|se|con|por|para|desde|hasta|está|estan|están|dice|debe|hay|más|pero|como|cuando|donde|según|entre|cada|todo|toda|todos|todas|esto|esta|este|esa|ese|sus|día|días|fecha|número|cantidad|paquete|originales|copias|factura|crédito|banco|documento|documentos|mercadería|embarque|presentación|beneficiario|ordenante|emisor|emitida|emitido|verificar|leyó|firmado|sellado|contar|nombra|girados|tope)\b/i;
+
+/**
+ * Los meses en español, pero solo dentro de una fecha.
+ *
+ * Sueltos dan falsos positivos: «ago» es parte de «16 days ago» y «mar» y «may» son palabras
+ * inglesas. Solo cuentan pegados a un día y un año, que es como el motor los escribe.
+ */
+const FECHA_ESPANOL = /\b\d{1,2}-(ene|abr|ago|dic)-\d{2,4}\b/i;
+
+/** ¿Este texto todavía tiene español fuera de las comillas? */
+export function quedaEspanol(texto: string): string | null {
+  const sinCitas = texto.replace(CITA, " ");
+  const m = SOLO_ESPANOL.exec(sinCitas) ?? FECHA_ESPANOL.exec(sinCitas);
+  return m ? m[0] : null;
+}

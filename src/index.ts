@@ -25,9 +25,9 @@ export {
 export type { DocCertificado } from "./certificados";
 /** Los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario. */
 export { aparearConExigencias, reglasCertificados } from "./certificados";
-export type { AvisoRechazo, DestinoDocumentos, EncabezadoChecking } from "./checking-list";
+export type { AvisoRechazo, DestinoDocumentos, EncabezadoChecking, PlazoDeAviso } from "./checking-list";
 /** La hoja que el examinador firma y el aviso de rechazo del artículo 16. */
-export { avisoDeRechazo, checkingList } from "./checking-list";
+export { avisoDeRechazo, checkingList, plazoDeAviso } from "./checking-list";
 /** Checklist de documentos derivado del crédito y del incoterm. */
 export { generarChecklist } from "./checklist";
 export type {
@@ -71,9 +71,10 @@ export type { ResultadoExamen } from "./examen";
 /** El examen completo: lo que exige el crédito más lo que exigen las UCP 600. */
 export { contextoDesdeSwift, examinarPresentacion } from "./examen";
 /** Fechas de comercio exterior: "08-APR-2025", "16 ABR 2025", "04.03.2025", ISO. */
-export { diffDias, fmtFecha, isoMontevideo, parseFecha } from "./fechas";
+export { diffDias, fmtFecha, fmtFechaEn, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente real con el que se validó el motor, para tests y demostraciones. */
 export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099 } from "./fixtures";
+export { manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
 export type { EmisorAdmitido, VeredictoISBP } from "./isbp";
 /** Práctica bancaria estándar (ISBP 821): compara como compara un examinador. */
 export {

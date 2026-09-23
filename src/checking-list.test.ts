@@ -1,144 +1,268 @@
 import { describe, expect, it } from "vitest";
-import { avisoDeRechazo, checkingList } from "./checking-list";
+import { avisoDeRechazo, checkingList, plazoDeAviso } from "./checking-list";
 import type { ResultadoExamen } from "./examen";
-import { contextoDesdeSwift, examinarPresentacion } from "./examen";
-import { DOCUMENTOS_CSU2025099, SWIFT_CSU2025099 } from "./fixtures";
-import type { DocAnalizado } from "./presentacion";
-import { parseMT700 } from "./swift-lc";
-import type { OperationDetail } from "./types";
+import { quedaEspanol } from "./ingles";
+import type { LcInfo } from "./types";
 
-const swift = parseMT700(SWIFT_CSU2025099)!;
-const LC = swift.lc;
-const PRESENTACION = new Date(2025, 3, 22);
+/**
+ * Los dos papeles que salen del escritorio.
+ *
+ * El aviso del artículo 16 no es un resumen: es el documento del que depende que el banco
+ * conserve el derecho a alegar el incumplimiento (art. 16f). Por eso lo que se prueba acá es
+ * sobre todo qué NO puede decir.
+ */
 
-const OP = {
-  codigo: LC.numero,
-  incoterm: "CFR",
-  estado: "DOCS_EN_PREPARACION",
-  fechaEmbarque: LC.limiteEmbarque,
-  montoVenta: LC.monto ?? 0,
-  moneda: LC.moneda ?? "USD",
-  medioPago: "LC",
-  blReal: "08-abr-25",
-  legs: [],
-  items: [],
-  lc: LC,
-  contenedores: [],
-  documentos: [],
-  checklist: [],
-  hitos: [],
-  matriz: [],
-  discrepancias: [],
-} as unknown as OperationDetail;
+const lc = {
+  numero: "LCMRDN25000471",
+  moneda: "USD",
+  monto: 54150,
+  bancoEmisor: "MERIDIAN BANK PLC",
+} as LcInfo;
 
-const DOCS: DocAnalizado[] = [
-  { tipo: "FACTURA", campos: DOCUMENTOS_CSU2025099.FACTURA!, nombreArchivo: "Invoice A 4401" },
-  { tipo: "PACKING", campos: DOCUMENTOS_CSU2025099.PACKING!, nombreArchivo: "Packing list" },
-  { tipo: "BL", campos: DOCUMENTOS_CSU2025099.BL!, nombreArchivo: "BL MVD0990117" },
-];
+/**
+ * Los exámenes de prueba traen los campos completos y no un objeto a medias: `checkingList`
+ * recorre los avisos de lectura y lo que queda a mano, y un fixture recortado probaría una hoja
+ * que en producción nunca se arma.
+ */
+const conDiscrepancias = {
+  discrepancias: 1,
+  faltan: 1,
+  atencion: 0,
+  diasParaPresentar: 7,
+  feePorJuego: 80,
+  avisosDeLectura: [
+    'FACTURA: Cantidad "53,960" leída como 53.960: 51.262,00 dividido 0,95 da 53.960: la cantidad es 53.960',
+  ],
+  manuales: [
+    {
+      que: "Que los ejemplares presentados sean originales: firma, sello o papel membretado del emisor",
+      fuente: "UCP 600 17",
+      porQue: "un archivo escaneado no permite distinguir un original de una fotocopia",
+    },
+  ],
+  reglas: [
+    {
+      id: "bl-originales",
+      fuente: "46A+2",
+      regla: "Full set of 3/3 original bills of lading",
+      estado: "FALTA",
+      evidencia: "only 2 originals presented",
+    },
+    {
+      id: "flete",
+      fuente: "46A+2",
+      regla: "Bill of lading marked FREIGHT PREPAID",
+      estado: "DISCREPANCIA",
+      evidencia: "the bill of lading reads FREIGHT COLLECT",
+    },
+    { id: "ok", fuente: "32B", regla: "Amount within the credit", estado: "OK", evidencia: "" },
+  ],
+} as unknown as ResultadoExamen;
 
-const examen = (): ResultadoExamen =>
-  examinarPresentacion({
-    lc: LC,
-    credito: contextoDesdeSwift(swift),
-    docs: DOCS,
-    op: OP,
-    empresaRazonSocial: swift.extra.beneficiario[0] ?? "",
-    empresaDireccion: LC.beneficiarioDireccion,
-    hoy: PRESENTACION,
+const limpio = {
+  discrepancias: 0,
+  faltan: 0,
+  atencion: 0,
+  diasParaPresentar: 7,
+  feePorJuego: null,
+  avisosDeLectura: [],
+  manuales: [],
+  reglas: [{ id: "ok", fuente: "32B", regla: "Amount within the credit", estado: "OK", evidencia: "" }],
+} as unknown as ResultadoExamen;
+
+/** Una fecha de calendario sin la trampa de la zona horaria. */
+const dia = (a: number, m: number, d: number) => new Date(a, m - 1, d);
+
+describe("el aviso del artículo 16", () => {
+  const base = { fechaPresentacion: dia(2025, 4, 10), destino: "DEVUELVE" as const };
+
+  it("sin discrepancias no existe: un aviso de rechazo sin motivos no se emite", () => {
+    expect(avisoDeRechazo(lc, limpio, { ...base, hoy: dia(2025, 4, 11) })).toBeNull();
   });
 
-describe("la hoja de revisión", () => {
-  const hoja = checkingList(LC, examen(), {
-    presentador: "CEREALSUR S.A.",
-    examinador: "S. Arrieta",
-    fechaPresentacion: PRESENTACION,
+  it("el plazo es el quinto día hábil siguiente al de la presentación (art. 16d)", () => {
+    // jueves 10 de abril de 2025 → viernes 11 (1), lunes 14 (2), martes 15 (3), miércoles 16 (4),
+    // jueves 17 (5). El fin de semana no cuenta.
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 11) })!;
+    expect(a.limite.getFullYear()).toBe(2025);
+    expect(a.limite.getMonth()).toBe(3);
+    expect(a.limite.getDate()).toBe(17);
   });
 
-  it("identifica el crédito y el banco emisor", () => {
-    expect(hoja).toContain("LCMRDN25000471");
-    expect(hoja).toContain("MERIDIAN BANK PLC");
+  it("el último día del plazo todavía está en plazo: el 16d dice «al cierre» del quinto día", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 17) })!;
+    expect(a.fueraDePlazo).toBe(false);
   });
 
-  it("calcula el plazo de examen del banco: cinco días hábiles", () => {
-    // presentada un martes 22 de abril, el quinto día hábil es el martes 29
-    expect(hoja).toContain("29-abr-25");
-    expect(hoja).toContain("art. 14b");
+  it("**un aviso fuera de plazo no puede afirmar que está en plazo**", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 18) })!;
+    expect(a.fueraDePlazo).toBe(true);
+    expect(a.texto).not.toMatch(/within the time limit/i);
+    // Y lo dice, con la fecha que era el límite y con la consecuencia del 16(f): el documento
+    // tiene que servirle a quien lo firma para saber en qué situación está.
+    expect(a.texto).toMatch(/after the time limit|out of time/i);
+    expect(a.texto).toContain("16(f)");
   });
 
-  it("agrupa los renglones por su origen", () => {
-    expect(hoja).toContain("DOCUMENTOS EXIGIDOS (CAMPO 46A)");
-    expect(hoja).toContain("CONSISTENCIA ENTRE DOCUMENTOS");
+  it("un aviso en plazo sí lo afirma, y nombra el artículo", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    expect(a.fueraDePlazo).toBe(false);
+    expect(a.texto).toMatch(/within the time limit/i);
+    expect(a.texto).toContain("16(d)");
   });
 
-  it("cada renglón lleva su artículo y su evidencia", () => {
-    expect(hoja).toContain("UCP 600 14d");
-    expect(hoja).toContain("[DISCREPANCIA]");
+  it("dice las tres cosas que el 16(c) exige, y en ese orden", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14), presentador: "MERIDIAN BANK PLC" })!;
+    const t = a.texto;
+    // i) que rechaza
+    const iRefusa = t.search(/refus/i);
+    // ii) cada discrepancia
+    const iiDisc = t.indexOf("FREIGHT COLLECT");
+    // iii) qué hace con los documentos
+    const iiiDocs = t.search(/returning the documents/i);
+    expect(iRefusa).toBeGreaterThan(-1);
+    expect(iiDisc).toBeGreaterThan(iRefusa);
+    expect(iiiDocs).toBeGreaterThan(iiDisc);
   });
 
-  it("dice lo que no comprueba y deja el espacio para la firma", () => {
-    expect(hoja).toContain("LO QUE ESTA REVISIÓN NO COMPRUEBA");
-    expect(hoja).toContain("Examinado por");
-    expect(hoja).toContain("S. Arrieta");
+  it("invoca cada discrepancia con su evidencia y el campo que la funda", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    expect(a.discrepancias).toBe(2);
+    expect(a.texto).toContain("only 2 originals presented");
+    expect(a.texto).toContain("46A+2");
+    // Lo conforme no va: el aviso invoca los motivos del rechazo, no el examen entero.
+    expect(a.texto).not.toContain("Amount within the credit");
   });
 
-  it("deja claro que la decisión es de quien firma", () => {
-    expect(hoja).toContain("corresponde al examinador que firma");
+  it("advierte que es un aviso único: lo que no se invoque acá no se puede invocar después", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    expect(a.texto).toMatch(/single notice/i);
+  });
+
+  it("dice que el plazo no considera feriados bancarios, porque el motor no los conoce", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    expect(a.texto).toMatch(/bank holidays|banking holidays/i);
+  });
+
+  it("va en inglés: se transmite a un banco que puede estar en cualquier parte", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    expect(a.texto).toContain("NOTICE OF REFUSAL");
+    expect(a.texto).not.toMatch(/RECHAZAMOS|discrepancias/);
+  });
+
+  it("las fechas también van en inglés y con el año entero", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    // Un aviso en inglés fechado «14-abr-25» obliga al que lo recibe a adivinar el mes.
+    expect(a.texto).toContain("14-Apr-2025");
+    expect(a.texto).toContain("10-Apr-2025");
+    expect(a.texto).toContain("17-Apr-2025");
+    expect(a.texto).not.toMatch(/-abr-|-ene-|-ago-|-dic-/);
+  });
+
+  it("ninguna línea se pasa de 96 columnas: se pega en un correo o se transmite tal cual", () => {
+    for (const destino of ["RETIENE_ESPERANDO_DISPENSA", "DEVUELVE"] as const) {
+      const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14), destino })!;
+      const largas = a.texto.split("\n").filter((l) => l.length > 96);
+      expect(largas).toEqual([]);
+    }
+  });
+
+  it("no queda español en el aviso: se transmite a un banco que no lo lee", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14) })!;
+    // Línea por línea, para que el fallo diga cuál. Lo entrecomillado es cita y no cuenta.
+    const conEspanol = a.texto.split("\n").filter((l) => quedaEspanol(l) !== null);
+    expect(conEspanol).toEqual([]);
+  });
+
+  it("cada destino del 16(c)(iii) tiene su texto y ninguno se queda sin decir", () => {
+    const destinos = [
+      "RETIENE_ESPERANDO_INSTRUCCIONES",
+      "RETIENE_ESPERANDO_DISPENSA",
+      "DEVUELVE",
+      "SEGUN_INSTRUCCIONES_PREVIAS",
+    ] as const;
+    for (const destino of destinos) {
+      const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14), destino })!;
+      expect(a.texto.length).toBeGreaterThan(200);
+      expect(a.texto).toContain("16(c)(iii)");
+    }
   });
 });
 
-describe("el aviso de rechazo del artículo 16", () => {
-  const aviso = avisoDeRechazo(LC, examen(), {
-    fechaPresentacion: PRESENTACION,
-    hoy: new Date(2025, 3, 24),
-    destino: "RETIENE_ESPERANDO_INSTRUCCIONES",
-    presentador: "CEREALSUR S.A.",
-    banco: "BANCO LITORAL (URUGUAY) S.A.",
-  })!;
+describe("la hoja de revisión", () => {
+  const enc = { fechaPresentacion: dia(2025, 4, 10), examinador: "Ana Rodríguez", presentador: "MERIDIAN BANK PLC" };
 
-  it("dice las tres cosas que el artículo 16(c) exige", () => {
-    expect(aviso.texto).toContain("RECHAZAMOS");
-    expect(aviso.texto).toContain("Tipo de bulto"); // la discrepancia, una por una
-    expect(aviso.texto).toContain("a la espera de sus instrucciones"); // qué hace con los documentos
+  it("agrupa los renglones y trae todos los estados, no solo los hallazgos", () => {
+    const h = checkingList(lc, conDiscrepancias, enc);
+    expect(h).toContain("Amount within the credit");
+    expect(h).toContain("FREIGHT COLLECT");
+    expect(h).toContain("LCMRDN25000471");
   });
 
-  it("numera cada discrepancia con su evidencia y su artículo", () => {
-    expect(aviso.texto).toMatch(/ 1\. /);
-    expect(aviso.texto).toContain("(UCP 600 14d)");
+  it("nunca dice que la presentación está conforme", () => {
+    const h = checkingList(lc, limpio, enc);
+    expect(h).not.toMatch(/\bcomplying presentation\b|\bis compliant\b|\bconforme\b/i);
   });
 
-  it("calcula el último día para transmitirlo", () => {
-    expect(aviso.limite.getDate()).toBe(29);
-    expect(aviso.fueraDePlazo).toBe(false);
+  it("va en inglés y nombra a quien examinó: es el papel que se firma", () => {
+    const h = checkingList(lc, conDiscrepancias, enc);
+    expect(h).toContain("Ana Rodríguez");
+    expect(h).toMatch(/DOCUMENT EXAMINATION|CHECKING/i);
   });
 
-  it("avisa si ya se pasó el plazo, que es cuando el banco pierde el derecho a alegar", () => {
-    const tarde = avisoDeRechazo(LC, examen(), {
-      fechaPresentacion: PRESENTACION,
-      hoy: new Date(2025, 4, 5),
+  it("tampoco en la hoja de revisión, ni en lo que queda a la persona", () => {
+    const conEspanol = checkingList(lc, conDiscrepancias, enc)
+      .split("\n")
+      .filter((l) => quedaEspanol(l) !== null);
+    expect(conEspanol).toEqual([]);
+  });
+
+  it("fecha en inglés, como el resto de la hoja", () => {
+    const h = checkingList(lc, conDiscrepancias, enc);
+    expect(h).toContain("10-Apr-2025");
+    expect(h).not.toMatch(/-abr-/);
+  });
+});
+
+describe("el reloj del artículo 16(d)", () => {
+  const dia = (a: number, m: number, d: number) => new Date(a, m - 1, d);
+  // jueves 10-abr-2025 → el quinto día hábil siguiente es el jueves 17
+  const presentado = dia(2025, 4, 10);
+
+  it("el día de la presentación quedan los cinco días", () => {
+    const p = plazoDeAviso(presentado, presentado);
+    expect(p.habilesRestantes).toBe(5);
+    expect(p.vencido).toBe(false);
+  });
+
+  it("el fin de semana no descuenta", () => {
+    // viernes 11: quedan lunes, martes, miércoles, jueves → 4
+    expect(plazoDeAviso(presentado, dia(2025, 4, 11)).habilesRestantes).toBe(4);
+    // sábado 12 y domingo 13: siguen quedando los mismos 4
+    expect(plazoDeAviso(presentado, dia(2025, 4, 12)).habilesRestantes).toBe(4);
+    expect(plazoDeAviso(presentado, dia(2025, 4, 13)).habilesRestantes).toBe(4);
+    expect(plazoDeAviso(presentado, dia(2025, 4, 14)).habilesRestantes).toBe(3);
+  });
+
+  it("el último día devuelve cero, no uno: hoy se vence", () => {
+    const p = plazoDeAviso(presentado, dia(2025, 4, 17));
+    expect(p.habilesRestantes).toBe(0);
+    expect(p.vencido).toBe(false);
+  });
+
+  it("pasado el límite cuenta en negativo cuántos hábiles se pasó", () => {
+    expect(plazoDeAviso(presentado, dia(2025, 4, 18)).habilesRestantes).toBe(-1);
+    expect(plazoDeAviso(presentado, dia(2025, 4, 18)).vencido).toBe(true);
+    // 19 y 20 son sábado y domingo: el lunes 21 son dos hábiles pasados
+    expect(plazoDeAviso(presentado, dia(2025, 4, 21)).habilesRestantes).toBe(-2);
+  });
+
+  it("el límite coincide con el del aviso: una sola cuenta, no dos", () => {
+    const a = avisoDeRechazo(lc, conDiscrepancias, {
+      fechaPresentacion: presentado,
+      hoy: dia(2025, 4, 14),
       destino: "DEVUELVE",
     })!;
-    expect(tarde.fueraDePlazo).toBe(true);
-  });
-
-  it("cambia el texto según qué se hace con los documentos", () => {
-    const conDispensa = avisoDeRechazo(LC, examen(), {
-      fechaPresentacion: PRESENTACION,
-      hoy: PRESENTACION,
-      destino: "RETIENE_ESPERANDO_DISPENSA",
-    })!;
-    expect(conDispensa.texto).toContain("dispensa del ordenante");
-  });
-
-  it("sin discrepancias no hay aviso que mandar", () => {
-    const limpio: ResultadoExamen = {
-      ...examen(),
-      reglas: [{ id: "x", fuente: "46A", regla: "todo bien", estado: "OK", evidencia: "" }],
-      discrepancias: 0,
-      faltan: 0,
-    };
-    expect(
-      avisoDeRechazo(LC, limpio, { fechaPresentacion: PRESENTACION, hoy: PRESENTACION, destino: "DEVUELVE" }),
-    ).toBeNull();
+    expect(plazoDeAviso(presentado, dia(2025, 4, 14)).limite.getTime()).toBe(a.limite.getTime());
   });
 });

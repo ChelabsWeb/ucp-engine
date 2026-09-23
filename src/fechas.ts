@@ -40,6 +40,22 @@ export function fmtFecha(d: Date): string {
 
 /* meses en inglés (los documentos reales vienen así: "08-APR-2025", "April 08th, 2025") */
 const MESES_EN = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * Formatea para los papeles que salen del banco: "14-Apr-2025".
+ *
+ * `fmtFecha` escribe los meses en español, que es la lengua del código y del dominio interno.
+ * Un aviso de rechazo se transmite a un banco que puede estar en Colombo, y fechado «14-abr-25»
+ * obliga a quien lo recibe a adivinar. Cuatro meses difieren entre las dos lenguas —ene/jan,
+ * abr/apr, ago/aug, dic/dec— y son los que se leen mal.
+ *
+ * Y el año va con cuatro dígitos: en un documento del que dependen plazos, «25» es una
+ * ambigüedad que no cuesta nada evitar.
+ */
+export function fmtFechaEn(d: Date): string {
+  const mes = MESES_EN[d.getMonth()]!;
+  return `${String(d.getDate()).padStart(2, "0")}-${mes[0]!.toUpperCase()}${mes.slice(1)}-${d.getFullYear()}`;
+}
 const mesDe = (txt: string): number => {
   const t = txt.toLowerCase().slice(0, 3);
   const es = MESES.indexOf(t);

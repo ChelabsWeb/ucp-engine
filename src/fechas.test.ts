@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cuandoEmbarque, diffDias, fmtFecha, ordenEmbarque, parseFecha } from "./fechas";
+import { cuandoEmbarque, diffDias, fmtFecha, fmtFechaEn, ordenEmbarque, parseFecha } from "./fechas";
 
 describe("parseFecha", () => {
   it("parsea el formato del dominio dd-mmm-yy (es-UY)", () => {
@@ -88,5 +88,35 @@ describe("ordenEmbarque", () => {
   it("sin fecha, al fondo", () => {
     expect(clave(null)).toBe(Number.MAX_SAFE_INTEGER);
     expect(clave(null)).toBeGreaterThan(clave("12-jun-26"));
+  });
+});
+
+describe("el formato de los documentos que salen del banco", () => {
+  /** Una fecha de calendario sin la trampa de la zona horaria. */
+  const dia = (a: number, m: number, d: number) => new Date(a, m - 1, d);
+
+  it("formatea en inglés: un aviso de rechazo en inglés no puede fechar «14-abr-25»", () => {
+    expect(fmtFechaEn(dia(2025, 4, 14))).toBe("14-Apr-2025");
+    expect(fmtFechaEn(dia(2026, 1, 3))).toBe("03-Jan-2026");
+    expect(fmtFechaEn(dia(2025, 8, 31))).toBe("31-Aug-2025");
+    expect(fmtFechaEn(dia(2025, 12, 1))).toBe("01-Dec-2025");
+  });
+
+  it("los cuatro meses que difieren del español son justo los que importan", () => {
+    // feb, mar, may, jun, jul, sep, oct, nov se escriben igual en las dos lenguas; estos no.
+    for (const [mes, es, en] of [
+      [1, "ene", "Jan"],
+      [4, "abr", "Apr"],
+      [8, "ago", "Aug"],
+      [12, "dic", "Dec"],
+    ] as const) {
+      expect(fmtFecha(dia(2025, mes, 15))).toContain(es);
+      expect(fmtFechaEn(dia(2025, mes, 15))).toContain(en);
+    }
+  });
+
+  it("el año va entero: un documento con plazos no se fecha con dos dígitos", () => {
+    expect(fmtFechaEn(dia(2025, 6, 30))).toBe("30-Jun-2025");
+    expect(fmtFecha(dia(2025, 6, 30))).toBe("30-jun-25");
   });
 });
