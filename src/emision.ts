@@ -65,9 +65,30 @@ const SIN_SIGNIFICADO = [
 const ADMINISTRATIVAS =
   /\b(not\s+to\s+be\s+stapled|do\s+not\s+staple|extra\s+cop(y|ies)\s+for\s+our\s+(file|record)|for\s+our\s+own\s+use)\b/i;
 
-/** ¿La condición menciona un documento que la acredite? */
+/**
+ * Las cláusulas del 47A que **no son condiciones a cumplir** sino parámetros del propio crédito.
+ *
+ * Una tolerancia, un permiso de embarque parcial, una autorización de transbordo: no hay documento
+ * que las acredite porque no hay nada que acreditar — configuran el crédito, igual que el monto o la
+ * fecha de vencimiento, y las UCP las reconocen expresamente (arts. 30, 31, 20c). Tratarlas como
+ * condiciones no documentarias era una contradicción visible: el motor **lee** la tolerancia del 47A
+ * y la aplica al examen, y al mismo tiempo avisaba que el artículo 14(h) la tenía por no puesta.
+ */
+const PARAMETROS_DEL_CREDITO =
+  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b/i;
+
+/**
+ * ¿La condición menciona un documento que la acredite?
+ *
+ * **Los plurales cuentan.** Antes no: el grupo cerraba con `\b`, así que `document` no coincidía con
+ * «DOCUMENTS» —la «S» no es un límite de palabra— y toda condición escrita en plural se marcaba como
+ * no documentaria. Con eso el motor le decía a un banco que el artículo 14(h) tenía por no puestas
+ * «ALL DOCUMENTS SHOULD BEAR A DATE ON OR AFTER THE LC DATE» y «ALL DOCUMENTS SHOULD INDICATE THE LC
+ * NUMBER», que son del crédito real del expediente y que el propio examen verifica. El consejo era
+ * sacar del crédito dos condiciones que funcionan.
+ */
 function mencionaDocumento(texto: string): boolean {
-  return /\b(certificate|certificat|invoice|document|declaration|statement|bill of lading|b\/l|packing|list|note|report|receipt|copy|awb|policy)\b/i.test(
+  return /\b(certificates?|certificat|invoices?|documents?|declarations?|statements?|bills? of lading|b\/ls?|packing|lists?|notes?|reports?|receipts?|cop(y|ies)|awbs?|polic(y|ies))\b/i.test(
     texto,
   );
 }
@@ -234,7 +255,7 @@ export function revisarCredito(p: LcSwift): Observacion[] {
   /* ── el campo 47A: las condiciones adicionales ── */
   const cond = lc.condicionesAdicionales ?? [];
   cond.forEach((c, i) => {
-    if (!mencionaDocumento(c) && !/fee|charge|sanction|discrepan/i.test(c)) {
+    if (!mencionaDocumento(c) && !/fee|charge|sanction|discrepan/i.test(c) && !PARAMETROS_DEL_CREDITO.test(c)) {
       out.push(
         obs(
           `emision-no-documentaria-${i}`,

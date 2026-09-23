@@ -132,6 +132,8 @@ export type { Presentacion, SaldoCredito, VencimientoEfectivo } from "./presenta
 export { operacionDesdeCredito, reglasDeGiro, saldoDelCredito, vencimientoEfectivo } from "./presentaciones";
 /** El prompt de lectura propio de Cotejo: neutro y con los campos de transporte y seguro. */
 export { PROMPT_EXAMEN } from "./prompt-extraccion";
+export type { Propuesta } from "./redaccion";
+export { describirPropuesta, proponerRedaccion, redaccionesPara } from "./redaccion";
 export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
 /** Las reglas de las UCP 600 que el examen base no cubre (transporte, seguro, art. 14 y 18). */
 export { reglasUCP } from "./reglas-ucp";
