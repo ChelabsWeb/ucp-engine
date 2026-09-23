@@ -135,6 +135,8 @@ export { PROMPT_EXAMEN } from "./prompt-extraccion";
 export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
 /** Las reglas de las UCP 600 que el examen base no cubre (transporte, seguro, art. 14 y 18). */
 export { reglasUCP } from "./reglas-ucp";
+export type { CambioDeScreening, ListaConsultada, MotivoRevision, Revision } from "./revision-sanciones";
+export { compararScreenings, revisionNecesaria } from "./revision-sanciones";
 export type { Coincidencia, EntradaSancion, ListaSanciones, ParteScreenear, RolParte } from "./sanciones";
 /** Screening de sanciones: partes a revisar y cotejo contra las listas descargadas. */
 export { describirCoincidencia, MOMENTOS_DE_SCREENING, partesAScreenear, screenear } from "./sanciones";
