@@ -94,3 +94,53 @@ ALUMINIUM PHOSPHIDE 1 G/T`;
     expect(pareceVariosDocumentos(CERTIFICADO_REAL)).toEqual([]);
   });
 });
+
+describe("un porcentaje que el crédito nombra sin decir si es mínimo o máximo", () => {
+  /**
+   * Sale de los productos que el trader vende de verdad: «SOY BEAN MEAL HYPRO 48%». El 48 es la
+   * especificación del producto, pero el crédito no dice «MIN» ni «MAX», así que el motor lo
+   * descartaba y no comparaba nada. Un análisis que declara 47,2 % pasaba en silencio.
+   *
+   * No se puede marcar como discrepancia —nadie sabe si ese 48 es un mínimo, un valor nominal o
+   * parte del nombre comercial— pero callarse tampoco corresponde: el silencio no se cuenta como
+   * conforme.
+   */
+  it("**si el certificado declara otro número, sale a verificar**", () => {
+    const r = cotejarEspecificaciones("57 MTS OF SOY BEAN MEAL HYPRO 48%", "PROTEIN 47,2%");
+    expect(r).toHaveLength(1);
+    expect(r[0]!.veredicto).toBe("SIN_COMPARAR");
+    expect(r[0]!.detalle).toContain("48");
+    expect(r[0]!.detalle).toContain("47,2");
+    // Y dice por qué no se puede concluir: el crédito no fijó un operador.
+    expect(r[0]!.detalle).toMatch(/mínimo|máximo|nominal/i);
+  });
+
+  it("si coinciden, cumple y no molesta a nadie", () => {
+    const r = cotejarEspecificaciones("57 MTS OF SOY BEAN MEAL HYPRO 48%", "PROTEIN 48%");
+    expect(r).toHaveLength(1);
+    expect(r[0]!.veredicto).toBe("CUMPLE");
+  });
+
+  it("sin un resultado comparable en el certificado, no inventa un hallazgo", () => {
+    // El crédito nombra un porcentaje y el análisis no da ninguno: no hay nada que decir.
+    expect(cotejarEspecificaciones("57 MTS OF SOY BEAN MEAL HYPRO 48%", "GOODS IN GOOD CONDITION")).toEqual([]);
+  });
+
+  it("un número que es parte del nombre del corte no se toma por especificación", () => {
+    // Productos reales del trader: los paréntesis con grados y los cortes numerados no llevan unidad.
+    for (const producto of [
+      "BONELESS THIN SKIRT WAGYU (BMS 6-7)",
+      "WAGYU PEELED OUTSIDE SKIRT (BMS 4-5)",
+      "HQB BEEF - 17 CUTS",
+    ]) {
+      expect(cotejarEspecificaciones(producto, "PROTEIN 20%")).toEqual([]);
+    }
+  });
+
+  it("lo que ya funcionaba sigue igual: con MIN se compara y se concluye", () => {
+    const r = cotejarEspecificaciones("57 MTS OF FISH MEAL 54PCT MIN", "PROTEIN 61,1%");
+    expect(r[0]!.veredicto).toBe("CUMPLE");
+    const malo = cotejarEspecificaciones("57 MTS OF FISH MEAL 54PCT MIN", "PROTEIN 49,0%");
+    expect(malo[0]!.veredicto).toBe("NO_CUMPLE");
+  });
+});

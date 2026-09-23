@@ -102,10 +102,37 @@ const fmt = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 2 
  * especificación sin resultado equivalente queda como no comparada, nunca como cumplida.
  */
 export function cotejarEspecificaciones(delCredito: string, delCertificado: string): CotejoSpec[] {
-  const exigidas = especificacionesDe(delCredito).filter((e) => e.operador !== "EXACTO" || e.parametro);
+  const exigidas = especificacionesDe(delCredito);
   const medidas = especificacionesDe(delCertificado);
 
-  return exigidas.map((ex) => {
+  return exigidas.flatMap((ex): CotejoSpec[] => {
+    /*
+     * Un porcentaje que el crédito nombra sin decir si es mínimo o máximo.
+     *
+     * Sale de los productos que se venden de verdad: «SOY BEAN MEAL HYPRO 48%». El 48 es la
+     * especificación, pero sin operador no se puede concluir nada — y antes se descartaba, así que
+     * un análisis que declaraba 47,2 % pasaba en silencio.
+     *
+     * Ni discrepancia ni conforme: si el certificado declara otro número, sale a verificar. Si no
+     * declara ninguno comparable, no se dice nada, porque un número suelto en el nombre de un
+     * producto no es una exigencia.
+     */
+    if (ex.operador === "EXACTO" && !ex.parametro) {
+      const comparable = medidas.find((m) => m.unidad === ex.unidad);
+      if (!comparable) return [];
+      const igual = Math.abs(comparable.valor - ex.valor) < 1e-9;
+      return [
+        {
+          exigida: ex,
+          medida: comparable,
+          veredicto: igual ? "CUMPLE" : "SIN_COMPARAR",
+          detalle: igual
+            ? `el crédito nombra ${fmt(ex.valor)} ${ex.unidad} y el certificado declara lo mismo`
+            : `el crédito nombra ${fmt(ex.valor)} ${ex.unidad} y el certificado declara ${fmt(comparable.valor)} ${comparable.unidad}; el crédito no dice si es mínimo, máximo o nominal, así que hay que verificarlo contra el contrato`,
+        },
+      ];
+    }
+
     // se aparea por parámetro; si el crédito no lo nombra, por unidad, que es lo que suele
     // pasar con «FISH MEAL 54 PCT MIN»: el porcentaje es la proteína.
     // Además, un resultado medido se escribe sin operador («PROTEIN 61,1%»); una exigencia lo
@@ -118,12 +145,14 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
       (ex.parametro === "" ? (donde.find((m) => m.unidad === ex.unidad) ?? null) : null);
 
     if (!medida) {
-      return {
-        exigida: ex,
-        medida: null,
-        veredicto: "SIN_COMPARAR" as const,
-        detalle: `el crédito pide «${ex.texto}» y no se leyó un resultado equivalente en el certificado`,
-      };
+      return [
+        {
+          exigida: ex,
+          medida: null,
+          veredicto: "SIN_COMPARAR" as const,
+          detalle: `el crédito pide «${ex.texto}» y no se leyó un resultado equivalente en el certificado`,
+        },
+      ];
     }
 
     const cumple =
@@ -134,14 +163,16 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
           : Math.abs(medida.valor - ex.valor) < 1e-9;
 
     const comoDebe = ex.operador === "MIN" ? "al menos" : ex.operador === "MAX" ? "como mucho" : "exactamente";
-    return {
-      exigida: ex,
-      medida,
-      veredicto: cumple ? ("CUMPLE" as const) : ("NO_CUMPLE" as const),
-      detalle:
-        `el crédito pide ${comoDebe} ${fmt(ex.valor)} ${ex.unidad}` +
-        `${ex.parametro ? ` de ${ex.parametro}` : ""} y el certificado declara ${fmt(medida.valor)} ${medida.unidad}`,
-    };
+    return [
+      {
+        exigida: ex,
+        medida,
+        veredicto: cumple ? ("CUMPLE" as const) : ("NO_CUMPLE" as const),
+        detalle:
+          `el crédito pide ${comoDebe} ${fmt(ex.valor)} ${ex.unidad}` +
+          `${ex.parametro ? ` de ${ex.parametro}` : ""} y el certificado declara ${fmt(medida.valor)} ${medida.unidad}`,
+      },
+    ];
   });
 }
 

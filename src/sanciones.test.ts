@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { contextoDesdeSwift } from "./examen";
 import { DOCUMENTOS_CSU2025099, SWIFT_CSU2025099 } from "./fixtures";
 import type { DocAnalizado } from "./presentacion";
-import { describirCoincidencia, type ListaSanciones, partesAScreenear, screenear } from "./sanciones";
+import {
+  describirCoincidencia,
+  type ListaSanciones,
+  type ParteScreenear,
+  partesAScreenear,
+  screenear,
+} from "./sanciones";
 import { parseMT700 } from "./swift-lc";
 
 const swift = parseMT700(SWIFT_CSU2025099)!;
@@ -111,5 +117,51 @@ describe("el cotejo contra las listas", () => {
 
   it("sin listas cargadas no inventa nada", () => {
     expect(screenear(PARTES, [])).toEqual([]);
+  });
+});
+
+describe("los sufijos societarios no identifican a nadie", () => {
+  /**
+   * El peor falso positivo que encontró el backtest con datos reales: contra las listas completas de
+   * OFAC y del Reino Unido, once contrapartes del ERP del trader daban **veintidós** coincidencias, y
+   * todas por la palabra «LLC». La causa: entradas como «LLC GROUP 99» o el alias «DM, LLC» quedaban
+   * con una sola palabra significativa —«llc»— y esa palabra está en el nombre de miles de empresas.
+   *
+   * Un banco que vea a sus propios clientes marcados deja de mirar el screening, y entonces el día
+   * que haya una coincidencia verdadera tampoco la va a mirar.
+   */
+  const lista = (nombre: string, alias?: string[]): ListaSanciones => ({
+    fuente: "OFAC SDN",
+    publicada: "09/23/2026",
+    entradas: [{ id: "1", nombre, tipo: "ENTIDAD", programa: "TEST", alias }],
+  });
+
+  const parte = (valor: string): ParteScreenear => ({ rol: "ORDENANTE", valor, origen: "campo 50" });
+
+  it.each([
+    ["EVER GREEN FOOD STUFF TR. LLC", "LLC GROUP 99"],
+    ["AGRIFOODS CO LLC", "LLC KB 78"],
+    ["A-LINK SUPPLY CHAIN LTD", "LTD TRADING 44"],
+    ["PASQUALE SRL", "SRL COMMERCIALE 12"],
+  ])("«%s» no coincide con «%s»", (contraparte, entrada) => {
+    expect(screenear([parte(contraparte)], [lista(entrada)])).toEqual([]);
+  });
+
+  it("tampoco por un alias que es solo el sufijo y dos letras", () => {
+    // «DM, LLC» es un alias real de la SDN.
+    expect(screenear([parte("AGRIFOODS CO LLC")], [lista("LIMITED LIABILITY COMPANY DM", ["DM, LLC"])])).toEqual([]);
+  });
+
+  it("**pero un nombre propio sí coincide, que es para lo que existe esto**", () => {
+    // Si el arreglo silenciara todo, el screening dejaría de servir. Estos tienen que seguir saliendo.
+    expect(
+      screenear([parte("TAMILS REHABILITATION ORGANISATION")], [lista("TAMILS REHABILITATION ORGANISATION")]),
+    ).toHaveLength(1);
+    expect(screenear([parte("GAZPROM NEFT LLC")], [lista("GAZPROM")])).toHaveLength(1);
+    expect(screenear([parte("ORIENT FEED (PVT) LTD")], [lista("ORIENT FEED LIMITED")])).toHaveLength(1);
+  });
+
+  it("y un nombre propio de una sola palabra larga también", () => {
+    expect(screenear([parte("SBERBANK OF RUSSIA")], [lista("SBERBANK")])).toHaveLength(1);
   });
 });

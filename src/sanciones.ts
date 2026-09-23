@@ -124,7 +124,60 @@ const VACIAS = new Set([
   "import",
   "shipping",
   "lines",
+  /*
+   * Los sufijos societarios que faltaban, y que son la forma más fácil de llenar de ruido un
+   * screening: «LLC» está en el nombre de miles de empresas y no identifica a ninguna. Sin esto,
+   * once contrapartes reales del ERP de un trader daban veintidós coincidencias contra las listas
+   * completas de OFAC y del Reino Unido, todas por esa palabra.
+   */
+  "llc",
+  "llp",
+  "lp",
+  "gmbh",
+  "mbh",
+  "ag",
+  "bv",
+  "nv",
+  "srl",
+  "spa",
+  "sas",
+  "sarl",
+  "sl",
+  "oao",
+  "ooo",
+  "zao",
+  "pao",
+  "jsc",
+  "pjsc",
+  "ojsc",
+  "cjsc",
+  "kft",
+  "doo",
+  "as",
+  "ab",
+  "oy",
+  "aps",
+  "sdn",
+  "bhd",
+  "tbk",
+  "pt",
+  "cia",
+  "cie",
+  "llc.",
 ]);
+
+/**
+ * Cuántas letras necesita una palabra para identificar sola a alguien.
+ *
+ * Una coincidencia parcial se apoya en que todas las palabras propias de un lado estén en el otro.
+ * Cuando ese lado tiene **una sola** palabra, la regla se vuelve laxa: «food» o «supply» están en el
+ * nombre de cualquier empresa del rubro. Un nombre propio distintivo —GAZPROM, SBERBANK— suele ser
+ * más largo, así que se exige eso para aceptar una parcial de una sola palabra.
+ *
+ * Es un umbral, con lo que eso implica: un nombre propio corto y legítimo de cinco letras se pierde
+ * como parcial. Sigue saliendo si coincide exacto, que es el caso que más importa.
+ */
+const LARGO_DISTINTIVO = 6;
 
 function significativas(s: string): string[] {
   return normISBP(s)
@@ -212,8 +265,10 @@ function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "p
     // parcial: todas las palabras propias de la entrada aparecen en la parte, o al revés
     const cc = significativas(c.texto);
     if (cc.length === 0) continue;
-    const enParte = cc.every((w) => claves.includes(w));
-    const enEntrada = claves.every((w) => cc.includes(w));
+    // Una parcial apoyada en una sola palabra corta es ruido: ver LARGO_DISTINTIVO.
+    const bastaSola = (ws: string[]) => ws.length > 1 || (ws[0]?.length ?? 0) >= LARGO_DISTINTIVO;
+    const enParte = bastaSola(cc) && cc.every((w) => claves.includes(w));
+    const enEntrada = bastaSola(claves) && claves.every((w) => cc.includes(w));
     if (enParte || enEntrada) {
       return { entradaId: e.id, entradaNombre: e.nombre, porQue: c.que, grado: "PARCIAL", programa: e.programa };
     }
