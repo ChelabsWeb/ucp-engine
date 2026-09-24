@@ -31,6 +31,75 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── multimodal, terrestre y courier (UCP 600 arts. 19, 24 y 25) ──
+  [
+    /^La mercadería consta despachada, tomada a cargo o embarcada en el lugar del crédito$/g,
+    "The goods are shown as dispatched, taken in charge or shipped on board at the place stated in the credit",
+  ],
+  [
+    /^La mercadería consta despachada, tomada a cargo o embarcada$/g,
+    "The goods are shown as dispatched, taken in charge or shipped on board",
+  ],
+  [/^esa constancia$/g, "that indication"],
+  [
+    /^Lugar de despacho o toma a cargo el que indica el crédito/g,
+    "Place of dispatch or taking in charge as stated in the credit",
+  ],
+  [/^Lugar de destino final el que indica el crédito/g, "Place of final destination as stated in the credit"],
+  [/^lugar de despacho o toma a cargo$/g, "place of dispatch or taking in charge"],
+  [/^lugar de destino final$/g, "place of final destination"],
+  [
+    /^El transbordo no hace discrepante a un documento multimodal$/g,
+    "Transhipment does not make a multimodal transport document discrepant",
+  ],
+  [
+    /, pero el artículo 19 \(c\) \(ii\) lo admite mientras todo el trayecto vaya en el mismo documento$/g,
+    ", but article 19 (c) (ii) admits it as long as the entire carriage is covered by one and the same document",
+  ],
+  [
+    /^La fecha de embarque es la del sello de recepción o, si no lo hay, la de emisión$/g,
+    "The date of shipment is that of the reception stamp or, failing that, the date of issuance",
+  ],
+  [/^Fecha de recepción o de emisión$/g, "Date of receipt or of issuance"],
+  [/^rige el sello de recepción, /g, "the reception stamp governs, "],
+  [
+    /^no se leyó sello de recepción: rige la fecha de emisión, /g,
+    "no reception stamp was read: the date of issuance governs, ",
+  ],
+  [/^Lugar de embarque el que indica el crédito/g, "Place of shipment as stated in the credit"],
+  [/^Lugar de destino el que indica el crédito/g, "Place of destination as stated in the credit"],
+  [/^lugar de embarque$/g, "place of shipment"],
+  [/^lugar de destino$/g, "place of destination"],
+  [
+    /^Un documento ferroviario marcado «duplicate» se acepta como original$/g,
+    "A rail transport document marked 'duplicate' is accepted as an original",
+  ],
+  [
+    /^El documento es el original para el expedidor o no lleva marca de destinatario$/g,
+    "The document is the original for consignor or shipper, or bears no marking of whom it was prepared for",
+  ],
+  [/, y el artículo 24 \(b\) \(ii\) lo acepta como original$/g, ", and article 24 (b) (ii) accepts it as an original"],
+  [
+    /^El recibo nombra al courier y está sellado o firmado por él$/g,
+    "The receipt names the courier service and is stamped or signed by it",
+  ],
+  [/: verificar el sello o la firma a mano$/g, ": check the stamp or the signature by hand"],
+  [/^el documento se titula /g, "the document is headed "],
+  [
+    /^El conocimiento no indica estar sujeto a contrato de fletamento$/g,
+    "The bill of lading contains no indication that it is subject to a charter party",
+  ],
+  [
+    /^La fecha de recogida o de recibo es la fecha de embarque$/g,
+    "The date of pick-up or of receipt is the date of shipment",
+  ],
+  [/^Fecha de recogida o de recibo$/g, "Date of pick-up or of receipt"],
+  [/^la fecha del recibo$/g, "the date of the receipt"],
+  [/^rige la fecha del recibo, /g, "the date of the receipt governs, "],
+  [
+    /^El crédito pide un conocimiento sujeto a fletamento y el presentado lo es$/g,
+    "The credit calls for a charter party bill of lading and the one presented is such",
+  ],
   // ── transporte aéreo (UCP 600 art. 23) ──
   [
     /^El documento indica que la mercadería fue aceptada para transporte$/g,

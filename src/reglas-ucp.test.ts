@@ -445,3 +445,100 @@ describe("el documento de transporte aéreo (UCP 600 art. 23)", () => {
     expect(corrAereo().some((x) => x.id.startsWith("ucp-20a"))).toBe(false);
   });
 });
+
+describe("los transportes que no son marítimos ni aéreos", () => {
+  const corr = (campos: CamposDoc, ctx: Partial<ContextoCredito> = {}) =>
+    reglasUCP({ lc: LC, credito: { ...CTX, ...ctx }, docs: [{ tipo: "BL", campos }], hoy: HOY });
+
+  describe("multimodal (art. 19)", () => {
+    const multi = (over = {}) =>
+      doc({
+        tipoTransporte: campo("MULTIMODAL TRANSPORT DOCUMENT"),
+        numeroDoc: campo("MMD-2025-0417"),
+        puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+        puertoDestino: campo("COLOMBO, SRI LANKA"),
+        onBoard: campo("TAKEN IN CHARGE 08-APR-2025"),
+        ...over,
+      });
+
+    it("19a-ii: vale despachado, tomado a cargo o a bordo — no solo a bordo", () => {
+      const r = corr(multi()).find((x) => x.id === "ucp-19a-ii");
+      expect(r?.estado).toBe("OK");
+    });
+
+    it("19a-iii: el lugar de despacho y el de destino final son los del crédito", () => {
+      const malo = corr(multi({ puertoEmbarque: campo("BUENOS AIRES") })).find((x) => x.id === "ucp-19a-iii-carga");
+      expect(malo?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("19a-iii: y «intended» no lo hace discrepante, que es lo que el artículo aclara", () => {
+      const r = corr(multi({ puertoEmbarque: campo("INTENDED PORT OF LOADING MONTEVIDEO, URUGUAY") })).find(
+        (x) => x.id === "ucp-19a-iii-carga",
+      );
+      expect(r?.estado).toBe("OK");
+    });
+
+    it("19c-ii: el transbordo se acepta aunque el crédito lo prohíba", () => {
+      const r = corr(multi(), { transbordo: "NOT ALLOWED" }).find((x) => x.id === "ucp-19c-ii");
+      expect(r?.estado).toBe("OK");
+    });
+
+    it("19a-vi: pero sujeto a fletamento sigue sin servir", () => {
+      const r = corr(multi({ charterParty: campo("SUBJECT TO CHARTER PARTY") }));
+      // Con cláusula de fletamento el documento pasa a examinarse por el artículo 22, no por el 19.
+      expect(r.find((x) => x.id === "ucp-transporte-clase")?.fuente).toContain("22");
+    });
+  });
+
+  describe("carretera, ferrocarril o vía navegable (art. 24)", () => {
+    const cmr = (over = {}) =>
+      doc({
+        tipoTransporte: campo("CMR CONSIGNMENT NOTE"),
+        numeroDoc: campo("CMR-88213"),
+        fechaDocumento: campo("08-APR-2025"),
+        puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+        puertoDestino: campo("COLOMBO, SRI LANKA"),
+        ...over,
+      });
+
+    it("24a-ii: sin sello de recepción fechado, la fecha de emisión es la de embarque", () => {
+      const r = corr(cmr()).find((x) => x.id === "ucp-24a-ii");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toMatch(/08-APR-2025/);
+    });
+
+    it("24a-iii: el lugar de embarque y el de destino son los del crédito", () => {
+      const malo = corr(cmr({ puertoDestino: campo("MUMBAI") })).find((x) => x.id === "ucp-24a-iii-destino");
+      expect(malo?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("24b-ii: un documento ferroviario marcado «duplicate» se acepta como original", () => {
+      const r = corr(cmr({ tipoTransporte: campo("RAIL WAYBILL"), juegoOriginales: campo("DUPLICATE") })).find(
+        (x) => x.id === "ucp-24b",
+      );
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toMatch(/duplicate/i);
+    });
+  });
+
+  describe("courier (art. 25)", () => {
+    const courier = (over = {}) =>
+      doc({
+        tipoTransporte: campo("COURIER RECEIPT"),
+        numeroDoc: campo("DHL-7712340098"),
+        fechaDocumento: campo("08-APR-2025"),
+        exportador: campo("CEREALSUR S.A"),
+        ...over,
+      });
+
+    it("25a: tiene que nombrar al courier y estar sellado o firmado", () => {
+      const r = corr(courier()).find((x) => x.id === "ucp-25a-i");
+      expect(r?.estado).toBe("ATENCION");
+    });
+
+    it("25b: la fecha de recogida o de recibo es la fecha de embarque", () => {
+      const r = corr(courier()).find((x) => x.id === "ucp-25b");
+      expect(r?.evidencia).toMatch(/08-APR-2025/);
+    });
+  });
+});

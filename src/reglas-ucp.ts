@@ -153,6 +153,190 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
   return out;
 }
 
+/* ─────────── multimodal, terrestre y courier (arts. 19, 24 y 25) ─────────── */
+
+/**
+ * Los lugares que fija el crédito, con la aclaración que traen los artículos 19 y 24.
+ *
+ * El 19 (a) (iii) dice que el documento cumple aunque además indique otro lugar, y aunque califique
+ * el buque o el puerto como «intended». Esa palabra en un documento marítimo obliga a una anotación
+ * de a bordo (art. 20); en uno multimodal, no. Compartir esta función entre los dos artículos
+ * mantiene el criterio igual donde el texto es igual.
+ */
+function reglasLugares(
+  doc: DocAnalizado,
+  ctx: ContextoCredito,
+  fuente: string,
+  prefijo: string,
+  comoSeLlama: [string, string],
+): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+  for (const [k, delCredito, cual, sufijo] of [
+    ["puertoEmbarque", ctx.puertoEmbarque, comoSeLlama[0], "carga"],
+    ["puertoDestino", ctx.puertoDestino, comoSeLlama[1], "destino"],
+  ] as const) {
+    if (!delCredito) continue;
+    const enDoc = val(doc, k);
+    const id = `${prefijo}-${sufijo}`;
+    out.push(
+      enDoc
+        ? regla(
+            id,
+            fuente,
+            `${cual} el que indica el crédito (${delCredito})`,
+            coincideLugar(enDoc, delCredito) ? "OK" : "DISCREPANCIA",
+            `el documento dice "${enDoc}"`,
+          )
+        : sinLeer(id, fuente, `${cual} el que indica el crédito`, cual.toLowerCase()),
+    );
+  }
+  return out;
+}
+
+/**
+ * El documento que cubre al menos dos modos de transporte (art. 19).
+ *
+ * Se diferencia del marítimo en dos cosas que importan: la mercadería puede constar **despachada,
+ * tomada a cargo o embarcada** —no hace falta que diga «a bordo»— y el transbordo se admite aunque
+ * el crédito lo prohíba, siempre que todo el trayecto vaya en el mismo documento, que es
+ * justamente lo que un documento multimodal hace.
+ */
+function reglasMultimodal(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+
+  const constancia = val(doc, "onBoard");
+  out.push(
+    constancia
+      ? regla(
+          "ucp-19a-ii",
+          "UCP 600 19a-ii",
+          "La mercadería consta despachada, tomada a cargo o embarcada en el lugar del crédito",
+          /dispatch|taken in charge|shipped|on board|despach|tomad/i.test(constancia) ? "OK" : "ATENCION",
+          `dice "${constancia}"`,
+        )
+      : sinLeer(
+          "ucp-19a-ii",
+          "UCP 600 19a-ii",
+          "La mercadería consta despachada, tomada a cargo o embarcada",
+          "esa constancia",
+        ),
+  );
+
+  out.push(
+    ...reglasLugares(doc, ctx, "UCP 600 19a-iii", "ucp-19a-iii", [
+      "Lugar de despacho o toma a cargo",
+      "Lugar de destino final",
+    ]),
+  );
+
+  if (ctx.transbordo && /not\s+allowed|prohib/i.test(ctx.transbordo)) {
+    out.push(
+      regla(
+        "ucp-19c-ii",
+        "UCP 600 19c-ii",
+        "El transbordo no hace discrepante a un documento multimodal",
+        "OK",
+        `el crédito dice "${ctx.transbordo}", pero el artículo 19 (c) (ii) lo admite mientras todo el trayecto vaya en el mismo documento`,
+      ),
+    );
+  }
+
+  return out;
+}
+
+/**
+ * Carretera, ferrocarril o vía navegable (art. 24).
+ *
+ * Lo propio de este artículo son los originales: un documento de carretera tiene que ser el
+ * original para el expedidor —o no llevar marca de para quién es— y uno ferroviario marcado
+ * «duplicate» se acepta como original. Esa última es la que hace rechazar de más, porque la palabra
+ * «duplicate» en cualquier otro documento significa lo contrario.
+ */
+function reglasTerrestre(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+
+  const emision = val(doc, "fechaDocumento");
+  const recepcion = val(doc, "onBoard");
+  out.push(
+    emision || recepcion
+      ? regla(
+          "ucp-24a-ii",
+          "UCP 600 24a-ii",
+          "La fecha de embarque es la del sello de recepción o, si no lo hay, la de emisión",
+          "OK",
+          recepcion
+            ? `rige el sello de recepción, "${recepcion}"`
+            : `no se leyó sello de recepción: rige la fecha de emisión, "${emision}"`,
+        )
+      : sinLeer("ucp-24a-ii", "UCP 600 24a-ii", "Fecha de recepción o de emisión", "la fecha"),
+  );
+
+  out.push(...reglasLugares(doc, ctx, "UCP 600 24a-iii", "ucp-24a-iii", ["Lugar de embarque", "Lugar de destino"]));
+
+  const marca = val(doc, "juegoOriginales");
+  const esFerroviario = /rail|ferrocarril|tren|waterway|navegable/i.test(val(doc, "tipoTransporte") ?? "");
+  if (marca) {
+    const duplicado = /duplicate|duplicado/i.test(marca);
+    out.push(
+      regla(
+        "ucp-24b",
+        esFerroviario ? "UCP 600 24b-ii" : "UCP 600 24b-i",
+        esFerroviario
+          ? "Un documento ferroviario marcado «duplicate» se acepta como original"
+          : "El documento es el original para el expedidor o no lleva marca de destinatario",
+        esFerroviario || !duplicado ? "OK" : "ATENCION",
+        esFerroviario && duplicado
+          ? `dice "${marca}", y el artículo 24 (b) (ii) lo acepta como original`
+          : `dice "${marca}"`,
+      ),
+    );
+  }
+
+  return out;
+}
+
+/**
+ * Recibo de courier, de correo o certificado de imposición (art. 25).
+ *
+ * Es el más corto de los siete y lo que pide es poco: quién es el courier, su sello o firma, y la
+ * fecha de recogida o de recibo, que es la fecha de embarque. No hay originales ni juego que
+ * comprobar.
+ */
+function reglasCourier(doc: DocAnalizado): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+  const nombre = val(doc, "tipoTransporte");
+
+  /*
+   * La firma y el sello no se leen de un escaneo con la confianza que haría falta para dictaminar,
+   * así que esto va como verificación a mano, igual que en el resto del motor: el examinador mira
+   * el papel. Decir «OK» sobre una firma que nadie miró sería lo único peor que no decir nada.
+   */
+  out.push(
+    regla(
+      "ucp-25a-i",
+      "UCP 600 25a-i",
+      "El recibo nombra al courier y está sellado o firmado por él",
+      "ATENCION",
+      nombre ? `el documento se titula "${nombre}": verificar el sello o la firma a mano` : "verificar a mano",
+    ),
+  );
+
+  const fecha = val(doc, "fechaDocumento");
+  out.push(
+    fecha
+      ? regla(
+          "ucp-25b",
+          "UCP 600 25b",
+          "La fecha de recogida o de recibo es la fecha de embarque",
+          "OK",
+          `rige la fecha del recibo, "${fecha}"`,
+        )
+      : sinLeer("ucp-25b", "UCP 600 25b", "Fecha de recogida o de recibo", "la fecha del recibo"),
+  );
+
+  return out;
+}
+
 /* ──────────────────── transporte aéreo (art. 23) ──────────────────── */
 
 /**
@@ -653,6 +837,12 @@ export function reglasUCP(input: {
       out.push(...reglasTransporte(ctx, bl, exigidos));
     } else if (clase.modo === "AEREO") {
       out.push(...reglasAereo(ctx, bl));
+    } else if (clase.modo === "MULTIMODAL") {
+      out.push(...reglasMultimodal(ctx, bl));
+    } else if (clase.modo === "TERRESTRE") {
+      out.push(...reglasTerrestre(ctx, bl));
+    } else if (clase.modo === "COURIER") {
+      out.push(...reglasCourier(bl));
     } else if (clase.modo === "SIN_DETERMINAR") {
       out.push(...reglasTransporte(ctx, bl, exigidos));
     }

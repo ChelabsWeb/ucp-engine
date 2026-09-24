@@ -61,18 +61,14 @@ const ESCENARIOS: [string, Date, typeof UN_GIRO_ANTERIOR][] = [
  * conocimiento marítimo del caso no se generaban: quedaban en español sin que nadie se enterara. Es
  * la misma lección que las reglas de plazo — un escenario único deja artículos enteros sin cubrir.
  */
-const examenAereo = () => {
+const examenConTransporte = (over: Record<string, { valor: string; confianza: number }>) => {
   const credito = parseMT700(SWIFT_CSU2025099)!;
   const c = (valor: string) => ({ valor, confianza: 0.9 });
   const awb: CamposDoc = {
     ...DOCUMENTOS_CSU2025099.BL!,
-    tipoTransporte: c("AIR WAYBILL"),
-    numeroDoc: c("020-12345678"),
-    onBoard: c("FLIGHT UX042 DATED 10 APR 2025"),
     buque: c(""),
     charterParty: c(""),
-    puertoEmbarque: c("MONTEVIDEO AIRPORT, URUGUAY"),
-    puertoDestino: c("COLOMBO AIRPORT, SRI LANKA"),
+    ...over,
   };
   return examinarPresentacion({
     lc: credito.lc,
@@ -99,8 +95,61 @@ function sinTraducirEn(r: { reglas: { regla: string; evidencia?: string | null }
 }
 
 describe("cobertura sobre el expediente real", () => {
-  it("ningún hallazgo queda con español: con documento de transporte aéreo", () => {
-    const sinTraducir = sinTraducirEn(examenAereo());
+  /*
+   * Un documento de transporte de cada clase.
+   *
+   * Las UCP dedican siete artículos al transporte y cada uno genera reglas propias que los otros
+   * no: con el conocimiento marítimo del caso, los artículos 19, 23, 24 y 25 no se producían nunca
+   * y sus textos quedaban en español sin que nadie se enterara. Es la misma lección que las reglas
+   * de plazo — un escenario único deja artículos enteros fuera de la cobertura.
+   */
+  const CLASES: [string, Record<string, { valor: string; confianza: number }>][] = [
+    [
+      "aéreo",
+      {
+        tipoTransporte: { valor: "AIR WAYBILL", confianza: 0.9 },
+        numeroDoc: { valor: "020-12345678", confianza: 0.9 },
+        onBoard: { valor: "FLIGHT UX042 DATED 10 APR 2025", confianza: 0.9 },
+        puertoEmbarque: { valor: "MONTEVIDEO AIRPORT, URUGUAY", confianza: 0.9 },
+        puertoDestino: { valor: "COLOMBO AIRPORT, SRI LANKA", confianza: 0.9 },
+      },
+    ],
+    [
+      "multimodal",
+      {
+        tipoTransporte: { valor: "MULTIMODAL TRANSPORT DOCUMENT", confianza: 0.9 },
+        onBoard: { valor: "TAKEN IN CHARGE 08-APR-2025", confianza: 0.9 },
+      },
+    ],
+    [
+      "terrestre",
+      {
+        tipoTransporte: { valor: "CMR CONSIGNMENT NOTE", confianza: 0.9 },
+        onBoard: { valor: "", confianza: 0 },
+        juegoOriginales: { valor: "DUPLICATE", confianza: 0.9 },
+      },
+    ],
+    [
+      "ferroviario marcado duplicate",
+      {
+        tipoTransporte: { valor: "RAIL WAYBILL", confianza: 0.9 },
+        onBoard: { valor: "", confianza: 0 },
+        juegoOriginales: { valor: "DUPLICATE", confianza: 0.9 },
+      },
+    ],
+    [
+      "courier",
+      {
+        tipoTransporte: { valor: "COURIER RECEIPT", confianza: 0.9 },
+        onBoard: { valor: "", confianza: 0 },
+      },
+    ],
+    ["sujeto a fletamento", { charterParty: { valor: "SUBJECT TO CHARTER PARTY DATED 01-MAR-25", confianza: 0.9 } }],
+    ["de clase no determinada", { numeroDoc: { valor: "X-1", confianza: 0.9 } }],
+  ];
+
+  it.each(CLASES)("ningún hallazgo queda con español: documento de transporte %s", (_nombre, campos) => {
+    const sinTraducir = sinTraducirEn(examenConTransporte(campos));
     expect(sinTraducir.map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
   });
 
