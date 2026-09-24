@@ -121,6 +121,9 @@ export {
 } from "./lc";
 export type { FallaDeLectura } from "./lectura-fallida";
 export { motivoDeFallaDeLectura } from "./lectura-fallida";
+export type { DatosMT734, MensajeMT734 } from "./mt734";
+/** El aviso del artículo 16 como mensaje SWIFT MT734, con los largos de campo del estándar. */
+export { mt734 } from "./mt734";
 export type { CamposPreparados, CantidadResuelta, ComoSeResolvio } from "./numeros";
 /** Números escritos de formas distintas sobre el mismo embarque: cantidades y contenedores. */
 export {
