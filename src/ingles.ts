@@ -31,6 +31,149 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── etiquetas y avisos heredados de romai que también se muestran acá ──
+  [/^Emisor \/ shipper$/g, "Issuer / shipper"],
+  [/^Beneficiario \/ exportador$/g, "Beneficiary / exporter"],
+  [/^Fecha límite de embarque$/g, "Latest date of shipment"],
+  [/^Fecha a bordo \(vs\. último embarque LC\)$/g, "On board date (vs. latest shipment in the credit)"],
+  [/^Fecha de embarque \(vs\. último embarque LC\)$/g, "Date of shipment (vs. latest shipment in the credit)"],
+  [/^Fecha de embarque$/g, "Date of shipment"],
+  [/^Número de la LC$/g, "Credit number"],
+  [/^±5 % \(por defecto\)$/g, "±5 % (by default)"],
+  [/^Certificado del beneficiario$/g, "Beneficiary's certificate"],
+  [/^Documentos exigidos por la LC$/g, "Documents required by the credit"],
+  [
+    /^La LC cargada no tiene el 46A: pegá el SWIFT o cargalos\.$/g,
+    "The credit on file has no field 46A: paste the SWIFT message or enter the documents.",
+  ],
+  [/^sin fecha legible$/g, "no legible date"],
+  [/^conocimiento de embarque$/g, "bill of lading"],
+  [/^carta de crédito$/g, "letter of credit"],
+  [/^el conocimiento$/g, "the bill of lading"],
+  [
+    / Si se embarca tarde, el banco puede rechazar los documentos y el cobro queda a voluntad del comprador\.$/g,
+    " If shipment is late, the bank may refuse the documents and payment is left to the buyer's discretion.",
+  ],
+  [
+    / Corregí el dato que esté mal antes de que el documento salga del sistema\.$/g,
+    " Correct whichever figure is wrong before the document leaves the system.",
+  ],
+  [
+    /^Se abre la edición de la operación para ajustar el dato$/g,
+    "The transaction opens for editing to adjust the figure",
+  ],
+  [
+    /^Discrepancia marcada como falso positivo \(queda registrado quién y cuándo\)$/g,
+    "Discrepancy marked as a false positive (who and when is recorded)",
+  ],
+  [
+    /^El total de bultos tiene que ser el mismo en BL, packing list y factura\.$/g,
+    "The total number of packages must be the same on the bill of lading, the packing list and the invoice.",
+  ],
+  [
+    /^El peso bruto del BL tiene que coincidir con el del packing list \/ weight note\.$/g,
+    "The gross weight on the bill of lading must agree with that of the packing list or weight note.",
+  ],
+  [
+    /^Cantidades distintas entre documentos \(comparadas en kilos\): la LC puede fijar la contratada y el BL\/packing lo embarcado — dentro de la tolerancia es normal; fuera, discrepancia\.$/g,
+    "Quantities differ between documents (compared in kilos): the credit may state the contracted quantity and the bill of lading or packing list what was shipped — within the tolerance this is usual; outside it, a discrepancy.",
+  ],
+  [
+    /^La partida arancelaria tiene que ser la misma en LC, factura, packing, BL y certificado de origen\.$/g,
+    "The tariff heading must be the same on the credit, the invoice, the packing list, the bill of lading and the certificate of origin.",
+  ],
+  // ── certificados: las ramas «no se leyó» ──
+  [/^no se leyó el emisor: verificar a mano$/g, "the issuer was not read: check by hand"],
+  [/^no se leyó un peso comparable: verificar a mano$/g, "no comparable weight was read: check by hand"],
+  [/^no se leyó el origen: verificar a mano$/g, "the origin was not read: check by hand"],
+  [
+    /^falta la fecha del certificado o la del embarque para compararlas$/g,
+    "the date of the certificate or that of shipment is missing, so they cannot be compared",
+  ],
+  [
+    /^leer el texto del certificado y cotejarlo con el que exige el crédito$/g,
+    "read the text of the certificate and check it against the one the credit requires",
+  ],
+  // ── transporte y contrato: los textos que quedaban sueltos ──
+  [/^conocimiento de embarque marítimo$/g, "marine bill of lading"],
+  [
+    /^documento de transporte por carretera, ferrocarril o vía navegable$/g,
+    "road, rail or inland waterway transport document",
+  ],
+  [
+    /^no se pudo determinar de qué clase es: no se leyó cómo se titula, ni un buque, ni los lugares$/g,
+    "the class of document could not be determined: neither its heading, nor a vessel, nor the places were read",
+  ],
+  [
+    /^puede reclamar por esto, hay que pedirle al ordenante que gestione una enmienda\.$/g,
+    "can be claimed from it for this; the applicant has to be asked to arrange an amendment.",
+  ],
+  [
+    / puede reclamar por esto, hay que pedirle al ordenante que gestione una enmienda\.$/g,
+    " can be claimed from it for this; the applicant has to be asked to arrange an amendment.",
+  ],
+  /*
+   * ── las variantes «no se leyó» ──
+   *
+   * Cada regla tiene dos textos: el del veredicto y el de cuando el dato no se leyó. El expediente
+   * del caso tiene todos los datos cargados, así que la segunda rama no se generaba nunca en los
+   * escenarios y quedaba en castellano. En la vida real es la rama más frecuente, porque la lectura
+   * de un escaneo no siempre trae todo.
+   */
+  [/^Anotación de a bordo con fecha$/g, "On board notation with a date"],
+  [/^la anotación de a bordo$/g, "the on board notation"],
+  [
+    /^Con «intended vessel» hace falta anotación de a bordo con fecha y buque real$/g,
+    "Where the vessel is qualified as intended, an on board notation with the date and the actual vessel is required",
+  ],
+  [
+    /^el documento califica el buque como previsto y no se leyó la anotación de a bordo$/g,
+    "the document qualifies the vessel as intended and the on board notation was not read",
+  ],
+  [/^Se presenta el juego completo de originales$/g, "The full set of originals is presented"],
+  [/^cuántos originales se emitieron$/g, "how many originals were issued"],
+  [/^si hay cláusula de mercadería defectuosa$/g, "whether there is a clause declaring the goods defective"],
+  [/^Embarques parciales prohibidos por el crédito$/g, "Partial shipments prohibited by the credit"],
+  [
+    /^verificar que se presenta un solo juego de documentos de transporte$/g,
+    "check that a single set of transport documents is presented",
+  ],
+  [
+    /^El seguro lo emite una compañía de seguros o un asegurador$/g,
+    "The insurance document is issued by an insurance company or underwriter",
+  ],
+  [/^El seguro lo emite una compañía de seguros$/g, "The insurance document is issued by an insurance company"],
+  [/^No es una nota de cobertura \(cover note\)$/g, "It is not a cover note"],
+  [/^El seguro no está fechado después del embarque$/g, "The insurance document is not dated after shipment"],
+  [/^la fecha del seguro$/g, "the date of the insurance document"],
+  [/^la moneda del seguro$/g, "the currency of the insurance document"],
+  [
+    /^Cobertura de al menos el 110 % del valor de la mercadería$/g,
+    "Cover for at least 110 % of the value of the goods",
+  ],
+  [/^Cobertura de al menos el 110 %$/g, "Cover for at least 110 %"],
+  [/^el importe asegurado$/g, "the amount insured"],
+  [
+    /^La cobertura va del lugar de embarque al de destino$/g,
+    "Cover runs from the place of shipment to the place of destination",
+  ],
+  [/^La cobertura va del embarque al destino$/g, "Cover runs from shipment to destination"],
+  [/^el tramo cubierto$/g, "the stretch covered"],
+  [
+    /^El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %$/g,
+    "The credit states the quantity in packing units: the 5 % tolerance does not apply",
+  ],
+  [
+    /^Sin tolerancia en el crédito, la cantidad admite ±5 %$/g,
+    "With no tolerance in the credit, the quantity admits ±5 %",
+  ],
+  [/^la cantidad se compara exacta$/g, "the quantity is compared exactly"],
+  [/^Lugar de embarque$/g, "Place of shipment"],
+  [/^la fecha de emisión$/g, "the date of issuance"],
+  [/^verificar a mano$/g, "check by hand"],
+  [/^el comprador$/g, "the buyer"],
+  [/^Conocimiento de embarque$/g, "Bill of lading"],
+  [/^Carta de crédito$/g, "Letter of credit"],
   // ── multimodal, terrestre y courier (UCP 600 arts. 19, 24 y 25) ──
   [
     /^La mercadería consta despachada, tomada a cargo o embarcada en el lugar del crédito$/g,
