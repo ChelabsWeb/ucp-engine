@@ -713,38 +713,26 @@ export const DOC_DEMO: CamposDoc = {
 };
 
 /** Completa un objeto parcial del modelo a un CamposDoc válido (defensivo). */
+/**
+ * La lectura del modelo, puesta en forma.
+ *
+ * **Los campos salen del esquema, no de una lista escrita acá.** Estaban escritos a mano —veintidós—
+ * y el esquema fue creciendo a treinta y seis: `onBoard`, `onDeck`, `clausulaDefecto`,
+ * `juegoOriginales` y los del seguro se leían del papel, se pedían en el esquema, y esta función los
+ * tiraba. Las reglas de los artículos 26 y 27 nunca recibieron un dato extraído: solo funcionaban
+ * con los fixtures escritos a mano, y por eso nadie lo notó hasta probar la lectura de punta a punta.
+ *
+ * Derivarlos del esquema es lo que impide que vuelva a pasar: agregar un campo allá lo trae acá.
+ */
 export function normalizarCamposDoc(raw: unknown): CamposDoc {
   const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const campo = (k: string): CampoDoc => {
     const c = o[k] as Record<string, unknown> | undefined;
-    const valor = typeof c?.valor === "string" ? c.valor : "";
-    const confianza = normConfianza(c?.confianza);
-    return { valor, confianza };
+    return { valor: typeof c?.valor === "string" ? c.valor : "", confianza: normConfianza(c?.confianza) };
   };
-  return {
-    exportador: campo("exportador"),
-    importador: campo("importador"),
-    montoTotal: campo("montoTotal"),
-    moneda: campo("moneda"),
-    cantidad: campo("cantidad"),
-    unidad: campo("unidad"),
-    mercaderia: campo("mercaderia"),
-    puertoEmbarque: campo("puertoEmbarque"),
-    puertoDestino: campo("puertoDestino"),
-    fechaEmbarque: campo("fechaEmbarque"),
-    incoterm: campo("incoterm"),
-    numeroDoc: campo("numeroDoc"),
-    bultos: campo("bultos"),
-    tipoBulto: campo("tipoBulto"),
-    pesoBruto: campo("pesoBruto"),
-    consignatario: campo("consignatario"),
-    numeroLC: campo("numeroLC"),
-    fechaDocumento: campo("fechaDocumento"),
-    referenciaProforma: campo("referenciaProforma"),
-    flete: campo("flete"),
-    notify: campo("notify"),
-    hsCode: campo("hsCode"),
-  };
+  const salida: Record<string, CampoDoc> = {};
+  for (const k of Object.keys(SCHEMA_DOC.properties)) salida[k] = campo(k);
+  return salida as unknown as CamposDoc;
 }
 
 /* --------- Etapa 2 (caso CSU2025099): consistencia ENTRE documentos externos --------- */
@@ -1178,4 +1166,130 @@ export function cotejarLC(
     else faltantes.push(doc);
   }
   return { cubiertos, faltantes };
+}
+
+/**
+ * Qué campos puede traer cada tipo de documento.
+ *
+ * El esquema completo tiene treinta y seis campos y la API los rechaza: «the compiled grammar is too
+ * large». Creció de a poco —transporte, seguro, certificados— y nunca se pudo probar la extracción
+ * contra la API de verdad por falta de clave, así que el límite se cruzó sin que nadie lo viera.
+ *
+ * Pero achicar por achicar sería perder campos. Lo que corresponde es pedirle a cada documento lo
+ * que **ese documento** puede tener: a un conocimiento de embarque no se le pregunta el monto
+ * asegurado, y preguntárselo no solo agranda la gramática — invita al modelo a inventar.
+ */
+export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
+  FACTURA: [
+    "exportador",
+    "importador",
+    "montoTotal",
+    "moneda",
+    "cantidad",
+    "unidad",
+    "precioUnitario",
+    "mercaderia",
+    "puertoEmbarque",
+    "puertoDestino",
+    "fechaEmbarque",
+    "incoterm",
+    "numeroDoc",
+    "fechaDocumento",
+    "numeroLC",
+    "referenciaProforma",
+    "flete",
+    "hsCode",
+  ],
+  PACKING: [
+    "exportador",
+    "importador",
+    "cantidad",
+    "unidad",
+    "bultos",
+    "tipoBulto",
+    "pesoBruto",
+    "mercaderia",
+    "numeroDoc",
+    "fechaDocumento",
+    "numeroLC",
+    "hsCode",
+  ],
+  BL: [
+    "exportador",
+    "importador",
+    "consignatario",
+    "notify",
+    "cantidad",
+    "unidad",
+    "bultos",
+    "tipoBulto",
+    "pesoBruto",
+    "mercaderia",
+    "puertoEmbarque",
+    "puertoDestino",
+    "fechaEmbarque",
+    "numeroDoc",
+    "fechaDocumento",
+    "numeroLC",
+    "flete",
+    "onBoard",
+    "buque",
+    "charterParty",
+    "onDeck",
+    "clausulaDefecto",
+    "juegoOriginales",
+  ],
+  LC: [
+    "exportador",
+    "importador",
+    "montoTotal",
+    "moneda",
+    "cantidad",
+    "unidad",
+    "mercaderia",
+    "puertoEmbarque",
+    "puertoDestino",
+    "fechaEmbarque",
+    "incoterm",
+    "numeroDoc",
+    "hsCode",
+  ],
+};
+
+/** Los campos del documento de seguro, que no es un `TipoDocExterno` pero se lee igual. */
+export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
+  "tipoSeguro",
+  "emisorSeguro",
+  "fechaSeguro",
+  "montoAsegurado",
+  "monedaAsegurada",
+  "coberturaDesde",
+  "coberturaHasta",
+  "numeroDoc",
+  "mercaderia",
+  "puertoEmbarque",
+  "puertoDestino",
+];
+
+/**
+ * El esquema para un tipo de documento.
+ *
+ * **Todos los campos van en `required`, y eso no es un descuido.** Lo que la API rechaza no es la
+ * cantidad de campos sino la de **opcionales**: «Schemas contains too many optional parameters (46),
+ * which would make grammar compilation inefficient». Con seis obligatorios de veintitrés, los otros
+ * diecisiete se multiplican por dos —presente o ausente— y la gramática explota.
+ *
+ * Exigirlos todos no le pide al modelo que invente: el prompt le dice que un campo que no aparece va
+ * con `valor: ""` y `confianza: 0`, así que devolverlos todos ya era lo esperado.
+ *
+ * Medido contra la API: veintitrés campos con todos obligatorios compila en once segundos; treinta y
+ * seis, aun todos obligatorios, ya no entra. Por eso además hace falta el esquema por tipo.
+ */
+export function schemaPara(campos: (keyof CamposDoc)[]) {
+  return {
+    type: "object",
+    properties: Object.fromEntries(campos.map((c) => [c, campoSchema])),
+    required: [...campos],
+    additionalProperties: false,
+  } as const;
 }

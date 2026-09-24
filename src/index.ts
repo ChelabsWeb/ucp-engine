@@ -43,6 +43,8 @@ export type {
 /** Comparación campo a campo y entre documentos (UCP 600 art. 14d). */
 export {
   aKg,
+  CAMPOS_POR_TIPO,
+  CAMPOS_SEGURO,
   claveDoc,
   compararDocumento,
   compararEntreDocumentos,
@@ -56,6 +58,7 @@ export {
   parseNumero,
   SCHEMA_DOC,
   SCHEMA_LC,
+  schemaPara,
   TIPO_DOC_LABEL,
 } from "./consistencia";
 export type { Gravedad, Observacion } from "./emision";

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   aKg,
+  CAMPOS_POR_TIPO,
+  CAMPOS_SEGURO,
   type CamposDoc,
   compararDocumento,
   compararEntreDocumentos,
@@ -8,8 +10,11 @@ import {
   cotejarLCconOperacion,
   DOC_DEMO,
   LC_DEMO,
+  normalizarCamposDoc,
   normConfianza,
   parseNumero,
+  SCHEMA_DOC,
+  schemaPara,
   type TipoDocExterno,
 } from "./consistencia";
 import { operationDetails } from "./mock";
@@ -597,5 +602,104 @@ describe("cantidades que no se miden en kilos", () => {
   it("lo de siempre sigue igual: kilos contra toneladas se compara convertido", () => {
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "53,96", "TON"))).toBe(false);
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "48", "TON"))).toBe(true);
+  });
+});
+
+describe("el esquema que se le manda al modelo", () => {
+  /**
+   * El límite de la API no es la cantidad de campos: es la de **opcionales**. Con seis obligatorios
+   * de veintitrés, los otros diecisiete se multiplican por dos —presente o ausente— y la gramática
+   * explota: «Schemas contains too many optional parameters (46)». Medido contra la API de verdad.
+   */
+  it("**no deja ningún campo opcional**", () => {
+    for (const campos of Object.values(CAMPOS_POR_TIPO)) {
+      const s = schemaPara(campos);
+      expect(s.required).toHaveLength(Object.keys(s.properties).length);
+    }
+  });
+
+  it("ningún tipo se pasa de los veintitrés campos que la gramática admite", () => {
+    // Treinta y seis, aun todos obligatorios, ya no entra. Este test es el que avisa si alguien
+    // agrega un campo de más sin tener la clave de API a mano para probarlo.
+    for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
+      expect(campos.length, `${tipo} tiene ${campos.length} campos`).toBeLessThanOrEqual(23);
+    }
+    expect(CAMPOS_SEGURO.length).toBeLessThanOrEqual(23);
+  });
+
+  it("a cada documento se le piden los campos que ese documento puede tener", () => {
+    // Preguntarle a un conocimiento de embarque por el monto asegurado no solo agranda la gramática:
+    // lo invita a inventar.
+    expect(CAMPOS_POR_TIPO.BL).not.toContain("montoAsegurado");
+    expect(CAMPOS_POR_TIPO.BL).toContain("onBoard");
+    expect(CAMPOS_POR_TIPO.FACTURA).not.toContain("onBoard");
+    expect(CAMPOS_POR_TIPO.FACTURA).toContain("precioUnitario");
+    expect(CAMPOS_SEGURO).toContain("montoAsegurado");
+  });
+
+  it("todos los campos existen en CamposDoc", () => {
+    const conocidos = new Set(Object.keys(DOC_DEMO));
+    // DOC_DEMO no tiene todos, así que se compara contra el esquema completo.
+    const delSchema = new Set(Object.keys(SCHEMA_DOC.properties));
+    for (const campos of [...Object.values(CAMPOS_POR_TIPO), CAMPOS_SEGURO]) {
+      for (const c of campos) {
+        expect(delSchema.has(c) || conocidos.has(c), `${c} no está en el esquema`).toBe(true);
+      }
+    }
+  });
+});
+
+describe("la lectura del modelo, puesta en forma", () => {
+  /**
+   * `normalizarCamposDoc` tenía veintidós campos escritos a mano mientras el esquema crecía a treinta
+   * y seis. `onBoard`, `onDeck`, `clausulaDefecto` y `juegoOriginales` se leían del papel, se pedían
+   * en el esquema, y esta función los tiraba: **las reglas de los artículos 26 y 27 nunca recibieron
+   * un dato extraído**. Solo funcionaban con los fixtures escritos a mano, y así nadie lo notó hasta
+   * leer un escaneo de verdad.
+   */
+  it("**ningún campo del esquema se pierde**", () => {
+    const delEsquema = Object.keys(SCHEMA_DOC.properties);
+    const normalizados = Object.keys(normalizarCamposDoc({}));
+    for (const c of delEsquema) expect(normalizados, `falta ${c}`).toContain(c);
+  });
+
+  it("los campos de transporte que fundan los artículos 26 y 27 llegan", () => {
+    const leido = normalizarCamposDoc({
+      onDeck: { valor: "SHIPPED ON DECK", confianza: 0.9 },
+      clausulaDefecto: { valor: "3 CARTONS TORN", confianza: 0.8 },
+      juegoOriginales: { valor: "three (3) original Bills of Lading", confianza: 1 },
+      buque: { valor: "STELLA AUSTRAL", confianza: 1 },
+      onBoard: { valor: "SHIPPED ON BOARD 08-APR-2025", confianza: 1 },
+    });
+    expect(leido.onDeck?.valor).toBe("SHIPPED ON DECK");
+    expect(leido.clausulaDefecto?.valor).toBe("3 CARTONS TORN");
+    expect(leido.juegoOriginales?.valor).toContain("three");
+    expect(leido.buque?.valor).toBe("STELLA AUSTRAL");
+    expect(leido.onBoard?.valor).toContain("08-APR-2025");
+  });
+
+  it("y los del seguro también", () => {
+    const leido = normalizarCamposDoc({
+      montoAsegurado: { valor: "59.565,00", confianza: 0.95 },
+      monedaAsegurada: { valor: "USD", confianza: 1 },
+      tipoSeguro: { valor: "INSURANCE POLICY", confianza: 1 },
+    });
+    expect(leido.montoAsegurado?.valor).toBe("59.565,00");
+    expect(leido.monedaAsegurada?.valor).toBe("USD");
+    expect(leido.tipoSeguro?.valor).toBe("INSURANCE POLICY");
+  });
+
+  it("lo que el modelo no devuelve queda vacío con confianza cero, no ausente", () => {
+    const leido = normalizarCamposDoc({ exportador: { valor: "MOLSUR SA", confianza: 1 } });
+    expect(leido.onDeck).toEqual({ valor: "", confianza: 0 });
+    // El silencio tiene que ser distinguible de un dato: confianza 0 es lo que las reglas miran.
+    expect(leido.exportador.confianza).toBe(1);
+  });
+
+  it("una basura no rompe nada", () => {
+    for (const basura of [null, undefined, 42, "texto", [], { exportador: "sin objeto" }]) {
+      const leido = normalizarCamposDoc(basura);
+      expect(leido.exportador).toEqual({ valor: "", confianza: 0 });
+    }
   });
 });
