@@ -31,6 +31,111 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── el crédito transferido (UCP 600 art. 38) ──
+  [
+    /^el crédito se declara transferible \(UCP 600 art\. 38 b\)$/g,
+    "the credit states that it is transferable (UCP 600 art. 38 b)",
+  ],
+  [
+    /^el crédito no se declara transferible: solo lo es el que lo dice expresamente \(UCP 600 art\. 38 b\)$/g,
+    "the credit does not state that it is transferable: only a credit that says so expressly is (UCP 600 art. 38 b)",
+  ],
+  [
+    /^El importe del crédito transferido es mayor que el del original$/g,
+    "The amount of the transferred credit is greater than that of the original",
+  ],
+  [
+    /^el importe puede reducirse, nunca aumentarse: por la diferencia el emisor no responde y el banco transferente queda descubierto$/g,
+    "the amount may be reduced, never increased: the issuing bank does not answer for the difference and the transferring bank is left exposed",
+  ],
+  [
+    /^El vencimiento del crédito transferido es posterior al del original$/g,
+    "The expiry date of the transferred credit is later than that of the original",
+  ],
+  [
+    /^el vencimiento puede acortarse, no estirarse: el segundo beneficiario podría presentar cuando el crédito original ya venció$/g,
+    "the expiry date may be curtailed, not extended: the second beneficiary could present after the original credit has expired",
+  ],
+  [
+    /^El último embarque del crédito transferido es posterior al del original$/g,
+    "The latest shipment date of the transferred credit is later than that of the original",
+  ],
+  [
+    /^puede acortarse, no estirarse: un embarque a tiempo contra el transferido llegaría tarde contra el original$/g,
+    "it may be curtailed, not extended: a shipment in time under the transferred credit would be late under the original",
+  ],
+  [
+    /^El plazo de presentación del crédito transferido es mayor que el del original$/g,
+    "The period for presentation of the transferred credit is longer than that of the original",
+  ],
+  [
+    /^puede acortarse, no estirarse: los documentos llegarían al emisor fuera del plazo que él fijó$/g,
+    "it may be curtailed, not extended: the documents would reach the issuing bank outside the period it set",
+  ],
+  [
+    /^La cobertura de seguro del crédito transferido es menor que la del original$/g,
+    "The insurance cover of the transferred credit is lower than that of the original",
+  ],
+  [
+    /^el porcentaje puede aumentarse, no reducirse: sobre un importe menor hace falta más porcentaje para llegar a la cobertura que el crédito exige$/g,
+    "the percentage may be increased, not reduced: on a lower amount a higher percentage is needed to reach the cover the credit requires",
+  ],
+  [
+    /^El banco emisor difiere entre el crédito original y el transferido$/g,
+    "The issuing bank differs between the original and the transferred credit",
+  ],
+  [
+    /^el transferido es el mismo crédito puesto a disposición de otro beneficiario, no uno nuevo$/g,
+    "the transferred credit is the same credit made available to another beneficiary, not a new one",
+  ],
+  [
+    /^La moneda difiere entre el crédito original y el transferido$/g,
+    "The currency differs between the original and the transferred credit",
+  ],
+  [
+    /^la moneda no está entre lo que el artículo deja cambiar$/g,
+    "the currency is not among what the article allows to change",
+  ],
+  [
+    /^Los documentos exigidos difieren entre el crédito original y el transferido$/g,
+    "The documents required differ between the original and the transferred credit",
+  ],
+  [
+    /^el segundo beneficiario presentaría un juego que el crédito original no cubre, o le faltaría uno que el emisor va a pedir$/g,
+    "the second beneficiary would present a set the original credit does not cover, or would be missing one the issuing bank will ask for",
+  ],
+  [
+    /^La tolerancia difiere entre el crédito original y el transferido$/g,
+    "The tolerance differs between the original and the transferred credit",
+  ],
+  [
+    /^la lista del artículo es cerrada y la tolerancia no está en ella: tiene que reflejarse tal cual$/g,
+    "the list in the article is closed and the tolerance is not in it: it has to be reflected as it stands",
+  ],
+  [
+    /^El crédito exige el nombre del ordenante en un documento que no es la factura, y el transferido no lo refleja$/g,
+    "The credit requires the applicant's name on a document other than the invoice, and the transferred credit does not reflect it",
+  ],
+  [
+    /^sustituir el nombre del ordenante está permitido, pero esa exigencia no: el segundo beneficiario emitiría el documento con el nombre equivocado$/g,
+    "substituting the applicant's name is allowed, but that requirement is not: the second beneficiary would issue the document with the wrong name",
+  ],
+  [
+    /^Se transfiere a más de un segundo beneficiario y el crédito no permite embarques parciales$/g,
+    "The credit is transferred to more than one second beneficiary and it does not allow partial shipments",
+  ],
+  [
+    /^cada segundo beneficiario embarcaría su parte, que es un embarque parcial: el artículo lo admite solo si el crédito los permite$/g,
+    "each second beneficiary would ship its part, which is a partial shipment: the article admits this only where the credit allows them",
+  ],
+  [
+    /^El crédito que se quiere transferir ya es un crédito transferido$/g,
+    "The credit to be transferred is itself a transferred credit",
+  ],
+  [
+    /^un transferido no puede transferirse otra vez a pedido del segundo beneficiario; el primer beneficiario no cuenta como beneficiario posterior$/g,
+    "a transferred credit cannot be transferred again at the request of the second beneficiary; the first beneficiary does not count as a subsequent beneficiary",
+  ],
   // ── etiquetas y avisos heredados de romai que también se muestran acá ──
   [/^Emisor \/ shipper$/g, "Issuer / shipper"],
   [/^Beneficiario \/ exportador$/g, "Beneficiary / exporter"],

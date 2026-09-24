@@ -161,6 +161,13 @@ export { scrubForLLM } from "./scrub";
 export type { CampoSwift, LcSwift } from "./swift-lc";
 /** Intérprete determinista de mensajes SWIFT MT700 y MT710. */
 export { esMensajeSwift, fechaSwift, listaSwift, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
+export type {
+  ContextoTransferencia,
+  GravedadTransferencia,
+  ObservacionTransferencia,
+} from "./transferible";
+/** El crédito transferido contra el original: la lista cerrada del artículo 38 (g). */
+export { resumenTransferencia, revisarTransferencia, sePuedeTransferir } from "./transferible";
 /** Tipos del dominio (crédito, documentos, operación, matriz). */
 export type * from "./types";
 export type { VerificacionManual } from "./verificaciones-manuales";
