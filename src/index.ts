@@ -61,6 +61,9 @@ export {
   schemaPara,
   TIPO_DOC_LABEL,
 } from "./consistencia";
+export type { ContratoDeVenta, Desvio, DiferenciaContrato, ExtraCredito } from "./contrato";
+/** El crédito que llegó contra el contrato que se firmó (UCP 600 art. 4 a: son cosas separadas). */
+export { compararConContrato, describirDesvio, resumenDesvios } from "./contrato";
 export type { Gravedad, Observacion } from "./emision";
 /** La otra cara: ¿este crédito se puede cumplir? Revisión antes de emitirlo o al recibirlo. */
 export { describirObservacion, resumenRevision, revisarCredito, revisarLcInfo } from "./emision";
