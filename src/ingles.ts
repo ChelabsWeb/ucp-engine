@@ -31,6 +31,76 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── el back-to-back (`back-to-back.ts`): práctica bancaria, no un artículo ──
+  [/^Los dos créditos vencen el mismo día$/g, "Both credits expire on the same day"],
+  [
+    /^El crédito que se emite vence después del crédito recibido$/g,
+    "The credit to be issued expires after the credit received",
+  ],
+  [
+    /^no queda margen para sustituir la factura y presentar contra el crédito recibido: el banco paga el segundo y llega tarde al primero$/g,
+    "there is no margin left to substitute the invoice and present under the credit received: the bank pays the second and arrives late on the first",
+  ],
+  [
+    /^el banco paga el segundo crédito cuando el primero ya venció, y se queda sin de dónde cobrar$/g,
+    "the bank pays the second credit once the first has expired, and is left with nothing to collect against",
+  ],
+  [
+    /^El último embarque del crédito que se emite es posterior al del recibido$/g,
+    "The latest shipment date of the credit to be issued is later than that of the credit received",
+  ],
+  [
+    /^el proveedor puede embarcar a tiempo contra el segundo crédito y tarde contra el primero: los documentos cumplen para pagar y no para cobrar$/g,
+    "the supplier may ship in time under the second credit and late under the first: the documents comply for paying and not for collecting",
+  ],
+  [
+    /^El plazo de presentación del crédito que se emite es mayor que el del recibido$/g,
+    "The period for presentation of the credit to be issued is longer than that of the credit received",
+  ],
+  [
+    /^los documentos del proveedor pueden llegar dentro de plazo para el segundo crédito y fuera de plazo para el primero$/g,
+    "the supplier's documents may arrive within the period for the second credit and outside it for the first",
+  ],
+  [
+    /^El crédito que se emite es por más que el recibido$/g,
+    "The credit to be issued is for more than the one received",
+  ],
+  [/^Los dos créditos están en monedas distintas$/g, "The two credits are in different currencies"],
+  [
+    /^el banco paga en una moneda y cobra en otra: el riesgo de cambio entre una fecha y la otra queda de su lado$/g,
+    "the bank pays in one currency and collects in another: the exchange risk between the two dates is on its side",
+  ],
+  [
+    /^no descubre a nadie: es trabajo y costo que el proveedor va a cobrar, para un papel que después no hay que presentar$/g,
+    "it leaves nobody exposed: it is work and cost the supplier will charge for, on a document that does not have to be presented afterwards",
+  ],
+  [
+    /^El crédito recibido no permite embarques parciales y el que se emite sí$/g,
+    "The credit received does not allow partial shipments and the one to be issued does",
+  ],
+  [
+    /^el proveedor puede embarcar por partes y cobrar cada una, y esos embarques no se pueden presentar contra el primero$/g,
+    "the supplier may ship in parts and collect on each, and those shipments cannot be presented under the first credit",
+  ],
+  [/^Práctica bancaria$/g, "Banking practice"],
+  [
+    /^El crédito recibido exige (\\d+) documentos? que el que se emite no pide$/g,
+    "The credit received requires $1 document(s) that the one to be issued does not ask for",
+  ],
+  [/^hay que conseguirlos aparte del proveedor —/g, "they have to be obtained apart from the supplier — "],
+  [
+    /— o el juego no sirve para cobrar contra el primero$/g,
+    " — or the set is no good for collecting under the first credit",
+  ],
+  [
+    /^El crédito que se emite pide (\\d+) documentos? de más$/g,
+    "The credit to be issued asks for $1 document(s) more than needed",
+  ],
+  [/^el banco pagaría /g, "the bank would pay "],
+  [
+    / más de lo que puede cobrar contra el primero, y esa diferencia es suya$/g,
+    " more than it can collect under the first credit, and that difference is its own",
+  ],
   // ── el crédito transferido (UCP 600 art. 38) ──
   [
     /^el crédito se declara transferible \(UCP 600 art\. 38 b\)$/g,

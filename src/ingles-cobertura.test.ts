@@ -59,6 +59,7 @@ const MODULOS = [
   "verificaciones-manuales.ts",
   "checking-list.ts",
   "transferible.ts",
+  "back-to-back.ts",
 ];
 
 /**
