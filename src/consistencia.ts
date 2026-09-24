@@ -100,6 +100,8 @@ export interface CamposDoc {
   buque?: CampoDoc; // "STELLA AUSTRAL" — o "INTENDED VESSEL …"
   charterParty?: CampoDoc; // indicación de estar sujeto a contrato de fletamento
   onDeck?: CampoDoc; // "SHIPPED ON DECK" / "may be carried on deck"
+  /** cómo se titula el documento de transporte: de ahí sale con qué artículo se lo examina (19 a 25) */
+  tipoTransporte?: CampoDoc;
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
   precioUnitario?: CampoDoc; // "USD 800,00" — con él y el total se desambigua una cantidad
@@ -631,6 +633,7 @@ export const SCHEMA_DOC = {
     buque: campoSchema,
     charterParty: campoSchema,
     onDeck: campoSchema,
+    tipoTransporte: campoSchema,
     clausulaDefecto: campoSchema,
     juegoOriginales: campoSchema,
     precioUnitario: campoSchema,
@@ -1215,8 +1218,17 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "hsCode",
   ],
   BL: [
+    // El primero a propósito: de cómo se titula el documento sale con qué artículo se lo examina.
+    "tipoTransporte",
     "exportador",
-    "importador",
+    /*
+     * El importador NO se le pide a un conocimiento de embarque.
+     *
+     * En un BL el importador es el notify party —lo dice el propio prompt— así que pedir los dos es
+     * leer el mismo dato dos veces, y el código ya prefiere `notify` con `importador` de respaldo.
+     * El lugar importa: la gramática de la extracción tiene un tope de campos verificado en
+     * veintitrés, y el que entró en su lugar decide con qué artículo se examina el documento.
+     */
     "consignatario",
     "notify",
     "cantidad",

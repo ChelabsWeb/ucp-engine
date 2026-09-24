@@ -302,3 +302,76 @@ describe("el conocimiento de embarque real, leído del papel escaneado", () => {
     expect(corre([BL_REAL]).filter((r) => r.estado === "DISCREPANCIA")).toEqual([]);
   });
 });
+
+describe("el documento de transporte se examina con el artículo que le corresponde", () => {
+  /*
+   * El motor examinaba todo documento de transporte con el artículo 20, el marítimo, porque era el
+   * único que conocía. Las UCP dedican siete artículos al transporte —19 a 25— y cada uno pide
+   * cosas distintas: a un aéreo se le pedía la anotación de a bordo, que no tiene nunca.
+   */
+
+  it("un crédito que EXIGE un conocimiento de fletamento no puede rechazarlo por serlo", () => {
+    /*
+     * El caso real de los graneles: un crédito de cereal o de harina a granel pide «CHARTER PARTY
+     * BILL OF LADING» en el 46A, y existe el artículo 22 justamente para examinarlo. Marcarlo como
+     * discrepancia por estar sujeto a fletamento es rechazar el documento que el propio crédito
+     * pidió.
+     */
+    const lcConFletamento: LcInfo = {
+      ...LC,
+      documentosExigidos: ["CHARTER PARTY BILL OF LADING PLUS 02 NON NEGOTIABLE COPIES"],
+    };
+    const r = reglasUCP({
+      lc: lcConFletamento,
+      credito: CTX,
+      docs: [
+        {
+          tipo: "BL",
+          campos: doc({
+            charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-2025"),
+            buque: campo("STELLA AUSTRAL"),
+          }),
+        },
+      ],
+      hoy: HOY,
+    });
+    expect(r.find((x) => x.id === "ucp-20a-vi")?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("pero si el crédito no lo pide, sigue siendo discrepancia", () => {
+    expect(
+      buscar([{ tipo: "BL", campos: doc({ charterParty: campo("SUBJECT TO CHARTER PARTY") }) }], "ucp-20a-vi")?.estado,
+    ).toBe("DISCREPANCIA");
+  });
+
+  it("a un aéreo no se le pide la anotación de a bordo", () => {
+    const aereo = doc({
+      tipoTransporte: campo("AIR WAYBILL"),
+      numeroDoc: campo("020-12345678"),
+      fechaDocumento: campo("08-APR-2025"),
+    });
+    const r = corre([{ tipo: "BL", campos: aereo }]);
+    expect(r.find((x) => x.id.startsWith("ucp-20a-ii"))).toBeUndefined();
+  });
+
+  it("y se dice con qué artículo se lo examinó: sin eso el examen no se puede discutir", () => {
+    const aereo = doc({ tipoTransporte: campo("AIR WAYBILL"), numeroDoc: campo("020-12345678") });
+    const clase = corre([{ tipo: "BL", campos: aereo }]).find((x) => x.id === "ucp-transporte-clase");
+    expect(clase?.evidencia).toMatch(/a[ée]reo|air waybill/i);
+    expect(clase?.fuente).toContain("23");
+  });
+
+  it("si no se pudo determinar la clase, se examina con el 20 pero se dice", () => {
+    /*
+     * No examinar sería peor que examinar con el artículo equivocado: el marítimo es el caso
+     * mayoritario y el examinador ya cargó el papel como conocimiento de embarque. Lo que se
+     * arriesga está acotado —las comprobaciones que un aéreo no pasa dan ATENCION, no
+     * discrepancia— pero tiene que quedar escrito con qué se lo examinó.
+     */
+    const r = corre([{ tipo: "BL", campos: doc({ numeroDoc: campo("X-1") }) }]);
+    const clase = r.find((x) => x.id === "ucp-transporte-clase");
+    expect(clase?.estado).toBe("ATENCION");
+    expect(clase?.evidencia).toMatch(/artículo 20/);
+    expect(r.some((x) => x.id.startsWith("ucp-20a"))).toBe(true);
+  });
+});

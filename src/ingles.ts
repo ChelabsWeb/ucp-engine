@@ -31,6 +31,33 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── la clase del documento de transporte (`transporte.ts`) ──
+  [/^Clase del documento de transporte$/g, "Class of transport document"],
+  [/^conocimiento de embarque marítimo: /g, "marine bill of lading: "],
+  [/^documento de transporte multimodal: /g, "multimodal transport document: "],
+  [/^sea waybill no negociable: /g, "non-negotiable sea waybill: "],
+  [/^conocimiento sujeto a contrato de fletamento: /g, "bill of lading subject to a charter party: "],
+  [/^documento de transporte aéreo: /g, "air transport document: "],
+  [
+    /^documento de transporte por carretera, ferrocarril o vía navegable: /g,
+    "road, rail or inland waterway transport document: ",
+  ],
+  [/^recibo de courier o de correo: /g, "courier or post receipt: "],
+  [/nombra un buque, /g, "it names a vessel, "],
+  [/se titula /g, "it is headed "],
+  [/el documento dice /g, "the document states "],
+  [/el número (.*) tiene la forma de un air waybill/g, "the number $1 has the shape of an air waybill"],
+  [/los lugares son aeropuertos: /g, "the places are airports: "],
+  [/los lugares son puertos: /g, "the places are ports: "],
+  [
+    /^no se pudo determinar de qué clase es: no se leyó cómo se titula, ni un buque, ni los lugares\. Se examinó con el artículo 20, el del conocimiento marítimo: si el documento es aéreo, terrestre o multimodal, este examen no corresponde\.$/g,
+    "the class of document could not be determined: neither its heading, nor a vessel, nor the places were read. It was examined under article 20, that of the marine bill of lading: if the document is an air, road or multimodal one, this examination does not apply.",
+  ],
+  [
+    /^El crédito pide un conocimiento sujeto a fletamento y el presentado lo es$/g,
+    "The credit calls for a charter party bill of lading and the one presented is such",
+  ],
+  [/^el 46A lo exige y el documento dice /g, "field 46A calls for it and the document states "],
   // ── el crédito contra el contrato de venta (`contrato.ts`) ──
   [/^Documento no pactado$/g, "Document not agreed"],
   [/^no está en el contrato$/g, "not in the contract"],

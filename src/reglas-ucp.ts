@@ -3,6 +3,7 @@ import { parseNumero } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { toleranciaDe } from "./lc";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
+import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
 import type { LcInfo } from "./types";
 
 /**
@@ -154,7 +155,7 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
 
 /* ──────────────────── documento de transporte (arts. 20, 26, 27) ──────────────────── */
 
-function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado): ReglaPresentacion[] {
+function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
   // 20a-iii: embarque del puerto de carga al de descarga que fija el crédito
@@ -206,16 +207,26 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado): ReglaPresenta
         : sinLeer("ucp-20a-ii", "UCP 600 20a-ii", "Anotación de a bordo con fecha", "la anotación de a bordo"),
   );
 
-  // 20a-vi: el conocimiento no puede estar sujeto a un contrato de fletamento
+  /*
+   * 20a-vi: el conocimiento no puede estar sujeto a un contrato de fletamento.
+   *
+   * Salvo que el crédito pida uno. En los graneles es corriente —un crédito de cereal o de harina a
+   * granel exige «CHARTER PARTY BILL OF LADING» en el 46A— y para eso existe el artículo 22, que lo
+   * examina con sus propias reglas. Marcarlo como discrepancia por estar sujeto a fletamento sería
+   * rechazar el documento que el propio crédito pidió.
+   */
   const charter = val(bl, "charterParty");
   if (charter) {
+    const loPideElCredito = exigidos.some((d) => /charter\s*part/i.test(d));
     out.push(
       regla(
         "ucp-20a-vi",
-        "UCP 600 20a-vi",
-        "El conocimiento no indica estar sujeto a contrato de fletamento",
-        /no|sin|not/i.test(charter) ? "OK" : "DISCREPANCIA",
-        `dice "${charter}"`,
+        loPideElCredito ? "UCP 600 22" : "UCP 600 20a-vi",
+        loPideElCredito
+          ? "El crédito pide un conocimiento sujeto a fletamento y el presentado lo es"
+          : "El conocimiento no indica estar sujeto a contrato de fletamento",
+        /no|sin|not/i.test(charter) || loPideElCredito ? "OK" : "DISCREPANCIA",
+        loPideElCredito ? `el 46A lo exige y el documento dice "${charter}"` : `dice "${charter}"`,
       ),
     );
   }
@@ -490,8 +501,46 @@ export function reglasUCP(input: {
   const fac = doc("FACTURA");
   if (fac) out.push(...reglasFactura(input.lc, ctx, fac));
 
+  /*
+   * El documento de transporte se examina con el artículo que le corresponde.
+   *
+   * Las UCP dedican siete artículos al transporte —19 a 25— y cada uno pide cosas distintas. Antes
+   * acá se aplicaba siempre el 20, el marítimo, que era el único implementado: a un air waybill se
+   * le pedía la anotación de a bordo, que no tiene nunca. Ahora se determina primero de qué clase
+   * es el documento y se deja dicho, porque de eso depende todo lo que sigue; si no se pudo
+   * determinar, no se aplica ninguno a ciegas.
+   */
   const bl = doc("BL");
-  if (bl) out.push(...reglasTransporte(ctx, bl));
+  if (bl) {
+    const exigidos = input.lc.documentosExigidos ?? [];
+    const clase = modoDelDocumento(bl.campos);
+    out.push(
+      regla(
+        "ucp-transporte-clase",
+        articuloDelModo(clase.modo),
+        "Clase del documento de transporte",
+        clase.modo === "SIN_DETERMINAR" ? "ATENCION" : "OK",
+        clase.modo === "SIN_DETERMINAR"
+          ? `${clase.porQue}. Se examinó con el artículo 20, el del conocimiento marítimo: si el documento es aéreo, terrestre o multimodal, este examen no corresponde.`
+          : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
+      ),
+    );
+    /*
+     * Los artículos 21 y 22 comparten con el 20 la anotación de a bordo, los puertos y el buque: un
+     * sea waybill y un conocimiento de fletamento se examinan con las mismas comprobaciones.
+     *
+     * Y cuando no se pudo determinar la clase, también se examina con el 20 — pero dicho. No
+     * examinar sería peor: el documento marítimo es el caso mayoritario y el examinador ya lo
+     * cargó como conocimiento de embarque, de modo que callarse dejaría sin revisar un documento
+     * que casi siempre sí corresponde. Lo que se arriesga está acotado: las comprobaciones del 20
+     * que un aéreo no pasa dan ATENCION —«verificar a mano»— y no discrepancia.
+     */
+    if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
+      out.push(...reglasTransporte(ctx, bl, exigidos));
+    } else if (clase.modo === "SIN_DETERMINAR") {
+      out.push(...reglasTransporte(ctx, bl, exigidos));
+    }
+  }
 
   if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac));
 

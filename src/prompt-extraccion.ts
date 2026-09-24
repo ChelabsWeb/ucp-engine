@@ -29,7 +29,9 @@ export const PROMPT_EXAMEN =
   "- precioUnitario: the unit price that goes with that total — the one that multiplied by the quantity gives it. " +
   "An invoice often prints several unit prices, one per term of delivery (FOB, plus freight, CFR). " +
   "Transcribe the one for the term the invoice is drawn under, which is the last line, not the first.\n\n" +
-  "Transport document fields (UCP 600 articles 20, 26 and 27):\n" +
+  "Transport document fields (UCP 600 articles 19 to 27):\n" +
+  "- tipoTransporte: how the document titles itself, verbatim: 'BILL OF LADING', 'AIR WAYBILL', 'NON-NEGOTIABLE SEA WAYBILL', 'MULTIMODAL TRANSPORT DOCUMENT', 'CMR CONSIGNMENT NOTE', 'COURIER RECEIPT'. " +
+  "This decides which article the document is examined under, so transcribe the heading and do not interpret it.\n" +
   "- onBoard: the on board notation in full, e.g. 'SHIPPED ON BOARD 08-APR-2025'. If the wording is pre-printed with no separate notation, transcribe the pre-printed wording.\n" +
   "- buque: the vessel name, including any qualifier such as 'INTENDED VESSEL'.\n" +
   "- charterParty: any indication that the document is subject to a charter party. Leave empty if there is none.\n" +
