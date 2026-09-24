@@ -153,6 +153,120 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
   return out;
 }
 
+/* ──────────────────── transporte aéreo (art. 23) ──────────────────── */
+
+/**
+ * El documento de transporte aéreo.
+ *
+ * Tres de estas reglas existen porque son las que un examinador se equivoca, y las tres en la misma
+ * dirección: rechazar un aéreo por no parecerse a un marítimo. El artículo las resuelve
+ * expresamente, así que acá se aplican a favor del documento y se deja dicho por qué.
+ */
+function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+
+  // 23a-ii: la mercadería tiene que constar aceptada para transporte —no «a bordo», que es marítimo
+  const aceptado = val(awb, "onBoard");
+  out.push(
+    aceptado
+      ? regla(
+          "ucp-23a-ii",
+          "UCP 600 23a-ii",
+          "El documento indica que la mercadería fue aceptada para transporte",
+          /accept|received|taken in charge|recib/i.test(aceptado) ? "OK" : "ATENCION",
+          `dice "${aceptado}"`,
+        )
+      : sinLeer("ucp-23a-ii", "UCP 600 23a-ii", "La mercadería consta aceptada para transporte", "esa indicación"),
+  );
+
+  /*
+   * 23a-iii: la fecha de emisión es la de embarque, salvo notación expresa del embarque real.
+   *
+   * Y el artículo lo dice con todas las letras: cualquier otra información sobre el número y la
+   * fecha del vuelo NO se tiene en cuenta para determinar la fecha de embarque. Es la trampa del
+   * artículo: el air waybill trae un recuadro con vuelo y fecha que suele ser posterior, y tomarla
+   * corre el embarque unos días —a veces contra el límite del 44C— por un dato que no cuenta.
+   */
+  const emision = val(awb, "fechaDocumento");
+  const notacion = val(awb, "onBoard") ?? "";
+  const esSoloVuelo = /flight|vuelo/i.test(notacion) && !/actual date of shipment|fecha real/i.test(notacion);
+  out.push(
+    emision
+      ? regla(
+          "ucp-23a-iii",
+          "UCP 600 23a-iii",
+          "La fecha de embarque es la de emisión, salvo notación del embarque real",
+          "OK",
+          esSoloVuelo
+            ? `rige la fecha de emisión, "${emision}": el número de vuelo y su fecha no cuentan para determinar la fecha de embarque`
+            : `rige la fecha de emisión, "${emision}"`,
+        )
+      : sinLeer("ucp-23a-iii", "UCP 600 23a-iii", "Fecha de emisión del documento aéreo", "la fecha de emisión"),
+  );
+
+  // 23a-iv: aeropuerto de salida y de destino, los que fija el crédito
+  for (const [k, delCredito, cual] of [
+    ["puertoEmbarque", ctx.puertoEmbarque, "de salida"],
+    ["puertoDestino", ctx.puertoDestino, "de destino"],
+  ] as const) {
+    if (!delCredito) continue;
+    const enDoc = val(awb, k);
+    const id = `ucp-23a-iv-${k === "puertoEmbarque" ? "carga" : "destino"}`;
+    out.push(
+      enDoc
+        ? regla(
+            id,
+            "UCP 600 23a-iv",
+            `Aeropuerto ${cual} el que indica el crédito (${delCredito})`,
+            coincideLugar(enDoc, delCredito) ? "OK" : "DISCREPANCIA",
+            `el documento dice "${enDoc}"`,
+          )
+        : sinLeer(id, "UCP 600 23a-iv", `Aeropuerto ${cual} el que indica el crédito`, `el aeropuerto ${cual}`),
+    );
+  }
+
+  /*
+   * 23a-v: alcanza el original del expedidor, aunque el crédito pida el juego completo.
+   *
+   * El crédito del caso dice «FULL SET OF (3/3) ORIGINAL BILLS OF LADING». En un aéreo eso no se
+   * puede cumplir: de los tres originales que emite el transportista, al expedidor le queda uno.
+   * El artículo lo resuelve a favor del documento, así que exigir el juego sería rechazar lo único
+   * que se entrega.
+   */
+  const juego = val(awb, "juegoOriginales");
+  out.push(
+    regla(
+      "ucp-23a-v",
+      "UCP 600 23a-v",
+      "Basta el original para el expedidor, aunque el crédito pida el juego completo",
+      "OK",
+      juego
+        ? `el documento dice "${juego}"; el artículo 23 (a) (v) admite el original del expedidor aunque el crédito exija el juego completo`
+        : "el artículo 23 (a) (v) admite el original del expedidor aunque el crédito exija el juego completo",
+    ),
+  );
+
+  /*
+   * 23c-ii: el transbordo se acepta aunque el crédito lo prohíba.
+   *
+   * Otra que el artículo resuelve expresamente y que a un examinador acostumbrado al marítimo le
+   * sale al revés: en el 20 el transbordo prohibido es discrepancia, en el aéreo no.
+   */
+  if (ctx.transbordo && /not\s+allowed|prohib/i.test(ctx.transbordo)) {
+    out.push(
+      regla(
+        "ucp-23c-ii",
+        "UCP 600 23c-ii",
+        "El transbordo no hace discrepante a un documento aéreo",
+        "OK",
+        `el crédito dice "${ctx.transbordo}", pero el artículo 23 (c) (ii) lo admite aunque el crédito lo prohíba`,
+      ),
+    );
+  }
+
+  return out;
+}
+
 /* ──────────────────── documento de transporte (arts. 20, 26, 27) ──────────────────── */
 
 function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
@@ -537,6 +651,8 @@ export function reglasUCP(input: {
      */
     if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
       out.push(...reglasTransporte(ctx, bl, exigidos));
+    } else if (clase.modo === "AEREO") {
+      out.push(...reglasAereo(ctx, bl));
     } else if (clase.modo === "SIN_DETERMINAR") {
       out.push(...reglasTransporte(ctx, bl, exigidos));
     }

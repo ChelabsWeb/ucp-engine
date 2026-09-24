@@ -54,9 +54,56 @@ const ESCENARIOS: [string, Date, typeof UN_GIRO_ANTERIOR][] = [
   ["un segundo giro contra el mismo crédito", new Date(2025, 3, 20), UN_GIRO_ANTERIOR],
 ];
 
+/**
+ * El mismo expediente, pero con un documento de transporte aéreo.
+ *
+ * Hace falta porque las reglas del artículo 23 solo existen cuando el documento es aéreo, y con el
+ * conocimiento marítimo del caso no se generaban: quedaban en español sin que nadie se enterara. Es
+ * la misma lección que las reglas de plazo — un escenario único deja artículos enteros sin cubrir.
+ */
+const examenAereo = () => {
+  const credito = parseMT700(SWIFT_CSU2025099)!;
+  const c = (valor: string) => ({ valor, confianza: 0.9 });
+  const awb: CamposDoc = {
+    ...DOCUMENTOS_CSU2025099.BL!,
+    tipoTransporte: c("AIR WAYBILL"),
+    numeroDoc: c("020-12345678"),
+    onBoard: c("FLIGHT UX042 DATED 10 APR 2025"),
+    buque: c(""),
+    charterParty: c(""),
+    puertoEmbarque: c("MONTEVIDEO AIRPORT, URUGUAY"),
+    puertoDestino: c("COLOMBO AIRPORT, SRI LANKA"),
+  };
+  return examinarPresentacion({
+    lc: credito.lc,
+    credito: { ...contextoDesdeSwift(credito), transbordo: "NOT ALLOWED" },
+    docs: [
+      { tipo: "FACTURA", campos: DOCUMENTOS_CSU2025099.FACTURA! },
+      { tipo: "BL", campos: awb },
+    ],
+    empresaRazonSocial: credito.extra.beneficiario[0] ?? "",
+    hoy: new Date(2025, 3, 20),
+  });
+};
+
 const examenReal = () => ({ r: examenEn(new Date(2025, 3, 20)) });
 
+function sinTraducirEn(r: { reglas: { regla: string; evidencia?: string | null }[] }) {
+  return r.reglas
+    .map((x) => reglaEnIngles(x as never))
+    .flatMap((x) => [
+      { donde: `regla «${x.regla}»`, palabra: quedaEspanol(x.regla) },
+      { donde: `evidencia «${x.evidencia}»`, palabra: quedaEspanol(x.evidencia ?? "") },
+    ])
+    .filter((x) => x.palabra !== null);
+}
+
 describe("cobertura sobre el expediente real", () => {
+  it("ningún hallazgo queda con español: con documento de transporte aéreo", () => {
+    const sinTraducir = sinTraducirEn(examenAereo());
+    expect(sinTraducir.map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
+  });
+
   it.each(ESCENARIOS)("ningún hallazgo queda con español: %s", (_nombre, hoy, anteriores) => {
     const r = examenEn(hoy, anteriores);
     const sinTraducir = r.reglas

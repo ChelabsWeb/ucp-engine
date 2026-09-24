@@ -375,3 +375,73 @@ describe("el documento de transporte se examina con el artículo que le correspo
     expect(r.some((x) => x.id.startsWith("ucp-20a"))).toBe(true);
   });
 });
+
+describe("el documento de transporte aéreo (UCP 600 art. 23)", () => {
+  const aereo = (over: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>> = {}) =>
+    doc({
+      tipoTransporte: campo("AIR WAYBILL"),
+      numeroDoc: campo("020-12345678"),
+      fechaDocumento: campo("08-APR-2025"),
+      puertoEmbarque: campo("MONTEVIDEO AIRPORT, URUGUAY"),
+      puertoDestino: campo("COLOMBO AIRPORT, SRI LANKA"),
+      ...over,
+    });
+  const corrAereo = (over = {}, lc: Partial<LcInfo> = {}) =>
+    reglasUCP({ lc: { ...LC, ...lc }, credito: CTX, docs: [{ tipo: "BL", campos: aereo(over) }], hoy: HOY });
+
+  it("23a-ii: tiene que decir que la mercadería fue aceptada para transporte", () => {
+    const r = corrAereo({ onBoard: campo("") }).find((x) => x.id === "ucp-23a-ii");
+    expect(r?.estado).toBe("ATENCION");
+    const ok = corrAereo({ onBoard: campo("RECEIVED FOR CARRIAGE 08-APR-2025") }).find((x) => x.id === "ucp-23a-ii");
+    expect(ok?.estado).toBe("OK");
+  });
+
+  it("23a-iii: sin notación del embarque real, la fecha de embarque es la de emisión", () => {
+    const r = corrAereo().find((x) => x.id === "ucp-23a-iii");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/08-APR-2025|emisi/i);
+  });
+
+  it("23a-iii: y el número de vuelo con su fecha NO cuenta para esa fecha", () => {
+    /*
+     * Es la trampa del artículo: el AWB trae un recuadro con vuelo y fecha —«FLIGHT UX042 / 10
+     * APR»— que no es la fecha de embarque. Tomarla corre el embarque unos días y puede inventar
+     * un embarque tardío contra el 44C.
+     */
+    const r = corrAereo({ onBoard: campo("FLIGHT UX042 DATED 10 APR 2025") }).find((x) => x.id === "ucp-23a-iii");
+    expect(r?.evidencia).toMatch(/vuelo/i);
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("23a-v: alcanza el original del expedidor aunque el crédito pida el juego completo", () => {
+    /*
+     * El crédito real dice «FULL SET OF (3/3) ... BILLS OF LADING». En un aéreo eso no se puede
+     * cumplir —el expedidor recibe un solo original— y el artículo lo resuelve: basta ese. Marcarlo
+     * como juego incompleto es rechazar lo único que el transportista entrega.
+     */
+    const r = corrAereo({ juegoOriginales: campo("ORIGINAL 3 (FOR SHIPPER)") }).find((x) => x.id === "ucp-23a-v");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/expedidor|shipper/i);
+  });
+
+  it("23c-ii: el transbordo se acepta aunque el crédito lo prohíba", () => {
+    const ctxSinTransbordo = { ...CTX, transbordo: "NOT ALLOWED" };
+    const r = reglasUCP({
+      lc: LC,
+      credito: ctxSinTransbordo,
+      docs: [{ tipo: "BL", campos: aereo() }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-23c-ii");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/aunque el crédito lo prohíba|23 ?\(?c/i);
+  });
+
+  it("23a-iv: los aeropuertos son los que fija el crédito", () => {
+    const malo = corrAereo({ puertoEmbarque: campo("BUENOS AIRES AIRPORT") }).find((x) => x.id === "ucp-23a-iv-carga");
+    expect(malo?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y ninguna regla del artículo 20 se aplica a un aéreo", () => {
+    expect(corrAereo().some((x) => x.id.startsWith("ucp-20a"))).toBe(false);
+  });
+});

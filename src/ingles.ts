@@ -31,6 +31,53 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── transporte aéreo (UCP 600 art. 23) ──
+  [
+    /^El documento indica que la mercadería fue aceptada para transporte$/g,
+    "The document indicates that the goods have been accepted for carriage",
+  ],
+  [/^La mercadería consta aceptada para transporte$/g, "The goods are shown as accepted for carriage"],
+  [
+    /^La fecha de embarque es la de emisión, salvo notación del embarque real$/g,
+    "The date of shipment is the date of issuance, unless a notation of the actual shipment says otherwise",
+  ],
+  [/^Fecha de emisión del documento aéreo$/g, "Date of issuance of the air transport document"],
+  [/^rige la fecha de emisión, /g, "the date of issuance governs, "],
+  [
+    /: el número de vuelo y su fecha no cuentan para determinar la fecha de embarque$/g,
+    ": the flight number and its date are not taken into account in determining the date of shipment",
+  ],
+  [/^el crédito /g, "the credit "],
+  [/^Aeropuerto de salida el que indica el crédito \(([^)]*)\)$/g, "Airport of departure as stated in the credit ($1)"],
+  [
+    /^Aeropuerto de destino el que indica el crédito \(([^)]*)\)$/g,
+    "Airport of destination as stated in the credit ($1)",
+  ],
+  [/^Aeropuerto de salida el que indica el crédito$/g, "Airport of departure as stated in the credit"],
+  [/^Aeropuerto de destino el que indica el crédito$/g, "Airport of destination as stated in the credit"],
+  [/^el aeropuerto de salida$/g, "the airport of departure"],
+  [/^el aeropuerto de destino$/g, "the airport of destination"],
+  [
+    /^Basta el original para el expedidor, aunque el crédito pida el juego completo$/g,
+    "The original for consignor or shipper suffices, even if the credit calls for a full set",
+  ],
+  [
+    /; el artículo 23 \(a\) \(v\) admite el original del expedidor aunque el crédito exija el juego completo$/g,
+    "; article 23 (a) (v) admits the original for consignor or shipper even where the credit stipulates a full set",
+  ],
+  [
+    /^el artículo 23 \(a\) \(v\) admite el original del expedidor aunque el crédito exija el juego completo$/g,
+    "article 23 (a) (v) admits the original for consignor or shipper even where the credit stipulates a full set",
+  ],
+  [
+    /^El transbordo no hace discrepante a un documento aéreo$/g,
+    "Transhipment does not make an air transport document discrepant",
+  ],
+  [
+    /, pero el artículo 23 \(c\) \(ii\) lo admite aunque el crédito lo prohíba$/g,
+    ", but article 23 (c) (ii) admits it even where the credit prohibits transhipment",
+  ],
+  [/^esa indicación$/g, "that indication"],
   // ── la clase del documento de transporte (`transporte.ts`) ──
   [/^Clase del documento de transporte$/g, "Class of transport document"],
   [/^conocimiento de embarque marítimo: /g, "marine bill of lading: "],
