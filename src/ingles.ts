@@ -1,3 +1,4 @@
+import type { DiferenciaContrato } from "./contrato";
 import type { ReglaPresentacion } from "./presentacion";
 import type { VerificacionManual } from "./verificaciones-manuales";
 
@@ -30,6 +31,63 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── el crédito contra el contrato de venta (`contrato.ts`) ──
+  [/^Documento no pactado$/g, "Document not agreed"],
+  [/^no está en el contrato$/g, "not in the contract"],
+  [
+    /^Hay que conseguirlo igual: sin ese documento la presentación queda incompleta\.$/g,
+    "It has to be obtained anyway: without it the presentation is incomplete.",
+  ],
+  [/^Plazo de presentación$/g, "Period for presentation"],
+  [/^(\d+) días$/g, "$1 days"],
+  [
+    /^(\d+) días menos para juntar los documentos y presentarlos\.$/g,
+    "$1 days less to gather the documents and present them.",
+  ],
+  [/^(\d+) días más que lo pactado\.$/g, "$1 days more than agreed."],
+  [/^Último embarque$/g, "Latest shipment"],
+  [
+    /^El crédito cierra el embarque antes de lo pactado: hay que adelantar la carga\.$/g,
+    "The credit closes shipment earlier than agreed: loading has to be brought forward.",
+  ],
+  [
+    /^El crédito da más tiempo para embarcar que el contrato\.$/g,
+    "The credit allows more time to ship than the contract.",
+  ],
+  [/^Monto$/g, "Amount"],
+  [
+    /^El crédito abre por ([\d.,]+) menos de lo pactado: eso no se cobra contra este crédito\.$/g,
+    "The credit is opened for $1 less than agreed: that amount is not collected under this credit.",
+  ],
+  [/^El crédito abre por ([\d.,]+) más de lo pactado\.$/g, "The credit is opened for $1 more than agreed."],
+  [/^Moneda$/g, "Currency"],
+  [
+    /^Se cobra en una moneda distinta de la pactada: el riesgo de cambio cambia de manos\.$/g,
+    "Payment comes in a currency other than the one agreed: the exchange risk changes hands.",
+  ],
+  [/^Tolerancia$/g, "Tolerance"],
+  [
+    /^Menos margen que el pactado: un embarque que el contrato admitía puede quedar fuera del crédito\.$/g,
+    "Less margin than agreed: a shipment the contract allowed may fall outside the credit.",
+  ],
+  [/^Más margen que el pactado\.$/g, "More margin than agreed."],
+  [/^Embarques parciales$/g, "Partial shipments"],
+  [/^permitidos$/g, "allowed"],
+  [/^no permitidos$/g, "not allowed"],
+  [
+    /^Todo tiene que salir en un solo embarque, contra lo pactado\.$/g,
+    "Everything has to go in a single shipment, against what was agreed.",
+  ],
+  [
+    /^El crédito admite partir el embarque aunque el contrato no lo previera\.$/g,
+    "The credit allows splitting the shipment even though the contract did not provide for it.",
+  ],
+  [/^Puerto de embarque$/g, "Port of loading"],
+  [/^Puerto de destino$/g, "Port of discharge"],
+  [
+    /^No coincide con lo pactado: confirmarlo antes de reservar la bodega\.$/g,
+    "It does not match what was agreed: confirm it before booking the space.",
+  ],
   [
     /^Los documentos de un mismo embarque no pueden contradecirse \(UCP 600 art\. 14d\): el banco lo marca como discrepancia\. Unificar la descripción de los bultos antes de presentar\.$/g,
     "Documents covering the same shipment must not conflict with one another (UCP 600 art. 14(d)): the bank raises this as a discrepancy. Align the description of the packages before presenting.",
@@ -290,6 +348,16 @@ export function textoEnIngles(texto: string): string {
 /** Un hallazgo entero en inglés. La fuente y el estado no se traducen: son claves. */
 export function reglaEnIngles(r: ReglaPresentacion): ReglaPresentacion {
   return { ...r, regla: textoEnIngles(r.regla), evidencia: textoEnIngles(r.evidencia ?? "") };
+}
+
+/** Un desvío contra el contrato, en inglés: el campo, los valores y la consecuencia. */
+export function desvioEnIngles(d: DiferenciaContrato): DiferenciaContrato {
+  return {
+    ...d,
+    campo: textoEnIngles(d.campo),
+    contrato: textoEnIngles(d.contrato),
+    consecuencia: textoEnIngles(d.consecuencia),
+  };
 }
 
 export function manualEnIngles(m: VerificacionManual): VerificacionManual {

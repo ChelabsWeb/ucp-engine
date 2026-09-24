@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { type ContratoDeVenta, compararConContrato, describirDesvio, resumenDesvios } from "./contrato";
 import { SWIFT_CSU2025099 } from "./fixtures";
+import { desvioEnIngles, quedaEspanol } from "./ingles";
 import { parseMT700 } from "./swift-lc";
 
 /**
@@ -117,5 +118,33 @@ describe("las diferencias que hacen perder plata", () => {
   it("si el contrato permite embarques parciales y el crédito no, cambia la logística", () => {
     const d = compararConContrato(LC, { ...PROFORMA, parcialesPermitidos: true }, { parciales: "NOT ALLOWED" });
     expect(d.find((x) => x.campo.includes("parciales"))?.desvio).toBe("MAS_ESTRICTO");
+  });
+});
+
+describe("los desvíos también van en inglés", () => {
+  /*
+   * El motor escribe en español —viene de romai— y lo que sale hacia un banco pasa por `ingles.ts`.
+   * Si alguien agrega un desvío y no toca el diccionario, la pantalla en inglés muestra media frase
+   * en español y no se entera nadie hasta que la ve un banco. `quedaEspanol` lo encuentra antes.
+   */
+  it("ni una palabra en español sobrevive a la traducción", () => {
+    const casos = [
+      compararConContrato(LC, PROFORMA),
+      compararConContrato({ ...LC, monto: 50000, moneda: "EUR", tolerancia: 0.05 }, PROFORMA),
+      compararConContrato(LC, { ...PROFORMA, ultimoEmbarque: "31-mar-25" }),
+      compararConContrato(LC, { ...PROFORMA, puertoEmbarque: "Buenos Aires" }, { puertoEmbarque: "MONTEVIDEO" }),
+      compararConContrato(LC, PROFORMA, { parciales: "NOT ALLOWED" }),
+    ].flat();
+    expect(casos.length).toBeGreaterThan(8);
+    for (const d of casos) {
+      const en = desvioEnIngles(d);
+      for (const [campo, texto] of [
+        ["campo", en.campo],
+        ["contrato", en.contrato],
+        ["consecuencia", en.consecuencia],
+      ] as const) {
+        expect(quedaEspanol(texto), `${campo}: «${texto}»`).toBeNull();
+      }
+    }
   });
 });
