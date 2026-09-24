@@ -41,7 +41,13 @@ declare global {
 
 const FUENTES = import.meta.glob("./*.ts", { query: "?raw", import: "default", eager: true });
 
-/** Los módulos cuyo texto llega a una pantalla o a un aviso. */
+/**
+ * Los módulos cuyo texto llega a una pantalla o a un aviso.
+ *
+ * `mt734.ts` y `mt750.ts` quedan afuera y conviene saber por qué: sus avisos nacen en inglés, como
+ * los de `lectura-fallida.ts`, y los traduce el diccionario de la aplicación. Quien los cubre es
+ * `textos.test.ts` en `apps/web`, que ata ese diccionario a los textos que el motor produce.
+ */
 const MODULOS = [
   "reglas-ucp.ts",
   "transporte.ts",
@@ -51,6 +57,7 @@ const MODULOS = [
   "certificados.ts",
   "especificaciones.ts",
   "verificaciones-manuales.ts",
+  "checking-list.ts",
 ];
 
 /**

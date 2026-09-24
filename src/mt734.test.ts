@@ -113,7 +113,7 @@ describe("el juego de caracteres de la red", () => {
 
   it("y se avisa que hubo que reemplazar algo", () => {
     const r = mt734({ ...BASE, discrepancias: ["Descripción con acentos"] });
-    expect(r.avisos.join(" ")).toMatch(/caracter/i);
+    expect(r.avisos.join(" ")).toMatch(/characters/i);
   });
 });
 

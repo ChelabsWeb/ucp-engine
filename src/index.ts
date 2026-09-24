@@ -124,6 +124,9 @@ export { motivoDeFallaDeLectura } from "./lectura-fallida";
 export type { DatosMT734, MensajeMT734 } from "./mt734";
 /** El aviso del artículo 16 como mensaje SWIFT MT734, con los largos de campo del estándar. */
 export { mt734 } from "./mt734";
+export type { DatosMT750, DatosMT752, MensajeSwift, ModoDeHonrar } from "./mt750";
+/** El otro camino cuando el examen da rojo: consultar la dispensa (MT750) y concederla (MT752). */
+export { mt750, mt752 } from "./mt750";
 export type { CamposPreparados, CantidadResuelta, ComoSeResolvio } from "./numeros";
 /** Números escritos de formas distintas sobre el mismo embarque: cantidades y contenedores. */
 export {

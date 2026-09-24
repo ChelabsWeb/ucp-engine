@@ -1,4 +1,5 @@
 import type { DestinoDocumentos } from "./checking-list";
+import { aJuegoSwift, envolver, importeSwift, yymmdd } from "./swift-salida";
 
 /**
  * El aviso de rechazo como mensaje SWIFT MT734.
@@ -82,89 +83,6 @@ const TEXTO_77B: Record<DestinoDocumentos, string[]> = {
   SEGUN_INSTRUCCIONES_PREVIAS: ["WE ARE ACTING UNDER INSTRUCTIONS", "PREVIOUSLY RECEIVED FROM YOU"],
 };
 
-/**
- * El juego de caracteres X de SWIFT.
- *
- * Un carácter fuera de este conjunto hace que la red rechace el mensaje. El aviso va en inglés, así
- * que no debería aparecer ninguno; pero el nombre de una empresa o un puerto puede traer una eñe o
- * una tilde, y el texto de una discrepancia puede traer comillas angulares o una raya. Se
- * reemplazan por el equivalente más cercano y se avisa: un mensaje que rebota en la red es un aviso
- * que no llegó, y el plazo del 16 (d) sigue corriendo igual.
- */
-const PERMITIDOS = /^[A-Za-z0-9/\-?:().,'+ ]*$/;
-
-const EQUIVALENTES: [RegExp, string][] = [
-  [/[áàäâã]/g, "a"],
-  [/[éèëê]/g, "e"],
-  [/[íìïî]/g, "i"],
-  [/[óòöôõ]/g, "o"],
-  [/[úùüû]/g, "u"],
-  [/[ÁÀÄÂÃ]/g, "A"],
-  [/[ÉÈËÊ]/g, "E"],
-  [/[ÍÌÏÎ]/g, "I"],
-  [/[ÓÒÖÔÕ]/g, "O"],
-  [/[ÚÙÜÛ]/g, "U"],
-  [/ñ/g, "n"],
-  [/Ñ/g, "N"],
-  [/ç/g, "c"],
-  [/Ç/g, "C"],
-  [/[«»""]/g, "'"],
-  [/['']/g, "'"],
-  [/[—–]/g, "-"],
-  [/[…]/g, "..."],
-  [/[%]/g, " PCT"],
-  [/[&]/g, " AND "],
-];
-
-function aJuegoSwift(texto: string): { texto: string; hubeQueCambiar: boolean } {
-  let salida = texto;
-  for (const [re, con] of EQUIVALENTES) salida = salida.replace(re, con);
-  // Lo que siga sin ser admitido no se puede adivinar: va como espacio, que es inocuo.
-  salida = salida.replace(/./g, (ch) => (PERMITIDOS.test(ch) ? ch : " "));
-  return { texto: salida.replace(/ {2,}/g, " ").trim(), hubeQueCambiar: salida !== texto };
-}
-
-/** Corta un texto en líneas de a lo sumo `ancho`, sin partir palabras cuando se puede. */
-function envolver(texto: string, ancho: number): string[] {
-  const out: string[] = [];
-  for (const parrafo of texto.split("\n")) {
-    let linea = "";
-    for (const palabra of parrafo.split(/\s+/).filter(Boolean)) {
-      if (palabra.length > ancho) {
-        // Una palabra más larga que el campo se parte: no hay otra forma de que entre.
-        if (linea) {
-          out.push(linea);
-          linea = "";
-        }
-        for (let i = 0; i < palabra.length; i += ancho) out.push(palabra.slice(i, i + ancho));
-        continue;
-      }
-      if (!linea) linea = palabra;
-      else if (linea.length + 1 + palabra.length <= ancho) linea += ` ${palabra}`;
-      else {
-        out.push(linea);
-        linea = palabra;
-      }
-    }
-    if (linea) out.push(linea);
-  }
-  return out;
-}
-
-const yymmdd = (d: Date) =>
-  `${String(d.getFullYear() % 100).padStart(2, "0")}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
-
-/**
- * El importe como lo escribe SWIFT.
- *
- * Coma decimal —siempre, aun sin decimales: «51262,»— y sin separador de miles. Un punto en lugar
- * de la coma hace que el mensaje rebote.
- */
-function importeSwift(n: number): string {
-  const [entero, decimales = ""] = n.toFixed(2).split(".");
-  return `${entero},${decimales.replace(/0+$/, "")}`;
-}
-
 export function mt734(d: DatosMT734): MensajeMT734 {
   const avisos: string[] = [];
   if (d.discrepancias.length === 0) return { texto: "", avisos: [] };
@@ -185,7 +103,7 @@ export function mt734(d: DatosMT734): MensajeMT734 {
 
   const ref = limpiar(d.referenciaPropia).slice(0, 16);
   const refPresentador = limpiar(d.referenciaPresentador).slice(0, 16) || "NONREF";
-  if (d.referenciaPropia.length > 16) avisos.push(`La referencia propia se recortó a 16 caracteres: «${ref}».`);
+  if (d.referenciaPropia.length > 16) avisos.push(`The sender reference was trimmed to 16 characters: "${ref}".`);
 
   campo("20", [ref]);
   campo("21", [refPresentador]);
@@ -205,9 +123,9 @@ export function mt734(d: DatosMT734): MensajeMT734 {
   if (lineas77J.length > MAX_77J_LINEAS) {
     const afuera = lineas77J.length - MAX_77J_LINEAS;
     avisos.push(
-      `Las discrepancias no entran en el campo 77J: sobran ${afuera} líneas de las ${lineas77J.length} necesarias ` +
-        `(el campo admite ${MAX_77J_LINEAS}). Hay que acortarlas o cursar el aviso por otra vía — una discrepancia ` +
-        `que no se transmite es una discrepancia que no se invocó (UCP 600 art. 16 f).`,
+      `The discrepancies do not fit in field 77J: ${afuera} lines over the ${lineas77J.length} needed ` +
+        `(the field takes ${MAX_77J_LINEAS}). Shorten them or send the notice by another route — a discrepancy ` +
+        `that is not transmitted is a discrepancy that was not raised (UCP 600 art. 16 f).`,
     );
   }
   campo("77J", lineas77J.slice(0, MAX_77J_LINEAS));
@@ -215,8 +133,8 @@ export function mt734(d: DatosMT734): MensajeMT734 {
 
   if (hubeQueCambiar) {
     avisos.push(
-      "Hubo caracteres que la red SWIFT no admite y se reemplazaron por su equivalente más cercano: " +
-        "revisar el texto antes de cursarlo.",
+      "Some characters are not admitted by the SWIFT network and were replaced by their nearest equivalent: " +
+        "review the text before sending it.",
     );
   }
 
