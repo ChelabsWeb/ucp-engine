@@ -86,6 +86,18 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/: verificar el sello o la firma a mano$/g, ": check the stamp or the signature by hand"],
   [/^el documento se titula /g, "the document is headed "],
   [
+    /^El contrato de fletamento se presenta pero no se examina$/g,
+    "The charter party contract is presented but not examined",
+  ],
+  [
+    /^el crédito exige presentarlo; el artículo 22 \(b\) dice que el banco no examina contratos de fletamento$/g,
+    "the credit requires it to be presented; article 22 (b) provides that a bank will not examine charter party contracts",
+  ],
+  [
+    / — el crédito indica una zona o un rango de puertos, así que hay que verificar a mano que el lugar del documento esté dentro$/g,
+    " — the credit states a geographical area or a range of ports, so it has to be checked by hand that the place on the document falls within it",
+  ],
+  [
     /^El conocimiento no indica estar sujeto a contrato de fletamento$/g,
     "The bill of lading contains no indication that it is subject to a charter party",
   ],

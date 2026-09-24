@@ -148,6 +148,41 @@ describe("cobertura sobre el expediente real", () => {
     ["de clase no determinada", { numeroDoc: { valor: "X-1", confianza: 0.9 } }],
   ];
 
+  /*
+   * Un crédito que indica una zona en vez de un puerto.
+   *
+   * Aparece en cualquier crédito de graneles —«EUROPEAN MAIN PORTS»— y genera una nota que ningún
+   * otro escenario produce: la que dice que el motor no puede decidir si el puerto está dentro.
+   */
+  it("ningún hallazgo queda con español: el crédito exige un contrato de fletamento", () => {
+    const credito = parseMT700(SWIFT_CSU2025099)!;
+    const r = examinarPresentacion({
+      lc: { ...credito.lc, documentosExigidos: [...(credito.lc.documentosExigidos ?? []), "CHARTER PARTY CONTRACT"] },
+      credito: contextoDesdeSwift(credito),
+      docs: [{ tipo: "BL", campos: DOCUMENTOS_CSU2025099.BL! }],
+      empresaRazonSocial: credito.extra.beneficiario[0] ?? "",
+      hoy: new Date(2025, 3, 20),
+    });
+    expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
+  });
+
+  it("ningún hallazgo queda con español: el crédito indica una zona de puertos", () => {
+    const credito = parseMT700(SWIFT_CSU2025099)!;
+    const r = examinarPresentacion({
+      lc: credito.lc,
+      credito: { ...contextoDesdeSwift(credito), puertoDestino: "EUROPEAN MAIN PORTS" },
+      docs: [
+        {
+          tipo: "BL",
+          campos: { ...DOCUMENTOS_CSU2025099.BL!, puertoDestino: { valor: "ROTTERDAM", confianza: 0.9 } },
+        },
+      ],
+      empresaRazonSocial: credito.extra.beneficiario[0] ?? "",
+      hoy: new Date(2025, 3, 20),
+    });
+    expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
+  });
+
   it.each(CLASES)("ningún hallazgo queda con español: documento de transporte %s", (_nombre, campos) => {
     const sinTraducir = sinTraducirEn(examenConTransporte(campos));
     expect(sinTraducir.map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);

@@ -542,3 +542,81 @@ describe("los transportes que no son marítimos ni aéreos", () => {
     });
   });
 });
+
+describe("cuando el crédito indica una zona y no un puerto", () => {
+  /*
+   * El artículo 22 (a) (iii) lo dice para el fletamento —el puerto de descarga puede mostrarse como
+   * un rango de puertos o una zona geográfica— y en la práctica aparece en cualquier crédito de
+   * graneles: «EUROPEAN MAIN PORTS», «ARAG RANGE», «ANY PORT IN SRI LANKA».
+   *
+   * El motor no sabe geografía y no puede saber si Rotterdam está en «EUROPEAN MAIN PORTS». Lo que
+   * no puede decidir no lo dictamina: lo manda a verificar. Marcar discrepancia sobre un embarque
+   * correcto es peor que pedir que alguien lo mire.
+   */
+  const conDestino = (enCredito: string, enDoc: string, charter = true) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, puertoDestino: enCredito },
+      docs: [
+        {
+          tipo: "BL",
+          campos: doc({
+            puertoDestino: campo(enDoc),
+            buque: campo("STELLA AUSTRAL"),
+            ...(charter ? { charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-25") } : {}),
+          }),
+        },
+      ],
+      hoy: HOY,
+    }).find((x) => x.id.includes("puertoDestino"));
+
+  it("un puerto dentro de una zona no se marca como discrepancia: se manda a verificar", () => {
+    const r = conDestino("EUROPEAN MAIN PORTS", "ROTTERDAM");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/zona|rango/i);
+  });
+
+  it.each([
+    ["ARAG RANGE", "ANTWERP"],
+    ["ANY PORT IN SRI LANKA", "GALLE"],
+    ["US GULF PORTS", "HOUSTON"],
+    ["COLOMBO/CHENNAI", "CHENNAI"],
+  ])("«%s» con «%s» tampoco", (enCredito, enDoc) => {
+    expect(conDestino(enCredito, enDoc)?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("pero un puerto concreto contra otro puerto concreto sigue siendo discrepancia", () => {
+    // El aflojamiento vale para las zonas. Si el crédito nombra un puerto, sigue mandando.
+    expect(conDestino("COLOMBO,SRI LANKA", "MUMBAI, INDIA")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y si el documento coincide con la zona tal cual, está bien sin más vueltas", () => {
+    expect(conDestino("EUROPEAN MAIN PORTS", "EUROPEAN MAIN PORTS")?.estado).toBe("OK");
+  });
+});
+
+describe("el contrato de fletamento, que el banco no examina (art. 22 b)", () => {
+  const conExigencia = (exigidos: string[]) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: exigidos },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ buque: campo("STELLA AUSTRAL") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-22b");
+
+  it("si el crédito lo pide, se dice que se presenta pero no se revisa", () => {
+    /*
+     * El artículo es terminante: el banco no examina los contratos de fletamento, aunque las
+     * condiciones del crédito exijan presentarlos. Decirlo ahorra el trabajo de revisar cien
+     * páginas que no cambian el resultado, y evita que alguien invoque una discrepancia sobre algo
+     * que no se examina.
+     */
+    const r = conExigencia(["CHARTER PARTY CONTRACT", "COMMERCIAL INVOICE IN 03 FOLD"]);
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/no se examina|no examina/i);
+  });
+
+  it("y si no lo pide, no se dice nada: una regla de más es ruido", () => {
+    expect(conExigencia(["COMMERCIAL INVOICE IN 03 FOLD"])).toBeUndefined();
+  });
+});

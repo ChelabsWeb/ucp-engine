@@ -56,6 +56,23 @@ function fechaEnTexto(t: string): Date | null {
 }
 
 /** ¿Comparten alguna palabra significativa? Los puertos se escriben de mil formas. */
+/**
+ * Si lo que el crédito escribe como lugar es una zona o un rango de puertos, no un puerto.
+ *
+ * El artículo 22 (a) (iii) lo admite expresamente para el conocimiento sujeto a fletamento —el
+ * puerto de descarga puede mostrarse como un rango de puertos o una zona geográfica— y en los
+ * graneles aparece en cualquier crédito: «EUROPEAN MAIN PORTS», «ARAG RANGE» (Amsterdam-Rotterdam-
+ * Amberes-Gante), «US GULF PORTS», «ANY PORT IN SRI LANKA».
+ */
+function esZonaDeLugares(texto: string): boolean {
+  const t = texto.toUpperCase();
+  return (
+    /\bRANGE\b|\bANY\s+PORT\b|\bMAIN\s+PORTS?\b|\bPORTS\b|\bAREA\b|\bCOAST\b|\bSEABOARD\b|CUALQUIER PUERTO|PUERTOS\b/.test(
+      t,
+    ) || /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/.test(t)
+  );
+}
+
 function coincideLugar(a: string, b: string): boolean {
   const pa = norm(a)
     .split(" ")
@@ -163,6 +180,25 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
  * de a bordo (art. 20); en uno multimodal, no. Compartir esta función entre los dos artículos
  * mantiene el criterio igual donde el texto es igual.
  */
+/**
+ * El veredicto de comparar un lugar del documento contra lo que dice el crédito.
+ *
+ * Cuando el crédito indica una zona y el documento un puerto concreto, el motor **no puede** saber
+ * si ese puerto está dentro: no tiene geografía, y adivinarla sería inventar. Lo manda a verificar.
+ * Marcar discrepancia sobre un embarque correcto —Rotterdam contra «EUROPEAN MAIN PORTS»— es peor
+ * que pedir que alguien lo mire: la discrepancia falsa cuesta el fee, la demora y la confianza.
+ */
+function veredictoLugar(enDoc: string, delCredito: string): { estado: EstadoRegla; nota: string } {
+  if (coincideLugar(enDoc, delCredito)) return { estado: "OK", nota: "" };
+  if (esZonaDeLugares(delCredito)) {
+    return {
+      estado: "ATENCION",
+      nota: " — el crédito indica una zona o un rango de puertos, así que hay que verificar a mano que el lugar del documento esté dentro",
+    };
+  }
+  return { estado: "DISCREPANCIA", nota: "" };
+}
+
 function reglasLugares(
   doc: DocAnalizado,
   ctx: ContextoCredito,
@@ -180,13 +216,16 @@ function reglasLugares(
     const id = `${prefijo}-${sufijo}`;
     out.push(
       enDoc
-        ? regla(
-            id,
-            fuente,
-            `${cual} el que indica el crédito (${delCredito})`,
-            coincideLugar(enDoc, delCredito) ? "OK" : "DISCREPANCIA",
-            `el documento dice "${enDoc}"`,
-          )
+        ? (() => {
+            const v = veredictoLugar(enDoc, delCredito);
+            return regla(
+              id,
+              fuente,
+              `${cual} el que indica el crédito (${delCredito})`,
+              v.estado,
+              `el documento dice "${enDoc}"${v.nota}`,
+            );
+          })()
         : sinLeer(id, fuente, `${cual} el que indica el crédito`, cual.toLowerCase()),
     );
   }
@@ -398,13 +437,16 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
     const id = `ucp-23a-iv-${k === "puertoEmbarque" ? "carga" : "destino"}`;
     out.push(
       enDoc
-        ? regla(
-            id,
-            "UCP 600 23a-iv",
-            `Aeropuerto ${cual} el que indica el crédito (${delCredito})`,
-            coincideLugar(enDoc, delCredito) ? "OK" : "DISCREPANCIA",
-            `el documento dice "${enDoc}"`,
-          )
+        ? (() => {
+            const v = veredictoLugar(enDoc, delCredito);
+            return regla(
+              id,
+              "UCP 600 23a-iv",
+              `Aeropuerto ${cual} el que indica el crédito (${delCredito})`,
+              v.estado,
+              `el documento dice "${enDoc}"${v.nota}`,
+            );
+          })()
         : sinLeer(id, "UCP 600 23a-iv", `Aeropuerto ${cual} el que indica el crédito`, `el aeropuerto ${cual}`),
     );
   }
@@ -465,13 +507,16 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: stri
     const enDoc = val(bl, k);
     out.push(
       enDoc
-        ? regla(
-            `ucp-20a-iii-${k}`,
-            "UCP 600 20a-iii",
-            `Puerto ${cual} el que indica el crédito (${puertoLC})`,
-            coincideLugar(enDoc, puertoLC) ? "OK" : "DISCREPANCIA",
-            `el documento dice "${enDoc}"`,
-          )
+        ? (() => {
+            const v = veredictoLugar(enDoc, puertoLC);
+            return regla(
+              `ucp-20a-iii-${k}`,
+              "UCP 600 20a-iii",
+              `Puerto ${cual} el que indica el crédito (${puertoLC})`,
+              v.estado,
+              `el documento dice "${enDoc}"${v.nota}`,
+            );
+          })()
         : sinLeer(
             `ucp-20a-iii-${k}`,
             "UCP 600 20a-iii",
@@ -823,6 +868,26 @@ export function reglasUCP(input: {
           : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
       ),
     );
+    /*
+     * 22 (b): el banco no examina los contratos de fletamento, aunque el crédito exija presentarlos.
+     *
+     * Se dice cuando el crédito los pide, porque ahorra el trabajo de revisar cien páginas que no
+     * cambian el resultado y evita que alguien invoque una discrepancia sobre algo que, por el
+     * artículo, no se examina. Presentarlo sigue siendo obligatorio: lo que no se revisa es su
+     * contenido.
+     */
+    if (exigidos.some((d) => /charter\s*part/i.test(d) && /contract|contrato/i.test(d))) {
+      out.push(
+        regla(
+          "ucp-22b",
+          "UCP 600 22b",
+          "El contrato de fletamento se presenta pero no se examina",
+          "OK",
+          "el crédito exige presentarlo; el artículo 22 (b) dice que el banco no examina contratos de fletamento",
+        ),
+      );
+    }
+
     /*
      * Los artículos 21 y 22 comparten con el 20 la anotación de a bordo, los puertos y el buque: un
      * sea waybill y un conocimiento de fletamento se examinan con las mismas comprobaciones.
