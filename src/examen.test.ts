@@ -74,6 +74,34 @@ describe("la cantidad ambigua de la factura real", () => {
     const clara: CamposDoc = { ...facturaComoEstaEnElPapel, cantidad: campo("53,96") };
     expect(correr([{ tipo: "FACTURA", campos: clara }]).avisosDeLectura).toEqual([]);
   });
+
+  it("con el precio de una línea y el total de otra, la cuenta no cierra y se dice", () => {
+    /*
+     * La factura A 4401 imprime tres precios unitarios —FOB 800, flete 150, CFR 950— y un solo
+     * total, el CFR. Leer el primero y compararlo contra ese total es mezclar dos líneas: 53,96 ×
+     * 800 da 43.168, no 51.262. Pasó de verdad: el modelo devolvía el FOB. La cuenta entonces no
+     * resuelve nada y lo que corresponde es decir que hay que mirar el papel, no elegir una
+     * lectura porque sí.
+     */
+    const mezclado: CamposDoc = {
+      ...facturaComoEstaEnElPapel,
+      precioUnitario: campo("800,00"),
+      montoTotal: campo("51.262,00"),
+    };
+    const r = correr([{ tipo: "FACTURA", campos: mezclado, nombreArchivo: "Invoice A 4401" }]);
+    expect(r.avisosDeLectura.join(" ")).toContain("verificar");
+  });
+
+  it("con el precio que va con el total, resuelve", () => {
+    const coherente: CamposDoc = {
+      ...facturaComoEstaEnElPapel,
+      precioUnitario: campo("950,00"),
+      montoTotal: campo("51.262,00"),
+    };
+    const r = correr([{ tipo: "FACTURA", campos: coherente, nombreArchivo: "Invoice A 4401" }]);
+    expect(r.avisosDeLectura.join(" ")).toContain("51.262");
+    expect(r.avisosDeLectura.join(" ")).not.toContain("verificar");
+  });
 });
 
 describe("el expediente real, examinado entero", () => {

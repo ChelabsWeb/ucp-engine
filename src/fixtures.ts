@@ -88,8 +88,16 @@ export const DOCUMENTOS_CSU2025099: Partial<Record<TipoDocExterno, CamposDoc>> =
       confianza: 0.95,
     },
     numeroLC: {
-      valor: "",
-      confianza: 0,
+      valor: "LC LCMRDN25000471",
+      confianza: 0.95,
+    },
+    fechaDocumento: {
+      valor: "08/04/25",
+      confianza: 0.95,
+    },
+    precioUnitario: {
+      valor: "950,00",
+      confianza: 0.9,
     },
     referenciaProforma: {
       valor: "GOODS ARE SHIPPED AS PER PROFORMA INVOICE NO. 2025099 DTD 04.03.2025",
@@ -166,8 +174,12 @@ export const DOCUMENTOS_CSU2025099: Partial<Record<TipoDocExterno, CamposDoc>> =
       confianza: 0,
     },
     numeroLC: {
-      valor: "",
-      confianza: 0,
+      valor: "LC: LCMRDN25000471",
+      confianza: 0.95,
+    },
+    fechaDocumento: {
+      valor: "Montevideo, April 08th, 2025",
+      confianza: 0.95,
     },
     referenciaProforma: {
       valor: "",
@@ -256,12 +268,29 @@ export const DOCUMENTOS_CSU2025099: Partial<Record<TipoDocExterno, CamposDoc>> =
         "The shipper acknowledges that the Carrier may carry the goods identified in this bill of lading on the deck of any vessel",
       confianza: 0.9,
     },
+    /*
+     * Ojo con el escaneo de este documento.
+     *
+     * Estos campos son los del conocimiento de embarque ORIGINAL, el que se presentó al banco y el
+     * banco aceptó. El escaneo que quedó en la carpeta del expediente es otra cosa: la copia de
+     * archivo, que arriba dice COPY NON NEGOTIABLE y en la casilla «number of original bills of
+     * lading» dice ZERO (0). Leer ese escaneo y examinarlo da una discrepancia —se está
+     * presentando una copia y el crédito pide el juego completo de 3/3— que es correcta sobre ese
+     * papel y no existía en la presentación real.
+     *
+     * Vale saberlo antes de una demostración: si el documento que se carga sale de la carpeta y no
+     * de la valija que fue al banco, el motor lo va a marcar, y hay que poder explicar por qué.
+     */
     juegoOriginales: {
       valor: "three (3) original Bills of Lading",
       confianza: 0.9,
     },
     numeroLC: {
       valor: "LCMRDN25000471",
+      confianza: 0.95,
+    },
+    fechaDocumento: {
+      valor: "MONTEVIDEO 08 APR 2025",
       confianza: 0.95,
     },
     referenciaProforma: {
