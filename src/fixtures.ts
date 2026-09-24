@@ -300,5 +300,21 @@ export const DOCUMENTOS_CSU2025099: Partial<Record<TipoDocExterno, CamposDoc>> =
   },
 } as Partial<Record<TipoDocExterno, CamposDoc>>;
 
+/**
+ * El mismo crédito, declarado transferible.
+ *
+ * Es el del expediente con una sola diferencia: el campo 40B dice TRANSFERABLE. No es un crédito
+ * real y no tiene por qué serlo —lo que se prueba con él son las reglas del artículo 38, que
+ * dependen de esa palabra y de los importes, no de quiénes sean las partes—. El original del caso
+ * no es transferible, así que sin esto no habría con qué mostrar ni probar esa pantalla.
+ *
+ * Que sea derivado y no real está dicho acá para que nadie lo cite como un crédito de Meridian Bank:
+ * el banco nunca emitió este.
+ */
+export const SWIFT_TRANSFERIBLE_DERIVADO = SWIFT_CSU2025099.replace(
+  "IRREVOCABLE\n          WITHOUT OUR CONFIRMATION",
+  "IRREVOCABLE TRANSFERABLE\n          WITHOUT OUR CONFIRMATION",
+);
+
 /** La fecha a bordo del conocimiento de embarque, que arranca el plazo de presentación. */
 export const BL_REAL_CSU2025099 = "08-abr-25";

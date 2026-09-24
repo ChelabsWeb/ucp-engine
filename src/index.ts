@@ -79,7 +79,7 @@ export { contextoDesdeSwift, examinarPresentacion } from "./examen";
 /** Fechas de comercio exterior: "08-APR-2025", "16 ABR 2025", "04.03.2025", ISO. */
 export { diffDias, fmtFecha, fmtFechaEn, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente real con el que se validó el motor, para tests y demostraciones. */
-export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099 } from "./fixtures";
+export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099, SWIFT_TRANSFERIBLE_DERIVADO } from "./fixtures";
 export { desvioEnIngles, manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
 export type { EmisorAdmitido, VeredictoISBP } from "./isbp";
 /** Práctica bancaria estándar (ISBP 821): compara como compara un examinador. */

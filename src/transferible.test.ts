@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SWIFT_CSU2025099 } from "./fixtures";
+import { SWIFT_CSU2025099, SWIFT_TRANSFERIBLE_DERIVADO } from "./fixtures";
 import { parseMT700 } from "./swift-lc";
 import { revisarTransferencia, sePuedeTransferir } from "./transferible";
 import type { LcInfo } from "./types";
@@ -144,5 +144,21 @@ describe("las transferencias que el artículo no permite", () => {
     const o = r.find((x) => /transferid/i.test(x.que));
     expect(o?.gravedad).toBe("IMPIDE");
     expect(o?.porQue).toMatch(/primer beneficiario/i);
+  });
+});
+
+describe("el ejemplo derivado que usa la pantalla", () => {
+  it("se lee y sale transferible: si no, la pantalla no tendría nada que mostrar", () => {
+    const p = parseMT700(SWIFT_TRANSFERIBLE_DERIVADO);
+    expect(p).not.toBeNull();
+    expect(sePuedeTransferir(p!.extra.formaCredito).puede).toBe(true);
+  });
+
+  it("y sigue siendo el mismo crédito en todo lo demás", () => {
+    // Si el reemplazo rompiera otra cosa, el ejemplo dejaría de servir para probar el artículo 38.
+    const p = parseMT700(SWIFT_TRANSFERIBLE_DERIVADO)!;
+    expect(p.lc.numero).toBe(ORIGINAL.numero);
+    expect(p.lc.monto).toBe(ORIGINAL.monto);
+    expect(p.lc.documentosExigidos).toEqual(ORIGINAL.documentosExigidos);
   });
 });
