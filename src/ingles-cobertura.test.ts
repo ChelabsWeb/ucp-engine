@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { quedaEspanol, textoEnIngles } from "./ingles";
 
@@ -20,6 +18,28 @@ import { quedaEspanol, textoEnIngles } from "./ingles";
  * No reemplaza al otro: aquel prueba el texto **armado**, con sus valores adentro; este prueba las
  * piezas. Hacen falta los dos.
  */
+
+/*
+ * El fuente entra como texto, no leído del disco.
+ *
+ * `import.meta.glob` con `?raw` lo resuelve el mismo bundler que corre los tests, así que el motor
+ * sigue sin importar nada de Node: es puro también en sus pruebas, y eso es lo que le permite
+ * compilar para el navegador.
+ */
+/*
+ * El tipo de `import.meta.glob` vive en `vite/client`, y traer los tipos de vite acá solo para esto
+ * agregaría al paquete una dependencia que hoy no tiene. Se declara la firma que se usa y nada más.
+ *
+ * Y va escrito literal, no a través de una variable: el bundler lo sustituye durante la
+ * transformación del archivo y no lo reconoce de otra forma.
+ */
+declare global {
+  interface ImportMeta {
+    glob(patron: string, opciones: { query: string; import: string; eager: boolean }): Record<string, string>;
+  }
+}
+
+const FUENTES = import.meta.glob("./*.ts", { query: "?raw", import: "default", eager: true });
 
 /** Los módulos cuyo texto llega a una pantalla o a un aviso. */
 const MODULOS = [
@@ -132,8 +152,13 @@ function esTextoDeUsuario(s: string): boolean {
 }
 
 describe("el diccionario cubre todo lo que el motor escribe", () => {
+  it("encuentra el fuente de todos los módulos que dice mirar", () => {
+    // Sin esto, un módulo mal escrito en la lista haría pasar el test sin mirar nada.
+    for (const m of MODULOS) expect(FUENTES[`./${m}`], `no se pudo leer ${m}`).toBeTruthy();
+  });
+
   it.each(MODULOS)("%s", (modulo) => {
-    const fuente = sinPromptsNiEsquemas(readFileSync(join(__dirname, modulo), "utf8"));
+    const fuente = sinPromptsNiEsquemas(FUENTES[`./${modulo}`] ?? "");
     const sinTraducir = literales(fuente)
       .filter(esTextoDeUsuario)
       .map((s) => ({ texto: s, palabra: quedaEspanol(textoEnIngles(s)) }))
