@@ -24,7 +24,11 @@ export const PROMPT_EXAMEN =
   "- numeroLC: the documentary credit number if the document quotes it (L/C No., LC:, Credit No.).\n" +
   "- referenciaProforma: on an invoice, the sentence quoting the proforma ('goods shipped as per proforma invoice no. …').\n" +
   "- flete: on a transport document, 'FREIGHT PREPAID' or 'FREIGHT COLLECT'; on an invoice, the freight line if itemised.\n" +
-  "- hsCode: the tariff heading (HS CODE) as written.\n\n" +
+  "- hsCode: the tariff heading (HS CODE) as written.\n" +
+  "- montoTotal: the invoice grand total, the one amount the buyer owes.\n" +
+  "- precioUnitario: the unit price that goes with that total — the one that multiplied by the quantity gives it. " +
+  "An invoice often prints several unit prices, one per term of delivery (FOB, plus freight, CFR). " +
+  "Transcribe the one for the term the invoice is drawn under, which is the last line, not the first.\n\n" +
   "Transport document fields (UCP 600 articles 20, 26 and 27):\n" +
   "- onBoard: the on board notation in full, e.g. 'SHIPPED ON BOARD 08-APR-2025'. If the wording is pre-printed with no separate notation, transcribe the pre-printed wording.\n" +
   "- buque: the vessel name, including any qualifier such as 'INTENDED VESSEL'.\n" +

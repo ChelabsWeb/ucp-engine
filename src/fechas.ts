@@ -74,11 +74,17 @@ const valida = (y: number, m: number, d: number): Date | null => {
  * (packing), "April 08th, 2025" (certificados), "2025-04-08" (ISO). Numéricas = día/mes/año
  * (convención uruguaya y de los bancos de la región). Lo difuso ("+21 días", "~fin ago") → null.
  */
-export function parseFecha(s: string): Date | null {
+/**
+ * Los formatos que reconoce, exigiendo que el texto entero sea la fecha y nada más.
+ *
+ * Se mantiene separada de `parseFecha` porque la búsqueda dentro de un texto necesita un juez
+ * estricto: probar candidatos contra un parser indulgente devolvería cualquier cosa.
+ */
+function fechaExacta(s: string): Date | null {
   // "April, 08th, 2025 (08/04/2025)": se prueba cada tramo (fuera y dentro del paréntesis)
   if (s.includes("(")) {
     for (const tramo of s.split(/[()]/)) {
-      const f = tramo.trim() ? parseFecha(tramo) : null;
+      const f = tramo.trim() ? fechaExacta(tramo) : null;
       if (f) return f;
     }
     return null;
@@ -108,6 +114,65 @@ export function parseFecha(s: string): Date | null {
   }
   // ISO yyyy-mm-dd
   if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t))) return valida(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return null;
+}
+
+/**
+ * Los tramos de texto que podrían ser una fecha, en el orden en que aparecen.
+ *
+ * El texto ya viene normalizado (ordinales y comas fuera, un solo espacio). Las tres formas son
+ * las mismas que reconoce `fechaExacta`; lo que cambia es que acá no están ancladas. Los
+ * candidatos tienen que empezar en frontera de palabra y no terminar en dígito. Sin eso, «REF
+ * MVD0990117.06.25» entrega «30.06.25» y una referencia de expediente se leería como una fecha.
+ */
+function candidatos(t: string): string[] {
+  const guarda = String.raw`(?<![\w./-])`;
+  const cierre = String.raw`(?![\d])`;
+  const formas = [
+    // 08-apr-2025 · 08 april 2025 · 08/abr/25
+    String.raw`\d{1,2}[-/ ][a-zñ]{3,10}[-/ ](?:\d{4}|\d{2})`,
+    // april 08 2025
+    String.raw`[a-zñ]{3,10} \d{1,2} \d{4}`,
+    // 08/04/2025 · 08.04.25 · 2025-04-08
+    String.raw`\d{1,2}[/.-]\d{1,2}[/.-](?:\d{4}|\d{2})`,
+    String.raw`\d{4}-\d{2}-\d{2}`,
+  ];
+  const hallados: { pos: number; texto: string }[] = [];
+  for (const forma of formas) {
+    for (const m of t.matchAll(new RegExp(guarda + forma + cierre, "g"))) {
+      hallados.push({ pos: m.index, texto: m[0] });
+    }
+  }
+  return hallados.sort((a, b) => a.pos - b.pos).map((h) => h.texto);
+}
+
+/**
+ * Lee una fecha de un texto que puede traerla adentro.
+ *
+ * Los documentos de verdad no traen la fecha sola. La factura dice «Montevideo, April 08th, 2025»
+ * y el conocimiento de embarque «Place and date of issue: Montevideo, 08 APR 2025», porque el
+ * lugar y la fecha de emisión son un mismo campo en el formulario. Antes se exigía que el texto
+ * fuera la fecha, así que el packing del expediente CSU2025099 quedaba «sin fecha legible» y la
+ * regla del 47A —fechado el día del crédito o después— no se podía decidir. El formato ya estaba
+ * soportado: lo que faltaba era encontrarlo.
+ *
+ * Primero se prueba el texto entero, que es el caso limpio y el que llega desde la base. Solo si
+ * eso falla se busca adentro, y de los candidatos gana el primero que sea una fecha válida: el
+ * primero de izquierda a derecha, que en un «place and date of issue» es el que corresponde.
+ */
+export function parseFecha(s: string): Date | null {
+  const exacta = fechaExacta(s);
+  if (exacta) return exacta;
+  const t = s
+    .trim()
+    .toLowerCase()
+    .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ");
+  for (const c of candidatos(t)) {
+    const f = fechaExacta(c);
+    if (f) return f;
+  }
   return null;
 }
 

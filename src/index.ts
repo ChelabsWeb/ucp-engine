@@ -116,6 +116,8 @@ export {
   UCP_DIAS_EXAMEN,
   UCP_DIAS_PRESENTACION,
 } from "./lc";
+export type { FallaDeLectura } from "./lectura-fallida";
+export { motivoDeFallaDeLectura } from "./lectura-fallida";
 export type { CamposPreparados, CantidadResuelta, ComoSeResolvio } from "./numeros";
 /** Números escritos de formas distintas sobre el mismo embarque: cantidades y contenedores. */
 export {

@@ -120,3 +120,52 @@ describe("el formato de los documentos que salen del banco", () => {
     expect(fmtFecha(dia(2025, 6, 30))).toBe("30-jun-25");
   });
 });
+
+describe("una fecha con texto alrededor", () => {
+  /**
+   * Los documentos de verdad no traen la fecha sola: la traen como «place and date of issue». El
+   * packing del expediente dice «Montevideo, April 08th, 2025» y el parser devolvía nulo, así que la
+   * regla del 47A —fechado el día del crédito o después— quedaba en «sin fecha legible». El formato
+   * ya estaba soportado; lo que faltaba era encontrarlo adentro de la línea.
+   */
+  it.each([
+    ["Montevideo, April 08th, 2025", "2025-04-08"],
+    ["Montevideo, 08 April 2025", "2025-04-08"],
+    ["MONTEVIDEO 08 APR 2025", "2025-04-08"],
+    ["Place and date of issue: Montevideo, 08 APR 2025", "2025-04-08"],
+    ["Issued at Colombo on 30/06/2025", "2025-06-30"],
+    ["SHIPPED ON BOARD 08-APR-2025 OCEANLINE Uruguay", "2025-04-08"],
+  ])("lee la fecha de «%s»", (texto, esperado) => {
+    const f = parseFecha(texto);
+    expect(f).not.toBeNull();
+    expect(
+      `${f!.getFullYear()}-${String(f!.getMonth() + 1).padStart(2, "0")}-${String(f!.getDate()).padStart(2, "0")}`,
+    ).toBe(esperado);
+  });
+
+  it("lo que ya andaba sigue andando", () => {
+    expect(parseFecha("08/04/25")).not.toBeNull();
+    expect(parseFecha("08-APR-2025")).not.toBeNull();
+    expect(parseFecha("30-jun-25")).not.toBeNull();
+  });
+
+  it("y un texto sin fecha sigue devolviendo nulo", () => {
+    // Que el parser busque adentro no puede volverlo crédulo: «21 días» o un número de documento
+    // no son fechas.
+    const nada = [
+      "dentro de 21 días",
+      "A 4401",
+      "MVD0990117",
+      "",
+      "sin fecha",
+      "HS CODE 2301.20.00",
+      // Estos dos traen una fecha válida escondida adentro de un número que no es una fecha: la
+      // referencia del expediente y un código arancelario con subpartida nacional.
+      "REF MVD0990117.06.25",
+      "HS CODE 2301.02.25",
+    ];
+    for (const t of nada) {
+      expect(parseFecha(t), `«${t}» no es una fecha`).toBeNull();
+    }
+  });
+});
