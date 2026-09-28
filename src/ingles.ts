@@ -31,6 +31,22 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── quién emite y quién embarca (UCP 600 arts. 18 a i y 14 k) ──
+  [/^La factura la emite el beneficiario$/g, "The commercial invoice is issued by the beneficiary"],
+  [/^quién emite la factura$/g, "who issues the invoice"],
+  [
+    /^El embarcador del documento de transporte no tiene que ser el beneficiario$/g,
+    "The shipper on the transport document need not be the beneficiary",
+  ],
+  [/^la factura dice /g, "the invoice states "],
+  [
+    / y no se leyó el beneficiario del crédito: verificar a mano$/g,
+    " and the beneficiary of the credit was not read: check by hand",
+  ],
+  [/ y el crédito nombra beneficiario a /g, " and the credit names as beneficiary "],
+  [/^el documento de transporte dice /g, "the transport document states "],
+  [/ y el beneficiario es /g, " and the beneficiary is "],
+  [/: el artículo 14 \(k\) admite que no coincidan$/g, ": article 14 (k) admits that they do not match"],
   // ── la vigencia de una enmienda (UCP 600 art. 10) ──
   [
     /^La enmienda trae una cláusula de aceptación por silencio, y esa cláusula se desestima$/g,
@@ -608,12 +624,8 @@ const REEMPLAZOS: [RegExp, string][] = [
     "Documents covering the same shipment must not conflict with one another (UCP 600 art. 14(d)): the bank raises this as a discrepancy. Align the description of the packages before presenting.",
   ],
   [
-    /^La factura la emite el beneficiario y el BL\/packing el productor que embarca: es normal si la LC admite documentos de terceros \(47A\); si no, es discrepancia\.$/g,
-    "The invoice is issued by the beneficiary while the bill of lading and packing list are issued by the producer who ships: this is usual where the credit allows third party documents (field 47A); where it does not, it is a discrepancy.",
-  ],
-  [
-    /^La factura la emite el beneficiario y el BL\/packing el productor que embarca: es normal si la LC admite documentos de terceros \(47A\); si no, es discrepancia\.$/g,
-    "The invoice is issued by the beneficiary while the bill of lading and packing list are issued by the producer who ships: this is usual where the credit allows third party documents (field 47A); where it does not, it is a discrepancy.",
+    /^La factura la emite el beneficiario y el BL\/packing el productor que embarca\. Que el embarcador no sea el beneficiario no es discrepancia: el artículo 14 \(k\) lo admite\. Lo que sí tiene que emitir el beneficiario es la factura \(18 a i\)\.$/g,
+    "The invoice is issued by the beneficiary while the bill of lading and packing list are issued by the producer who ships. That the shipper is not the beneficiary is not a discrepancy: article 14 (k) admits it. What the beneficiary does have to issue is the invoice (18 a i).",
   ],
   [
     /^no se leyó un número de LC en el documento: verificar a mano$/g,

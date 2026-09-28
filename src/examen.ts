@@ -47,6 +47,8 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     puertoDestino: campo(p.campos.puertoDestino),
     mercaderia: campo(p.campos.mercaderia),
     aplicante: p.extra.aplicante[0] ?? null,
+    // El 59: sin él, la regla del artículo 18 (a) (i) no puede decidir quién emitió la factura.
+    beneficiario: p.extra.beneficiario[0] ?? null,
     parciales: p.extra.parciales,
     transbordo: p.extra.transbordo,
   };

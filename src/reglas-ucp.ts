@@ -27,6 +27,8 @@ export interface ContextoCredito {
   mercaderia?: string | null;
   /** 50: el ordenante, a cuyo nombre se emite la factura (art. 18a-ii) */
   aplicante?: string | null;
+  /** 59: el beneficiario, que es quien tiene que emitir la factura (art. 18a-i) */
+  beneficiario?: string | null;
   /** 43P: "ALLOWED" / "NOT ALLOWED" */
   parciales?: string | null;
   /** 43T: transbordo */
@@ -167,6 +169,77 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
       ),
     );
   }
+  return out;
+}
+
+/* ─────────── quién emite y quién embarca (arts. 18 a i y 14 k) ─────────── */
+
+/**
+ * La factura la emite el beneficiario; el que embarca puede ser cualquiera.
+ *
+ * Son dos preguntas distintas y el motor las trataba como una sola, en un aviso que terminaba
+ * diciendo «si la LC no admite documentos de terceros, es discrepancia». Para el embarcador eso es
+ * falso: el artículo 14 (k) dice que el shipper o consignador indicado en **cualquier** documento no
+ * necesita ser el beneficiario del crédito, y no lo condiciona a nada. Lo que sí tiene que emitir el
+ * beneficiario es la factura comercial (18 a i), salvo en un crédito transferido, donde la emite el
+ * segundo beneficiario.
+ *
+ * En el expediente del caso se ven las dos cosas a la vez: factura de Cerealsur, que es el
+ * beneficiario, y conocimiento a nombre de Molsur, que es el productor que embarca. Lo primero
+ * cumple el 18 (a) (i) y lo segundo lo permite el 14 (k).
+ */
+function reglasQuienEmite(ctx: ContextoCredito, docs: DocAnalizado[]): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+  const fac = docs.find((d) => d.tipo === "FACTURA");
+
+  if (fac) {
+    const emisor = val(fac, "exportador");
+    if (!emisor) {
+      out.push(sinLeer("ucp-18a-i", "UCP 600 18a-i", "La factura la emite el beneficiario", "quién emite la factura"));
+    } else if (!ctx.beneficiario) {
+      out.push(
+        regla(
+          "ucp-18a-i",
+          "UCP 600 18a-i",
+          "La factura la emite el beneficiario",
+          "ATENCION",
+          `la factura dice "${emisor}" y no se leyó el beneficiario del crédito: verificar a mano`,
+        ),
+      );
+    } else {
+      out.push(
+        regla(
+          "ucp-18a-i",
+          "UCP 600 18a-i",
+          "La factura la emite el beneficiario",
+          coincideLugar(emisor, ctx.beneficiario) ? "OK" : "DISCREPANCIA",
+          `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}"`,
+        ),
+      );
+    }
+  }
+
+  /*
+   * El embarcador, que es donde estaba el falso positivo.
+   *
+   * Se informa igual —que el nombre difiera puede ser señal de otra cosa y el examinador quiere
+   * verlo— pero como lo que es: algo que el artículo permite. Antes el mismo hecho salía sugiriendo
+   * que podía ser discrepancia.
+   */
+  const transporte = docs.find((d) => d.tipo === "BL");
+  const shipper = transporte ? val(transporte, "exportador") : null;
+  if (shipper && ctx.beneficiario && !coincideLugar(shipper, ctx.beneficiario)) {
+    out.push(
+      regla(
+        "ucp-14k",
+        "UCP 600 14k",
+        "El embarcador del documento de transporte no tiene que ser el beneficiario",
+        "OK",
+        `el documento de transporte dice "${shipper}" y el beneficiario es "${ctx.beneficiario}": el artículo 14 (k) admite que no coincidan`,
+      ),
+    );
+  }
+
   return out;
 }
 
@@ -915,6 +988,7 @@ export function reglasUCP(input: {
 
   if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac));
 
+  out.push(...reglasQuienEmite(ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
   return out;
 }

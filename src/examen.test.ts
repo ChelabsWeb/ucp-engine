@@ -134,3 +134,11 @@ describe("el expediente real, examinado entero", () => {
     expect(correr(docs).manuales.length).toBeGreaterThan(3);
   });
 });
+
+describe("el contexto que sale del crédito", () => {
+  it("lleva el beneficiario del campo 59: sin él no se puede examinar quién emitió la factura", () => {
+    // Estuvo faltando y la regla del 18 (a) (i) quedaba en «verificar a mano» sobre un crédito que
+    // nombra al beneficiario en su propio texto.
+    expect(contextoDesdeSwift(swift).beneficiario).toContain("CEREALSUR");
+  });
+});

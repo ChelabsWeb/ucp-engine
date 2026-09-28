@@ -866,8 +866,15 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
     "ALTA",
     "La partida arancelaria tiene que ser la misma en LC, factura, packing, BL y certificado de origen.",
   );
-  // shipper: la LC nombra al BENEFICIARIO (el trader) y el BL/packing al que embarca (el productor):
-  // eso es normal (documentos de terceros) → la LC no entra en este cruce
+  /*
+   * shipper: la LC nombra al BENEFICIARIO (el trader) y el BL/packing al que embarca (el productor).
+   *
+   * Que no coincidan es normal y el artículo 14 (k) lo admite expresamente —el shipper indicado en
+   * cualquier documento no necesita ser el beneficiario— así que esto se informa para que el
+   * examinador lo vea, no porque pueda ser discrepancia. El veredicto con su artículo lo da
+   * `reglasQuienEmite` en `reglas-ucp.ts`; acá solo se muestran los nombres que difieren. La LC no
+   * entra en el cruce.
+   */
   const sinLC = docs.filter((d) => d.tipo !== "LC");
   if (sinLC.length >= 2) {
     const con = sinLC
@@ -882,7 +889,7 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
         severidad: "MEDIA",
         titulo: `Exportador / shipper: ${con.map((x) => `${TIPO_DOC_LABEL[x.tipo].toLowerCase()} dice "${x.valor}"`).join(", ")}`,
         detalle:
-          "La factura la emite el beneficiario y el BL/packing el productor que embarca: es normal si la LC admite documentos de terceros (47A); si no, es discrepancia.",
+          "La factura la emite el beneficiario y el BL/packing el productor que embarca. Que el embarcador no sea el beneficiario no es discrepancia: el artículo 14 (k) lo admite. Lo que sí tiene que emitir el beneficiario es la factura (18 a i).",
       });
     }
   }

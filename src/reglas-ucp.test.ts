@@ -620,3 +620,55 @@ describe("el contrato de fletamento, que el banco no examina (art. 22 b)", () =>
     expect(conExigencia(["COMMERCIAL INVOICE IN 03 FOLD"])).toBeUndefined();
   });
 });
+
+describe("quién emite y quién embarca, que no son la misma pregunta (arts. 18 a i y 14 k)", () => {
+  /*
+   * El motor las mezclaba en un solo aviso que terminaba diciendo «si la LC no admite documentos de
+   * terceros, es discrepancia». Para el embarcador eso es falso: el artículo 14 (k) dice que el
+   * shipper indicado en cualquier documento no necesita ser el beneficiario, sin condición alguna.
+   * Lo que sí tiene que emitir el beneficiario es la factura (18 a i).
+   */
+  const conBeneficiario = (ctx: Partial<ContextoCredito>, docs: DocAnalizado[]) =>
+    reglasUCP({ lc: LC, credito: { ...CTX, beneficiario: "CEREALSUR S.A", ...ctx }, docs, hoy: HOY });
+
+  it("18 a i: una factura emitida por alguien que no es el beneficiario es discrepancia", () => {
+    const r = conBeneficiario({}, [{ tipo: "FACTURA", campos: doc({ exportador: campo("MOLSUR S.A.") }) }]);
+    const x = r.find((y) => y.id === "ucp-18a-i");
+    expect(x?.estado).toBe("DISCREPANCIA");
+    expect(x?.fuente).toContain("18a-i");
+  });
+
+  it("y emitida por el beneficiario, pasa", () => {
+    const r = conBeneficiario({}, [{ tipo: "FACTURA", campos: doc({ exportador: campo("CEREALSUR S.A") }) }]);
+    expect(r.find((y) => y.id === "ucp-18a-i")?.estado).toBe("OK");
+  });
+
+  it("14 k: el shipper del conocimiento NO tiene que ser el beneficiario, y eso no es discrepancia", () => {
+    /*
+     * Es el caso del expediente: la factura la emite Cerealsur, que es el beneficiario, y embarca
+     * Molsur, que es el productor. El motor lo marcaba como «puede ser discrepancia» y el artículo
+     * dice que no lo es.
+     */
+    const r = conBeneficiario({}, [
+      { tipo: "FACTURA", campos: doc({ exportador: campo("CEREALSUR S.A") }) },
+      { tipo: "BL", campos: doc({ exportador: campo("MOLSUR S.A."), buque: campo("STELLA AUSTRAL") }) },
+    ]);
+    const x = r.find((y) => y.id === "ucp-14k");
+    expect(x?.estado).toBe("OK");
+    expect(x?.regla).toMatch(/no tiene que ser el beneficiario/i);
+    expect(x?.evidencia).toMatch(/admite que no coincidan/i);
+    expect(r.filter((y) => y.estado === "DISCREPANCIA" && /shipper|embarcador/i.test(y.regla))).toHaveLength(0);
+  });
+
+  it("si no hay beneficiario cargado, no se inventa el veredicto", () => {
+    // El contexto del caso real sí lo trae, así que acá se lo saca a propósito: lo que se prueba es
+    // qué hace el motor cuando el crédito llegó sin el campo 59 legible.
+    const r = reglasUCP({
+      lc: LC,
+      credito: { ...CTX, beneficiario: null },
+      docs: [{ tipo: "FACTURA", campos: doc({ exportador: campo("CUALQUIERA") }) }],
+      hoy: HOY,
+    });
+    expect(r.find((y) => y.id === "ucp-18a-i")?.estado).toBe("ATENCION");
+  });
+});
