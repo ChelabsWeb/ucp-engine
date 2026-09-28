@@ -33,6 +33,8 @@ export interface ContextoCredito {
   parciales?: string | null;
   /** 43T: transbordo */
   transbordo?: string | null;
+  /** 40E: a qué reglas se declara sujeto el crédito (art. 1) */
+  reglasAplicables?: string | null;
 }
 
 const norm = (s: string): string =>
@@ -169,6 +171,82 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
       ),
     );
   }
+  return out;
+}
+
+/* ─────────── si las UCP se aplican a este crédito (art. 1) ─────────── */
+
+/**
+ * El artículo que habilita a todos los demás.
+ *
+ * «Las UCP son reglas que se aplican a cualquier crédito documentario cuando el texto del crédito
+ * indica expresamente que está sujeto a ellas. Son vinculantes para todas las partes salvo que el
+ * crédito las modifique o excluya expresamente.»
+ *
+ * Las dos mitades importan. Un crédito que no se declara sujeto a las UCP —o que se declara sujeto
+ * a una versión anterior— no se examina con estas reglas, y el motor lo hacía sin decir una
+ * palabra. Y un crédito que excluye un sub-artículo cambia el examen: el propio motor menciona esa
+ * posibilidad en la regla del transbordo sin contemplarla.
+ *
+ * Ninguna de las dos se dictamina como discrepancia: no son defectos de los documentos, son avisos
+ * sobre con qué regla se está midiendo.
+ */
+function reglasAplicacion(lc: LcInfo, ctx: ContextoCredito): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+  const reglas = (ctx.reglasAplicables ?? "").trim();
+
+  if (!/\bUCP\b/i.test(reglas)) {
+    out.push(
+      regla(
+        "ucp-1",
+        "UCP 600 1",
+        "El crédito se declara sujeto a las UCP 600",
+        "ATENCION",
+        reglas
+          ? `el campo 40E dice "${reglas}" y no menciona las UCP: verificar con qué reglas corresponde examinar`
+          : "el crédito no dice expresamente estar sujeto a las UCP: este examen las aplica igual, verificar si corresponde",
+      ),
+    );
+  } else {
+    // «UCP 500», «UCP 400»: el motor examina con las 600 y la diferencia entre revisiones no es menor.
+    const version = /\bUCP\s*(\d{3})\b/i.exec(reglas)?.[1];
+    if (version && version !== "600") {
+      out.push(
+        regla(
+          "ucp-1",
+          "UCP 600 1",
+          "El crédito se declara sujeto a las UCP 600",
+          "ATENCION",
+          `el campo 40E dice "${reglas}": este examen aplica las UCP 600 y el crédito nombra otra revisión`,
+        ),
+      );
+    }
+  }
+
+  /*
+   * Las exclusiones expresas.
+   *
+   * No se desactiva ninguna regla —adivinar qué quiso excluir el crédito es peor que no hacer
+   * nada— pero quien examina tiene que saber que el crédito modificó las reglas con las que el
+   * motor está midiendo.
+   */
+  const texto = [...(lc.condicionesAdicionales ?? []), ...(lc.documentosExigidos ?? [])].join(" · ");
+  const exclusion =
+    /(sub-?article|art[ií]culo)\s*([0-9]{1,2}\s*\(?[a-z]?\)?)[^.·]{0,40}(excluded|does not apply|no se aplica|excluido)/i.exec(
+      texto,
+    ) ?? /(excluded|excluido)[^.·]{0,30}(sub-?article|art[ií]culo)\s*([0-9]{1,2})/i.exec(texto);
+  if (exclusion) {
+    out.push(
+      regla(
+        "ucp-1-exclusion",
+        "UCP 600 1",
+        "El crédito excluye o modifica una regla de las UCP",
+        "ATENCION",
+        `dice "${exclusion[0].slice(0, 90)}" — el examen aplica esa regla igual: verificar a mano qué cambia`,
+      ),
+    );
+  }
+
   return out;
 }
 
@@ -1079,6 +1157,7 @@ export function reglasUCP(input: {
 
   if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac, doc("BL")));
 
+  out.push(...reglasAplicacion(input.lc, ctx));
   out.push(...reglasQuienEmite(ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
   return out;

@@ -806,3 +806,53 @@ describe("el documento de seguro (UCP 600 art. 28), lo que el artículo sí dice
     expect(r?.estado).not.toBe("DISCREPANCIA");
   });
 });
+
+describe("si las UCP 600 se aplican a este crédito (UCP 600 art. 1)", () => {
+  /*
+   * El primer artículo es el que habilita a todos los demás: las reglas «se aplican a cualquier
+   * crédito documentario cuando el texto del crédito indica expresamente que está sujeto a ellas».
+   * El motor extraía el campo 40E y no lo miraba, así que examinaba con las UCP 600 un crédito que
+   * podía no estar sujeto a ellas —o estarlo a una versión anterior— sin decir una palabra.
+   *
+   * Y la segunda mitad: son vinculantes «salvo que el crédito las modifique o excluya
+   * expresamente». Un crédito que excluye un sub-artículo se examina hoy como si no lo excluyera.
+   */
+  const conReglas = (reglas: string | null, condiciones: string[] = []) =>
+    reglasUCP({
+      lc: { ...LC, condicionesAdicionales: condiciones },
+      credito: { ...CTX, reglasAplicables: reglas },
+      docs: [],
+      hoy: HOY,
+    });
+
+  it("con «UCP LATEST VERSION» no se dice nada: es lo normal", () => {
+    expect(conReglas("UCP LATEST VERSION").find((x) => x.id === "ucp-1")).toBeUndefined();
+  });
+
+  it("sin mención a las UCP, se avisa que el examen puede no corresponder", () => {
+    const r = conReglas(null).find((x) => x.id === "ucp-1");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no dice|expresamente/i);
+  });
+
+  it("y con una versión anterior, también: este motor examina con las 600", () => {
+    const r = conReglas("UCP 500").find((x) => x.id === "ucp-1");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/500/);
+  });
+
+  it("si el crédito excluye un sub-artículo, se dice que el examen no lo contempla", () => {
+    // El propio motor ya menciona esta posibilidad en la regla del transbordo, sin implementarla.
+    const r = conReglas("UCP LATEST VERSION", ["SUB-ARTICLE 20(C) OF UCP 600 IS EXPRESSLY EXCLUDED"]).find(
+      (x) => x.id === "ucp-1-exclusion",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/20/);
+  });
+
+  it("y si no excluye nada, no se inventa el aviso", () => {
+    expect(
+      conReglas("UCP LATEST VERSION", ["ALL DOCUMENTS IN ENGLISH"]).find((x) => x.id === "ucp-1-exclusion"),
+    ).toBeUndefined();
+  });
+});

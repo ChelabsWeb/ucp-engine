@@ -31,6 +31,26 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── la aplicación de las UCP (art. 1) ──
+  [/^El crédito se declara sujeto a las UCP 600$/g, "The credit states that it is subject to UCP 600"],
+  [/^El crédito excluye o modifica una regla de las UCP$/g, "The credit excludes or modifies a rule of the UCP"],
+  [
+    /^el crédito no dice expresamente estar sujeto a las UCP: este examen las aplica igual, verificar si corresponde$/g,
+    "the credit does not expressly state that it is subject to the UCP: this examination applies them all the same, check whether that is right",
+  ],
+  [/^el campo 40E dice /g, "field 40E states "],
+  [
+    / y no menciona las UCP: verificar con qué reglas corresponde examinar$/g,
+    " and does not mention the UCP: check under which rules this should be examined",
+  ],
+  [
+    /: este examen aplica las UCP 600 y el crédito nombra otra revisión$/g,
+    ": this examination applies UCP 600 and the credit names another revision",
+  ],
+  [
+    / — el examen aplica esa regla igual: verificar a mano qué cambia$/g,
+    " — the examination applies that rule all the same: check by hand what changes",
+  ],
   // ── los embarques por cuotas (UCP 600 art. 32) ──
   [
     /^Las cuotas anteriores se embarcaron dentro de su período$/g,

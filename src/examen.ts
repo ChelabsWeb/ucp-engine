@@ -52,6 +52,8 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     beneficiario: p.extra.beneficiario[0] ?? null,
     parciales: p.extra.parciales,
     transbordo: p.extra.transbordo,
+    // 40E: con qué reglas se declara el crédito (art. 1).
+    reglasAplicables: p.extra.reglas,
   };
 }
 
