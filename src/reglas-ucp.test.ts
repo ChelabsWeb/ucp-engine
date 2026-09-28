@@ -856,3 +856,39 @@ describe("si las UCP 600 se aplican a este crédito (UCP 600 art. 1)", () => {
     ).toBeUndefined();
   });
 });
+
+describe("una proforma no es una factura comercial (ISBP 821 C1)", () => {
+  /*
+   * El motor tenía la regla escrita, exportada y probada —`esFacturaComercial`— y nadie la
+   * llamaba: código muerto en el examen. Apareció en un backtest contra los tipos de documento
+   * reales del ERP, donde «Proforma invoice» se clasificaba como factura comercial.
+   *
+   * Importa más desde que se desestima lo no exigido (14 g): si la proforma cuenta como la factura,
+   * el crédito queda dado por cumplido con un documento que no lo cumple.
+   */
+  const conFactura = (titulo: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: CTX,
+      docs: [{ tipo: "FACTURA", campos: doc({ tipoDocumento: campo(titulo), exportador: campo("CEREALSUR S.A") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "isbp-c1");
+
+  it("una factura titulada proforma no satisface la exigencia", () => {
+    const r = conFactura("PROFORMA INVOICE");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.fuente).toMatch(/C1/);
+  });
+
+  it("una provisional tampoco", () => {
+    expect(conFactura("PROVISIONAL INVOICE")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("una factura comercial pasa", () => {
+    expect(conFactura("COMMERCIAL INVOICE")?.estado).toBe("OK");
+  });
+
+  it("y si no se leyó cómo se titula, se verifica a mano", () => {
+    expect(conFactura("")?.estado).toBe("ATENCION");
+  });
+});

@@ -15,6 +15,8 @@ export const PROMPT_EXAMEN =
   "Your only job is to TRANSCRIBE the requested fields exactly as they appear. " +
   "Do not judge compliance, do not compare against anything, do not correct or translate what you read.\n\n" +
   "Field guidance:\n" +
+  "- tipoDocumento: how the document titles itself, verbatim: 'COMMERCIAL INVOICE', 'PROFORMA INVOICE', 'PROVISIONAL INVOICE'. " +
+  "Transcribe the heading and do not interpret it: a proforma does not satisfy a requirement for a commercial invoice.\n" +
   "- exportador / importador: the company name only, without address. On a bill of lading the exportador is the SHIPPER and the importador is the NOTIFY PARTY.\n" +
   "- consignatario: the CONSIGNEE exactly as printed, e.g. 'TO THE ORDER OF MERIDIAN BANK PLC'.\n" +
   "- bultos: the TOTAL number of packages in the document. If it is a partial sheet ('sheet 1 of 2'), lower the confidence below 0.6.\n" +

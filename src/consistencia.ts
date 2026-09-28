@@ -102,6 +102,8 @@ export interface CamposDoc {
   onDeck?: CampoDoc; // "SHIPPED ON DECK" / "may be carried on deck"
   /** cómo se titula el documento de transporte: de ahí sale con qué artículo se lo examina (19 a 25) */
   tipoTransporte?: CampoDoc;
+  /** cómo se titula el documento: una factura «proforma» no satisface la exigencia (ISBP 821 C1) */
+  tipoDocumento?: CampoDoc;
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
   precioUnitario?: CampoDoc; // "USD 800,00" — con él y el total se desambigua una cantidad
@@ -634,6 +636,7 @@ export const SCHEMA_DOC = {
     charterParty: campoSchema,
     onDeck: campoSchema,
     tipoTransporte: campoSchema,
+    tipoDocumento: campoSchema,
     clausulaDefecto: campoSchema,
     juegoOriginales: campoSchema,
     precioUnitario: campoSchema,
@@ -1192,6 +1195,8 @@ export function cotejarLC(
  */
 export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
   FACTURA: [
+    // El primero: si se titula «proforma» no satisface la exigencia de factura comercial.
+    "tipoDocumento",
     "exportador",
     "importador",
     "montoTotal",

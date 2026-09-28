@@ -1,6 +1,7 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
 import { parseNumero } from "./consistencia";
 import { parseFecha } from "./fechas";
+import { esFacturaComercial } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
 import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
@@ -172,6 +173,37 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
     );
   }
   return out;
+}
+
+/* ─────────── qué documento es este (ISBP 821 C1) ─────────── */
+
+/**
+ * Una factura titulada «proforma» o «provisional» no satisface la exigencia de factura comercial.
+ *
+ * La regla estaba escrita en `isbp.ts`, exportada y probada, y nadie la llamaba: el examen no la
+ * ejecutaba nunca. Apareció en un backtest contra los tipos de documento reales del ERP, donde
+ * «Proforma invoice» se clasificaba igual que una factura comercial.
+ *
+ * Importa más desde que lo no exigido se desestima (art. 14 g): si la proforma cuenta como la
+ * factura del crédito, el crédito queda dado por cumplido con un documento que no lo cumple.
+ */
+function reglasQueDocumentoEs(docs: DocAnalizado[]): ReglaPresentacion[] {
+  const fac = docs.find((d) => d.tipo === "FACTURA");
+  if (!fac) return [];
+  const titulo = val(fac, "tipoDocumento");
+  if (!titulo) {
+    return [sinLeer("isbp-c1", "ISBP 821 C1", "El documento es una factura comercial", "el título de la factura")];
+  }
+  const v = esFacturaComercial(titulo);
+  return [
+    regla(
+      "isbp-c1",
+      "ISBP 821 C1",
+      "El documento es una factura comercial",
+      v.vale ? "OK" : "DISCREPANCIA",
+      v.vale ? `se titula "${titulo}"` : `se titula "${titulo}": ${v.motivo}`,
+    ),
+  ];
 }
 
 /* ─────────── si las UCP se aplican a este crédito (art. 1) ─────────── */
@@ -1158,6 +1190,7 @@ export function reglasUCP(input: {
   if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac, doc("BL")));
 
   out.push(...reglasAplicacion(input.lc, ctx));
+  out.push(...reglasQueDocumentoEs(input.docs));
   out.push(...reglasQuienEmite(ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
   return out;

@@ -31,6 +31,22 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── qué documento es este (ISBP 821 C1) ──
+  [/^El documento es una factura comercial$/g, "The document is a commercial invoice"],
+  [/^el título de la factura$/g, "the heading of the invoice"],
+  [
+    /^no se leyó el título de la factura en el documento: verificar a mano$/g,
+    "the heading of the invoice was not read on the document: check by hand",
+  ],
+  [/^se titula "([^"]*)"$/g, 'it is headed "$1"'],
+  [
+    /^una factura proforma no satisface la exigencia de factura comercial \(ISBP 821 C1\)$/g,
+    "a proforma invoice does not satisfy a requirement for a commercial invoice (ISBP 821 C1)",
+  ],
+  [
+    /^una factura provisional no satisface la exigencia de factura comercial \(ISBP 821 C1\)$/g,
+    "a provisional invoice does not satisfy a requirement for a commercial invoice (ISBP 821 C1)",
+  ],
   // ── la aplicación de las UCP (art. 1) ──
   [/^El crédito se declara sujeto a las UCP 600$/g, "The credit states that it is subject to UCP 600"],
   [/^El crédito excluye o modifica una regla de las UCP$/g, "The credit excludes or modifies a rule of the UCP"],
