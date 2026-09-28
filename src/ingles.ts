@@ -31,6 +31,24 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── los embarques por cuotas (UCP 600 art. 32) ──
+  [
+    /^Las cuotas anteriores se embarcaron dentro de su período$/g,
+    "The earlier instalments were shipped within their period",
+  ],
+  [/^El crédito parece estipular embarques por cuotas$/g, "The credit appears to stipulate shipment by instalments"],
+  [
+    /^el calendario de cuotas no está cargado: verificarlo a mano, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y para las siguientes$/g,
+    "the schedule of instalments is not on file: check it by hand, because an instalment not shipped within its period leaves the credit unavailable for that one and for those that follow",
+  ],
+  [
+    /^(\\d+) cuota\\(s\\) vencida\\(s\\), todas embarcadas en su período$/g,
+    "$1 instalment(s) past their period, all shipped within it",
+  ],
+  [
+    /^la cuota (.+) no se embarcó dentro de su período: el crédito deja de estar disponible para esa y para toda cuota posterior$/g,
+    "instalment $1 was not shipped within its period: the credit ceases to be available for that one and for any subsequent instalment",
+  ],
   // ── el documento de seguro armado (UCP 600 art. 28): plantillas, no literales ──
   [/^el documento se presenta como /g, "the document presents itself as "],
   [/^Cobertura de al menos el (\d+) % que exige el crédito$/g, "Cover of at least the $1 % the credit requires"],

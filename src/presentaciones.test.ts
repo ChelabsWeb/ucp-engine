@@ -221,3 +221,66 @@ describe("el giro no puede pasarse del crédito (UCP 600 art. 30 b y c)", () => 
     expect(girar(60000, { ...LC, tolerancia: 0.1 })?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("los embarques por cuotas (UCP 600 art. 32)", () => {
+  /*
+   * El artículo es corto y su consecuencia es la más dura de las UCP: si una cuota no se gira o
+   * embarca dentro de su período, «el crédito deja de estar disponible para esa y para cualquier
+   * cuota posterior». No es una discrepancia que se subsane presentando de nuevo: el crédito se
+   * terminó para lo que queda.
+   *
+   * En graneles es corriente —un crédito por 3.000 toneladas en tres embarques mensuales— y el
+   * motor no lo miraba.
+   */
+  const CUOTAS = [
+    { referencia: "1", desde: "01-mar-25", hasta: "31-mar-25" },
+    { referencia: "2", desde: "01-abr-25", hasta: "30-abr-25" },
+    { referencia: "3", desde: "01-may-25", hasta: "31-may-25" },
+  ];
+  const girar = (fechaEmbarque: string, anteriores: Parameters<typeof reglasDeGiro>[0]["anteriores"] = []) =>
+    reglasDeGiro({
+      lc: LC,
+      actual: { referencia: "2", fecha: new Date(2025, 3, 20), importe: 18000, fechaEmbarque },
+      anteriores,
+      cuotas: CUOTAS,
+    }).find((x) => x.id === "ucp-32");
+
+  it("con la cuota anterior embarcada en su período, el crédito sigue disponible", () => {
+    const r = girar("15-abr-25", [
+      { referencia: "1", fecha: new Date(2025, 2, 20), importe: 18000, fechaEmbarque: "15-mar-25" },
+    ]);
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("si la primera cuota no se embarcó en marzo, el crédito ya no está disponible", () => {
+    const r = girar("15-abr-25", []);
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/1/);
+    expect(r?.evidencia).toMatch(/deja de estar disponible|posterior/i);
+  });
+
+  it("y tampoco si se embarcó fuera de su período", () => {
+    // Embarcada el 5 de abril, cuando su período cerraba el 31 de marzo.
+    const r = girar("15-abr-25", [
+      { referencia: "1", fecha: new Date(2025, 3, 5), importe: 18000, fechaEmbarque: "05-abr-25" },
+    ]);
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("sin cuotas cargadas no se inventa nada", () => {
+    const r = reglasDeGiro({
+      lc: LC,
+      actual: { referencia: "1", fecha: new Date(2025, 3, 20), importe: 18000, fechaEmbarque: "15-abr-25" },
+    }).find((x) => x.id === "ucp-32");
+    expect(r).toBeUndefined();
+  });
+
+  it("pero si el crédito parece estipular cuotas, se avisa para que alguien las cargue", () => {
+    const r = reglasDeGiro({
+      lc: { ...LC, condicionesAdicionales: ["SHIPMENT IN THREE EQUAL MONTHLY INSTALMENTS"] },
+      actual: { referencia: "1", fecha: new Date(2025, 3, 20), importe: 18000, fechaEmbarque: "15-abr-25" },
+    }).find((x) => x.id === "ucp-32-sin-cargar");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/calendario|cuotas/i);
+  });
+});

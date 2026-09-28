@@ -119,6 +119,18 @@ const money = (n: number, moneda?: string | null) =>
  * Son las reglas que no se ven examinando un juego de documentos aislado: cuánto queda del
  * crédito, si estaba permitido girar de nuevo, y si la presentación llega dentro del plazo.
  */
+/** Una cuota del crédito: el período en que hay que embarcarla. */
+export interface Cuota {
+  /** cómo la nombra el crédito: «1», «primera», «March shipment» */
+  referencia: string;
+  desde: string;
+  hasta: string;
+}
+
+/** Palabras con las que un crédito estipula embarques por cuotas. */
+const PARECEN_CUOTAS =
+  /\binstal?lments?\b|\bshipment\s+schedule\b|\bpor\s+cuotas\b|\bembarques?\s+parciales?\s+mensuales\b|\bmonthly\s+shipments?\b/i;
+
 export function reglasDeGiro(input: {
   lc: LcInfo;
   /** la presentación que se está examinando */
@@ -134,6 +146,14 @@ export function reglasDeGiro(input: {
    * hábil posterior al vencimiento se manda a verificar en vez de rechazarse (art. 29 a).
    */
   feriados?: Date[];
+  /**
+   * El calendario de cuotas del crédito, si el banco lo cargó.
+   *
+   * No se parsea del 47A: los créditos lo escriben de veinte maneras y equivocarse acá tiene la
+   * consecuencia más dura de las UCP. Cuando no están cargadas y el crédito parece estipularlas, se
+   * avisa para que alguien las mire.
+   */
+  cuotas?: Cuota[];
 }): ReglaPresentacion[] {
   const anteriores = input.anteriores ?? [];
   const out: ReglaPresentacion[] = [];
@@ -218,6 +238,56 @@ export function reglasDeGiro(input: {
         ),
       );
     }
+  }
+
+  /*
+   * 32: las cuotas que no se embarcaron en su período matan el crédito para lo que sigue.
+   *
+   * «If a drawing or shipment by instalments within given periods is stipulated in the credit and
+   * any instalment is not drawn or shipped within the period allowed for that instalment, the
+   * credit ceases to be available for that and any subsequent instalment.» Es la consecuencia más
+   * dura de las UCP y no se subsana presentando de nuevo: lo que queda del crédito se terminó.
+   *
+   * Por eso el calendario no se adivina del 47A. Si está cargado se aplica; si no está y el crédito
+   * parece estipular cuotas, se avisa para que alguien lo mire.
+   */
+  const cuotas = input.cuotas ?? [];
+  if (cuotas.length > 0) {
+    const fActual = parseFecha(input.actual.fechaEmbarque ?? "") ?? input.actual.fecha;
+    const embarcadas = anteriores.map((p) => parseFecha(p.fechaEmbarque ?? "")).filter((d): d is Date => d !== null);
+    const vencidas = cuotas.filter((c) => {
+      const hasta = parseFecha(c.hasta);
+      return hasta !== null && hasta.getTime() < fActual.getTime();
+    });
+    const incumplidas = vencidas.filter((c) => {
+      const desde = parseFecha(c.desde);
+      const hasta = parseFecha(c.hasta);
+      if (!desde || !hasta) return false;
+      return !embarcadas.some((d) => d.getTime() >= desde.getTime() && d.getTime() <= hasta.getTime());
+    });
+    out.push(
+      regla(
+        "ucp-32",
+        "UCP 600 32",
+        "Las cuotas anteriores se embarcaron dentro de su período",
+        incumplidas.length === 0 ? "OK" : "DISCREPANCIA",
+        incumplidas.length === 0
+          ? `${vencidas.length} cuota(s) vencida(s), todas embarcadas en su período`
+          : `la cuota ${incumplidas.map((c) => c.referencia).join(", ")} no se embarcó dentro de su período: el crédito deja de estar disponible para esa y para toda cuota posterior`,
+      ),
+    );
+  } else if (
+    PARECEN_CUOTAS.test([...(input.lc.condicionesAdicionales ?? []), ...(input.lc.documentosExigidos ?? [])].join(" "))
+  ) {
+    out.push(
+      regla(
+        "ucp-32-sin-cargar",
+        "UCP 600 32",
+        "El crédito parece estipular embarques por cuotas",
+        "ATENCION",
+        "el calendario de cuotas no está cargado: verificarlo a mano, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y para las siguientes",
+      ),
+    );
   }
 
   return out;
