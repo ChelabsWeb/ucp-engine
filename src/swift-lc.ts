@@ -211,6 +211,8 @@ export interface LcSwift {
     aplicante: string[]; // 50 completo (dirección incluida)
     beneficiario: string[]; // 59 completo
     reglas: string | null; // 40E
+    /** 72Z y 79: de acá sale si el mensaje dice que el crédito operativo sigue (art. 11 a) */
+    infoAlDestinatario: string | null;
   };
 }
 
@@ -321,6 +323,7 @@ export function parseMT700(textoSwift: string): LcSwift | null {
       aplicante,
       beneficiario,
       reglas: texto(cs, "40E") || null,
+      infoAlDestinatario: [texto(cs, "72Z"), texto(cs, "72"), texto(cs, "79")].filter(Boolean).join(" ") || null,
     },
   };
 }

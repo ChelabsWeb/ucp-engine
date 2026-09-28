@@ -63,6 +63,7 @@ const MODULOS = [
   "enmienda-vigencia.ts",
   "examen.ts",
   "presentaciones.ts",
+  "emision.ts",
 ];
 
 /**
@@ -101,6 +102,30 @@ function literales(fuente: string): string[] {
       i = fuente.indexOf("*/", i);
       if (i === -1) break;
       i += 2;
+      continue;
+    }
+    /*
+     * Las expresiones regulares no son texto.
+     *
+     * `emision.ts` está lleno de ellas y traen comillas y barras adentro: leerlas como cadenas
+     * parte el recorrido y devuelve fragmentos de patrón disfrazados de frase. Se reconocen por lo
+     * que viene antes —una barra después de `(`, `=`, `,`, `:` o `[` abre un patrón, no divide— y
+     * se saltan enteras, cuidando las clases de caracteres, donde una barra no cierra nada.
+     */
+    if (ch === "/" && /[(=,:[!&|?{;]\s*$/.test(fuente.slice(Math.max(0, i - 40), i))) {
+      let j = i + 1;
+      let enClase = false;
+      while (j < n) {
+        if (fuente[j] === "\\") {
+          j += 2;
+          continue;
+        }
+        if (fuente[j] === "[") enClase = true;
+        else if (fuente[j] === "]") enClase = false;
+        else if (fuente[j] === "/" && !enClase) break;
+        j++;
+      }
+      i = j + 1;
       continue;
     }
     if (ch === '"' || ch === "'" || ch === "`") {

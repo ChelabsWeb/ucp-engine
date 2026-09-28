@@ -365,12 +365,27 @@ export function precheckPresentacion(input: {
     const ok =
       norm(lc.beneficiarioDireccion).includes(calle(input.empresaDireccion)) ||
       norm(input.empresaDireccion).includes(calle(lc.beneficiarioDireccion));
+    /*
+     * El artículo 14 (j) dice lo contrario de lo que este aviso sugería.
+     *
+     * «Cuando las direcciones del beneficiario y del ordenante aparecen en cualquier documento
+     * exigido, NO necesitan ser las mismas que las del crédito… pero deben estar dentro del mismo
+     * país.» El aviso terminaba en «usar la de la LC en factura y certificados», que suena a
+     * exigencia y no lo es: usarla evita preguntas y sigue siendo un buen consejo, pero presentarla
+     * distinta no es discrepancia y la herramienta no puede dar a entender que sí.
+     *
+     * Lo único que el artículo sí exige —el mismo país— no se puede comprobar acá: el extractor
+     * pide la razón social sin dirección, así que del documento no viene el país. Se nombra para
+     * que quien revisa lo mire.
+     */
     reglas.push({
       id: "beneficiario-direccion",
-      fuente: "59",
-      regla: "Documentos propios con la dirección del beneficiario que dice la LC",
+      fuente: "UCP 600 14j",
+      regla: "Dirección del beneficiario en los documentos propios",
       estado: ok ? "OK" : "ATENCION",
-      evidencia: `LC: "${lc.beneficiarioDireccion}" · Ajustes: "${input.empresaDireccion}"${ok ? "" : " — usar la de la LC en factura y certificados"}`,
+      evidencia: ok
+        ? `LC: "${lc.beneficiarioDireccion}" · Ajustes: "${input.empresaDireccion}"`
+        : `LC: "${lc.beneficiarioDireccion}" · Ajustes: "${input.empresaDireccion}" — no necesitan ser las mismas (art. 14 j); lo único exigido es que estén en el mismo país, y usar la de la LC evita preguntas`,
     });
   }
 

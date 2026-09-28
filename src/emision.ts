@@ -98,7 +98,53 @@ function mencionaDocumento(texto: string): boolean {
  *
  * `campos` son los del mensaje ya interpretado: de ahí salen los puertos y la mercadería.
  */
+/**
+ * Lo que dice que el crédito operativo todavía no llegó (UCP 600 art. 11 a).
+ *
+ * Tiene que ser específico o arruina todo. El 47A del expediente real dice «BENEFICIARY SHOULD
+ * ADVISE FULL DETAILS OF SHIPMENT WITHIN 05 DAYS»: un patrón que buscara «full details» marcaría
+ * como no operativo el crédito con el que se validó el motor entero. Lo que importa es que los
+ * detalles **sigan**, o que el mensaje diga que el operativo es otro.
+ */
+const OPERATIVO_SIGUE =
+  /\bdetails\s+to\s+follow\b|\bmail\s+confirmation\s+(is|will\s+be|shall\s+be)\s+(the\s+)?operative\b|\boperative\s+(credit|instrument)\s+(to\s+follow|will\s+follow|by\s+(air)?mail)\b|\b(this|the)\s+(message|teletransmission|telex)\s+is\s+not\s+(the\s+)?operative\b/i;
+
 export function revisarCredito(p: LcSwift): Observacion[] {
+  const out11: Observacion[] = [];
+  /*
+   * Antes que nada: ¿esto es el crédito?
+   *
+   * Un pre-aviso (MT705) obliga al emisor a emitir el crédito operativo, pero no es el crédito
+   * (art. 11 b). Y un teletransmitido que anuncia que los detalles siguen, o que el operativo es la
+   * confirmación por correo, tampoco lo es (art. 11 a). Examinar documentos contra cualquiera de
+   * los dos deja el dictamen —y el aviso de rechazo, y la hoja firmada— referidos a un instrumento
+   * que las UCP dicen que no es el crédito.
+   */
+  if (/705/.test(p.extra.tipoMensaje ?? "")) {
+    out11.push(
+      obs(
+        "ucp-11b",
+        "IMPIDE",
+        "UCP 600 11b",
+        "Esto es un pre-aviso, no el crédito operativo",
+        `el mensaje es un ${p.extra.tipoMensaje}`,
+        "el emisor queda obligado a emitir el crédito operativo sin demora y en términos no inconsistentes con este aviso, pero hasta que llegue no hay contra qué examinar",
+      ),
+    );
+  }
+  if (OPERATIVO_SIGUE.test(p.extra.infoAlDestinatario ?? "")) {
+    out11.push(
+      obs(
+        "ucp-11a",
+        "IMPIDE",
+        "UCP 600 11a",
+        "El mensaje dice que el crédito operativo todavía no es este",
+        `dice "${(p.extra.infoAlDestinatario ?? "").slice(0, 80)}"`,
+        "un teletransmitido es el crédito operativo salvo que anuncie que los detalles siguen o que el operativo será la confirmación por correo: esperar el instrumento que sí lo sea",
+      ),
+    );
+  }
+
   const { lc, extra, campos } = p;
   const out: Observacion[] = [];
 
@@ -359,7 +405,7 @@ export function revisarCredito(p: LcSwift): Observacion[] {
     );
   }
 
-  return out;
+  return [...out11, ...out];
 }
 
 /** Cuántas observaciones hay de cada tipo, para mostrar un resumen. */
@@ -415,6 +461,8 @@ export function revisarLcInfo(lc: LcInfo): Observacion[] {
     },
     extra: {
       tipoMensaje: null,
+      // No viene de un mensaje SWIFT, así que no hay 72Z ni 79 que mirar.
+      infoAlDestinatario: null,
       fechaEmision: lc.fechaEmision ?? null,
       formaCredito: null,
       confirmacion: null,

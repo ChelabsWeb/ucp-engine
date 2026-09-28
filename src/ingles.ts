@@ -31,6 +31,128 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── la revisión de emisión y los avisos de lectura del examen base ──
+  [
+    /^«about» sobre el importe significa ±10 %, no una aproximación a criterio$/g,
+    "'about' on the amount means ±10 %, not an approximation left to judgement",
+  ],
+  [
+    /^«freight forwarder's B\/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta$/g,
+    "'freight forwarder's B/L not acceptable' says nothing about how the document is to be issued and is disregarded",
+  ],
+  [
+    /^«third party documents not acceptable» no tiene significado y se descarta$/g,
+    "'third party documents not acceptable' has no meaning and is disregarded",
+  ],
+  [
+    /^Condición administrativa del banco: su incumplimiento no es motivo de rechazo$/g,
+    "An administrative condition of the bank: failing it is not a ground for refusal",
+  ],
+  [
+    /^Condición que ningún documento acredita: los bancos la tienen por no puesta$/g,
+    "A condition no document evidences: banks deem it as not stated",
+  ],
+  [/^Dirección del beneficiario en los documentos propios$/g, "The beneficiary's address on its own documents"],
+  [/^El crédito no dice con qué banco está disponible$/g, "The credit does not state with which bank it is available"],
+  [
+    /^El crédito no dice si es a la vista, a plazo, por aceptación o por negociación$/g,
+    "The credit does not state whether it is available by sight payment, deferred payment, acceptance or negotiation",
+  ],
+  [
+    /^El crédito no enumera los documentos que hay que presentar$/g,
+    "The credit does not list the documents to be presented",
+  ],
+  [/^El crédito no fija fecha de vencimiento$/g, "The credit sets no expiry date"],
+  [
+    /^El crédito no fija plazo de presentación: rigen 21 días desde el embarque$/g,
+    "The credit sets no period for presentation: 21 days after shipment apply",
+  ],
+  [
+    /^El crédito parece estar disponible por giro sobre el ordenante$/g,
+    "The credit appears to be available by a draft drawn on the applicant",
+  ],
+  [
+    /^El mensaje dice que el crédito operativo todavía no es este$/g,
+    "The message states that this is not yet the operative credit",
+  ],
+  [
+    /^El último día de embarque es posterior al vencimiento del crédito$/g,
+    "The latest shipment date falls after the expiry of the credit",
+  ],
+  [/^Esto es un pre-aviso, no el crédito operativo$/g, "This is a pre-advice, not the operative credit"],
+  [
+    /^Se exige un documento que emite o firma el propio ordenante$/g,
+    "A document issued or signed by the applicant itself is required",
+  ],
+  [
+    /^Se prohíbe el transbordo pero la carga va en contenedor: el documento que lo indique se acepta igual$/g,
+    "Transhipment is prohibited but the goods travel in a container: a document showing it is acceptable all the same",
+  ],
+  [
+    /^Se prohíbe el transbordo: el artículo 20\(c\) admite igual algunos casos$/g,
+    "Transhipment is prohibited: article 20 (c) admits some cases all the same",
+  ],
+  [/^Una condición depende de un acto del ordenante$/g, "A condition depends on an act of the applicant"],
+  [/^acordarla fuera del crédito$/g, "agree it outside the credit"],
+  [/^decir con qué documento se comprueba, o sacarla$/g, "state which document evidences it, or remove it"],
+  [
+    /^deja el cobro a su voluntad: conviene reemplazarla por un documento de un tercero$/g,
+    "it leaves payment at their discretion: better to replace it with a third party document",
+  ],
+  [
+    /^deja el cobro del beneficiario a voluntad del comprador: conviene no pedirlo$/g,
+    "it leaves the beneficiary's payment at the buyer's discretion: better not to require it",
+  ],
+  [
+    /^el emisor queda obligado a emitir el crédito operativo sin demora y en términos no inconsistentes con este aviso, pero hasta que llegue no hay contra qué examinar$/g,
+    "the issuing bank is bound to issue the operative credit without delay and in terms not inconsistent with this advice, but until it arrives there is nothing to examine against",
+  ],
+  [/^escribir una sola, o decir expresamente que valen todas$/g, "write only one, or state expressly that all apply"],
+  [
+    /^fijarlo si se quiere otro, y verificar que entre antes del vencimiento$/g,
+    "set one if another is wanted, and check that it falls before expiry",
+  ],
+  [
+    /^indicar el banco, o «any bank» si es libremente negociable$/g,
+    "name the bank, or 'any bank' if it is freely negotiable",
+  ],
+  [
+    /^indicarlo: sin eso el beneficiario no sabe cómo cobra$/g,
+    "state it: without that the beneficiary does not know how it gets paid",
+  ],
+  [/^la factura no cita la proforma$/g, "the invoice does not quote the proforma"],
+  [
+    /^la ventana real es más corta que el plazo escrito: conviene correr el vencimiento$/g,
+    "the real window is shorter than the period written: better to move the expiry date",
+  ],
+  [/^no se leyó el consignee$/g, "the consignee was not read"],
+  [/^no se leyó el notify$/g, "the notify party was not read"],
+  [/^no se leyó la marca de flete$/g, "the freight marking was not read"],
+  [/^no se leyó un flete desglosado en la factura$/g, "no itemised freight was read on the invoice"],
+  [
+    /^no se puede emitir así: el giro va sobre un banco$/g,
+    "it cannot be issued this way: the draft is drawn on a bank",
+  ],
+  [/^nombrar al emisor si se quiere uno determinado$/g, "name the issuer if a particular one is wanted"],
+  [
+    /^para que la prohibición tenga efecto hay que excluir expresamente el sub-artículo 20\(c\)$/g,
+    "for the prohibition to take effect, sub-article 20 (c) has to be expressly excluded",
+  ],
+  [
+    /^quien embarque sobre la fecha no llega a presentar: adelantar el embarque o correr el vencimiento$/g,
+    "whoever ships close to the date will not make the presentation: bring shipment forward or move the expiry date",
+  ],
+  [/^sacarlo o redactarlo como una exigencia concreta$/g, "remove it or word it as a concrete requirement"],
+  [
+    /^si se quiere otra tolerancia, indicarla en el campo 39A$/g,
+    "if another tolerance is wanted, state it in field 39A",
+  ],
+  [/^sin documentos exigidos no hay presentación posible$/g, "with no documents required there can be no presentation"],
+  [/^toda carta de crédito tiene que indicar una$/g, "every documentary credit has to state one"],
+  [
+    /^un teletransmitido es el crédito operativo salvo que anuncie que los detalles siguen o que el operativo será la confirmación por correo: esperar el instrumento que sí lo sea$/g,
+    "a teletransmission is the operative credit unless it announces that details are to follow or that the mail confirmation will be the operative one: wait for the instrument that is",
+  ],
   // ── el vencimiento en un día en que el banco está cerrado (UCP 600 art. 29) ──
   [
     /^El último día de embarque no se corre aunque el vencimiento sí$/g,

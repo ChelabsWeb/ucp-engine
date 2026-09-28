@@ -83,3 +83,47 @@ describe("el crédito real del expediente", () => {
     expect(marcadas.map((o) => o.donde)).toEqual([]);
   });
 });
+
+describe("el que no es el crédito operativo (UCP 600 art. 11)", () => {
+  /*
+   * Un pre-aviso y un télex que anuncia que el operativo sigue por correo NO son el crédito. El
+   * motor los leía igual y dictaminaba sobre ellos, con lo cual el examen, el aviso de rechazo y la
+   * hoja firmada quedaban referidos a un instrumento que las UCP dicen que no es el crédito.
+   */
+  const mt705 = SWIFT_CSU2025099.replace(
+    "FIN 710 Adv Third or Non Bank Doc Cred",
+    "FIN 705 Pre-Advice of a Documentary Credit",
+  );
+  const con72Z = (texto: string) =>
+    SWIFT_CSU2025099.replace(
+      "     72Z: Sender to Receiver Information\n          /ACK/",
+      `     72Z: Sender to Receiver Information\n          ${texto}`,
+    );
+  const revisar = (swift: string) => revisarCredito(parseMT700(swift)!);
+
+  it("11 b: un MT705 es un pre-aviso y no se examina nada contra él", () => {
+    const o = revisar(mt705).find((x) => x.id === "ucp-11b");
+    expect(o?.gravedad).toBe("IMPIDE");
+    expect(o?.fuente).toContain("11b");
+  });
+
+  it.each([
+    "FULL DETAILS TO FOLLOW BY MAIL",
+    "DETAILS TO FOLLOW",
+    "MAIL CONFIRMATION WILL BE THE OPERATIVE CREDIT",
+    "THIS TELETRANSMISSION IS NOT THE OPERATIVE INSTRUMENT",
+  ])("11 a: «%s» dice que el operativo sigue", (texto) => {
+    const o = revisar(con72Z(texto)).find((x) => x.id === "ucp-11a");
+    expect(o?.gravedad).toBe("IMPIDE");
+  });
+
+  it("y el crédito real no se marca: dice «FULL DETAILS» hablando de otra cosa", () => {
+    /*
+     * La trampa. El 47A del expediente dice «BENEFICIARY SHOULD ADVISE FULL DETAILS OF SHIPMENT
+     * WITHIN 05 DAYS». Un patrón que buscara «full details» marcaría como no operativo el crédito
+     * con el que se validó el motor entero.
+     */
+    expect(revisar(SWIFT_CSU2025099).find((x) => x.id === "ucp-11a")).toBeUndefined();
+    expect(revisar(SWIFT_CSU2025099).find((x) => x.id === "ucp-11b")).toBeUndefined();
+  });
+});

@@ -270,7 +270,7 @@ describe("D3: la dirección del beneficiario es la de la LC", () => {
     });
     expect(otra.reglas.find((x) => x.id === "beneficiario-direccion")).toMatchObject({
       estado: "ATENCION",
-      fuente: "59",
+      fuente: "UCP 600 14j",
     });
     const misma = precheckPresentacion({
       lc,
@@ -341,5 +341,42 @@ describe("lo que el crédito NO exige, no se dictamina", () => {
       (y) => y.id === "bl-consignee",
     );
     expect(x?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+describe("la dirección del beneficiario (UCP 600 art. 14 j)", () => {
+  /*
+   * El artículo dice lo contrario de lo que el aviso sugería: «cuando las direcciones del
+   * beneficiario y del ordenante aparecen en cualquier documento exigido, NO necesitan ser las
+   * mismas que las del crédito… pero deben estar dentro del mismo país».
+   *
+   * El aviso terminaba en «usar la de la LC en factura y certificados», que suena a exigencia y no
+   * lo es. Usarla evita preguntas y es un buen consejo; presentarla distinta no es discrepancia, y
+   * la herramienta no puede dar a entender que sí.
+   */
+  const conDireccion = (direccion: string) =>
+    precheckPresentacion({
+      lc,
+      docs: [{ tipo: "FACTURA" as const, campos: FACTURA, nombreArchivo: "A4401.jpg" }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      empresaDireccion: direccion,
+      hoy: HOY,
+    }).reglas.find((x) => x.id === "beneficiario-direccion");
+
+  it("una dirección distinta no se presenta como algo que haya que corregir", () => {
+    const x = conDireccion("Colón 1498, 4to piso, Montevideo");
+    expect(x?.estado).toBe("ATENCION");
+    expect(x?.evidencia).not.toMatch(/usar la de la LC en factura/i);
+    expect(x?.evidencia).toMatch(/no necesitan ser las mismas/i);
+    expect(x?.evidencia).toMatch(/14 ?\(?j\)?/);
+  });
+
+  it("y se nombra la única exigencia que el artículo sí pone: el país", () => {
+    expect(conDireccion("Colón 1498, Montevideo")?.evidencia).toMatch(/pa[ií]s/i);
+  });
+
+  it("con la misma dirección, sigue estando bien", () => {
+    expect(conDireccion(lc.beneficiarioDireccion ?? "")?.estado).toBe("OK");
   });
 });
