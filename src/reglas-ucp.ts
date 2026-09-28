@@ -732,6 +732,8 @@ function reglasSeguro(
   ctx: ContextoCredito,
   seg: DocSeguro,
   factura: DocAnalizado | undefined,
+  /** el documento de transporte, que es el que evidencia la fecha de embarque (arts. 19 a 25) */
+  transporteSeg: DocAnalizado | undefined,
 ): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -763,20 +765,63 @@ function reglasSeguro(
     );
   }
 
-  // 28e: la fecha del seguro no puede ser posterior a la del embarque
+  /*
+   * 28 e: la fecha del seguro no puede ser posterior a la del embarque, con su excepción.
+   *
+   * Dos cosas que estaban mal. La fecha de embarque se tomaba de la factura, y la que la evidencia
+   * es el documento de transporte (arts. 19 a 25): con una factura que trae el ETD de la proforma y
+   * un a bordo posterior, un seguro conforme salía discrepante. Y el fallback iba al último día de
+   * embarque del crédito, que no es una fecha de embarque sino un límite: por ahí se colaba lo
+   * contrario, un seguro tardío dado por bueno.
+   *
+   * Y falta la excepción, que es el caso corriente: «unless it appears from the insurance document
+   * that the cover is effective from a date not later than the date of shipment». Los certificados
+   * bajo póliza flotante se emiten después del a bordo con una cláusula de cobertura anterior, y el
+   * artículo los acepta expresamente. El motor no puede leer esa fecha —el campo de cobertura es un
+   * lugar, no una fecha— así que cuando el documento menciona una cobertura efectiva, manda a
+   * verificar en vez de dictaminar.
+   */
   const fSeg = val(seg, "fechaSeguro") ?? val(seg, "fechaDocumento");
-  const fEmb = val(factura, "fechaEmbarque") ?? lc.limiteEmbarque;
+  /** La fecha de embarque, de la anotación de a bordo primero y del campo después. */
+  const embarque = (() => {
+    const onBoard = transporteSeg ? val(transporteSeg, "onBoard") : null;
+    const delOnBoard = onBoard ? fechaEnTexto(onBoard) : null;
+    if (delOnBoard && onBoard) return { fecha: delOnBoard, texto: onBoard };
+    const campoFecha = (transporteSeg ? val(transporteSeg, "fechaEmbarque") : null) ?? val(factura, "fechaEmbarque");
+    const f = campoFecha ? parseFecha(campoFecha) : null;
+    return f && campoFecha ? { fecha: f, texto: campoFecha } : null;
+  })();
+  const fEmb = embarque?.texto ?? null;
   const a = fSeg ? parseFecha(fSeg) : null;
-  const b = fEmb ? parseFecha(fEmb) : null;
+  const b = embarque?.fecha ?? null;
+  const mencionaCoberturaEfectiva = /effective|efectiva|attachment|desde el|from\s+\d/i.test(
+    `${val(seg, "coberturaDesde") ?? ""} ${val(seg, "tipoSeguro") ?? ""}`,
+  );
   out.push(
     a && b
-      ? regla(
-          "ucp-28e",
-          "UCP 600 28e",
-          "El seguro no está fechado después del embarque",
-          a <= b ? "OK" : "DISCREPANCIA",
-          `seguro ${fSeg} · embarque ${fEmb}`,
-        )
+      ? a <= b
+        ? regla(
+            "ucp-28e",
+            "UCP 600 28e",
+            "El seguro no está fechado después del embarque",
+            "OK",
+            `seguro ${fSeg} · embarque ${fEmb}`,
+          )
+        : mencionaCoberturaEfectiva
+          ? regla(
+              "ucp-28e",
+              "UCP 600 28e",
+              "El seguro no está fechado después del embarque",
+              "ATENCION",
+              `seguro ${fSeg} · embarque ${fEmb} — el documento menciona una cobertura efectiva: si corre desde una fecha no posterior al embarque, el artículo lo admite; verificarlo a mano`,
+            )
+          : regla(
+              "ucp-28e",
+              "UCP 600 28e",
+              "El seguro no está fechado después del embarque",
+              "DISCREPANCIA",
+              `seguro ${fSeg} · embarque ${fEmb}`,
+            )
       : sinLeer("ucp-28e", "UCP 600 28e", "El seguro no está fechado después del embarque", "la fecha del seguro"),
   );
 
@@ -796,19 +841,40 @@ function reglasSeguro(
     );
   }
 
-  // 28f-ii: sin indicación en el crédito, la cobertura mínima es el 110 % del valor CIF/CIP
+  /*
+   * 28 f ii: la cobertura mínima, con la base y el porcentaje que el artículo manda.
+   *
+   * El inciso nombra tres bases y **el monto del crédito no es ninguna**: el valor CIF/CIP, y si no
+   * se puede determinar de los documentos, el importe girado o el valor bruto de la factura, el
+   * mayor de los dos. Cayendo al monto del crédito, cualquier embarque parcial cuya factura no se
+   * lea salía con discrepancia de seguro por un importe que nadie exige.
+   *
+   * Y el 110 % rige **solo si el crédito no indica nada**: «a requirement in the credit for
+   * insurance coverage to be for a percentage … is deemed to be the minimum amount of coverage
+   * required». Un seguro que cumple exactamente lo que pidió el banco emisor no puede rechazarse
+   * por no llegar a un porcentaje que el crédito no pidió.
+   */
   const montoSeg = parseNumero(val(seg, "montoAsegurado") ?? val(seg, "montoTotal") ?? "");
-  const base = parseNumero(val(factura, "montoTotal") ?? "") ?? lc.monto ?? null;
+  const base = parseNumero(val(factura, "montoTotal") ?? "");
+  const pctDelCredito = (() => {
+    const texto = [...(lc.documentosExigidos ?? []), ...(lc.condicionesAdicionales ?? [])].join(" ");
+    const m = /(\d{2,3})\s*(?:PCT|%|PER\s*CENT)/i.exec(texto);
+    const n = m ? Number(m[1]) : null;
+    return n !== null && n >= 100 && n <= 200 ? n : null;
+  })();
+  const pct = pctDelCredito ?? 110;
   if (montoSeg !== null && base !== null && base > 0) {
-    const minimo = base * 1.1;
+    const minimo = (base * pct) / 100;
     const fmt = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 2 });
     out.push(
       regla(
         "ucp-28f-ii",
         "UCP 600 28f-ii",
-        "Cobertura de al menos el 110 % del valor de la mercadería",
+        pctDelCredito
+          ? `Cobertura de al menos el ${pct} % que exige el crédito`
+          : "Cobertura de al menos el 110 % del valor de la mercadería",
         montoSeg + 1e-9 >= minimo ? "OK" : "DISCREPANCIA",
-        `asegurado ${fmt(montoSeg)} · mínimo exigible ${fmt(minimo)} (110 % de ${fmt(base)})`,
+        `asegurado ${fmt(montoSeg)} · mínimo exigible ${fmt(minimo)} (${pct} % de ${fmt(base)})`,
       ),
     );
   } else if (montoSeg === null) {
@@ -819,13 +885,28 @@ function reglasSeguro(
   const desde = val(seg, "coberturaDesde");
   const hasta = val(seg, "coberturaHasta");
   if (ctx.puertoEmbarque && ctx.puertoDestino) {
+    /*
+     * El campo espera un lugar y el documento puede traer otra cosa.
+     *
+     * «COVER EFFECTIVE FROM 01-APR-2025» es una cláusula de vigencia, no una plaza: compararla
+     * contra el puerto del crédito da discrepancia por un texto que ni siquiera nombra un lugar.
+     * Si lo que se leyó trae una fecha, no es un tramo y no se dictamina.
+     */
+    const pareceLugar = (t: string) => fechaEnTexto(t) === null;
+    const veredicto = (t: string, delCredito: string) =>
+      pareceLugar(t) ? veredictoLugar(t, delCredito).estado : "ATENCION";
     out.push(
       desde && hasta
         ? regla(
             "ucp-28f-iii",
             "UCP 600 28f-iii",
             "La cobertura va del lugar de embarque al de destino",
-            coincideLugar(desde, ctx.puertoEmbarque) && coincideLugar(hasta, ctx.puertoDestino) ? "OK" : "DISCREPANCIA",
+            veredicto(desde, ctx.puertoEmbarque) === "OK" && veredicto(hasta, ctx.puertoDestino) === "OK"
+              ? "OK"
+              : veredicto(desde, ctx.puertoEmbarque) === "DISCREPANCIA" ||
+                  veredicto(hasta, ctx.puertoDestino) === "DISCREPANCIA"
+                ? "DISCREPANCIA"
+                : "ATENCION",
             `cubre de "${desde}" a "${hasta}" · el crédito pide de "${ctx.puertoEmbarque}" a "${ctx.puertoDestino}"`,
           )
         : sinLeer("ucp-28f-iii", "UCP 600 28f-iii", "La cobertura va del embarque al destino", "el tramo cubierto"),
@@ -996,7 +1077,7 @@ export function reglasUCP(input: {
     }
   }
 
-  if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac));
+  if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac, doc("BL")));
 
   out.push(...reglasQuienEmite(ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));

@@ -702,3 +702,107 @@ describe("la cantidad en bultos (UCP 600 art. 30 b)", () => {
     expect(con45A("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.regla).toMatch(/±5/);
   });
 });
+
+describe("el documento de seguro (UCP 600 art. 28), lo que el artículo sí dice", () => {
+  const seguro = (over: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>> = {}) => ({
+    campos: doc({
+      tipoSeguro: campo("INSURANCE POLICY"),
+      emisorSeguro: campo("SURA SEGUROS S.A."),
+      montoAsegurado: campo("56.388,20"),
+      monedaAsegurada: campo("USD"),
+      fechaSeguro: campo("07-APR-2025"),
+      coberturaDesde: campo("MONTEVIDEO"),
+      coberturaHasta: campo("COLOMBO"),
+      ...over,
+    }),
+  });
+  const conSeguro = (
+    segOver: Parameters<typeof seguro>[0] = {},
+    docs: DocAnalizado[] = [],
+    lcOver: Partial<LcInfo> = {},
+    ctxOver: Partial<ContextoCredito> = {},
+  ) =>
+    reglasUCP({
+      lc: { ...LC, ...lcOver },
+      credito: { ...CTX, ...ctxOver },
+      docs,
+      seguro: seguro(segOver),
+      hoy: HOY,
+    });
+
+  it("28 f ii: sin el total de la factura no se cae al monto del crédito, se manda a verificar", () => {
+    /*
+     * El artículo nombra tres bases y ninguna es el monto del crédito: el valor CIF/CIP, y si no se
+     * puede determinar, el importe girado o el valor bruto de la factura, el mayor. Con el monto del
+     * crédito como base, cualquier embarque parcial cuyo total de factura no se lea sale con
+     * discrepancia de seguro por un importe que nadie exige.
+     */
+    const r = conSeguro({ montoAsegurado: campo("30.000") }, [
+      { tipo: "FACTURA", campos: doc({ montoTotal: campo("") }) },
+    ]).find((x) => x.id === "ucp-28f-ii");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("28 f ii: si el crédito fija un porcentaje, ese es el mínimo, no el 110 %", () => {
+    // «A requirement in the credit for insurance coverage to be for a percentage … is deemed to be
+    // the minimum amount of coverage required.» Un seguro que cumple lo que el crédito pidió no
+    // puede rechazarse por no llegar a un 110 % que el crédito no exigió.
+    const r = conSeguro(
+      { montoAsegurado: campo("51.262,00") },
+      [{ tipo: "FACTURA", campos: doc({ montoTotal: campo("51.262,00") }) }],
+      {
+        documentosExigidos: ["INSURANCE POLICY OR CERTIFICATE FOR 100 PCT OF INVOICE VALUE"],
+      },
+    ).find((x) => x.id === "ucp-28f-ii");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/100/);
+  });
+
+  it("28 e: la fecha de embarque sale del documento de transporte, no de la factura", () => {
+    const r = conSeguro({ fechaSeguro: campo("07-APR-2025") }, [
+      { tipo: "FACTURA", campos: doc({ fechaEmbarque: campo("05-APR-2025") }) },
+      { tipo: "BL", campos: doc({ onBoard: campo("SHIPPED ON BOARD 08-APR-2025"), buque: campo("STELLA AUSTRAL") }) },
+    ]).find((x) => x.id === "ucp-28e");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("28 e: un seguro posterior al embarque con cobertura efectiva anterior no es discrepancia", () => {
+    // La excepción del inciso, que es el caso corriente de los certificados bajo póliza flotante.
+    const r = conSeguro(
+      {
+        fechaSeguro: campo("15-APR-2025"),
+        coberturaDesde: campo("COVER EFFECTIVE FROM 01-APR-2025 WAREHOUSE MONTEVIDEO"),
+      },
+      [{ tipo: "BL", campos: doc({ onBoard: campo("SHIPPED ON BOARD 08-APR-2025") }) }],
+    ).find((x) => x.id === "ucp-28e");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("28 f iii: con el destino expresado como zona, no se dictamina", () => {
+    const r = conSeguro({ coberturaHasta: campo("COLOMBO") }, [], {}, { puertoDestino: "ANY PORT IN SRI LANKA" }).find(
+      (x) => x.id === "ucp-28f-iii",
+    );
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("28 f iii: si el campo trae una cláusula y no un lugar, no se compara como lugar", () => {
+    /*
+     * El campo de cobertura espera un lugar, y el documento puede traer otra cosa: «COVER EFFECTIVE
+     * FROM 01-APR-2025». Compararla como lugar contra el puerto del crédito da discrepancia por un
+     * texto que ni siquiera nombra una plaza.
+     */
+    const r = conSeguro({ coberturaDesde: campo("COVER EFFECTIVE FROM 01-APR-2025") }).find(
+      (x) => x.id === "ucp-28f-iii",
+    );
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  it("28 f iii: una cobertura más amplia que la pedida tampoco", () => {
+    // «at least between … and …»: almacén a almacén cubre de más, no de menos.
+    const r = conSeguro({
+      coberturaDesde: campo("WAREHOUSE MONTEVIDEO"),
+      coberturaHasta: campo("WAREHOUSE COLOMBO"),
+    }).find((x) => x.id === "ucp-28f-iii");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+});

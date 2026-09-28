@@ -31,6 +31,19 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── el documento de seguro armado (UCP 600 art. 28): plantillas, no literales ──
+  [/^el documento se presenta como /g, "the document presents itself as "],
+  [/^Cobertura de al menos el (\d+) % que exige el crédito$/g, "Cover of at least the $1 % the credit requires"],
+  [/^Seguro en la moneda del crédito/g, "Insurance in the currency of the credit"],
+  [/^asegurado /g, "insured "],
+  [/ · mínimo exigible /g, " · minimum required "],
+  [/^cubre de /g, "it covers from "],
+  [/ · el crédito pide de /g, " · the credit calls for cover from "],
+  [/^seguro (.+) · embarque /g, "insurance $1 · shipment "],
+  [
+    / — el documento menciona una cobertura efectiva: si corre desde una fecha no posterior al embarque, el artículo lo admite; verificarlo a mano$/g,
+    " — the document mentions an effective cover: if it runs from a date not later than shipment, the article admits it; check it by hand",
+  ],
   // ── la revisión de emisión y los avisos de lectura del examen base ──
   [
     /^«about» sobre el importe significa ±10 %, no una aproximación a criterio$/g,
