@@ -285,3 +285,61 @@ describe("D3: la dirección del beneficiario es la de la LC", () => {
     expect(sin.reglas.find((x) => x.id === "beneficiario-direccion")).toBeUndefined();
   });
 });
+
+describe("lo que el crédito NO exige, no se dictamina", () => {
+  /*
+   * Dos reglas inventaban una exigencia cuando el 46A callaba, y dictaminaban contra ella.
+   *
+   * El consignatario: si el crédito no decía a nombre de quién, se exigía «a la orden del banco
+   * emisor». Un crédito que consigna al ordenante —o uno aéreo, donde el consignatario siempre va
+   * nominado— daba discrepancia sobre un documento que cumplía exactamente lo pedido.
+   *
+   * El flete: si el crédito no lo mencionaba, se deducía del incoterm de la operación, y sin
+   * incoterm se asumía PREPAID. Un BL marcado FREIGHT COLLECT contra un crédito que no habla del
+   * flete salía discrepante por una marca que nadie pidió.
+   *
+   * El artículo 14 (a) es claro: el examen es contra los documentos y el crédito. Donde el crédito
+   * calla no hay discrepancia — hay, a lo sumo, algo que mirar.
+   */
+  const sinMencion = (quitar: RegExp) => ({
+    ...lc,
+    documentosExigidos: (lc.documentosExigidos ?? []).map((d) => d.replace(quitar, "")),
+  });
+  const correr = (lcUsada: typeof lc, campos: CamposDoc) =>
+    precheckPresentacion({
+      lc: lcUsada,
+      docs: [{ tipo: "BL" as const, campos, nombreArchivo: "BL.jpg" }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    });
+
+  it("sin marca de flete en el crédito, un BL FREIGHT COLLECT no es discrepancia", () => {
+    const r = correr(sinMencion(/MARKED 'FREIGHT PREPAID'/i), { ...BL, flete: campo("FREIGHT COLLECT") });
+    const x = r.reglas.find((y) => y.id === "bl-freight");
+    expect(x?.estado).not.toBe("DISCREPANCIA");
+    expect(x?.evidencia).toMatch(/FREIGHT COLLECT/);
+  });
+
+  it("pero si el crédito la pide, sigue mandando", () => {
+    const x = correr(lc, { ...BL, flete: campo("FREIGHT COLLECT") }).reglas.find((y) => y.id === "bl-freight");
+    expect(x?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("sin destinatario en el crédito, el consignatario del BL no se compara contra el emisor", () => {
+    const r = correr(sinMencion(/ISSUED TO THE ORDER OF\s+MERIDIAN BANK PLC/i), {
+      ...BL,
+      consignatario: campo("ORIENT FEED (PVT) LTD"),
+    });
+    const x = r.reglas.find((y) => y.id === "bl-consignee");
+    expect(x?.estado).not.toBe("DISCREPANCIA");
+    expect(x?.evidencia).toMatch(/ORIENT FEED/);
+  });
+
+  it("y si el crédito dice a la orden de quién, se compara como siempre", () => {
+    const x = correr(lc, { ...BL, consignatario: campo("ORIENT FEED (PVT) LTD") }).reglas.find(
+      (y) => y.id === "bl-consignee",
+    );
+    expect(x?.estado).toBe("DISCREPANCIA");
+  });
+});

@@ -31,6 +31,22 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── lo que el crédito no exige y por lo tanto no se dictamina (UCP 600 art. 14 a) ──
+  [/^A nombre de quién va el documento de transporte$/g, "Whom the transport document is made out to"],
+  [/^Marca de flete del documento de transporte$/g, "Freight marking on the transport document"],
+  [
+    /^el crédito no dice a nombre de quién y el documento dice /g,
+    "the credit does not say whom it is to be made out to and the document states ",
+  ],
+  [
+    /^el crédito no dice a nombre de quién y no se leyó el consignatario: verificar a mano$/g,
+    "the credit does not say whom it is to be made out to and the consignee was not read: check by hand",
+  ],
+  [
+    /^el crédito no pide una marca de flete y el documento dice /g,
+    "the credit does not call for a freight marking and the document states ",
+  ],
+  [/: verificar contra el incoterm de la venta$/g, ": check it against the term of delivery of the sale"],
   // ── quién emite y quién embarca (UCP 600 arts. 18 a i y 14 k) ──
   [/^La factura la emite el beneficiario$/g, "The commercial invoice is issued by the beneficiary"],
   [/^quién emite la factura$/g, "who issues the invoice"],

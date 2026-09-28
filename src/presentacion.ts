@@ -226,9 +226,27 @@ export function precheckPresentacion(input: {
   const reglaBL = exigidos.find((x) => claveDoc(x) === "BL") ?? "";
   if (bl) {
     const consig = val(bl, "consignatario");
+    /*
+     * A nombre de quién lo pide el crédito. Si no lo dice, NO se supone.
+     *
+     * Antes se caía al banco emisor, y con eso un crédito que consigna al ordenante —o uno aéreo,
+     * donde el consignatario va siempre nominado— daba discrepancia sobre un documento que cumplía
+     * exactamente lo pedido. El examen es contra el crédito (art. 14 a): donde el crédito calla no
+     * hay discrepancia, hay a lo sumo algo que mirar.
+     */
     const ordenDe =
-      /TO THE ORDER OF\s+([A-Z0-9 .,'&()-]+?)(?:,\s*MARKED|\s+MARKED|\s+NOTIFY|$)/i.exec(reglaBL)?.[1]?.trim() ??
-      (lc.bancoEmisor !== "—" ? lc.bancoEmisor : null);
+      /TO THE ORDER OF\s+([A-Z0-9 .,'&()-]+?)(?:,\s*MARKED|\s+MARKED|\s+NOTIFY|$)/i.exec(reglaBL)?.[1]?.trim() ?? null;
+    if (!ordenDe) {
+      reglas.push({
+        id: "bl-consignee",
+        fuente: "46A",
+        regla: "A nombre de quién va el documento de transporte",
+        estado: "ATENCION",
+        evidencia: consig
+          ? `el crédito no dice a nombre de quién y el documento dice "${consig}": verificar a mano`
+          : "el crédito no dice a nombre de quién y no se leyó el consignatario: verificar a mano",
+      });
+    }
     if (ordenDe) {
       const ok = consig
         ? norm(consig).includes(norm(ordenDe)) || norm(ordenDe).includes(norm(consig.replace(/to the order of/i, "")))
@@ -241,17 +259,33 @@ export function precheckPresentacion(input: {
         evidencia: consig ? `dice "${consig}"` : "no se leyó el consignee",
       });
     }
-    const flete =
-      /FREIGHT\s+(PREPAID|COLLECT)/i.exec(reglaBL)?.[1]?.toUpperCase() ??
-      (op.incoterm === "FOB" || op.incoterm === "FCA" || op.incoterm === "EXW" ? "COLLECT" : "PREPAID");
+    /*
+     * La marca de flete, solo si el crédito la pide.
+     *
+     * Antes, cuando el 46A no la mencionaba, se deducía del incoterm de la operación —y sin
+     * incoterm se asumía PREPAID—, así que un BL marcado FREIGHT COLLECT contra un crédito que no
+     * habla del flete salía discrepante por una marca que nadie pidió. El incoterno de la operación
+     * dice cómo se pactó la venta, no qué exige el crédito, y son cosas distintas.
+     */
+    const flete = /FREIGHT\s+(PREPAID|COLLECT)/i.exec(reglaBL)?.[1]?.toUpperCase() ?? null;
     const fl = val(bl, "flete");
-    reglas.push({
-      id: "bl-freight",
-      fuente: reglaBL ? "46A" : "Incoterm",
-      regla: `BL marcado "FREIGHT ${flete}"`,
-      estado: !fl ? "ATENCION" : fl.toUpperCase().includes(flete) ? "OK" : "DISCREPANCIA",
-      evidencia: fl ? `dice "${fl}"` : "no se leyó la marca de flete",
-    });
+    if (flete) {
+      reglas.push({
+        id: "bl-freight",
+        fuente: "46A",
+        regla: `BL marcado "FREIGHT ${flete}"`,
+        estado: !fl ? "ATENCION" : fl.toUpperCase().includes(flete) ? "OK" : "DISCREPANCIA",
+        evidencia: fl ? `dice "${fl}"` : "no se leyó la marca de flete",
+      });
+    } else if (fl) {
+      reglas.push({
+        id: "bl-freight",
+        fuente: "46A",
+        regla: "Marca de flete del documento de transporte",
+        estado: "ATENCION",
+        evidencia: `el crédito no pide una marca de flete y el documento dice "${fl}": verificar contra el incoterm de la venta`,
+      });
+    }
     if (/NOTIFY\s+APPLICANT/i.test(reglaBL)) {
       const nt = val(bl, "notify") ?? val(bl, "importador");
       const cliente = op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
