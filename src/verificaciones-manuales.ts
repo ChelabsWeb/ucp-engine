@@ -98,7 +98,15 @@ export function verificacionesManuales(input: {
   if (conEmisor.length > 0) {
     lista.push({
       id: "emisor-autorizado",
-      fuente: "UCP 600 14f",
+      /*
+       * La exigencia sale del propio ítem del 46A, no de un artículo.
+       *
+       * Acá se citaba el 14 (f), que dice lo contrario: regula el caso en que el crédito NO dice
+       * quién emite el documento, y su efecto es permisivo —el banco lo acepta como se presenta si
+       * cumple la función—. Cuando el crédito sí nombra al emisor, lo que obliga es el crédito.
+       * Una cita que no se puede ir a buscar al texto vale menos que ninguna.
+       */
+      fuente: "46A",
       que: "Que cada certificado lo emita el organismo que el crédito nombra",
       porQue: "el nombre del emisor se lee, pero que esté habilitado para emitirlo no surge del papel",
       documentos: conEmisor.map((d) => (d.length > 60 ? `${d.slice(0, 57)}…` : d)),

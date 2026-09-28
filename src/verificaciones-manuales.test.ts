@@ -50,3 +50,22 @@ describe("lo que queda del lado humano", () => {
     }
   });
 });
+
+describe("de dónde sale cada verificación", () => {
+  it("el emisor que el crédito nombra se exige por el 46A, no por el artículo 14 (f)", () => {
+    /*
+     * El 14 (f) dice lo contrario de lo que esta verificación hace: regula el caso en que el
+     * crédito no dice quién emite, y ahí el banco acepta el documento como se presenta. Citarlo
+     * para exigir un emisor determinado es mandar a quien lea el hallazgo a un texto que lo
+     * contradice.
+     */
+    const v = verificacionesManuales({
+      lc: { ...LC, documentosExigidos: ["CERTIFICATE OF ORIGIN ISSUED BY THE CHAMBER OF COMMERCE"] },
+      docs: DOCS,
+      haySeguro: false,
+    }).find((x) => x.id === "emisor-autorizado");
+    expect(v).toBeDefined();
+    expect(v?.fuente).toBe("46A");
+    expect(v?.fuente).not.toMatch(/14f/);
+  });
+});
