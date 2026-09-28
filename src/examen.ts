@@ -1,4 +1,5 @@
 import { type DocCertificado, reglasCertificados } from "./certificados";
+import { claveDoc, TIPO_DOC_LABEL } from "./consistencia";
 import { ablandarPorISBP } from "./isbp";
 import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
@@ -84,6 +85,41 @@ export function examinarPresentacion(input: {
     return { ...d, campos: p.campos };
   });
 
+  /*
+   * Lo que el crédito no exige se aparta antes de examinar (art. 14 g).
+   *
+   * «Un documento presentado pero no exigido por el crédito será desestimado y puede devolverse al
+   * presentador». Se desestima de verdad: no se compara contra los otros ni contra el crédito,
+   * porque si no un papel de más inventa discrepancias entre documentos que el banco no tiene que
+   * mirar. Que está presentado se dice igual —el examinador tiene que saber que hay algo para
+   * devolver— pero como aviso, no como hallazgo.
+   *
+   * El crédito cargado como documento no entra acá: no es un papel presentado, es contra lo que se
+   * examina.
+   */
+  /** Cómo se llama cada tipo en el idioma del 46A, para buscarlo entre lo exigido. */
+  const COMO_LO_PIDE_EL_46A: Record<string, string> = {
+    FACTURA: "commercial invoice",
+    PACKING: "packing list",
+    BL: "bill of lading",
+  };
+  const exigidos = input.lc.documentosExigidos ?? [];
+  const clavesExigidas = new Set(exigidos.map(claveDoc));
+  const seDesestima = (d: (typeof docs)[number]) =>
+    d.tipo !== "LC" && !clavesExigidas.has(claveDoc(COMO_LO_PIDE_EL_46A[d.tipo] ?? d.tipo));
+  // Sin 46A legible no se desestima nada: no saber qué pide el crédito no es lo mismo que saber
+  // que no lo pide.
+  const desestimados = exigidos.length > 0 ? docs.filter(seDesestima) : [];
+  const examinables = docs.filter((d) => !desestimados.includes(d));
+  const reglas14g: ReglaPresentacion[] = desestimados.map((d) => ({
+    id: `ucp-14g-${d.tipo.toLowerCase()}`,
+    fuente: "UCP 600 14g",
+    regla: `${TIPO_DOC_LABEL[d.tipo]}: presentado pero no exigido por el crédito, se desestima`,
+    estado: "ATENCION" as const,
+    evidencia:
+      "el crédito no lo pide, así que no se examina ni se compara contra los demás; puede devolverse al presentador",
+  }));
+
   // un banco no tiene una operación de compraventa: tiene un crédito y giros contra él.
   // Si no le pasan una, se arma desde el propio crédito.
   const op =
@@ -106,7 +142,7 @@ export function examinarPresentacion(input: {
 
   const base = precheckPresentacion({
     lc: input.lc,
-    docs,
+    docs: examinables,
     op,
     empresaRazonSocial: input.empresaRazonSocial,
     empresaDireccion: input.empresaDireccion,
@@ -116,7 +152,7 @@ export function examinarPresentacion(input: {
   const deCertificados = reglasCertificados({
     lc: input.lc,
     certificados: input.certificados ?? [],
-    docs,
+    docs: examinables,
     beneficiario: input.empresaRazonSocial,
     mercaderiaDelCredito: input.credito?.mercaderia ?? null,
     hoy: input.hoy,
@@ -125,14 +161,14 @@ export function examinarPresentacion(input: {
   const extra = reglasUCP({
     lc: input.lc,
     credito: input.credito,
-    docs,
+    docs: examinables,
     seguro: input.seguro,
     hoy: input.hoy,
   });
 
   // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
   // de considerarse discrepancia, como la falta del número del crédito en un documento
-  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro]);
+  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro, ...reglas14g]);
   const faltan = CUENTA(reglas, "FALTA");
   const discrepancias = CUENTA(reglas, "DISCREPANCIA");
 
@@ -146,7 +182,7 @@ export function examinarPresentacion(input: {
     diasParaPresentar: base.diasParaPresentar,
     reglasUCP: extra.length + deCertificados.length + deGiro.length,
     saldo: input.presentacion ? saldoDelCredito(input.lc, input.anteriores ?? []) : null,
-    manuales: verificacionesManuales({ lc: input.lc, docs, haySeguro: Boolean(input.seguro) }),
+    manuales: verificacionesManuales({ lc: input.lc, docs: examinables, haySeguro: Boolean(input.seguro) }),
     avisosDeLectura,
   };
 }

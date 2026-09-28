@@ -146,3 +146,50 @@ describe("el adaptador con el examen heredado", () => {
     expect(op.contenedores).toEqual([]);
   });
 });
+
+describe("el vencimiento en un día en que el banco está cerrado (art. 29 a)", () => {
+  /*
+   * El artículo extiende el vencimiento al primer día hábil siguiente cuando el banco al que se
+   * presenta está cerrado «por razones distintas de las del artículo 36», y un feriado es
+   * exactamente eso. El motor corre el vencimiento por fin de semana pero no sabe de feriados: no
+   * tiene ni puede tener el calendario de cada plaza.
+   *
+   * Lo que no puede hacer es dictaminar como si el feriado no existiera. Una presentación hecha el
+   * primer día hábil posterior al vencimiento puede estar perfectamente en plazo, y el motor no
+   * tiene con qué decir que no: corresponde verificarlo, no rechazarlo.
+   */
+  const lcVence = (fecha: string) => ({ ...LC, vencimiento: fecha });
+  const presentar = (vence: string, cuando: Date) =>
+    reglasDeGiro({
+      lc: lcVence(vence),
+      actual: { referencia: "1", fecha: cuando, importe: 51262, fechaEmbarque: "08-APR-2025" },
+    }).find((x) => x.id === "giro-vencimiento");
+
+  it("presentar el primer día hábil siguiente no es discrepancia: hay que verificar el feriado", () => {
+    // 1 de mayo de 2025 es jueves y feriado en casi todas las plazas; el viernes 2 es el siguiente
+    // día hábil.
+    const r = presentar("01-may-25", new Date(2025, 4, 2));
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/29 ?\(?a\)?|cerrado|feriado/i);
+  });
+
+  it("pero dos días hábiles después sí lo es: ningún feriado lo salva", () => {
+    const r = presentar("01-may-25", new Date(2025, 4, 5));
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y presentar en fecha sigue estando bien", () => {
+    expect(presentar("01-may-25", new Date(2025, 3, 30))?.estado).toBe("OK");
+  });
+
+  it("con los feriados de la plaza cargados, el vencimiento se corre de verdad", () => {
+    // Cuando el banco sí sabe qué días estuvo cerrado, no hay nada que verificar a mano.
+    const r = reglasDeGiro({
+      lc: lcVence("01-may-25"),
+      actual: { referencia: "1", fecha: new Date(2025, 4, 2), importe: 51262, fechaEmbarque: "08-APR-2025" },
+      feriados: [new Date(2025, 4, 1)],
+    }).find((x) => x.id === "giro-vencimiento");
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toContain("29a");
+  });
+});

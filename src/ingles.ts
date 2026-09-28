@@ -31,6 +31,28 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── el vencimiento en un día en que el banco está cerrado (UCP 600 art. 29) ──
+  [
+    /^El último día de embarque no se corre aunque el vencimiento sí$/g,
+    "The latest shipment date is not extended even where the expiry date is",
+  ],
+  [
+    /, el primer día hábil después del vencimiento: si el banco estuvo cerrado el /g,
+    ", the first banking day after expiry: if the bank was closed on ",
+  ],
+  [
+    /, el artículo 29 \(a\) lo extiende hasta este día — verificar el calendario de la plaza$/g,
+    ", article 29 (a) extends it to this day — check the calendar of that place",
+  ],
+  // ── el documento no exigido (UCP 600 art. 14 g) ──
+  [
+    /^el crédito no lo pide, así que no se examina ni se compara contra los demás; puede devolverse al presentador$/g,
+    "the credit does not call for it, so it is neither examined nor compared against the others; it may be returned to the presenter",
+  ],
+  [
+    /: presentado pero no exigido por el crédito, se desestima$/g,
+    ": presented but not required by the credit, it is disregarded",
+  ],
   // ── lo que el crédito no exige y por lo tanto no se dictamina (UCP 600 art. 14 a) ──
   [/^A nombre de quién va el documento de transporte$/g, "Whom the transport document is made out to"],
   [/^Marca de flete del documento de transporte$/g, "Freight marking on the transport document"],

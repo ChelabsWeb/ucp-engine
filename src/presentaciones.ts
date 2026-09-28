@@ -69,24 +69,38 @@ export interface VencimientoEfectivo {
   corrido: boolean;
 }
 
+const mismoDia = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
 /**
- * Si el vencimiento cae en un día en que el banco está cerrado, se corre al siguiente día
- * hábil (artículo 29a). Acá solo se contemplan los fines de semana: los feriados dependen
- * de la plaza del banco y no se pueden adivinar.
+ * Si el vencimiento cae en un día en que el banco está cerrado, se corre al siguiente día hábil
+ * (artículo 29a).
  *
- * El último día de embarque **no** se corre nunca (artículo 29c), y esa distinción es la
- * que más se confunde.
+ * Se contemplan los fines de semana siempre, y los feriados cuando el banco los carga: el
+ * calendario de cada plaza no se puede adivinar, y un motor que lo inventara diría que una
+ * presentación llegó tarde el día que la plaza estuvo cerrada.
+ *
+ * El último día de embarque **no** se corre nunca (artículo 29c), y esa distinción es la que más
+ * se confunde.
  */
-export function vencimientoEfectivo(lc: LcInfo): VencimientoEfectivo | null {
+export function vencimientoEfectivo(lc: LcInfo, feriados: Date[] = []): VencimientoEfectivo | null {
   const v = parseFecha(lc.vencimiento);
   if (!v) return null;
   const efectivo = new Date(v.getFullYear(), v.getMonth(), v.getDate());
+  const cerrado = (d: Date) => esFinDeSemana(d) || feriados.some((f) => mismoDia(f, d));
   let corrido = false;
-  while (esFinDeSemana(efectivo)) {
+  while (cerrado(efectivo)) {
     efectivo.setDate(efectivo.getDate() + 1);
     corrido = true;
   }
   return { segunElCredito: v, efectivo, corrido };
+}
+
+/** El primer día hábil después de una fecha, sin contar fines de semana. */
+function primerDiaHabilDespues(d: Date): Date {
+  const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+  while (esFinDeSemana(x)) x.setDate(x.getDate() + 1);
+  return x;
 }
 
 /* ───────────────────────────── las reglas ───────────────────────────── */
@@ -112,6 +126,13 @@ export function reglasDeGiro(input: {
   anteriores?: Presentacion[];
   /** 43P del crédito: "ALLOWED" / "NOT ALLOWED" */
   parciales?: string | null;
+  /**
+   * Los días en que el banco al que se presenta estuvo cerrado, si el banco los sabe.
+   *
+   * Sin ellos el motor solo conoce los fines de semana, y una presentación hecha el primer día
+   * hábil posterior al vencimiento se manda a verificar en vez de rechazarse (art. 29 a).
+   */
+  feriados?: Date[];
 }): ReglaPresentacion[] {
   const anteriores = input.anteriores ?? [];
   const out: ReglaPresentacion[] = [];
@@ -153,20 +174,36 @@ export function reglasDeGiro(input: {
   }
 
   /* 6e y 29a: la presentación tiene que llegar en o antes del vencimiento */
-  const v = vencimientoEfectivo(input.lc);
+  const v = vencimientoEfectivo(input.lc, input.feriados ?? []);
   if (v) {
     const dias = diffDias(input.actual.fecha, v.efectivo);
+    /*
+     * El feriado que el motor no puede conocer.
+     *
+     * El 29 (a) corre el vencimiento al primer día hábil siguiente cuando el banco al que se
+     * presenta está cerrado por razones distintas de las del artículo 36 —un feriado, entre
+     * otras—. Acá se contemplan los fines de semana y, si el banco los carga, sus feriados; lo que
+     * no existe es un calendario universal de plazas.
+     *
+     * Así que cuando la presentación cae justo en el primer día hábil posterior al vencimiento, el
+     * motor no tiene con qué afirmar que llegó tarde: si ese día el banco estaba cerrado, llegó en
+     * plazo. Se manda a verificar en vez de rechazar. Dos días hábiles después ya no hay feriado
+     * que lo salve, y ahí sí es discrepancia.
+     */
+    const podriaSerFeriado = dias < 0 && mismoDia(input.actual.fecha, primerDiaHabilDespues(v.efectivo));
     out.push(
       regla(
         "giro-vencimiento",
-        v.corrido ? "UCP 600 6e y 29a" : "UCP 600 6e",
+        v.corrido || podriaSerFeriado ? "UCP 600 6e y 29a" : "UCP 600 6e",
         v.corrido
           ? `Presentada antes del vencimiento, corrido al primer día hábil (${fmtFecha(v.efectivo)})`
           : `Presentada antes del vencimiento (${fmtFecha(v.efectivo)})`,
-        dias >= 0 ? "OK" : "DISCREPANCIA",
+        dias >= 0 ? "OK" : podriaSerFeriado ? "ATENCION" : "DISCREPANCIA",
         dias >= 0
           ? `presentada el ${fmtFecha(input.actual.fecha)}, quedan ${dias} días`
-          : `presentada el ${fmtFecha(input.actual.fecha)}, ${-dias} días después del vencimiento`,
+          : podriaSerFeriado
+            ? `presentada el ${fmtFecha(input.actual.fecha)}, el primer día hábil después del vencimiento: si el banco estuvo cerrado el ${fmtFecha(v.efectivo)}, el artículo 29 (a) lo extiende hasta este día — verificar el calendario de la plaza`
+            : `presentada el ${fmtFecha(input.actual.fecha)}, ${-dias} días después del vencimiento`,
       ),
     );
     if (v.corrido) {

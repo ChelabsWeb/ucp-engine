@@ -142,3 +142,60 @@ describe("el contexto que sale del crédito", () => {
     expect(contextoDesdeSwift(swift).beneficiario).toContain("CEREALSUR");
   });
 });
+
+describe("un documento que el crédito no exige se desestima (UCP 600 art. 14 g)", () => {
+  /*
+   * El artículo es terminante: «un documento presentado pero no exigido por el crédito será
+   * desestimado y puede devolverse al presentador». El motor lo examinaba igual, y con eso un papel
+   * de más podía inventar una discrepancia.
+   *
+   * El caso que lo muestra: un crédito que no pide packing list, y un packing que contradice al
+   * conocimiento en el tipo de bulto. La contradicción existe, pero es entre un documento del
+   * crédito y otro que el banco no tiene que mirar.
+   */
+  const sinPacking = {
+    ...swift.lc,
+    documentosExigidos: (swift.lc.documentosExigidos ?? []).filter((d) => !/PACKING/i.test(d)),
+  };
+  const conPacking = [
+    { tipo: "BL" as const, campos: DOCUMENTOS_CSU2025099.BL! },
+    { tipo: "PACKING" as const, campos: DOCUMENTOS_CSU2025099.PACKING! },
+  ];
+  const correr = (lc: typeof swift.lc) =>
+    examinarPresentacion({
+      lc,
+      credito: contextoDesdeSwift(swift),
+      docs: conPacking,
+      empresaRazonSocial: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 22),
+    });
+
+  it("no se compara contra los demás: la contradicción de bultos no sale como discrepancia", () => {
+    const r = correr(sinPacking);
+    expect(r.reglas.filter((x) => x.estado === "DISCREPANCIA" && /bulto/i.test(x.regla))).toHaveLength(0);
+  });
+
+  it("pero se dice que está y que se desestima, con el artículo", () => {
+    const x = correr(sinPacking).reglas.find((y) => y.id.startsWith("ucp-14g"));
+    expect(x?.fuente).toContain("14g");
+    expect(x?.regla).toMatch(/desestim/i);
+    expect(x?.estado).toBe("ATENCION");
+  });
+
+  it("y si el crédito SÍ lo exige, se compara como siempre", () => {
+    // El crédito del caso pide packing list: ahí la contradicción de bultos es una discrepancia real.
+    const r = correr(swift.lc);
+    expect(r.reglas.filter((x) => x.estado === "DISCREPANCIA" && /bulto/i.test(x.regla))).toHaveLength(1);
+  });
+
+  it("el crédito cargado como documento no se desestima: no es un papel presentado", () => {
+    const r = examinarPresentacion({
+      lc: sinPacking,
+      credito: contextoDesdeSwift(swift),
+      docs: [{ tipo: "LC" as const, campos: DOCUMENTOS_CSU2025099.FACTURA! }],
+      empresaRazonSocial: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 22),
+    });
+    expect(r.reglas.find((x) => x.id.startsWith("ucp-14g"))).toBeUndefined();
+  });
+});

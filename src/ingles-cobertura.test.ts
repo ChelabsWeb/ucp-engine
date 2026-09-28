@@ -61,6 +61,8 @@ const MODULOS = [
   "transferible.ts",
   "back-to-back.ts",
   "enmienda-vigencia.ts",
+  "examen.ts",
+  "presentaciones.ts",
 ];
 
 /**
