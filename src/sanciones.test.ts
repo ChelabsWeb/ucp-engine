@@ -270,3 +270,47 @@ describe("qué se pierde con estos umbrales, dicho a propósito", () => {
     expect(screenear(como("ZAGARIA"), [entrada("ZAGARIA", "PERSONA")])).toHaveLength(1);
   });
 });
+
+describe("las palabras del rubro no identifican a nadie", () => {
+  /*
+   * Salió de correr las 338 contrapartes reales del ERP contra las listas: 96 coincidencias, todas
+   * parciales, y casi todas apoyadas en una sola palabra del comercio. «LOGISTICS» generaba 24,
+   * «COMPANY» 11, «DEVELOPMENT» 10.
+   *
+   * El umbral de largo no alcanza para filtrarlas —«LOGISTICS» tiene nueve letras— porque el
+   * problema no es que sean cortas sino que son de todos. Un nombre sancionado que, quitados los
+   * sufijos societarios, queda reducido a una palabra así no distingue a nadie: coincide con media
+   * industria.
+   *
+   * El riesgo de esto es perder una coincidencia verdadera, así que solo se descarta la PARCIAL: si
+   * el nombre coincide entero, sigue saltando.
+   */
+  const lista = (nombre: string): ListaSanciones => ({
+    fuente: "OFAC SDN",
+    publicada: "hoy",
+    entradas: [{ id: "1", nombre, tipo: "ENTIDAD", alias: [], programa: "TEST" }],
+  });
+  const parte = (valor: string): ParteScreenear => ({ rol: "CONSIGNATARIO", valor, origen: "ERP" });
+
+  it.each([
+    ["XIAMEN TORCH LOGISTICS CO., LTD", "M9 LOGISTICS CO., LTD"],
+    ["CHINA ANIMAL AGRICULTURAL DEVELOPMENT CO. LTD.", "AGRICULTURAL DEVELOPMENT BANK"],
+    ["NEW CENTURY INVESTMENTS PTE. LTD", "D.G.D. INVESTMENTS LTD."],
+    ["C And D Logistics Group Co.,Ltd.", "M9 LOGISTICS (HK) LIMITED"],
+  ])("«%s» no coincide con «%s»", (contraparte, sancionado) => {
+    expect(screenear([parte(contraparte)], [lista(sancionado)])).toHaveLength(0);
+  });
+
+  it("pero el nombre entero sigue coincidiendo", () => {
+    expect(screenear([parte("M9 LOGISTICS CO LTD")], [lista("M9 LOGISTICS CO., LTD")])).toHaveLength(1);
+  });
+
+  it("y una palabra distintiva de verdad sigue valiendo", () => {
+    // GAZPROM no es una palabra del rubro: identifica a alguien.
+    expect(screenear([parte("GAZPROM NEFT LLC")], [lista("GAZPROM")])).toHaveLength(1);
+  });
+
+  it("dos palabras genéricas juntas tampoco alcanzan", () => {
+    expect(screenear([parte("GLOBAL TRADING URUGUAY S.A.")], [lista("GLOBAL TRADING LIMITED")])).toHaveLength(0);
+  });
+});

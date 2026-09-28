@@ -180,6 +180,112 @@ const VACIAS = new Set([
 const LARGO_DISTINTIVO = 6;
 
 /**
+ * Las palabras que son de todos y no identifican a nadie.
+ *
+ * `VACIAS` saca los sufijos societarios —LLC, GMBH, SRL—. Esto saca el otro ruido, que el umbral de
+ * largo no atrapa: «LOGISTICS» tiene nueve letras y no distingue nada, porque está en el nombre de
+ * media industria.
+ *
+ * La lista salió de medir. Corridas las 338 contrapartes reales del ERP de un trader contra OFAC y
+ * el Reino Unido salieron 96 coincidencias, todas parciales, y contadas por palabra compartida el
+ * reparto fue: LOGISTICS 24, COMPANY 11, DEVELOPMENT 10, HOLDING 5, TECHNOLOGY 4, GENERAL 4,
+ * AGRICULTURAL 3, TRADING 3, INVESTMENT 3. Noventa y seis avisos sobre trescientas cincuenta y tres
+ * partes es un examinador que deja de mirar la pantalla.
+ *
+ * Solo descarta la coincidencia PARCIAL. Si el nombre coincide entero, salta igual: perder un
+ * verdadero positivo costaría mucho más que este ruido.
+ */
+const GENERICAS = new Set([
+  // las que el backtest señaló
+  "logistics",
+  "company",
+  "development",
+  "holding",
+  "holdings",
+  "technology",
+  "technologies",
+  "general",
+  "agricultural",
+  "agriculture",
+  "trading",
+  "investment",
+  "investments",
+  "limited",
+  "global",
+  // el resto del vocabulario del comercio exterior
+  "international",
+  "national",
+  "group",
+  "services",
+  "service",
+  "resources",
+  "resource",
+  "industries",
+  "industrial",
+  "industry",
+  "enterprise",
+  "enterprises",
+  "import",
+  "imports",
+  "export",
+  "exports",
+  "supply",
+  "supplies",
+  "shipping",
+  "transport",
+  "transportation",
+  "commercial",
+  "business",
+  "marketing",
+  "products",
+  "product",
+  "foods",
+  "materials",
+  "management",
+  "solutions",
+  "systems",
+  "capital",
+  "finance",
+  "financial",
+  "construction",
+  "engineering",
+  "equipment",
+  "machinery",
+  "consulting",
+  "partners",
+  "overseas",
+  "universal",
+  "standard",
+  "comercial",
+  "internacional",
+  "servicios",
+  "productos",
+  "industrias",
+  "importadora",
+  "exportadora",
+  "distribuidora",
+  "compania",
+  "sociedad",
+  // formas societarias que no son sufijo y el backtest destapó: «JOINT STOCK COMPANY» es la
+  // vietnamita y la rusa, equivalente a «S.A.», y generaba nueve de las veinticinco que quedaban
+  "joint",
+  "stock",
+  "liability",
+  "private",
+  "public",
+]);
+
+/**
+ * Las palabras que aportan identidad: las que no son de todos.
+ *
+ * Se descuentan las genéricas antes de contar, no se exige que alguna lo sea. La diferencia importa:
+ * «ORIENT FEED LIMITED» no tiene ninguna palabra larga y distintiva —«super» y «feed» son cortas—
+ * pero juntas identifican a alguien, y es el ordenante del expediente real. Lo que no identifica es
+ * quedarse con «LOGISTICS» a secas.
+ */
+const propias = (ws: string[]) => ws.filter((w) => !GENERICAS.has(w));
+
+/**
  * Qué tipo de entrada tiene sentido para cada rol.
  *
  * Las listas dicen si una entrada es una persona, una entidad, un buque o una aeronave, y usarlo saca
@@ -307,9 +413,12 @@ function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "p
      * del sancionado, y con una sola palabra es ruido: así «BANCO SANTANDER» coincidía con «SERVICIO
      * AEREO DE SANTANDER», una de tres palabras y encima un topónimo. Ahí se exigen dos.
      */
-    const bastaSola = (ws: string[]) => ws.length > 1 || (ws[0]?.length ?? 0) >= LARGO_DISTINTIVO;
+    const bastaSola = (ws: string[]) => {
+      const p = propias(ws);
+      return p.length > 1 || (p.length === 1 && (p[0]?.length ?? 0) >= LARGO_DISTINTIVO);
+    };
     const enParte = bastaSola(cc) && cc.every((w) => claves.includes(w));
-    const enEntrada = claves.length > 1 && claves.every((w) => cc.includes(w));
+    const enEntrada = propias(claves).length > 1 && claves.every((w) => cc.includes(w));
     if (enParte || enEntrada) {
       return { entradaId: e.id, entradaNombre: e.nombre, porQue: c.que, grado: "PARCIAL", programa: e.programa };
     }
