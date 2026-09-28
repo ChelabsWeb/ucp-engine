@@ -31,6 +31,48 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── la vigencia de una enmienda (UCP 600 art. 10) ──
+  [
+    /^La enmienda trae una cláusula de aceptación por silencio, y esa cláusula se desestima$/g,
+    "The amendment contains a clause deeming it accepted by silence, and that clause is disregarded",
+  ],
+  [
+    /^el artículo la deja sin efecto: la enmienda no entra en vigor por el paso del tiempo, solo si el beneficiario la acepta\. Quien la escribió puede estar contando un plazo que no existe$/g,
+    "the article leaves it without effect: the amendment does not come into force by the passing of time, only if the beneficiary accepts it. Whoever wrote it may be counting on a period that does not exist",
+  ],
+  [
+    /^Una aceptación parcial de la enmienda vale como rechazo$/g,
+    "Partial acceptance of the amendment counts as rejection",
+  ],
+  [
+    /^no existe un crédito a medio enmendar: o se acepta entera o rigen los términos anteriores$/g,
+    "there is no half-amended credit: either it is accepted in full or the previous terms govern",
+  ],
+  [
+    /^Los documentos se examinan contra el crédito original, no contra el enmendado$/g,
+    "The documents are examined against the original credit, not against the amended one",
+  ],
+  [
+    /^los términos originales siguen rigiendo para el beneficiario hasta que comunique que acepta la enmienda; el emisor sí quedó obligado desde que la emitió \(10 b\)$/g,
+    "the original terms remain in force for the beneficiary until it communicates its acceptance of the amendment; the issuing bank, by contrast, has been bound since it issued it (10 b)",
+  ],
+  [/^el beneficiario ya había comunicado que la aceptaba$/g, "the beneficiary had already communicated its acceptance"],
+  [
+    /^la enmienda fue rechazada; una presentación conforme no la vuelve a poner en juego$/g,
+    "the amendment was rejected; a complying presentation does not bring it back into play",
+  ],
+  [
+    /^sin notificación previa, una presentación que cumple con el crédito y con la enmienda vale como aceptación \(UCP 600 10 c\): desde ese momento el crédito queda enmendado$/g,
+    "with no prior notification, a presentation that complies with the credit and with the amendment counts as acceptance (UCP 600 10 c): from that moment the credit stands amended",
+  ],
+  [
+    /^los documentos no cumplen con el crédito original, que es el que rige para el beneficiario mientras no acepte la enmienda$/g,
+    "the documents do not comply with the original credit, which is the one in force for the beneficiary until it accepts the amendment",
+  ],
+  [
+    /^los documentos cumplen con el crédito original pero no con la enmienda, así que no la aceptan$/g,
+    "the documents comply with the original credit but not with the amendment, so they do not accept it",
+  ],
   // ── el back-to-back (`back-to-back.ts`): práctica bancaria, no un artículo ──
   [/^Los dos créditos vencen el mismo día$/g, "Both credits expire on the same day"],
   [

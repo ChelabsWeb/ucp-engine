@@ -60,6 +60,7 @@ const MODULOS = [
   "checking-list.ts",
   "transferible.ts",
   "back-to-back.ts",
+  "enmienda-vigencia.ts",
 ];
 
 /**
