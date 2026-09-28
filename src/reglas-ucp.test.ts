@@ -672,3 +672,33 @@ describe("quién emite y quién embarca, que no son la misma pregunta (arts. 18 
     expect(r.find((y) => y.id === "ucp-18a-i")?.estado).toBe("ATENCION");
   });
 });
+
+describe("la cantidad en bultos (UCP 600 art. 30 b)", () => {
+  /*
+   * La condición del inciso es que el crédito exprese LA CANTIDAD en bultos o unidades, no que
+   * mencione el embalaje. «57 MTS OF FISH MEAL PACKED IN BAGS OF 50 KG» expresa la cantidad en
+   * toneladas: el ±5 % corre. El motor miraba si aparecía la palabra «bags» en cualquier parte del
+   * 45A y anunciaba lo contrario.
+   */
+  const con45A = (mercaderia: string) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia: null },
+      credito: { ...CTX, mercaderia },
+      docs: [],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b");
+
+  it("la cantidad en toneladas admite el 5 %, aunque el crédito diga cómo va embalada", () => {
+    const r = con45A("57 MTS OF FISH MEAL 54PCT MIN PACKED IN BAGS OF 50 KG");
+    expect(r?.regla).toMatch(/admite ±5|±5 %/);
+    expect(r?.regla).not.toMatch(/en bultos/i);
+  });
+
+  it("pero si la cantidad va en bultos, no corre", () => {
+    expect(con45A("1360 BAGS OF FISH MEAL")?.regla).toMatch(/en bultos/i);
+  });
+
+  it("y con la mercadería del caso real, corre el 5 %", () => {
+    expect(con45A("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.regla).toMatch(/±5/);
+  });
+});

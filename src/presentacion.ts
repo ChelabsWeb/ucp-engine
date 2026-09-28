@@ -1,6 +1,6 @@
 import { type CamposDoc, claveDoc, compararEntreDocumentos, parseNumero, type TipoDocExterno } from "./consistencia";
 import { diffDias, parseFecha } from "./fechas";
-import { limitePresentacion, toleranciaDe } from "./lc";
+import { limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
 /**
@@ -329,7 +329,8 @@ export function precheckPresentacion(input: {
     const monto = val(fac, "montoTotal");
     const n = monto ? parseNumero(monto) : null;
     if (n != null && lc.monto != null && lc.monto > 0) {
-      const tol = toleranciaDe(lc);
+      // Tolerancia de IMPORTE: el 5 % del artículo 30 (b) es de cantidad, no de monto.
+      const tol = toleranciaDeImporte(lc);
       const tope = lc.monto * (1 + tol);
       reglas.push({
         id: "fac-monto",

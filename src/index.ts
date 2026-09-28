@@ -122,6 +122,8 @@ export {
   TOLERANCIA_DEFAULT,
   tenorDe,
   toleranciaDe,
+  toleranciaDeCantidad,
+  toleranciaDeImporte,
   UCP_DIAS_EXAMEN,
   UCP_DIAS_PRESENTACION,
 } from "./lc";

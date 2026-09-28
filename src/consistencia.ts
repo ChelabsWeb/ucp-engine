@@ -10,7 +10,7 @@
  */
 
 import { parseFecha } from "./fechas";
-import { diasPresentacion, parseTolerancia, TOLERANCIA_DEFAULT, toleranciaDe } from "./lc";
+import { diasPresentacion, parseTolerancia, TOLERANCIA_DEFAULT, toleranciaDe, toleranciaDeImporte } from "./lc";
 import type {
   ChecklistRow,
   Discrepancy,
@@ -1124,7 +1124,8 @@ export function cotejarLCconOperacion(req: RequisitosLC, campos: CamposDoc, op: 
   if (montoLC != null && montoLC > 0) {
     if (venta == null) out.push({ campo: "Monto", operacion: "sin cargar", lc: fmtMonto(montoLC), estado: "SIN_DATO" });
     else {
-      const tol = tolLC ?? toleranciaDe(lc);
+      // El Monto es importe: el 5 % del 30 (b) es de cantidad y no aplica acá.
+      const tol = tolLC ?? toleranciaDeImporte(lc);
       const cubre = venta <= montoLC * (1 + tol) + 1e-9;
       out.push({
         campo: "Monto",

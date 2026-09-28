@@ -193,3 +193,31 @@ describe("el vencimiento en un día en que el banco está cerrado (art. 29 a)", 
     expect(r?.fuente).toContain("29a");
   });
 });
+
+describe("el giro no puede pasarse del crédito (UCP 600 art. 30 b y c)", () => {
+  /*
+   * Reproducido antes de arreglarlo: un giro de 56.000 contra un crédito de 54.150 salía OK, con la
+   * evidencia «tope USD 56.857,50». Ese 5 % venía del 30 (b), que es tolerancia de CANTIDAD y cuya
+   * propia condición es que el total girado no exceda el crédito. El banco pagaba de más.
+   */
+  const sinTolerancia: LcInfo = { ...LC, tolerancia: null };
+  const girar = (importe: number, lc = sinTolerancia) =>
+    reglasDeGiro({
+      lc,
+      actual: { referencia: "1", fecha: new Date(2025, 3, 20), importe, fechaEmbarque: "08-APR-2025" },
+    }).find((x) => x.id === "giro-saldo");
+
+  it("sin 39A ni «about», girar por encima del crédito es discrepancia", () => {
+    expect(girar(56000)?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y girar por el importe exacto del crédito está bien", () => {
+    expect(girar(54150)?.estado).toBe("OK");
+  });
+
+  it("con 39A cargado, el margen del crédito sí se usa", () => {
+    // El crédito del caso trae 39A 10/10: ahí 56.000 entra.
+    expect(girar(56000, { ...LC, tolerancia: 0.1 })?.estado).toBe("OK");
+    expect(girar(60000, { ...LC, tolerancia: 0.1 })?.estado).toBe("DISCREPANCIA");
+  });
+});

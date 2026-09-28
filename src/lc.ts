@@ -119,6 +119,34 @@ export function toleranciaDe(lc: LcInfo | null | undefined): number {
   return lc?.tolerancia ?? TOLERANCIA_DEFAULT;
 }
 
+/**
+ * La tolerancia del **importe**, que no es la misma que la de la cantidad (art. 30).
+ *
+ * Acá estaba el error más caro del motor: se usaba un solo número para las dos, con 5 % por
+ * defecto. Ese 5 % es el del artículo 30 (b), que es una tolerancia de CANTIDAD y cuya propia
+ * condición es que «el total girado no exceda el importe del crédito». Aplicárselo al importe daba
+ * por conforme un giro de 56.000 contra un crédito de 54.150: el banco paga de más y no lo
+ * recupera.
+ *
+ * Hacia arriba, sin 39A ni «about», el tope es el 32B a secas. Hacia abajo el 30 (c) admite un 5 %
+ * menos con condiciones, que es otra regla y todavía no está.
+ */
+export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
+  return lc?.tolerancia ?? 0;
+}
+
+/**
+ * La tolerancia de la **cantidad** (art. 30 b).
+ *
+ * El ±5 % rige salvo que el crédito exprese la cantidad en bultos o unidades, que es la primera
+ * condición del inciso. No está condicionado al 39A —que es tolerancia de importe— así que un
+ * crédito con 39A 00/00 sigue admitiendo el 5 % en la cantidad; si el crédito da más, vale más.
+ */
+export function toleranciaDeCantidad(lc: LcInfo | null | undefined, enBultos = false): number {
+  if (enBultos) return 0;
+  return Math.max(lc?.tolerancia ?? 0, TOLERANCIA_DEFAULT);
+}
+
 /* ─── A6: ¿cuándo entra la plata? ──────────────────────────────────────────────
    La LC dice cómo y cuándo paga: 41D ("available by negotiation/payment/deferred
    payment") y 42C (tenor: "SIGHT", "90 DAYS AFTER B/L DATE"). Con eso, la fecha de

@@ -1,5 +1,5 @@
 import { diffDias, fmtFecha, parseFecha } from "./fechas";
-import { toleranciaDe } from "./lc";
+import { toleranciaDeImporte } from "./lc";
 import type { EstadoRegla, ReglaPresentacion } from "./presentacion";
 import type { LcInfo, OperationDetail } from "./types";
 
@@ -44,7 +44,8 @@ export interface SaldoCredito {
 }
 
 export function saldoDelCredito(lc: LcInfo, anteriores: Presentacion[]): SaldoCredito {
-  const tolerancia = toleranciaDe(lc);
+  // El tope del crédito es de IMPORTE: sin 39A ni «about» no hay margen hacia arriba (art. 30).
+  const tolerancia = toleranciaDeImporte(lc);
   const importe = lc.monto ?? null;
   const tope = importe === null ? null : importe * (1 + tolerancia);
   const girado = anteriores.reduce((s, p) => s + (p.importe ?? 0), 0);

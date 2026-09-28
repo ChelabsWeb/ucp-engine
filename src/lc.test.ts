@@ -10,6 +10,8 @@ import {
   sumarHabiles,
   tenorDe,
   toleranciaDe,
+  toleranciaDeCantidad,
+  toleranciaDeImporte,
 } from "./lc";
 import type { LcInfo } from "./types";
 
@@ -151,5 +153,46 @@ describe("cobroEstimado (A6) — cuándo entra la plata", () => {
     expect(tenorDe("60 DAYS FROM SHIPMENT DATE")).toEqual({ dias: 60, desde: "BL" });
     expect(tenorDe(null)).toEqual({ dias: 0, desde: "PRESENTACION" });
     expect(sumarHabiles(new Date(2025, 3, 18), 1)).toEqual(new Date(2025, 3, 21)); // viernes → lunes
+  });
+});
+
+describe("la tolerancia del importe y la de la cantidad son dos cosas (UCP 600 art. 30)", () => {
+  /*
+   * El motor usaba un solo número para las dos, con 5 % por defecto. Pero ese 5 % es el del
+   * artículo 30 (b), que es una tolerancia de CANTIDAD y cuya propia condición es que «el total
+   * girado no exceda el importe del crédito». Aplicárselo al importe daba por conforme un giro que
+   * se pasa del crédito: el banco paga de más y no lo recupera.
+   *
+   * Hacia abajo el 30 (c) sí admite 5 % menos en el importe, con condiciones. Hacia arriba, sin
+   * 39A ni «about», el tope es el 32B a secas.
+   */
+  const conTolerancia = (t: number | null): LcInfo => ({ ...LC, tolerancia: t });
+
+  it("sin indicación en el crédito, el importe no tiene margen hacia arriba", () => {
+    expect(toleranciaDeImporte(conTolerancia(null))).toBe(0);
+  });
+
+  it("pero la cantidad conserva el 5 % del 30 (b)", () => {
+    expect(toleranciaDeCantidad(conTolerancia(null))).toBe(0.05);
+  });
+
+  it("con 39A, el importe usa lo que el crédito dice", () => {
+    expect(toleranciaDeImporte(conTolerancia(0.1))).toBe(0.1);
+  });
+
+  it("y la cantidad nunca baja del 5 %, aunque el 39A diga 00/00", () => {
+    // El 30 (b) no está condicionado al 39A: un crédito con 00/00 de tolerancia de IMPORTE sigue
+    // admitiendo el ±5 % en la cantidad.
+    expect(toleranciaDeCantidad(conTolerancia(0))).toBe(0.05);
+  });
+
+  it("si el crédito da más que el 5 %, la cantidad usa ese más", () => {
+    expect(toleranciaDeCantidad(conTolerancia(0.1))).toBe(0.1);
+  });
+
+  it("cuando el crédito expresa la cantidad en bultos, no hay tolerancia de cantidad", () => {
+    // Es la primera condición del 30 (b): «provided the credit does not state the quantity in terms
+    // of a stipulated number of packing units or individual items».
+    expect(toleranciaDeCantidad(conTolerancia(null), true)).toBe(0);
   });
 });

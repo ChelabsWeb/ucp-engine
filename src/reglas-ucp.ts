@@ -1,7 +1,7 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
 import { parseNumero } from "./consistencia";
 import { parseFecha } from "./fechas";
-import { toleranciaDe } from "./lc";
+import { toleranciaDeCantidad } from "./lc";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
 import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
 import type { LcInfo } from "./types";
@@ -878,7 +878,15 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
   // 30b: sin tolerancia expresa en el crédito rige el ±5 % sobre la cantidad,
   // salvo que la cantidad esté expresada en bultos o unidades
   if (lc.tolerancia == null) {
-    const enBultos = /\b(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs)\b/i.test(
+    /*
+     * La condición es que el crédito exprese LA CANTIDAD en bultos, no que mencione el embalaje.
+     *
+     * «57 MTS OF FISH MEAL PACKED IN BAGS OF 50 KG» expresa la cantidad en toneladas y el ±5 %
+     * corre; antes bastaba con que apareciera la palabra «bags» en cualquier parte del 45A para
+     * anunciar lo contrario. Lo que se busca es un número seguido de la unidad de bulto, que es
+     * como se escribe una cantidad en bultos.
+     */
+    const enBultos = /\b\d[\d.,]*\s*(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs)\b/i.test(
       ctx.mercaderia ?? "",
     );
     out.push(
@@ -889,7 +897,9 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
           ? "El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %"
           : "Sin tolerancia en el crédito, la cantidad admite ±5 %",
         "OK",
-        enBultos ? "la cantidad se compara exacta" : `se aplica ±${Math.round(toleranciaDe(lc) * 100)} % a la cantidad`,
+        enBultos
+          ? "la cantidad se compara exacta"
+          : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
       ),
     );
   }
