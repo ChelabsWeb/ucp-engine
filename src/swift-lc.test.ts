@@ -142,3 +142,14 @@ describe("D3/D4: lo que el 59 y el 45A fijan para los documentos propios", () =>
     expect(lc.hsCode).toBe("2301.20.00");
   });
 });
+
+describe("el beneficiario, que es quien cobra", () => {
+  it("la primera línea del 59 es la razón social y el resto la dirección", () => {
+    // La ficha del crédito mostraba «on file» en lugar del nombre porque el parser entregaba la
+    // dirección y no la razón social, y la base no tenía dónde guardarla.
+    const p = parseMT700(MT710_CSU2025099)!;
+    expect(p.lc.beneficiario).toBe("CEREALSUR S.A");
+    expect(p.lc.beneficiarioDireccion).toContain("CERRITO 820");
+    expect(p.lc.beneficiarioDireccion).not.toContain("CEREALSUR");
+  });
+});

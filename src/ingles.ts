@@ -31,6 +31,11 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── valores que el parser escribe en castellano y se muestran tal cual ──
+  [/^(\d+) días desde la fecha de embarque \(campo 48\)$/g, "$1 days from the date of shipment (field 48)"],
+  [/^(\d+) originales$/g, "$1 originals"],
+  [/^(\d+) originales \+ (\d+) copias$/g, "$1 originals + $2 copies"],
+  [/^sin cantidad indicada$/g, "no number stated"],
   // ── qué documento es este (ISBP 821 C1) ──
   [/^El documento es una factura comercial$/g, "The document is a commercial invoice"],
   [/^el título de la factura$/g, "the heading of the invoice"],

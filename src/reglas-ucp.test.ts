@@ -936,3 +936,74 @@ describe("la descripción de la factura cuando el crédito lista mercaderías (a
     expect(conFactura("57 MTS OF FISH MEAL 54PCT MIN", "FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.estado).toBe("OK");
   });
 });
+
+describe("los nombres cortos, que el motor hacía desaparecer", () => {
+  /*
+   * `coincideLugar` se queda con las palabras de más de tres letras —para que «S.A.» o «de» no
+   * hagan coincidir a nadie— y si no sobrevive ninguna devuelve false. Con eso, un ordenante
+   * llamado IBM, DHL, ABB o SMC escrito idéntico en el crédito y en la factura daba DISCREPANCIA, y
+   * un puerto como GOA o RIO también.
+   *
+   * Es el falso positivo más barato de disparar del motor: no hace falta ningún error en los
+   * documentos, solo que alguien se llame con tres letras. Y toca siete reglas: 18 a i, 18 a ii,
+   * 19 a iii, 20 a iii, 23 a iv, 24 a iii y 28 f iii.
+   */
+  const conOrdenante = (nombre: string, enFactura: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, aplicante: nombre },
+      docs: [{ tipo: "FACTURA", campos: doc({ importador: campo(enFactura) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18a-ii");
+
+  it.each(["IBM", "DHL", "ABB", "SMC", "BBC"])("«%s» a nombre de sí mismo no es discrepancia", (nombre) => {
+    expect(conOrdenante(nombre, nombre)?.estado).toBe("OK");
+  });
+
+  it("y dos nombres cortos distintos siguen siendo distintos", () => {
+    expect(conOrdenante("IBM", "DHL")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("un nombre corto dentro de uno largo también coincide", () => {
+    expect(conOrdenante("IBM", "IBM WORLD TRADE CORPORATION")?.estado).toBe("OK");
+  });
+
+  it("y los nombres largos siguen comparándose como antes", () => {
+    expect(conOrdenante("ORIENT FEED (PVT) LTD", "ORIENT FEED PVT LTD")?.estado).toBe("OK");
+    expect(conOrdenante("ORIENT FEED (PVT) LTD", "OTRA EMPRESA CUALQUIERA")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+describe("el documento limpio del artículo 27", () => {
+  /*
+   * El artículo 27 define el documento limpio por lo que NO tiene: ninguna cláusula que declare
+   * defectuosa la mercadería o el embalaje. Cuando el campo viene con una forma de decir «no hay»
+   * —«N/A», «NIL», «NONE», un guion— eso es un documento limpio, y el motor lo marcaba discrepante
+   * porque solo reconocía cuatro palabras.
+   *
+   * La dirección del error importa: marcaba discrepancia sobre un conocimiento impecable.
+   */
+  const conClausula = (texto: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ clausulaDefecto: campo(texto), buque: campo("STELLA AUSTRAL") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-27");
+
+  it.each(["N/A", "NIL", "NONE", "NOT APPLICABLE", "—", "-", "NO", "SIN OBSERVACIONES"])(
+    "«%s» quiere decir que no hay cláusula",
+    (texto) => {
+      expect(conClausula(texto)?.estado).not.toBe("DISCREPANCIA");
+    },
+  );
+
+  it("y «CLEAN ON BOARD» sigue pasando", () => {
+    expect(conClausula("CLEAN ON BOARD")?.estado).toBe("OK");
+  });
+
+  it("pero una cláusula de verdad sigue siendo discrepancia", () => {
+    expect(conClausula("BAGS TORN AND STAINED")?.estado).toBe("DISCREPANCIA");
+    expect(conClausula("3 CARTONS WET")?.estado).toBe("DISCREPANCIA");
+  });
+});

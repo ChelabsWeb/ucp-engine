@@ -275,6 +275,8 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     moneda,
     giros: texto(cs, "42C") || null,
     librado: nombreBanco(campo(cs, "42D") ?? campo(cs, "42A")),
+    // La primera línea del 59 es la razón social; de la segunda en adelante, la dirección.
+    beneficiario: beneficiario[0]?.trim() || null,
     beneficiarioDireccion: beneficiario.slice(1).join(", ").replace(/\s+/g, " ").trim() || null,
     // un solo HS en el 45A → va a los ítems; con varios (carga mixta) no se adivina cuál es de cuál
     hsCode: (() => {

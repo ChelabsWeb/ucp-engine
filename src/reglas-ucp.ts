@@ -78,14 +78,33 @@ function esZonaDeLugares(texto: string): boolean {
   );
 }
 
+/**
+ * Si dos nombres o lugares se refieren a lo mismo.
+ *
+ * Se descartan las palabras de tres letras o menos —«S.A.», «de», «and»— porque hacen coincidir a
+ * cualquiera. Pero cuando a un lado NO le queda ninguna palabra después de ese filtro, el nombre
+ * entero es corto, y ahí descartarlo todo devolvía false: un ordenante llamado IBM, DHL o ABB,
+ * escrito idéntico en el crédito y en la factura, salía como discrepancia. Lo mismo un puerto como
+ * GOA o RIO.
+ *
+ * Era el falso positivo más barato de disparar del motor —no hacía falta ningún error en los
+ * documentos, solo que alguien se llamara con tres letras— y tocaba siete reglas. Cuando no quedan
+ * palabras largas se comparan los textos completos, que es lo único sensato con un nombre corto.
+ */
 function coincideLugar(a: string, b: string): boolean {
-  const pa = norm(a)
-    .split(" ")
-    .filter((w) => w.length > 3);
-  const pb = norm(b)
-    .split(" ")
-    .filter((w) => w.length > 3);
-  if (pa.length === 0 || pb.length === 0) return false;
+  const na = norm(a).trim();
+  const nb = norm(b).trim();
+  if (!na || !nb) return false;
+  const pa = na.split(" ").filter((w) => w.length > 3);
+  const pb = nb.split(" ").filter((w) => w.length > 3);
+  if (pa.length === 0 || pb.length === 0) {
+    // Al menos uno es un nombre corto: se compara entero, y vale que uno esté dentro del otro
+    // («IBM» contra «IBM WORLD TRADE CORPORATION»), por palabra para no casar fragmentos.
+    const palabras = (t: string) => t.split(" ").filter(Boolean);
+    const cortas = pa.length === 0 ? palabras(na) : palabras(nb);
+    const otras = pa.length === 0 ? palabras(nb) : palabras(na);
+    return cortas.length > 0 && cortas.every((w) => otras.includes(w));
+  }
   return pa.some((w) => pb.includes(w));
 }
 
@@ -859,7 +878,17 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: stri
     );
   }
 
-  // 27: el documento de transporte tiene que estar limpio
+  /*
+   * 27: el documento de transporte tiene que estar limpio.
+   *
+   * El artículo lo define por lo que NO tiene: ninguna cláusula que declare defectuosa la
+   * mercadería o el embalaje. Así que un campo que dice «N/A», «NIL», «NONE» o un guion es un
+   * documento limpio —son las formas de escribir «acá no hay nada»— y el motor las marcaba
+   * discrepantes porque solo reconocía cuatro palabras. Marcaba discrepancia sobre un conocimiento
+   * impecable.
+   */
+  const SIN_CLAUSULA =
+    /^\s*(n\s*\/\s*a|nil|none|no|not\s+applicable|ninguna?|sin\s+(observaciones|clausulas?|novedad)|[-—–.]+)\s*$/i;
   const defecto = val(bl, "clausulaDefecto");
   out.push(
     defecto
@@ -867,7 +896,7 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: stri
           "ucp-27",
           "UCP 600 27",
           "Documento de transporte limpio",
-          /ninguna|no clause|none|limpio|clean/i.test(defecto) ? "OK" : "DISCREPANCIA",
+          SIN_CLAUSULA.test(defecto) || /no clause|limpio|clean/i.test(defecto) ? "OK" : "DISCREPANCIA",
           `cláusula leída: "${defecto}"`,
         )
       : sinLeer("ucp-27", "UCP 600 27", "Documento de transporte limpio", "si hay cláusula de mercadería defectuosa"),

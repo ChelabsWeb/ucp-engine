@@ -163,6 +163,8 @@ export interface LcInfo {
   moneda?: string | null;
   giros?: string | null;
   librado?: string | null;
+  /** 59, primera línea: la razón social de quien cobra */
+  beneficiario?: string | null;
   /** 59: cómo figura el beneficiario (dirección) — los documentos propios deben repetirla (D3) */
   beneficiarioDireccion?: string | null;
   /** 45A: HS code de la mercadería según la LC (D4) */
