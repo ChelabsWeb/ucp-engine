@@ -69,6 +69,19 @@ export function feeDiscrepancia(condiciones: string[] | null | undefined): numbe
 
 /** El tipo de documento analizable que cubre una clave del 46A (INVOICE → FACTURA…). */
 const TIPO_DE_CLAVE: Record<string, TipoDocExterno> = { INVOICE: "FACTURA", PACKING: "PACKING", BL: "BL" };
+
+/**
+ * Qué tipo con extracción propia cubre una exigencia del 46A, si alguno.
+ *
+ * La pantalla lo necesita para saber **qué líneas del crédito no tienen casilla**: las que
+ * devuelven `undefined` son los certificados y el seguro, que se cargan aparte y se pasan en
+ * `otros`. Vive acá y no en la pantalla a propósito: una lista escrita a mano del otro lado se
+ * desincroniza del día que este mapa crezca, que es exactamente cómo `normalizarCamposDoc` llegó a
+ * tirar los campos del seguro sin que nadie se enterara.
+ */
+export function tipoDeExigencia(texto: string): TipoDocExterno | undefined {
+  return TIPO_DE_CLAVE[claveDoc(texto)];
+}
 /** Documento GENERADO por romai que cubre una clave del 46A. */
 const GENERADO_DE_CLAVE: Record<string, string[]> = {
   INVOICE: ["Commercial invoice (draft)"],
@@ -97,6 +110,17 @@ export interface ResultadoPresentacion {
 export function precheckPresentacion(input: {
   lc: LcInfo;
   docs: DocAnalizado[];
+  /**
+   * Los demás documentos del 46A que vinieron presentados: origen, análisis, peso, fumigación,
+   * certificados del beneficiario, el seguro.
+   *
+   * Hace falta porque la regla del 46A de acá abajo solo reconoce los cuatro tipos que tienen
+   * extracción propia (`TIPO_DE_CLAVE`), y en romai los otros se satisfacen por la rama de los
+   * documentos **generados**. En cotejo no se genera nada: los papeles los presenta el
+   * beneficiario, así que sin esto un certificado de análisis presentado dejaba su línea del
+   * crédito en FALTA y `listo` no podía ser `true` en ningún crédito real.
+   */
+  otros?: { exigencia: string; nombreArchivo?: string }[];
   op: OperationDetail;
   empresaRazonSocial: string;
   /** dirección de la empresa en Ajustes (para cotejar con la de la LC, D3) */
@@ -115,6 +139,20 @@ export function precheckPresentacion(input: {
   const doc = (t: TipoDocExterno) => docs.find((d) => d.tipo === t);
   const generado = (nombres: string[]): DocumentRow | undefined =>
     op.documentos.find((d) => nombres.includes(d.nombre));
+  /** Si una exigencia del 46A llegó presentada como certificado o seguro. */
+  const usados = new Set<number>();
+  const presentado = (texto: string): { nombreArchivo?: string } | undefined => {
+    const lista = input.otros ?? [];
+    const k = claveDoc(texto);
+    // por el texto exacto primero —el examinador eligió contra qué línea carga cada papel— y
+    // recién después por la clave, para el que se apareó solo
+    const i = lista.findIndex((o, idx) => !usados.has(idx) && o.exigencia.trim() === texto.trim());
+    const j = i >= 0 ? i : lista.findIndex((o, idx) => !usados.has(idx) && claveDoc(o.exigencia) === k);
+    if (j < 0) return undefined;
+    usados.add(j);
+    return lista[j];
+  };
+  const corto = (t: string) => (t.length > 40 ? `${t.slice(0, 37)}…` : t);
   const norm = (s: string) =>
     s
       .normalize("NFD")
@@ -135,6 +173,9 @@ export function precheckPresentacion(input: {
     const gen = generado(
       GENERADO_DE_CLAVE[k] ?? (k.startsWith("BENEFICIARIO") ? ["Certificado del beneficiario"] : []),
     );
+    // una sola llamada: el helper marca la entrada como usada, así que dos papeles no pueden
+    // satisfacer la misma línea ni una línea consumir dos papeles
+    const pres = analizado ? undefined : presentado(texto);
     const enChecklist = op.checklist.find((c) => claveDoc(c.label) === k);
     const resumen = texto.length > 90 ? `${texto.slice(0, 87)}…` : texto;
     if (analizado) {
@@ -144,6 +185,19 @@ export function precheckPresentacion(input: {
         regla: resumen,
         estado: "OK",
         evidencia: `Analizado (${analizado.nombreArchivo ?? tipo}) · ${ej.texto}`,
+      });
+    } else if (pres) {
+      /*
+       * Un documento del 46A que no es de los cuatro tipos con extracción propia, pero que está
+       * en el paquete. Lo que se afirma es que **está**, no que sus ejemplares estén contados:
+       * igual que en la rama de arriba, el conteo del juego lo mira una persona.
+       */
+      reglas.push({
+        id,
+        fuente: id,
+        regla: resumen,
+        estado: "OK",
+        evidencia: `Presentado (${pres.nombreArchivo ?? corto(texto)}) · ${ej.texto}`,
       });
     } else if (gen && APROBADO.has(gen.estado)) {
       reglas.push({

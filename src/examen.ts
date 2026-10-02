@@ -145,6 +145,17 @@ export function examinarPresentacion(input: {
   const base = precheckPresentacion({
     lc: input.lc,
     docs: examinables,
+    /*
+     * Los certificados y el seguro también satisfacen su línea del 46A.
+     *
+     * La regla del 46A solo reconoce los cuatro tipos con extracción propia, y los otros siete del
+     * crédito real quedaban en FALTA aunque estuvieran presentados y examinados acá abajo. El
+     * seguro va en la misma lista: su línea del 46A es una exigencia como las demás.
+     */
+    otros: [
+      ...(input.certificados ?? []).map((c) => ({ exigencia: c.exigencia, nombreArchivo: c.nombreArchivo })),
+      ...(input.seguro ? [{ exigencia: "INSURANCE", nombreArchivo: input.seguro.nombreArchivo }] : []),
+    ],
     op,
     empresaRazonSocial: input.empresaRazonSocial,
     empresaDireccion: input.empresaDireccion,

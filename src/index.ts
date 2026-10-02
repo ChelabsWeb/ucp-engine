@@ -148,7 +148,7 @@ export {
 } from "./numeros";
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
-export { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
+export { ejemplaresDe, feeDiscrepancia, precheckPresentacion, tipoDeExigencia } from "./presentacion";
 export type { Cuota, Presentacion, SaldoCredito, VencimientoEfectivo } from "./presentaciones";
 /** El crédito como lo ve un banco: giros contra un compromiso, no una compraventa. */
 export { operacionDesdeCredito, reglasDeGiro, saldoDelCredito, vencimientoEfectivo } from "./presentaciones";
