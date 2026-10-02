@@ -244,8 +244,21 @@ export function precheckPresentacion(input: {
 
   /* ---- 47A / UCP: reglas formales sobre lo analizado ---- */
   const cond = (lc.condicionesAdicionales ?? []).join(" ").toUpperCase();
-  const exigeNumeroLC =
-    /INDICATE.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER/.test(cond) || exigidos.length > 0;
+  /*
+   * Que el documento cite el número del crédito: quién lo pide cambia el veredicto y la fuente.
+   *
+   * La regla se activaba con `|| exigidos.length > 0` —cualquier crédito con documentos exigidos— y
+   * sin embargo la fuente decía «47A». Con eso el motor le atribuía al crédito una condición que el
+   * crédito no escribió, y la falta del número salía como DISCREPANCIA apoyada en ella. Es
+   * exactamente lo que este repo no se permite: cada hallazgo tiene que poder ir a buscarse al
+   * texto que lo sostiene.
+   *
+   * Cuando el crédito lo pide, es el 47A y su falta es discrepancia. Cuando no, es práctica
+   * bancaria —ayuda a vincular los papeles de un expediente— y su falta no es discrepancia: la
+   * propia ISBP 2023 dejó de considerarla una.
+   */
+  const loPideElCredito = /INDICATE.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER/.test(cond);
+  const exigeNumeroLC = loPideElCredito || exigidos.length > 0;
   const exigeFechaDesdeLC =
     /ON OR AFTER THE (LETTER OF CREDIT|L\/?C) DATE|DATED (PRIOR|BEFORE).{0,30}(LETTER OF CREDIT|L\/?C)/.test(cond);
   for (const d of docs) {
@@ -256,10 +269,14 @@ export function precheckPresentacion(input: {
         (n && norm(n).includes(norm(lc.numero))) || (n && norm(lc.numero).includes(norm(n)) && n.length >= 6);
       reglas.push({
         id: `lc-num-${d.tipo}`,
-        fuente: "47A",
+        fuente: loPideElCredito ? "47A" : "Práctica bancaria",
         regla: `${nombre}: cita el número de la LC`,
-        estado: !n ? "ATENCION" : cita ? "OK" : "DISCREPANCIA",
-        evidencia: n ? `dice "${n}"` : "no se leyó un número de LC en el documento: verificar a mano",
+        estado: !n ? "ATENCION" : cita ? "OK" : loPideElCredito ? "DISCREPANCIA" : "ATENCION",
+        evidencia: !n
+          ? "no se leyó un número de LC en el documento: verificar a mano"
+          : cita || loPideElCredito
+            ? `dice "${n}"`
+            : `dice "${n}" y el crédito no pide que lo cite: verificar que sea el mismo expediente`,
       });
     }
     if (exigeFechaDesdeLC && emision) {

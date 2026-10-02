@@ -423,3 +423,45 @@ describe("el notify del conocimiento cuando falta el ordenante", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("el número del crédito citado en el documento, y quién lo pide", () => {
+  /*
+   * La regla se activaba con «hay documentos exigidos» y la fuente decía «47A», así que el motor le
+   * atribuía al crédito una condición que el crédito no escribió — y la falta del número salía como
+   * DISCREPANCIA apoyada en ella. El repo tiene una sola regla que no se negocia: cada hallazgo
+   * tiene que poder ir a buscarse al texto que lo sostiene.
+   */
+  const sinLaCondicion = {
+    ...lc,
+    condicionesAdicionales: (lc.condicionesAdicionales ?? []).filter((x) => !/CREDIT NUMBER/i.test(x)),
+  };
+  const correr = (credito: typeof lc, numeroEnDoc: string) =>
+    precheckPresentacion({
+      lc: credito,
+      docs: [{ tipo: "FACTURA" as const, campos: { ...FACTURA, numeroLC: campo(numeroEnDoc) } }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((x) => x.id === "lc-num-FACTURA");
+
+  it("si el crédito lo pide, la fuente es el 47A y un número distinto es discrepancia", () => {
+    const r = correr(lc, "OTRO-NUMERO-123");
+    expect(r?.fuente).toBe("47A");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("si el crédito no lo pide, la fuente no lo inventa", () => {
+    expect(correr(sinLaCondicion, lc.numero)?.fuente).not.toBe("47A");
+  });
+
+  it("y entonces un número distinto no es discrepancia: nadie lo exigió", () => {
+    const r = correr(sinLaCondicion, "OTRO-NUMERO-123");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no pide|verificar/i);
+  });
+
+  it("el crédito real sí lo pide, así que ahí sigue siendo el 47A", () => {
+    // La condición +2 del expediente: «ALL DOCUMENTS SHOUD INDICATE THE LETTER OF CREDIT NUMBER».
+    expect(correr(lc, lc.numero)?.fuente).toBe("47A");
+  });
+});

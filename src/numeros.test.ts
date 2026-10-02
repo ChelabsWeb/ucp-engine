@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { contenedoresEn, desambiguarCantidad, esAmbiguo, lecturasPosibles, mismoContenedor } from "./numeros";
+import {
+  contenedoresEn,
+  desambiguarCantidad,
+  esAmbiguo,
+  lecturasPosibles,
+  mismaMoneda,
+  mismoContenedor,
+} from "./numeros";
 
 /**
  * Los casos salen del expediente real CSU2025099: la factura A 4401 y el packing list de
@@ -77,5 +84,50 @@ describe("números de contenedor", () => {
 
   it("no toma cualquier código: la cuarta letra tiene que ser U, J o Z", () => {
     expect(contenedoresEn("ABCD1234567")).toEqual([]);
+  });
+});
+
+describe("la misma moneda escrita de distintas maneras", () => {
+  /*
+   * Comparar con `includes` sobre el código del crédito daba DISCREPANCIA sobre «US$», «U$S» y
+   * «US DOLLARS». Mientras los campos se carguen a mano —hoy es el único camino, sin crédito de
+   * API— eso es exactamente lo que una persona tipea, y ninguna de esas formas hace discrepante
+   * una factura.
+   */
+  it.each([
+    ["US$"],
+    ["U$S"],
+    ["$US"],
+    ["US DOLLARS"],
+    ["US DOLLAR"],
+    ["usd"],
+    ["USD."],
+    ["USD (US DOLLAR)"],
+    ["dólares"],
+  ])("«%s» es USD", (escrito) => {
+    expect(mismaMoneda(escrito, "USD")).toBe(true);
+  });
+
+  it.each([["€"], ["EUR"], ["euros"]])("«%s» es EUR", (escrito) => {
+    expect(mismaMoneda(escrito, "EUR")).toBe(true);
+  });
+
+  it("«dólares» a secas no dice cuál, pero contra un crédito en dólares coincide", () => {
+    expect(mismaMoneda("dólares", "USD")).toBe(true);
+    expect(mismaMoneda("$", "USD")).toBe(true);
+    // y contra un crédito en otra moneda sigue siendo distinta
+    expect(mismaMoneda("dólares", "EUR")).toBe(false);
+  });
+
+  it("y dos monedas distintas siguen siendo distintas, que es lo que importa no perder", () => {
+    expect(mismaMoneda("EUR", "USD")).toBe(false);
+    expect(mismaMoneda("€", "USD")).toBe(false);
+    expect(mismaMoneda("BRL", "USD")).toBe(false);
+    expect(mismaMoneda("UYU", "USD")).toBe(false);
+  });
+
+  it("sin dato no se afirma nada", () => {
+    expect(mismaMoneda("", "USD")).toBe(false);
+    expect(mismaMoneda("USD", null)).toBe(false);
   });
 });

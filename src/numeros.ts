@@ -167,3 +167,56 @@ export function prepararCampos(campos: CamposDoc): CamposPreparados {
     avisos,
   };
 }
+
+/**
+ * Si dos monedas escritas de cualquier manera son la misma.
+ *
+ * Comparar con `includes` sobre el código del crédito rechazaba «US$», «U$S» y «US DOLLARS» —y
+ * mientras los campos se cargan a mano, eso es lo que una persona tipea—. Las formas en que se
+ * escribe el dólar en una factura son varias y ninguna de ellas hace discrepante el documento.
+ *
+ * Lo que se reconoce son los símbolos y los nombres de las monedas que aparecen en los créditos que
+ * este motor ve; cualquier otra cosa se compara por su código, como antes. Inventar equivalencias
+ * sería peor: dos monedas distintas tomadas por la misma es un error de los caros.
+ */
+const ALIAS_MONEDA: [RegExp, string][] = [
+  [/^(us\s*\$|u\s*\$\s*s|\$\s*us|usd?\$|us\s*dollars?|d[oó]lar(es)?\s*(usa?|estadounidenses?))$/i, "USD"],
+  // «dólares» o «$» a secas no dicen cuál: hay dólares canadienses, australianos y de Singapur
+  [/^(\$|d[oó]lar(es)?|dollars?)$/i, "DOLAR?"],
+  [/^(eur?\s*€|€|euros?)$/i, "EUR"],
+  [/^(gbp|£|pounds?\s*(sterling)?|libras?\s*(esterlinas?)?)$/i, "GBP"],
+  [/^(jpy|¥|yen(es)?)$/i, "JPY"],
+  [/^(chf|francos?\s*suizos?)$/i, "CHF"],
+  [/^(cny|rmb|yuan(es)?|renminbi)$/i, "CNY"],
+  [/^(brl|r\$|reales?|reais)$/i, "BRL"],
+  [/^(uyu|\$u|pesos?\s*uruguayos?)$/i, "UYU"],
+];
+
+export function codigoMoneda(texto: string | null | undefined): string | null {
+  const t = (texto ?? "").trim().replace(/[.,;]+$/, "");
+  if (!t) return null;
+  for (const [re, codigo] of ALIAS_MONEDA) if (re.test(t)) return codigo;
+  // un código de tres letras puede venir con el nombre al lado: «USD (US DOLLAR)»
+  const m = /\b([A-Z]{3})\b/.exec(t.toUpperCase());
+  return m?.[1] ?? t.toUpperCase();
+}
+
+/** Si el documento está en la moneda del crédito, sin que la forma de escribirla decida. */
+export function mismaMoneda(delDocumento: string | null | undefined, delCredito: string | null | undefined): boolean {
+  const a = codigoMoneda(delDocumento);
+  const b = codigoMoneda(delCredito);
+  if (!a || !b) return false;
+  /*
+   * «Dólares» a secas contra un crédito en dólares: coincide.
+   *
+   * Cuál de los dólares no lo dice, pero contra un crédito en USD —o en CAD, o en SGD— se refiere
+   * al del crédito: ningún examinador rechaza una factura por eso. Contra un crédito en euros, en
+   * cambio, sigue siendo distinta.
+   */
+  const DOLARES = new Set(["USD", "CAD", "AUD", "NZD", "SGD", "HKD", "TWD"]);
+  if (a === "DOLAR?" || b === "DOLAR?") {
+    const otro = a === "DOLAR?" ? b : a;
+    return otro === "DOLAR?" || DOLARES.has(otro);
+  }
+  return a === b || a.includes(b) || b.includes(a);
+}

@@ -3,6 +3,7 @@ import { parseNumero } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { esFacturaComercial } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
+import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
 import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
 import type { LcInfo } from "./types";
@@ -224,7 +225,7 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
             "ucp-18a-iii",
             "UCP 600 18a-iii",
             `Factura en la moneda del crédito (${lc.moneda})`,
-            moneda.toUpperCase().includes(lc.moneda.toUpperCase()) ? "OK" : "DISCREPANCIA",
+            mismaMoneda(moneda, lc.moneda) ? "OK" : "DISCREPANCIA",
             `factura en ${moneda}`,
           )
         : sinLeer("ucp-18a-iii", "UCP 600 18a-iii", "Factura en la moneda del crédito", "la moneda"),
@@ -1026,7 +1027,7 @@ function reglasSeguro(
             "ucp-28f-i",
             "UCP 600 28f-i",
             `Seguro en la moneda del crédito (${lc.moneda})`,
-            monedaSeg.toUpperCase().includes(lc.moneda.toUpperCase()) ? "OK" : "DISCREPANCIA",
+            mismaMoneda(monedaSeg, lc.moneda) ? "OK" : "DISCREPANCIA",
             `seguro en ${monedaSeg}`,
           )
         : sinLeer("ucp-28f-i", "UCP 600 28f-i", "Seguro en la moneda del crédito", "la moneda del seguro"),
