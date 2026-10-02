@@ -150,6 +150,22 @@ export function parseNumero(s: string): number | null {
   const tienePunto = limpio.includes(".");
   const tieneComa = limpio.includes(",");
   let normal = limpio;
+  /*
+   * Un cero a la izquierda del separador no es un grupo de miles.
+   *
+   * «0,852» es cero coma ochocientos cincuenta y dos: nadie escribe «0» como grupo de miles. Sin
+   * esto se leía ochocientos cincuenta y dos — mil veces la carga de un camión. Salió de pasar las
+   * 8.957 cantidades reales del ERP de un trader por el parser: 599 se leían mil veces más grandes
+   * y 464 de ellas empezaban con cero, que es el caso donde no hay nada que adivinar.
+   *
+   * Lo que sigue siendo ambiguo —«7,861», que puede ser siete mil ochocientos sesenta y uno o siete
+   * coma ocho— lo resuelve el desambiguador con la aritmética del propio documento. Esto solo
+   * arregla donde la ambigüedad no existe.
+   */
+  if (/^0+[.,]\d+$/.test(limpio)) {
+    const n0 = Number(limpio.replace(",", "."));
+    return Number.isFinite(n0) ? (negativo ? -n0 : n0) : null;
+  }
   if (tienePunto && tieneComa) {
     // el último separador es el decimal; el otro es de miles
     normal =

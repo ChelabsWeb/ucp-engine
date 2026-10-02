@@ -703,3 +703,36 @@ describe("la lectura del modelo, puesta en forma", () => {
     }
   });
 });
+
+describe("un cero a la izquierda del separador no es un grupo de miles", () => {
+  /*
+   * Salió de pasar las 8.957 cantidades reales del ERP de un trader por el parser: 599 se leían mil
+   * veces más grandes, todas con tres decimales. «7,861 TON» es genuinamente ambiguo —puede ser
+   * siete mil ochocientas sesenta y una toneladas o siete coma ocho— y para eso está el
+   * desambiguador, que lo resuelve con la aritmética del documento.
+   *
+   * Pero 464 de esos 599 empiezan con cero, y ahí no hay ambigüedad ninguna: nadie escribe «0» como
+   * grupo de miles. «0,852» es cero coma ochocientos cincuenta y dos, y se leía como ochocientos
+   * cincuenta y dos. Mil veces la carga de un camión.
+   */
+  it.each([
+    ["0,852", 0.852],
+    ["0,125", 0.125],
+    ["0.852", 0.852],
+    ["00,500", 0.5],
+  ])("«%s» vale %s", (texto, esperado) => {
+    expect(parseNumero(texto)).toBeCloseTo(esperado, 6);
+  });
+
+  it("con parte entera distinta de cero sigue siendo ambiguo, y no se adivina", () => {
+    // El desambiguador lo resuelve con el total y el precio; el parser solo no puede.
+    expect(parseNumero("7,861")).toBe(7861);
+  });
+
+  it("y lo que ya se leía bien no cambia", () => {
+    expect(parseNumero("26.500")).toBe(26500);
+    expect(parseNumero("292,66")).toBeCloseTo(292.66, 2);
+    expect(parseNumero("1.234,5")).toBeCloseTo(1234.5, 2);
+    expect(parseNumero("0")).toBe(0);
+  });
+});
