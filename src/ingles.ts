@@ -547,8 +547,92 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^La partida arancelaria tiene que ser la misma en LC, factura, packing, BL y certificado de origen\.$/g,
     "The tariff heading must be the same on the credit, the invoice, the packing list, the bill of lading and the certificate of origin.",
   ],
+  /*
+   * ── certificados del 46A (ISBP 821 L, Q) ──
+   *
+   * Estaban enteros sin traducir, y por el mismo motivo que las especificaciones: el producto no
+   * ejecutaba el módulo, así que ningún escenario producía estos textos y el test de piezas los
+   * saltea por ser plantillas. El nombre de la regla empieza con la exigencia tal como la escribe
+   * el crédito —cita del papel— y por eso va en $1 sin tocarse.
+   */
+  [/^(.+): lo emite (.+)$/g, "$1: issued by $2"],
+  [/^(.+): no lo emite el beneficiario$/g, "$1: not issued by the beneficiary"],
+  [/^(.+): acredita un hecho anterior al embarque$/g, "$1: evidences a fact predating shipment"],
+  [/^(.+): fechado después del embarque$/g, "$1: dated after shipment"],
+  [/^(.+): el peso coincide con el packing$/g, "$1: the weight matches the packing list"],
+  [/^(.+): el peso coincide con el conocimiento$/g, "$1: the weight matches the bill of lading"],
+  [/^(.+): el peso coincide con los demás documentos$/g, "$1: the weight matches the other documents"],
+  [/^(.+): la especificación que el crédito exige$/g, "$1: the specification the credit requires"],
+  // con el parámetro nombrado en el certificado: «protein que el crédito exige»
+  [/^(.+): (.+) que el crédito exige$/g, "$1: the $2 the credit requires"],
+  [
+    /^(.+): declara lo que el crédito pide \(plazo de (\d+) días\)$/g,
+    "$1: states what the credit requires ($2-day period)",
+  ],
+  [/^(.+): declara lo que el crédito pide$/g, "$1: states what the credit requires"],
+  [/^(.+): el archivo parece traer más de un documento$/g, "$1: the file seems to hold more than one document"],
+  [/^(.+): indica origen (.+)$/g, "$1: states origin $2"],
+  // las citas ya salieron del texto —son huecos— así que el patrón no lleva las comillas
+  [
+    /^el documento lo emite (.+): verificar que sea el organismo que el crédito nombra$/g,
+    "the document is issued by $1: check that this is the body the credit names",
+  ],
+  [
+    /^lo emite el beneficiario (.+) y el crédito nombra a un tercero$/g,
+    "it is issued by the beneficiary $1 and the credit names a third party",
+  ],
+  [/^el documento lo emite (.+)$/g, "the document is issued by $1"],
+  [/^el documento dice (.+)$/g, "the document states $1"],
+  [
+    /^dice (.+) — cotejar el texto con el que exige el crédito$/g,
+    "states $1 — compare the wording with the one the credit requires",
+  ],
+  [
+    /^documento (.+) · embarque (.+) — admitido: el crédito no lo pide previo$/g,
+    "document $1 · shipment $2 — admitted: the credit does not require it to predate shipment",
+  ],
+  [/^documento (.+) · embarque (.+)$/g, "document $1 · shipment $2"],
+  [/^nota de peso (.+) kg · el packing (.+) kg$/g, "weight note $1 kg · packing list $2 kg"],
+  [/^nota de peso (.+) kg · el conocimiento (.+) kg$/g, "weight note $1 kg · bill of lading $2 kg"],
+  [
+    /^falta la fecha del certificado o la del embarque para compararlas$/g,
+    "the certificate date or the shipment date is missing, so they cannot be compared",
+  ],
   // ── certificados: las ramas «no se leyó» ──
   [/^no se leyó el emisor: verificar a mano$/g, "the issuer was not read: check by hand"],
+  /*
+   * ── especificaciones: la calidad del 45A contra la que el análisis certifica ──
+   *
+   * Ninguna de estas estaba traducida, y el test de cobertura no las veía: son plantillas con
+   * `${}` adentro, que ese test saltea a propósito. Así que el aviso salía mezclado —«the credit
+   * pide al menos 54 % y el certificado declara 61,1 %»— justo en el hallazgo que un banco
+   * corresponsal tiene que poder leer. Ahora las cubre un escenario de `ingles.test.ts`.
+   */
+  [
+    /^el crédito pide al menos (.+) y el certificado declara (.+)$/g,
+    "the credit calls for at least $1 and the certificate states $2",
+  ],
+  [
+    /^el crédito pide como mucho (.+) y el certificado declara (.+)$/g,
+    "the credit calls for at most $1 and the certificate states $2",
+  ],
+  [
+    /^el crédito nombra (.+) y el certificado declara lo mismo$/g,
+    "the credit names $1 and the certificate states the same",
+  ],
+  [
+    /^el crédito nombra (.+) y el certificado declara (.+); el crédito no dice si es mínimo, máximo o nominal, así que hay que verificarlo contra el contrato$/g,
+    "the credit names $1 and the certificate states $2; the credit does not say whether that is a minimum, a maximum or a nominal figure, so it has to be checked against the contract",
+  ],
+  [
+    /^el crédito pide «(.+)» y no se leyó un resultado equivalente en el certificado$/g,
+    "the credit calls for «$1» and no equivalent result was read in the certificate",
+  ],
+  // el certificado imprimió el renglón del crédito y no el resultado medido
+  [
+    /^el certificado repite la exigencia «(.+)» pero no se leyó el resultado medido: verificar a mano cuánto declara$/g,
+    "the certificate repeats the requirement «$1» but the measured result was not read: check by hand what it states",
+  ],
   [/^no se leyó un peso comparable: verificar a mano$/g, "no comparable weight was read: check by hand"],
   [/^no se leyó el origen: verificar a mano$/g, "the origin was not read: check by hand"],
   [

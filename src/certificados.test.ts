@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aparearConExigencias, type DocCertificado, reglasCertificados } from "./certificados";
+import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 } from "./fixtures";
 import type { DocAnalizado } from "./presentacion";
@@ -206,5 +206,71 @@ describe("aparear los documentos con lo que el crédito exige", () => {
 
   it("un documento que el crédito no pide no se aparea con nada", () => {
     expect(aparearConExigencias(LC, [{ tipo: "SOMETHING ELSE", campos: doc({}) }])).toEqual([]);
+  });
+});
+
+describe("el emisor que el crédito nombra, cuando el papel lo escribe de otra forma", () => {
+  /*
+   * El crédito real exige el certificado veterinario «ISSUED BY GOVT.VETERINERY AUTHORITY IN
+   * URUGUAY». Dos cosas pasaban con eso, y las dos rechazaban un certificado correcto.
+   *
+   * La primera: el nombre se cortaba en el primer punto, así que el emisor exigido quedaba en
+   * «GOVT». En SWIFT las abreviaturas van pegadas —«GOVT.», «CO.LTD»— y ese punto no termina nada.
+   *
+   * La segunda es de fondo. Un organismo oficial casi nunca se llama como el crédito lo describe:
+   * la autoridad veterinaria de Uruguay es el Ministerio de Ganadería, Agricultura y Pesca, que no
+   * comparte una palabra con el texto del crédito. Comparar literales y declarar discrepancia es
+   * afirmar lo que no se sabe. Lo que el motor **sí** puede decidir es un caso: que lo haya emitido
+   * el propio beneficiario cuando el crédito nombra a un tercero.
+   */
+  const EXIGE_VETERINARIO =
+    "INTERNATIONAL VETERINARY HEALTH CERTIFICATE ISSUED BY GOVT.VETERINERY AUTHORITY IN URUGUAY.";
+
+  const conEmisor = (emisor: string, exigencia = EXIGE_VETERINARIO) =>
+    reglasCertificados({
+      lc: LC,
+      docs: [],
+      beneficiario: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 20),
+      certificados: [{ exigencia, campos: doc({ emisorSeguro: { valor: emisor, confianza: 0.9 } }) }],
+    }).find((x) => x.id.startsWith("cert-emisor"));
+
+  it("el nombre del emisor exigido no se corta en la abreviatura", () => {
+    expect(emisorQueNombra(EXIGE_VETERINARIO)).toBe("GOVT.VETERINERY AUTHORITY IN URUGUAY");
+  });
+
+  it("pero sí en una coma, que ahí el nombre terminó", () => {
+    expect(emisorQueNombra("CERTIFICATE ISSUED BY CHAMBER OF COMMERCE, MONTEVIDEO")).toBe("CHAMBER OF COMMERCE");
+  });
+
+  it("escrito igual, cumple", () => {
+    expect(conEmisor("GOVT.VETERINERY AUTHORITY IN URUGUAY")?.estado).toBe("OK");
+  });
+
+  it("el mismo organismo escrito sin abreviar, también", () => {
+    // «GOVERNMENT VETERINARY AUTHORITY OF URUGUAY» es el mismo que «GOVT.VETERINERY AUTHORITY IN
+    // URUGUAY»: abreviatura (ISBP A1) y error de tipeo del propio crédito (A23).
+    expect(conEmisor("GOVERNMENT VETERINARY AUTHORITY OF URUGUAY")?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("un organismo que no se parece al texto del crédito va a verificar, no a discrepancia", () => {
+    /*
+     * Este es el falso positivo que importa. El Ministerio de Ganadería es quien firma de verdad
+     * esos certificados en Uruguay, y no comparte ninguna palabra con «GOVT.VETERINERY AUTHORITY».
+     * El motor no tiene un catálogo de organismos oficiales, así que no puede afirmar que esté mal.
+     */
+    const r = conEmisor("MINISTERIO DE GANADERIA, AGRICULTURA Y PESCA");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/verificar|comprobar/i);
+    // y la evidencia deja los dos nombres a la vista, que es con qué la persona decide
+    expect(r?.evidencia).toMatch(/MINISTERIO/);
+  });
+
+  it("pero si lo emitió el propio beneficiario, eso sí es discrepancia", () => {
+    // Acá no hay nada que averiguar: el crédito nombra a un tercero y el papel lo firma el que
+    // presenta. Es el único caso que el motor puede decidir solo.
+    const r = conEmisor("CEREALSUR S.A");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/beneficiario/i);
   });
 });

@@ -101,50 +101,44 @@ const fmt = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 2 
  * Solo se comparan las que se pueden aparear: mismo parámetro y misma unidad. Una
  * especificación sin resultado equivalente queda como no comparada, nunca como cumplida.
  */
+/**
+ * «(protein)», o nada cuando el crédito no nombra el parámetro.
+ *
+ * Entre paréntesis y no con preposición: el parámetro viene del papel y no se traduce, y así la
+ * frase entera se traduce de una sola pieza en vez de quedar «at least 10 % de moisture».
+ */
+function deParametro(ex: Especificacion): string {
+  return ex.parametro ? ` (${ex.parametro})` : "";
+}
+
 export function cotejarEspecificaciones(delCredito: string, delCertificado: string): CotejoSpec[] {
   const exigidas = especificacionesDe(delCredito);
   const medidas = especificacionesDe(delCertificado);
 
   return exigidas.flatMap((ex): CotejoSpec[] => {
     /*
-     * Un porcentaje que el crédito nombra sin decir si es mínimo o máximo.
+     * Se aparea por parámetro; si el crédito no lo nombra, por unidad, que es lo que suele pasar
+     * con «FISH MEAL 54 PCT MIN»: el porcentaje es la proteína.
      *
-     * Sale de los productos que se venden de verdad: «SOY BEAN MEAL HYPRO 48%». El 48 es la
-     * especificación, pero sin operador no se puede concluir nada — y antes se descartaba, así que
-     * un análisis que declaraba 47,2 % pasaba en silencio.
-     *
-     * Ni discrepancia ni conforme: si el certificado declara otro número, sale a verificar. Si no
-     * declara ninguno comparable, no se dice nada, porque un número suelto en el nombre de un
-     * producto no es una exigencia.
+     * Y entre dos candidatos gana el que no tiene operador, porque un resultado medido se escribe
+     * sin él («PROTEIN 61,1%») mientras una exigencia lo lleva («54 PCT MIN»), y los certificados
+     * suelen imprimir la exigencia del crédito antes de dar el resultado.
      */
-    if (ex.operador === "EXACTO" && !ex.parametro) {
-      const comparable = medidas.find((m) => m.unidad === ex.unidad);
-      if (!comparable) return [];
-      const igual = Math.abs(comparable.valor - ex.valor) < 1e-9;
-      return [
-        {
-          exigida: ex,
-          medida: comparable,
-          veredicto: igual ? "CUMPLE" : "SIN_COMPARAR",
-          detalle: igual
-            ? `el crédito nombra ${fmt(ex.valor)} ${ex.unidad} y el certificado declara lo mismo`
-            : `el crédito nombra ${fmt(ex.valor)} ${ex.unidad} y el certificado declara ${fmt(comparable.valor)} ${comparable.unidad}; el crédito no dice si es mínimo, máximo o nominal, así que hay que verificarlo contra el contrato`,
-        },
-      ];
-    }
-
-    // se aparea por parámetro; si el crédito no lo nombra, por unidad, que es lo que suele
-    // pasar con «FISH MEAL 54 PCT MIN»: el porcentaje es la proteína.
-    // Además, un resultado medido se escribe sin operador («PROTEIN 61,1%»); una exigencia lo
-    // lleva («54 PCT MIN»). Los certificados suelen repetir la exigencia del crédito antes
-    // de dar el resultado, así que entre dos candidatos gana el que no tiene operador.
     const resultados = medidas.filter((m) => m.operador === "EXACTO");
     const donde = resultados.length > 0 ? resultados : medidas;
     const medida =
       donde.find((m) => m.parametro && m.parametro === ex.parametro) ??
       (ex.parametro === "" ? (donde.find((m) => m.unidad === ex.unidad) ?? null) : null);
 
+    /*
+     * Un número suelto en el nombre de un producto no es una exigencia.
+     *
+     * «SOY BEAN MEAL HYPRO 48%» nombra el 48 sin decir si es mínimo, máximo o nominal. Si el
+     * certificado no declara nada comparable, no se dice nada: inventar una exigencia a partir del
+     * nombre comercial del producto sería peor que callarse.
+     */
     if (!medida) {
+      if (ex.operador === "EXACTO" && !ex.parametro) return [];
       return [
         {
           exigida: ex,
@@ -155,22 +149,63 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
       ];
     }
 
-    const cumple =
-      ex.operador === "MIN"
-        ? medida.valor + 1e-9 >= ex.valor
-        : ex.operador === "MAX"
-          ? medida.valor <= ex.valor + 1e-9
-          : Math.abs(medida.valor - ex.valor) < 1e-9;
+    /*
+     * El candidato elegido lleva operador: es la exigencia repetida, no un resultado.
+     *
+     * Pasa cuando el certificado imprime el renglón del crédito y **no** declara el valor medido.
+     * Antes se comparaba la exigencia contra sí misma y salía CUMPLE —«el crédito pide al menos
+     * 54 % y el certificado declara 54 %»—, que es afirmar lo que el papel no dice. Acá el
+     * silencio no se cuenta como conforme.
+     */
+    if (medida.operador !== "EXACTO") {
+      return [
+        {
+          exigida: ex,
+          medida,
+          veredicto: "SIN_COMPARAR" as const,
+          detalle: `el certificado repite la exigencia «${medida.texto}» pero no se leyó el resultado medido: verificar a mano cuánto declara`,
+        },
+      ];
+    }
 
-    const comoDebe = ex.operador === "MIN" ? "al menos" : ex.operador === "MAX" ? "como mucho" : "exactamente";
+    /*
+     * Un valor que el crédito nombra sin decir si es mínimo o máximo.
+     *
+     * Ni discrepancia ni conforme: si el certificado declara otro número, sale a verificar. Vale
+     * igual cuando el crédito nombra el parámetro —«MOISTURE 10 PCT»—: nombrarlo hace el apareo
+     * más preciso, no convierte un nominal en una igualdad exigida. Tratarlo como exacta rechazaba
+     * un certificado que declaraba 9,999 %, y una presentación conforme rechazada es el error más
+     * caro que este motor puede cometer.
+     */
+    if (ex.operador === "EXACTO") {
+      const igual = Math.abs(medida.valor - ex.valor) < 1e-9;
+      // sin interpolar dentro de la interpolación: el test de cobertura de traducción saca los
+      // literales del fuente y un template anidado le llega partido
+      const nombra = `el crédito nombra ${fmt(ex.valor)} ${ex.unidad}${deParametro(ex)}`;
+      const declara = `${fmt(medida.valor)} ${medida.unidad}`;
+      return [
+        {
+          exigida: ex,
+          medida,
+          veredicto: igual ? ("CUMPLE" as const) : ("SIN_COMPARAR" as const),
+          detalle: igual
+            ? `${nombra} y el certificado declara lo mismo`
+            : `${nombra} y el certificado declara ${declara}; el crédito no dice si es mínimo, máximo o nominal, así que hay que verificarlo contra el contrato`,
+        },
+      ];
+    }
+
+    // con operador, el veredicto es tajante: un mínimo y un máximo incumplidos son discrepancias
+    // opuestas, y confundirlos sería peor que no mirar
+    const cumple = ex.operador === "MIN" ? medida.valor + 1e-9 >= ex.valor : medida.valor <= ex.valor + 1e-9;
+    const comoDebe = ex.operador === "MIN" ? "al menos" : "como mucho";
+    const pedido = `${fmt(ex.valor)} ${ex.unidad}${deParametro(ex)}`;
     return [
       {
         exigida: ex,
         medida,
         veredicto: cumple ? ("CUMPLE" as const) : ("NO_CUMPLE" as const),
-        detalle:
-          `el crédito pide ${comoDebe} ${fmt(ex.valor)} ${ex.unidad}` +
-          `${ex.parametro ? ` de ${ex.parametro}` : ""} y el certificado declara ${fmt(medida.valor)} ${medida.unidad}`,
+        detalle: `el crédito pide ${comoDebe} ${pedido} y el certificado declara ${fmt(medida.valor)} ${medida.unidad}`,
       },
     ];
   });

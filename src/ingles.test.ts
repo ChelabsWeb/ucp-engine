@@ -166,6 +166,49 @@ describe("cobertura sobre el expediente real", () => {
     expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
   });
 
+  /*
+   * Los certificados del 46A y la calidad que el crédito exige.
+   *
+   * Este escenario no existía porque **no se podía escribir**: hasta que el producto pasó los
+   * certificados a `examinarPresentacion`, ninguna de estas reglas se generaba. Y como los textos
+   * de `especificaciones.ts` son plantillas, el test de piezas los saltea a propósito, así que
+   * estaban sin traducir del todo: el aviso salía «the credit pide al menos 54 % y el certificado
+   * declara 61,1 %». Justo el hallazgo que un banco corresponsal tiene que poder leer.
+   */
+  it.each([
+    ["el análisis cumple con el mínimo", "PROTEIN 61,1 PCT"],
+    ["el análisis no llega al mínimo", "PROTEIN 47,2 PCT"],
+    ["el certificado solo repite la exigencia", "FISH MEAL 54 PCT MIN"],
+    ["el certificado no declara nada comparable", "SAMPLE RECEIVED IN GOOD ORDER"],
+  ])("ningún hallazgo queda con español: %s", (_nombre, analisis) => {
+    const credito = parseMT700(SWIFT_CSU2025099)!;
+    const c = (valor: string) => ({ valor, confianza: 0.9 });
+    const campos = (mercaderia: string) =>
+      ({
+        exportador: c("CEREALSUR S.A"),
+        emisorSeguro: c("SGS URUGUAY"),
+        fechaDocumento: c("08-abr-25"),
+        mercaderia: c(mercaderia),
+        numeroDoc: c("LCMRDN25000471"),
+        puertoEmbarque: c("MONTEVIDEO"),
+      }) as unknown as CamposDoc;
+    const r = examinarPresentacion({
+      lc: credito.lc,
+      credito: contextoDesdeSwift(credito),
+      docs: [{ tipo: "FACTURA", campos: DOCUMENTOS_CSU2025099.FACTURA! }],
+      // uno por cada línea del 46A que no es de los tipos con extracción propia
+      certificados: (credito.lc.documentosExigidos ?? [])
+        .filter((e) => !/invoice|packing|bills? of lading/i.test(e))
+        .map((exigencia) => ({
+          exigencia,
+          campos: campos(/analysis/i.test(exigencia) ? analisis : "FISH MEAL (FOR ANIMAL FEED USE)"),
+        })),
+      empresaRazonSocial: credito.extra.beneficiario[0] ?? "",
+      hoy: new Date(2025, 3, 20),
+    });
+    expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
+  });
+
   it("ningún hallazgo queda con español: el crédito indica una zona de puertos", () => {
     const credito = parseMT700(SWIFT_CSU2025099)!;
     const r = examinarPresentacion({

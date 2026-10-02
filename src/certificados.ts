@@ -29,7 +29,52 @@ export interface DocCertificado {
 const val = (c: { valor: string; confianza: number } | undefined): string | null =>
   c && c.valor.trim() && c.confianza >= 0.4 ? c.valor.trim() : null;
 
-const corto = (s: string, n = 60) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+/**
+ * Recorta sin partir una palabra.
+ *
+ * Cortar por el carácter exacto dejaba «BENEFICIARY'S CERTIFICATE CONFIRMING AL…»: además de
+ * leerse mal, esa «AL» suelta hacía que el control de traducción la tomara por la preposición
+ * castellana en medio de una cita del crédito que está en inglés.
+ */
+const corto = (s: string, n = 60) => {
+  if (s.length <= n) return s;
+  const cortado = s.slice(0, n - 1);
+  const espacio = cortado.lastIndexOf(" ");
+  return `${(espacio > n / 2 ? cortado.slice(0, espacio) : cortado).trimEnd()}…`;
+};
+
+/**
+ * A quién nombra el crédito como emisor, cuando lo nombra.
+ *
+ * El punto **no** termina el nombre si está pegado a la palabra siguiente: en SWIFT las
+ * abreviaturas van así —«GOVT.VETERINERY AUTHORITY IN URUGUAY», «CO.LTD»— y cortar en el primer
+ * punto dejaba «GOVT» como emisor exigido. Con eso, el certificado veterinario del expediente real
+ * daba discrepancia contra el organismo que de verdad lo firma, y solo pasaba si el papel repetía
+ * la abreviatura del crédito letra por letra, con su error de tipeo incluido.
+ */
+export function emisorQueNombra(exigencia: string): string | undefined {
+  const m = /issued by\s+((?:[^,;.]|\.(?=\S))+)/i.exec(exigencia);
+  return m?.[1]?.trim() || undefined;
+}
+
+/**
+ * Si el crédito describe al emisor por su función en vez de nombrarlo.
+ *
+ * «GOVT.VETERINERY AUTHORITY IN URUGUAY» describe un organismo; «CALISET» nombra un laboratorio.
+ * La diferencia decide qué se puede afirmar: el nombre propio de la autoridad veterinaria de un
+ * país no es predecible —en Uruguay es el Ministerio de Ganadería, Agricultura y Pesca— así que un
+ * emisor que no coincide va a verificar. Un nombre propio que no coincide es otra entidad, y eso
+ * sí es una discrepancia.
+ *
+ * La lista es corta y se queda corta a propósito: cada palabra describe una función pública o
+ * gremial, no una marca. Ante la duda, no estar en la lista deja el veredicto tajante, que es el
+ * comportamiento que había.
+ */
+function describeUnaFuncion(nombrado: string): boolean {
+  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health)\b/i.test(
+    nombrado,
+  );
+}
 
 function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, evidencia: string): ReglaPresentacion {
   return { id, fuente, regla: texto, estado, evidencia };
@@ -69,16 +114,43 @@ export function reglasCertificados(input: {
     const admitido = emisorAdmitido(c.exigencia);
     const emisor = val(c.campos.emisorSeguro) ?? val(c.campos.exportador);
     if (admitido === "EL_QUE_NOMBRA_EL_CREDITO") {
-      const nombrado = /issued by\s+([^,.;]+)/i.exec(c.exigencia)?.[1]?.trim();
+      const nombrado = emisorQueNombra(c.exigencia);
       if (nombrado) {
+        /*
+         * Qué se puede afirmar cuando el emisor no coincide con el nombre que el crédito escribió.
+         *
+         * Poco, y por una razón del mundo real: un organismo oficial casi nunca se llama como el
+         * crédito lo describe. El crédito del expediente pide el sanitario «ISSUED BY
+         * GOVT.VETERINERY AUTHORITY IN URUGUAY» y quien lo firma es el Ministerio de Ganadería,
+         * Agricultura y Pesca, que no comparte una sola palabra con ese texto. Comparar literales y
+         * declarar discrepancia rechazaba el certificado correcto: solo pasaba si el papel repetía
+         * la abreviatura del crédito letra por letra, con su error de tipeo incluido.
+         *
+         * Así que lo que no coincide va a verificar, con los dos nombres a la vista. Lo que el
+         * motor **sí** puede decidir es un caso, y ahí no hay nada que averiguar: que lo haya
+         * emitido el propio beneficiario cuando el crédito nombra a un tercero.
+         */
+        const distinto = comparaISBP(emisor ?? "", nombrado) === "DISTINTO";
+        const porFuncion = describeUnaFuncion(nombrado);
+        const loEmiteElBeneficiario =
+          distinto &&
+          Boolean(emisor) &&
+          Boolean(input.beneficiario) &&
+          comparaISBP(emisor!, input.beneficiario!) !== "DISTINTO";
         out.push(
           emisor
             ? regla(
                 `cert-emisor-${sufijo}`,
                 "ISBP 821 Q3",
                 `${nombre}: lo emite ${corto(nombrado, 40)}`,
-                comparaISBP(emisor, nombrado) === "DISTINTO" ? "DISCREPANCIA" : "OK",
-                `el documento lo emite "${emisor}"`,
+                loEmiteElBeneficiario ? "DISCREPANCIA" : !distinto ? "OK" : porFuncion ? "ATENCION" : "DISCREPANCIA",
+                loEmiteElBeneficiario
+                  ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
+                  : !distinto
+                    ? `el documento lo emite "${emisor}"`
+                    : porFuncion
+                      ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
+                      : `el documento lo emite "${emisor}"`,
               )
             : regla(
                 `cert-emisor-${sufijo}`,

@@ -144,3 +144,62 @@ describe("un porcentaje que el crédito nombra sin decir si es mínimo o máximo
     expect(malo[0]!.veredicto).toBe("NO_CUMPLE");
   });
 });
+
+describe("un certificado que solo repite la exigencia del crédito", () => {
+  /*
+   * Lo peor que puede hacer este módulo: decir que cumple algo que el papel no afirma.
+   *
+   * Los certificados suelen imprimir la exigencia del crédito antes de dar el resultado —el propio
+   * código lo dice y por eso prefiere el candidato sin operador—. Pero cuando el certificado
+   * **solo** la repite y no declara ningún resultado medido, el motor comparaba la exigencia
+   * contra sí misma y daba CUMPLE: «el crédito pide al menos 54 % y el certificado declara 54 %».
+   *
+   * No declara 54: copió el renglón del crédito. Pagar contra eso es pagar contra un certificado
+   * que no dice nada, y acá el silencio no se cuenta como conforme.
+   */
+  it("no dice que cumple: manda a verificar", () => {
+    const [c] = cotejarEspecificaciones("FISH MEAL 54 PCT MIN", "FISH MEAL 54 PCT MIN");
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+    expect(c?.detalle).toMatch(/repite|no declara|resultado/i);
+  });
+
+  it("y con el resultado al lado, lo usa y no se confunde", () => {
+    // Es el caso normal: el certificado imprime la exigencia y debajo el resultado medido.
+    const [c] = cotejarEspecificaciones("FISH MEAL 54 PCT MIN", "PROTEIN 54 PCT MIN — RESULT: PROTEIN 61,1 PCT");
+    expect(c?.veredicto).toBe("CUMPLE");
+    expect(c?.detalle).toMatch(/61,1|61\.1/);
+  });
+
+  it("un mínimo incumplido sigue siendo discrepancia", () => {
+    // El arreglo no puede volverse una excusa para no concluir nunca.
+    const [c] = cotejarEspecificaciones("FISH MEAL 54 PCT MIN", "PROTEIN 47,2 PCT");
+    expect(c?.veredicto).toBe("NO_CUMPLE");
+  });
+});
+
+describe("un nominal sin operador, también cuando el crédito nombra el parámetro", () => {
+  /*
+   * La rama de «sin operador no se concluye» existía solo para el número suelto en el nombre del
+   * producto («SOY BEAN MEAL HYPRO 48%»). Si el crédito nombraba el parámetro —«MOISTURE 10 PCT»—
+   * el mismo número sin operador se trataba como igualdad exacta, y un certificado que declaraba
+   * 9,999 % salía DISCREPANCIA.
+   *
+   * Nombrar el parámetro hace el apareo más preciso; no convierte un nominal en un máximo. Y una
+   * presentación conforme rechazada es el error más caro que este motor puede cometer.
+   */
+  it("no discrepa: manda a verificar contra el contrato", () => {
+    const [c] = cotejarEspecificaciones("MOISTURE 10 PCT", "MOISTURE 9,999 PCT");
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+    expect(c?.detalle).toMatch(/mínimo|máximo|nominal|verificar/i);
+  });
+
+  it("si coincide, cumple", () => {
+    const [c] = cotejarEspecificaciones("PROTEIN 54 PCT", "PROTEIN 54,0 PCT");
+    expect(c?.veredicto).toBe("CUMPLE");
+  });
+
+  it("con operador, el veredicto sigue siendo tajante", () => {
+    expect(cotejarEspecificaciones("MOISTURE 10 PCT MAX", "MOISTURE 12 PCT")[0]?.veredicto).toBe("NO_CUMPLE");
+    expect(cotejarEspecificaciones("MOISTURE 10 PCT MAX", "MOISTURE 8 PCT")[0]?.veredicto).toBe("CUMPLE");
+  });
+});
