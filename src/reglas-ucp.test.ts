@@ -892,3 +892,47 @@ describe("una proforma no es una factura comercial (ISBP 821 C1)", () => {
     expect(conFactura("")?.estado).toBe("ATENCION");
   });
 });
+
+describe("la descripción de la factura cuando el crédito lista mercaderías (art. 18 c)", () => {
+  /*
+   * Salió de cruzar 57 pares reales del ERP: la descripción de una operación contra la factura de
+   * otra. El motor marcó 49 y dejó pasar 8, todas por lo mismo — compartían «WAGYU» y «BEEF», que
+   * en un crédito de carne no distinguen nada. Dos palabras del rubro alcanzaban para dar por buena
+   * una factura que describe un corte que el crédito no pidió.
+   *
+   * Cuando el 45A enumera —y en carne enumera siempre, son decenas de cortes— lo que corresponde es
+   * mirar si la factura cae en alguno de los ítems, no si comparte palabras con la lista entera.
+   */
+  const ctxCon = (mercaderia: string) => ({ ...CTX, mercaderia });
+  const conFactura = (mercaderiaCredito: string, enLaFactura: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: ctxCon(mercaderiaCredito),
+      docs: [{ tipo: "FACTURA", campos: doc({ mercaderia: campo(enLaFactura) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18c");
+
+  const LISTA_REAL =
+    "WAGYU SHOULDER CLOD - BMS 4-5, WAGYU CHUCK ROLL - BMS 4-5, WAGYU KNUCKLE - BMS 4-5, WAGYU NECK - BMS 6-7";
+
+  it("un corte que está en la lista, pasa", () => {
+    expect(conFactura(LISTA_REAL, "WAGYU KNUCKLE - BMS 4-5")?.estado).toBe("OK");
+  });
+
+  it("y uno que no está, se manda a verificar aunque comparta «wagyu»", () => {
+    expect(conFactura(LISTA_REAL, "OUTSIDE SKIRT WAGYU BMS 4-5")?.estado).toBe("ATENCION");
+  });
+
+  it.each([
+    ["BEEF SILVERSIDE FLAT WAGYU BMS 6-7", "BIFE ANCHO WAGYU (BMS 6-7), BIFE ANGOSTO WAGYU (BMS 6-7)"],
+    ["BEEF OYSTER BLADE WAGYU BMS 6-7", "BEEF TENDERLOIN WAGYU BMS 4-5, BEEF RIBEYE WAGYU BMS 4-5"],
+    ["FROZEN BONELESS BEEF HEEL MUSCLE", "BEEF CHUCK, BEEF CHUCK RIB MEAT, BEEF RIB PLATE"],
+  ])("«%s» no está en «%s»", (factura, credito) => {
+    expect(conFactura(credito, factura)?.estado).toBe("ATENCION");
+  });
+
+  it("si el crédito no enumera, sigue bastando el parecido", () => {
+    // El crédito del caso real describe una sola mercadería, sin lista.
+    expect(conFactura("57 MTS OF FISH MEAL 54PCT MIN", "FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.estado).toBe("OK");
+  });
+});

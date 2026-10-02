@@ -90,7 +90,8 @@ function coincideLugar(a: string, b: string): boolean {
 }
 
 /** Descripciones de mercadería: o una contiene a la otra, o comparten dos palabras propias. */
-function coincideDescripcion(a: string, b: string): boolean {
+/** Si dos descripciones se parecen lo bastante: una dentro de otra, o dos palabras propias en común. */
+function seParecen(a: string, b: string): boolean {
   const na = norm(a);
   const nb = norm(b);
   if (!na || !nb) return false;
@@ -98,6 +99,58 @@ function coincideDescripcion(a: string, b: string): boolean {
   const pa = na.split(" ").filter((w) => w.length > 3);
   const pb = new Set(nb.split(" ").filter((w) => w.length > 3));
   return pa.filter((w) => pb.has(w)).length >= 2;
+}
+
+/**
+ * La descripción del documento contra la del crédito (art. 18 c para la factura).
+ *
+ * Cuando el crédito **enumera** mercaderías se compara contra cada ítem, no contra la lista entera.
+ * La diferencia la mostró un cruce de 57 pares reales del ERP de un trader de carne: el motor dejaba
+ * pasar ocho facturas que describían un corte que el crédito no pedía, porque compartían «BEEF» y
+ * «WAGYU» con alguna otra línea de la lista. Dos palabras del rubro alcanzaban para dar por buena
+ * una descripción ajena, y en carne el 45A enumera siempre — son decenas de cortes.
+ *
+ * Contra una lista, el parecido con el todo no dice nada: lo que importa es si la factura cae en
+ * alguno de los renglones.
+ */
+function coincideDescripcion(enDocumento: string, enCredito: string): boolean {
+  const items = enCredito
+    .split(/[,;]/)
+    .map((x) => x.trim())
+    .filter((x) => x.length > 3);
+  if (items.length <= 1) return seParecen(enDocumento, enCredito);
+
+  /*
+   * Lo que se repite en todos los renglones no distingue ninguno.
+   *
+   * En una lista de cortes de carne, «BEEF» y «WAGYU» están en todas las líneas: compartirlas no
+   * dice que la factura traiga ese corte, dice que las dos hablan de carne. Las palabras que
+   * identifican son las que **varían** entre renglones, y no hace falta una lista por rubro para
+   * saber cuáles son: se calculan del propio crédito.
+   */
+  const palabras = (t: string) =>
+    new Set(
+      norm(t)
+        .split(" ")
+        .filter((w) => w.length > 3),
+    );
+  const porItem = items.map(palabras);
+  /*
+   * Por mayoría y no por unanimidad: una lista de sesenta cortes no es homogénea —«WAGYU TAIL» no
+   * lleva el código BMS que llevan los demás— y exigir que la palabra esté en todos los renglones
+   * no descuenta nada. Dos tercios alcanzan para reconocer el encabezado del rubro.
+   */
+  const umbral = Math.ceil(porItem.length * (2 / 3));
+  const cuenta = new Map<string, number>();
+  for (const p of porItem) for (const w of p) cuenta.set(w, (cuenta.get(w) ?? 0) + 1);
+  const comunes = [...cuenta].filter(([, n]) => n >= umbral).map(([w]) => w);
+  const sinLoComun = (t: string) =>
+    norm(t)
+      .split(" ")
+      .filter((w) => !comunes.includes(w))
+      .join(" ");
+
+  return items.some((it) => seParecen(sinLoComun(enDocumento), sinLoComun(it)));
 }
 
 function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, evidencia: string): ReglaPresentacion {
