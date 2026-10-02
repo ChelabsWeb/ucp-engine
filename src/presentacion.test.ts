@@ -380,3 +380,46 @@ describe("la dirección del beneficiario (UCP 600 art. 14 j)", () => {
     expect(conDireccion(lc.beneficiarioDireccion ?? "")?.estado).toBe("OK");
   });
 });
+
+/** El mismo paquete real, variando solo quién es el ordenante de la venta. */
+const conOrdenante = (contraparte: string | null) =>
+  precheckPresentacion({
+    lc,
+    docs: [
+      { tipo: "FACTURA" as const, campos: FACTURA },
+      { tipo: "BL" as const, campos: BL },
+    ],
+    op: {
+      ...OP,
+      legs: OP.legs.map((l) => (l.tipo === "VENTA" ? { ...l, contraparte: contraparte ?? "" } : l)),
+    },
+    empresaRazonSocial: "CEREALSUR S.A.",
+    hoy: HOY,
+  }).reglas;
+
+describe("el notify del conocimiento cuando falta el ordenante", () => {
+  /*
+   * El crédito pide «NOTIFY APPLICANT AS PER FIELD 50» y el conocimiento real dice «NOTIFY SUPER
+   * FEED (PVT) LTD», que es el ordenante: cumple. Pero si el campo 50 no se pudo leer, el motor
+   * comparaba contra una cadena vacía y daba DISCREPANCIA, con la evidencia terminando en
+   * «· ordenante » y nada después — el propio hallazgo delataba que el dato faltaba de este lado.
+   *
+   * Rechazar una presentación conforme por un dato que el motor no tiene es el error más caro que
+   * puede cometer. Falta la mitad del control: eso se dice, no se resuelve en contra.
+   */
+  it("no discrepa: avisa que falta el ordenante", () => {
+    const r = conOrdenante(null).find((x) => x.id === "bl-notify");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no se leyó el ordenante/);
+  });
+
+  it("con el ordenante, el conocimiento real cumple", () => {
+    const r = conOrdenante("ORIENT FEED (PVT) LTD").find((x) => x.id === "bl-notify");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("y un notify que no es el ordenante sigue siendo discrepancia", () => {
+    const r = conOrdenante("OTRA EMPRESA S.A").find((x) => x.id === "bl-notify");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+});

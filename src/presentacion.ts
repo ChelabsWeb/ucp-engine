@@ -343,13 +343,25 @@ export function precheckPresentacion(input: {
     if (/NOTIFY\s+APPLICANT/i.test(reglaBL)) {
       const nt = val(bl, "notify") ?? val(bl, "importador");
       const cliente = op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
+      /*
+       * Sin saber quién es el ordenante no se puede decir que el notify esté mal.
+       *
+       * Faltaba la mitad del control: si el campo 50 del crédito no se pudo leer, `cliente` queda
+       * vacío y el resultado era DISCREPANCIA — con la evidencia terminando en «· ordenante » y
+       * nada después. El conocimiento del expediente real dice «NOTIFY ORIENT FEED (PVT) LTD», que
+       * es exactamente el ordenante, y salía discrepante por un dato que falta de este lado.
+       */
       const ok = nt && cliente ? norm(nt).includes(norm(cliente).split(" ")[0]) : false;
       reglas.push({
         id: "bl-notify",
         fuente: "46A",
         regla: "BL notify: el ordenante (applicant)",
-        estado: !nt ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
-        evidencia: nt ? `dice "${nt}" · ordenante ${cliente}` : "no se leyó el notify",
+        estado: !nt || !cliente ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+        evidencia: !nt
+          ? "no se leyó el notify"
+          : !cliente
+            ? `dice "${nt}" y no se leyó el ordenante del crédito: verificar a mano`
+            : `dice "${nt}" · ordenante ${cliente}`,
       });
     }
   }
