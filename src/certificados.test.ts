@@ -435,3 +435,59 @@ describe("el peso de la nota, con la unidad donde los papeles la escriben", () =
     expect(conPeso("48.000 KGS", "54.040 KGS")?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("un certificado que acredita un hecho anterior al embarque", () => {
+  /*
+   * La regla se llama «acredita un hecho anterior al embarque» y cita ISBP 821 A12b, pero comparaba
+   * la fecha de **emisión** con la del a bordo. Un certificado de inspección pre-embarque emitido el
+   * 10 por una inspección hecha el 7 cumple el párrafo citado, y salía DISCREPANCIA.
+   *
+   * La emisión posterior al embarque no prueba que el hecho fuera posterior. Cuando el documento
+   * dice cuándo ocurrió, se usa esa fecha; cuando no lo dice, el motor no puede decidir y lo deja a
+   * la vista, que es distinto de rechazarlo.
+   */
+  const EX = "+11)PRE-SHIPMENT INSPECTION CERTIFICATE ISSUED BY SGS";
+
+  const correr = (fechaDocumento: string, queCertifica = "") =>
+    reglasCertificados({
+      lc: LC,
+      docs: [{ tipo: "BL", campos: doc({ fechaEmbarque: { valor: "08-abr-25", confianza: 0.9 } }) }],
+      hoy: new Date(2025, 3, 20),
+      certificados: [
+        {
+          exigencia: EX,
+          campos: doc({
+            fechaDocumento: { valor: fechaDocumento, confianza: 0.9 },
+            mercaderia: { valor: queCertifica, confianza: queCertifica ? 0.9 : 0 },
+          }),
+        },
+      ],
+    }).find((x) => x.id.startsWith("cert-previo"));
+
+  it("emitido antes del embarque, cumple", () => {
+    expect(correr("05-abr-25")?.estado).toBe("OK");
+  });
+
+  it("emitido después pero declarando la inspección anterior, también", () => {
+    const r = correr("10-abr-25", "INSPECTION CARRIED OUT AT MONTEVIDEO ON 07-abr-25 PRIOR TO LOADING");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/07/);
+  });
+
+  it("emitido después y sin decir cuándo fue la inspección, sigue siendo discrepancia", () => {
+    /*
+     * Y no por la fecha de emisión en sí: porque el documento no evidencia que el hecho fuera
+     * previo, y un banco examina lo que el documento dice. La evidencia lo explica, así que el
+     * examinador puede levantarla si tiene el dato. Afinar esto más necesita el texto de la ISBP
+     * 821, que no está comprada.
+     */
+    const r = correr("10-abr-25");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/no dice cu[aá]ndo/i);
+  });
+
+  it("y si el hecho declarado es posterior al embarque, sí es discrepancia", () => {
+    const r = correr("12-abr-25", "INSPECTION CARRIED OUT ON 11-abr-25");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+});

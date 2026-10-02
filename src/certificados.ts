@@ -1,6 +1,6 @@
 import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero } from "./consistencia";
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
-import { parseFecha } from "./fechas";
+import { fmtFecha, parseFecha } from "./fechas";
 import { comparaISBP, emisorAdmitido, esCertificadoDeOrigen, exigePrevioAlEmbarque } from "./isbp";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
 import type { LcInfo } from "./types";
@@ -100,6 +100,19 @@ function describeUnaFuncion(nombrado: string): boolean {
 
 function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, evidencia: string): ReglaPresentacion {
   return { id, fuente, regla: texto, estado, evidencia };
+}
+
+/**
+ * Cuándo ocurrió lo que el certificado acredita, si el papel lo dice.
+ *
+ * Los certificados de inspección lo escriben en el cuerpo: «INSPECTION CARRIED OUT AT MONTEVIDEO ON
+ * 07-APR-2025 PRIOR TO LOADING». Es la fecha que importa para el párrafo A12b, y la única que el
+ * motor puede usar para decidir cuando la emisión es posterior al embarque.
+ */
+function fechaDelHecho(campos: CamposDoc): Date | null {
+  const texto = val(campos.mercaderia) ?? "";
+  if (!texto) return null;
+  return parseFecha(texto);
 }
 
 /** El peso que declara un documento, en kilos, si se puede leer. */
@@ -246,14 +259,39 @@ export function reglasCertificados(input: {
     const fd = f ? parseFecha(f) : null;
     if (exigePrevioAlEmbarque(c.exigencia)) {
       const fe = fechaEmbarque ? parseFecha(fechaEmbarque) : null;
+      /*
+       * Lo que tiene que ser anterior es el **hecho**, no la emisión.
+       *
+       * El párrafo pide que el certificado acredite algo ocurrido antes del embarque, y un
+       * certificado de inspección emitido el 10 por una inspección hecha el 7 lo cumple. Comparar
+       * la fecha de emisión lo marcaba discrepante, que además es atribuirle a la cita algo que no
+       * dice — y en este motor cada hallazgo tiene que poder ir a buscarse al texto.
+       *
+       * Si el documento declara cuándo ocurrió, se usa esa fecha: ahí el papel evidencia el
+       * cumplimiento y no hay nada que discutir.
+       *
+       * Si **no** lo declara y se emitió después del embarque, el veredicto sigue siendo
+       * discrepancia, y no por la fecha de emisión en sí: porque el documento no evidencia que el
+       * hecho fuera previo, y un banco examina lo que el documento dice. La evidencia ahora explica
+       * eso, para que el examinador pueda levantarla si tiene el dato en la mano. Afinar más esto
+       * necesita el texto de la ISBP 821, que no está comprada: inventar la práctica bancaria que
+       * falta sería peor que dejar el veredicto donde estaba.
+       */
+      const delHecho = fechaDelHecho(c.campos);
+      // si declara cuándo ocurrió, manda esa fecha; si no, queda la de emisión
+      const relevante = fd && fe && fd > fe ? (delHecho ?? fd) : fd;
       out.push(
-        fd && fe
+        relevante && fe
           ? regla(
               `cert-previo-${sufijo}`,
               "ISBP 821 A12b",
               `${nombre}: acredita un hecho anterior al embarque`,
-              fd <= fe ? "OK" : "DISCREPANCIA",
-              `documento ${f} · embarque ${fechaEmbarque}`,
+              relevante <= fe ? "OK" : "DISCREPANCIA",
+              relevante !== fd
+                ? `el hecho que acredita es del ${fmtFecha(relevante)} · embarque ${fechaEmbarque} (documento ${f})`
+                : relevante <= fe
+                  ? `documento ${f} · embarque ${fechaEmbarque}`
+                  : `documento ${f} · embarque ${fechaEmbarque} — y no dice cuándo ocurrió lo que acredita`,
             )
           : regla(
               `cert-previo-${sufijo}`,

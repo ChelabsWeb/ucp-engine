@@ -212,6 +212,33 @@ describe("cobertura sobre el expediente real", () => {
     expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
   });
 
+  it.each([
+    ["sin decir cuándo fue la inspección", ""],
+    ["declarando cuándo fue", "INSPECTION CARRIED OUT AT MONTEVIDEO ON 07-abr-25 PRIOR TO LOADING"],
+  ])("ningún hallazgo queda con español: certificado previo al embarque, %s", (_n, queCertifica) => {
+    // El crédito real no pide ningún certificado previo al embarque, así que estas reglas no
+    // aparecían en ningún escenario y sus textos quedaban sin traducir.
+    const credito = parseMT700(SWIFT_CSU2025099)!;
+    const c = (valor: string) => ({ valor, confianza: 0.9 });
+    const r = examinarPresentacion({
+      lc: credito.lc,
+      credito: contextoDesdeSwift(credito),
+      docs: [{ tipo: "BL", campos: DOCUMENTOS_CSU2025099.BL! }],
+      certificados: [
+        {
+          exigencia: "+11)PRE-SHIPMENT INSPECTION CERTIFICATE ISSUED BY SGS",
+          campos: {
+            fechaDocumento: c("15-abr-25"),
+            mercaderia: queCertifica ? c(queCertifica) : c(""),
+          } as unknown as CamposDoc,
+        },
+      ],
+      empresaRazonSocial: credito.extra.beneficiario[0] ?? "",
+      hoy: new Date(2025, 3, 20),
+    });
+    expect(sinTraducirEn(r).map((x) => `${x.palabra} en ${x.donde}`)).toEqual([]);
+  });
+
   it("ningún hallazgo queda con español: el crédito indica una zona de puertos", () => {
     const credito = parseMT700(SWIFT_CSU2025099)!;
     const r = examinarPresentacion({

@@ -591,6 +591,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^documento (.+) · embarque (.+) — admitido: el crédito no lo pide previo$/g,
     "document $1 · shipment $2 — admitted: the credit does not require it to predate shipment",
   ],
+  [
+    /^el hecho que acredita es del (.+) · embarque (.+) \(documento (.+)\)$/g,
+    "the fact it evidences is dated $1 · shipment $2 (document $3)",
+  ],
+  [
+    /^documento (.+) · embarque (.+) — y no dice cuándo ocurrió lo que acredita$/g,
+    "document $1 · shipment $2 — and it does not say when what it evidences took place",
+  ],
   [/^documento (.+) · embarque (.+)$/g, "document $1 · shipment $2"],
   [/^nota de peso (.+) kg · el packing (.+) kg$/g, "weight note $1 kg · packing list $2 kg"],
   [/^nota de peso (.+) kg · el conocimiento (.+) kg$/g, "weight note $1 kg · bill of lading $2 kg"],
