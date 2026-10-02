@@ -1031,13 +1031,51 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
   };
 }
 
+/**
+ * Lo que una línea del 46A pide, antes de describir cómo tiene que ser.
+ *
+ * Una línea del 46A nombra el documento y después lo describe: «INSURANCE POLICY OR CERTIFICATE
+ * **FOR** 110 PCT OF INVOICE VALUE», «CERTIFICATE OF ORIGIN **ISSUED BY** CHAMBER OF COMMERCE
+ * **CERTIFYING** THE INVOICE VALUE». Clasificar por las palabras que la línea menciona, en vez de
+ * por el documento que pide, daba el peor falso negativo del motor: esa primera línea —la fórmula
+ * estándar de cualquier crédito CIF— salía como FACTURA, la factura presentada la dejaba cumplida,
+ * y **nadie exigía el seguro**. El banco pagaba un CIF sin póliza y esa línea se veía en verde.
+ *
+ * Así que se corta en la primera palabra que abre una descripción y se clasifica la cabeza. Si la
+ * cabeza no dice nada reconocible, se mira la línea entera: perder una clasificación sería peor que
+ * clasificar por una cláusula.
+ */
+const ABRE_DESCRIPCION =
+  /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|accompanied|declaring|mentioning|quoting)\b/;
+
+export function cabezaDeExigencia(s: string): string {
+  const m = ABRE_DESCRIPCION.exec(s);
+  if (!m || m.index < 4) return s;
+  return s.slice(0, m.index).trim();
+}
+
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
 export function claveDoc(nombre: string): string {
-  const s = normTexto(nombre);
+  const completo = normTexto(nombre);
+  const cabeza = cabezaDeExigencia(completo);
+  const k = cabeza === completo ? null : clavePorTexto(cabeza);
+  if (!k || k.startsWith("TXT:")) return clavePorTexto(completo);
+  /*
+   * El certificado del beneficiario se distingue por lo que certifica, no por su nombre.
+   *
+   * El crédito real pide dos —uno por los gastos bancarios y otro por los documentos enviados por
+   * correo— y los dos se llaman «BENEFICIARY'S CERTIFICATE». Si la clave saliera de la cabeza, los
+   * dos serían el mismo documento y presentar uno daría por cumplidos los dos.
+   */
+  return k.startsWith("BENEFICIARIO") ? clavePorTexto(completo) : k;
+}
+
+function clavePorTexto(s: string): string {
   if (/invoice|factura/.test(s)) return "INVOICE";
   if (/packing/.test(s)) return "PACKING";
   if (/bills? of lading|\bb l\b|\bbl\b|conocimiento de embarque/.test(s)) return "BL";
-  if (/origin|origen/.test(s)) return "ORIGEN";
+  // con límite de palabra: la «ORIGEN» salía de dentro de «ORIGINAL DOCUMENTS»
+  if (/\borigin\b|\borigen\b/.test(s)) return "ORIGEN";
   if (/health|sanitary|sanitario|veterinar/.test(s)) return "SANITARIO";
   if (/halal/.test(s)) return "HALAL";
   if (/insurance|seguro/.test(s)) return "SEGURO";

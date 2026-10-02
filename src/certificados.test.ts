@@ -274,3 +274,164 @@ describe("el emisor que el crédito nombra, cuando el papel lo escribe de otra f
     expect(r?.evidencia).toMatch(/beneficiario/i);
   });
 });
+
+describe("quién emite, con las redacciones que los créditos usan de verdad", () => {
+  /*
+   * Seis casos, todos de redacción corriente del 46A, y en los seis el papel cumplía y el motor
+   * daba DISCREPANCIA. Tienen cuatro causas distintas:
+   *
+   * 1. El nombre del emisor se llevaba la frase entera: «ISSUED BY CARRIER OR ITS AGENT STATING
+   *    THE VESSEL AGE» daba como emisor exigido «CARRIER OR ITS AGENT STATING THE VESSEL AGE».
+   * 2. Cuando el crédito nombra **al beneficiario** como emisor, que lo emitiera el beneficiario
+   *    disparaba «lo emite el beneficiario y el crédito nombra a un tercero». No nombra a un
+   *    tercero: lo nombra a él.
+   * 3. Una alternativa —«ISSUED BY SGS OR INTERTEK»— se comparaba como un nombre solo.
+   * 4. Los roles del comercio —carrier, shipper, manufacturer, surveyor— no estaban en la lista de
+   *    funciones, así que se trataban como nombres propios de empresa.
+   */
+  const emisorDe = (exigencia: string, emisor: string) =>
+    reglasCertificados({
+      lc: LC,
+      docs: [],
+      beneficiario: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 20),
+      certificados: [{ exigencia, campos: doc({ emisorSeguro: { valor: emisor, confianza: 0.9 } }) }],
+    }).find((x) => x.id.startsWith("cert-emisor"));
+
+  it("si el crédito nombra al beneficiario, que lo emita el beneficiario cumple", () => {
+    const r = emisorDe("+9)CERTIFICATE ISSUED BY BENEFICIARY CONFIRMING ALL CHARGES SETTLED.", "CEREALSUR S.A");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("un «beneficiary's certificate» no se vuelve ajeno porque mencione un agente local", () => {
+    // El calificativo del Q5 tiene que calificar al emisor, no aparecer en cualquier parte de la
+    // línea: «APPLICANT'S LOCAL AGENT» describe a quién se le manda la copia.
+    const r = emisorDe(
+      "+10)BENEFICIARY'S CERTIFICATE CONFIRMING COPY DOCUMENTS SENT TO APPLICANT'S LOCAL AGENT IN COLOMBO.",
+      "CEREALSUR S.A",
+    );
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("una alternativa se cumple con cualquiera de las dos", () => {
+    expect(emisorDe("+8)CERTIFICATE OF ANALYSIS ISSUED BY SGS OR INTERTEK", "SGS URUGUAY S.A.")?.estado).toBe("OK");
+    expect(emisorDe("+8)CERTIFICATE OF ANALYSIS ISSUED BY SGS OR INTERTEK", "INTERTEK TESTING SERVICES")?.estado).toBe(
+      "OK",
+    );
+  });
+
+  it("y si no es ninguna de las dos, sigue habiendo algo que mirar", () => {
+    expect(emisorDe("+8)CERTIFICATE OF ANALYSIS ISSUED BY SGS OR INTERTEK", "OTRO LABORATORIO SRL")?.estado).not.toBe(
+      "OK",
+    );
+  });
+
+  it.each([
+    ["+11)SHIPPING COMPANY CERTIFICATE ISSUED BY CARRIER OR ITS AGENT STATING THE VESSEL AGE", "OCEANLINE URUGUAY S.A."],
+    ["+8)CERTIFICATE OF ANALYSIS ISSUED BY MANUFACTURER", "MOLSUR S.A."],
+    ["+12)PACKING DECLARATION ISSUED BY SHIPPER", "MOLSUR S.A."],
+  ])("un rol del comercio no es un nombre propio: «%s»", (exigencia, emisor) => {
+    // El motor no tiene cómo saber qué empresa es el carrier o el fabricante de esta operación, así
+    // que lo deja a la vista para que lo mire una persona en vez de rechazarlo.
+    expect(emisorDe(exigencia, emisor)?.estado).toBe("ATENCION");
+  });
+
+  it("«issued by an independent surveyor» sí se puede decidir, y cumple", () => {
+    /*
+     * Este no va a verificar y es correcto que no: «independent» es el calificativo del Q5, así
+     * que lo que el crédito pide es cualquiera **menos** el beneficiario. Control Union no es el
+     * beneficiario, con lo cual cumple, y eso el motor lo sabe sin ayuda.
+     */
+    expect(
+      emisorDe("+11)INSPECTION CERTIFICATE ISSUED BY AN INDEPENDENT SURVEYOR", "CONTROL UNION URUGUAY")?.estado,
+    ).toBe("OK");
+  });
+
+  it("y el mismo, emitido por el beneficiario, no", () => {
+    expect(emisorDe("+11)INSPECTION CERTIFICATE ISSUED BY AN INDEPENDENT SURVEYOR", "CEREALSUR S.A")?.estado).toBe(
+      "DISCREPANCIA",
+    );
+  });
+
+  it("pero un laboratorio nombrado por su nombre sigue siendo tajante", () => {
+    // El caso que no se puede perder: el crédito nombró CALISET y el papel es de otro.
+    expect(emisorDe("+8)CERTIFICATE OF ANALYSIS ISSUED BY CALISET", "OTRO LABORATORIO SRL")?.estado).toBe(
+      "DISCREPANCIA",
+    );
+  });
+
+  it("y el nombre del emisor exigido no se lleva la frase entera", () => {
+    expect(emisorQueNombra("+11)CERTIFICATE ISSUED BY CARRIER OR ITS AGENT STATING THE VESSEL AGE")).toBe(
+      "CARRIER OR ITS AGENT",
+    );
+  });
+});
+
+describe("lo que el certificado declara no sale de cómo se llama el documento", () => {
+  /*
+   * La pantalla pasa `nombreArchivo` con la línea del 46A —es lo que el examinador ve como título
+   * de la casilla— y ese texto entraba como contenido del papel. Con un crédito que pide «ANALYSIS
+   * CERTIFICATE SHOWING PROTEIN 54 PCT» y la calidad todavía sin cargar, el motor leía la exigencia
+   * del banco emisor y la devolvía como resultado del análisis: CUMPLE contra un papel vacío.
+   */
+  const EX = "+8)ANALYSIS CERTIFICATE SHOWING PROTEIN 54 PCT";
+
+  const correrUno = (campos: CamposDoc, nombreArchivo?: string) =>
+    reglasCertificados({
+      lc: { ...LC, documentosExigidos: [EX] },
+      docs: [],
+      mercaderiaDelCredito: "57 MTS OF FISH MEAL 54PCT MIN",
+      hoy: new Date(2025, 3, 20),
+      certificados: [{ exigencia: EX, nombreArchivo, campos }],
+    }).filter((x) => x.id.includes("spec"));
+
+  it("sin la calidad cargada, no hay nada que comparar", () => {
+    const r = correrUno(doc({}), "ANALYSIS CERTIFICATE SHOWING PROTEIN 54 PCT");
+    expect(r.every((x) => x.estado !== "OK")).toBe(true);
+  });
+
+  it("con la calidad cargada, compara contra eso", () => {
+    const r = correrUno(doc({ mercaderia: { valor: "PROTEIN 61,1 PCT", confianza: 0.9 } }));
+    expect(r[0]?.estado).toBe("OK");
+    expect(r[0]?.evidencia).toMatch(/61,1/);
+  });
+});
+
+describe("el peso de la nota, con la unidad donde los papeles la escriben", () => {
+  /*
+   * La unidad se buscaba en todo el texto, con un patrón abierto por la derecha: «**T**OTAL GROSS
+   * WEIGHT 54.040 KGS» multiplicaba por mil porque la «T» de «TOTAL» alcanzaba. Cincuenta y cuatro
+   * toneladas se volvían cincuenta y cuatro mil y la nota de peso correcta salía discrepante contra
+   * el packing.
+   *
+   * El campo todavía no se carga desde la pantalla, así que esto no estaba rechazando nada hoy —y
+   * es justamente por eso que conviene arreglarlo antes de agregar la casilla.
+   */
+  const conPeso = (nota: string, packing: string) =>
+    reglasCertificados({
+      lc: LC,
+      docs: [{ tipo: "PACKING", campos: doc({ pesoBruto: { valor: packing, confianza: 0.9 } }) }],
+      hoy: new Date(2025, 3, 20),
+      certificados: [
+        { exigencia: "+5)WEIGHT NOTE IN 03 FOLD.", campos: doc({ pesoBruto: { valor: nota, confianza: 0.9 } }) },
+      ],
+    }).find((x) => x.id.startsWith("cert-peso"));
+
+  it.each([
+    ["TOTAL GROSS WEIGHT 54.040 KGS", "54.040 KGS"],
+    ["THE GROSS WEIGHT IS 54.040 KGS", "54.040 KGS"],
+    ["54.040 KGS (54,04 MT)", "54.040 KGS"],
+    ["NET 54.040 KGS", "TOTAL 54.040 KGS"],
+  ])("«%s» contra «%s» coincide", (nota, packing) => {
+    expect(conPeso(nota, packing)?.estado).toBe("OK");
+  });
+
+  it("y una tonelada sigue siendo mil kilos", () => {
+    expect(conPeso("54,04 MT", "54.040 KGS")?.estado).toBe("OK");
+    expect(conPeso("57 TONS", "57.000 KGS")?.estado).toBe("OK");
+  });
+
+  it("un peso que de verdad no coincide sigue siendo discrepancia", () => {
+    expect(conPeso("48.000 KGS", "54.040 KGS")?.estado).toBe("DISCREPANCIA");
+  });
+});

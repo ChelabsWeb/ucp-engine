@@ -203,3 +203,74 @@ describe("un nominal sin operador, también cuando el crédito nombra el paráme
     expect(cotejarEspecificaciones("MOISTURE 10 PCT MAX", "MOISTURE 8 PCT")[0]?.veredicto).toBe("CUMPLE");
   });
 });
+
+describe("un análisis con varios parámetros, que es como vienen de verdad", () => {
+  /*
+   * Un certificado de análisis de harina de pescado declara proteína, humedad, grasa y cenizas en
+   * una lista. El 45A real —«57 MTS OF FISH MEAL 54PCT MIN»— no nombra el parámetro, así que el
+   * cotejo apareaba «por unidad» y se quedaba con el **primer** porcentaje de la lista. Si el
+   * análisis imprime la humedad antes que la proteína, el 54 % mínimo se comparaba contra 9,5 % y
+   * un análisis que cumple de sobra —61,1 % de proteína— salía discrepante.
+   */
+  it("no elige el primero: avisa que no puede decidir contra cuál comparar", () => {
+    const [c] = cotejarEspecificaciones(
+      "57 MTS OF FISH MEAL 54PCT MIN",
+      "FISH MEAL. MOISTURE 9,5 % - PROTEIN 61,1 % - FAT 8,2 %",
+    );
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+    expect(c?.detalle).toMatch(/cuál|varios|más de un/i);
+  });
+
+  it("con un solo resultado en la unidad, sigue comparando", () => {
+    // El caso del expediente: el análisis declara la proteína y nada más.
+    const [c] = cotejarEspecificaciones("57 MTS OF FISH MEAL 54PCT MIN", "FISH MEAL, PROTEIN 61,1 PCT");
+    expect(c?.veredicto).toBe("CUMPLE");
+  });
+
+  it("y cuando el crédito nombra el parámetro, la lista entera no estorba", () => {
+    const r = cotejarEspecificaciones(
+      "FISH MEAL, PROTEIN 54 PCT MIN, MOISTURE 10 PCT MAX",
+      "MOISTURE 9,5 % - PROTEIN 61,1 % - FAT 8,2 %",
+    );
+    expect(r.find((x) => x.exigida.parametro === "protein")?.veredicto).toBe("CUMPLE");
+    expect(r.find((x) => x.exigida.parametro === "moisture")?.veredicto).toBe("CUMPLE");
+  });
+
+  it("el nombre del parámetro sale de lo que está antes del número, no de lo que sigue", () => {
+    /*
+     * «CRUDE PROTEIN (N x 6,25): 61,1 %» es la forma en que los laboratorios escriben la proteína.
+     * El paréntesis separaba el nombre del número, así que el parámetro se tomaba del texto
+     * siguiente y el 61,1 % quedaba etiquetado como **humedad**.
+     */
+    const e = especificacionesDe("CRUDE PROTEIN (N x 6,25): 61,1 %  MOISTURE: 9,5 %");
+    expect(e.find((x) => x.valor === 61.1)?.parametro).toBe("protein");
+    expect(e.find((x) => x.valor === 9.5)?.parametro).toBe("moisture");
+  });
+
+  it("pero el parámetro escrito después de la unidad se sigue leyendo", () => {
+    // «MAX 12% MOISTURE» es igual de corriente, y ahí el nombre va detrás.
+    expect(especificacionesDe("MAX 12% MOISTURE")[0]).toMatchObject({ parametro: "moisture", operador: "MAX" });
+  });
+});
+
+describe("el operador escrito con punto", () => {
+  /*
+   * «MIN.» y «MAX.» con punto son abreviaturas corrientes, y el operador no se capturaba. Las dos
+   * mitades fallaban en direcciones opuestas: un certificado que solo repetía «PROTEIN MIN. 54 %»
+   * daba CUMPLE —el defecto de comparar la exigencia contra sí misma, resucitado por un punto— y un
+   * crédito «MOISTURE MAX. 10 PCT» contra 12 % daba a verificar en vez de discrepancia.
+   */
+  it("«MIN. 54 %» es un mínimo", () => {
+    expect(especificacionesDe("PROTEIN MIN. 54 %")[0]).toMatchObject({ operador: "MIN", parametro: "protein" });
+  });
+
+  it("«MAX. 10 PCT» es un máximo, y 12 % no lo cumple", () => {
+    const [c] = cotejarEspecificaciones("FISH MEAL MOISTURE MAX. 10 PCT", "MOISTURE 12 %");
+    expect(c?.veredicto).toBe("NO_CUMPLE");
+  });
+
+  it("y el certificado que solo repite «MIN. 54 %» no cumple nada", () => {
+    const [c] = cotejarEspecificaciones("FISH MEAL 54 PCT MIN", "PROTEIN MIN. 54 %");
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+  });
+});

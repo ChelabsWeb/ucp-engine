@@ -51,13 +51,16 @@ export function especificacionesDe(texto: string): Especificacion[] {
     // el parámetro no puede ser el operador: sin este freno, «MIN 54%» leía «MIN» como
     // el nombre del parámetro y perdía el operador, que es lo único que no se puede errar
     String.raw`((?!(?:min|max|m[ií]n|m[áa]x)(?:imum|imo)?\b)[A-Za-zÁÉÍÓÚáéíóúñ]{3,12}\s*:?\s*)?` +
-      String.raw`(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?|not less than|no menos de)?\s*` +
+      // el punto de «MIN.» y «MAX.» entra acá: sin él el operador se perdía y el número quedaba
+      // leído como un nominal, que invierte el veredicto en los dos sentidos
+      String.raw`(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?|not less than|no menos de)?\.?\s*` +
       String.raw`(\d+(?:[.,]\d+)?)\s*` +
       String.raw`(pct|percent|%|ppm|mg\s*\/\s*kg|g\s*\/\s*kg)\s*` +
-      "(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?)?",
+      String.raw`\.?\s*(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?)?`,
     "gi",
   );
 
+  let finAnterior = 0;
   for (const m of texto.matchAll(re)) {
     const antes = (m[1] ?? "").trim().replace(/:$/, "");
     const opAntes = m[2] ?? "";
@@ -69,10 +72,28 @@ export function especificacionesDe(texto: string): Especificacion[] {
     const op = `${opAntes} ${opDespues}`.toLowerCase();
     const operador: Operador = /max|máx/.test(op) ? "MAX" : /min|mín|not less|no menos/.test(op) ? "MIN" : "EXACTO";
 
-    // el parámetro puede venir antes del número o después de la unidad
-    const despues = texto.slice(m.index + m[0].length, m.index + m[0].length + 24);
-    const nombrado = PARAMETROS.exec(antes)?.[0] ?? PARAMETROS.exec(despues)?.[0] ?? "";
+    /*
+     * De dónde sale el nombre del parámetro.
+     *
+     * Primero de la palabra pegada al número, que es el caso fácil. Si no está ahí, de la ventana
+     * que va desde donde terminó el ítem anterior hasta este número: los laboratorios escriben
+     * «CRUDE PROTEIN (N x 6,25): 61,1 %» y el paréntesis separaba el nombre del valor. La ventana
+     * no cruza el ítem anterior para no robarle su nombre.
+     *
+     * Y recién al final se mira lo que **sigue** a la unidad, que es como se escribe «MAX 12%
+     * MOISTURE». Ahí hay que tener cuidado: en una lista —«… 61,1 %  MOISTURE: 9,5 %»— el nombre
+     * que sigue es del próximo renglón, no de este. Se corta en el primer dígito y se descarta si
+     * viene con dos puntos, que es la marca de que etiqueta al valor siguiente.
+     */
+    const ventanaPrevia = texto.slice(Math.max(finAnterior, m.index - 40), m.index);
+    const crudo = texto.slice(m.index + m[0].length, m.index + m[0].length + 24);
+    const haciaAdelante = crudo.split(/\d/)[0] ?? "";
+    const despues = /[:=]/.test(haciaAdelante) ? "" : haciaAdelante;
+    const previos = [...ventanaPrevia.matchAll(new RegExp(PARAMETROS.source, "gi"))];
+    const nombrado =
+      PARAMETROS.exec(antes)?.[0] ?? previos[previos.length - 1]?.[0] ?? PARAMETROS.exec(despues)?.[0] ?? "";
     const parametro = nombrado.toLowerCase();
+    finAnterior = m.index + m[0].length;
 
     const clave = `${parametro}|${operador}|${valor}|${unidad}`;
     if (visto.has(clave)) continue;
@@ -126,9 +147,28 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
      */
     const resultados = medidas.filter((m) => m.operador === "EXACTO");
     const donde = resultados.length > 0 ? resultados : medidas;
-    const medida =
-      donde.find((m) => m.parametro && m.parametro === ex.parametro) ??
-      (ex.parametro === "" ? (donde.find((m) => m.unidad === ex.unidad) ?? null) : null);
+    const porParametro = donde.find((m) => m.parametro && m.parametro === ex.parametro);
+    /*
+     * Sin nombre de parámetro, se aparea por unidad — y si hay varios, no se aparea.
+     *
+     * El 45A real dice «57 MTS OF FISH MEAL 54PCT MIN» y no nombra qué es ese 54 %. Cuando el
+     * análisis declara un solo porcentaje, es ese. Cuando declara la lista entera —proteína,
+     * humedad, grasa, cenizas— elegir el primero es tirar una moneda: con la humedad arriba, el
+     * mínimo de proteína se comparaba contra 9,5 % y un análisis que cumple de sobra salía
+     * discrepante. Cuál de los cuatro es el que el crédito pide lo sabe una persona.
+     */
+    const mismaUnidad = ex.parametro === "" ? donde.filter((m) => m.unidad === ex.unidad) : [];
+    if (!porParametro && mismaUnidad.length > 1) {
+      return [
+        {
+          exigida: ex,
+          medida: null,
+          veredicto: "SIN_COMPARAR" as const,
+          detalle: `el crédito pide «${ex.texto}» sin decir de qué parámetro y el certificado declara más de un resultado en ${ex.unidad}: verificar a mano contra cuál se compara`,
+        },
+      ];
+    }
+    const medida = porParametro ?? mismaUnidad[0] ?? null;
 
     /*
      * Un número suelto en el nombre de un producto no es una exigencia.

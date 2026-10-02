@@ -628,6 +628,10 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el crédito pide «(.+)» y no se leyó un resultado equivalente en el certificado$/g,
     "the credit calls for «$1» and no equivalent result was read in the certificate",
   ],
+  [
+    /^el crédito pide «(.+)» sin decir de qué parámetro y el certificado declara más de un resultado en (.+): verificar a mano contra cuál se compara$/g,
+    "the credit calls for «$1» without saying which parameter and the certificate states more than one result in $2: check by hand which one it is compared against",
+  ],
   // el certificado imprimió el renglón del crédito y no el resultado medido
   [
     /^el certificado repite la exigencia «(.+)» pero no se leyó el resultado medido: verificar a mano cuánto declara$/g,

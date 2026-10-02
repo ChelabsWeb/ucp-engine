@@ -4,6 +4,7 @@ import {
   CAMPOS_POR_TIPO,
   CAMPOS_SEGURO,
   type CamposDoc,
+  claveDoc,
   compararDocumento,
   compararEntreDocumentos,
   cotejarLC,
@@ -774,5 +775,72 @@ describe("el incoterm de la LC viene con el lugar pegado", () => {
 
   it("pero un incoterm distinto sigue siendo distinto", () => {
     expect(conIncoterm("FOB MONTEVIDEO")?.estado).toBe("DIFERENTE");
+  });
+});
+
+describe("qué documento pide una línea del 46A", () => {
+  /*
+   * `claveDoc` clasificaba por las palabras que la línea **menciona**, no por el documento que
+   * pide, y la primera prueba era la factura. Eso daba el peor falso negativo que encontré:
+   *
+   *   «INSURANCE POLICY OR CERTIFICATE FOR 110 PCT OF INVOICE VALUE»
+   *
+   * —la fórmula estándar de cualquier crédito CIF— salía como FACTURA, así que la línea quedaba
+   * cumplida con la factura presentada y **nadie exigía el seguro**. El banco pagaba un CIF sin
+   * póliza, y en la pantalla esa línea del crédito se veía en verde.
+   *
+   * El arreglo: clasificar por la cabeza de la línea —el nombre del documento— y no por sus
+   * cláusulas. Lo que viene después de «for», «covering», «certifying», «issued by» o «including»
+   * describe el contenido, no el documento.
+   */
+  const CABEZA: [string, string][] = [
+    ["+11)INSURANCE POLICY OR CERTIFICATE IN DUPLICATE FOR 110 PCT OF INVOICE VALUE COVERING ICC(A)", "SEGURO"],
+    ["+13)CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE CERTIFYING THE INVOICE VALUE", "ORIGEN"],
+    ["+5)WEIGHT NOTE IN 03 FOLD SHOWING THE INVOICE NUMBER", "PESO"],
+    ["+8)CERTIFICATE OF ANALYSIS STATING THE INVOICE NUMBER", "ANALISIS"],
+    ["+7)FUMIGATION CERTIFICATE INDICATING THE INVOICE DATE", "FUMIGACION"],
+  ];
+
+  it.each(CABEZA)("«%s» → %s", (linea, clave) => {
+    expect(claveDoc(linea)).toBe(clave);
+  });
+
+  it("y la factura de verdad sigue siendo la factura", () => {
+    // La línea +1 del crédito real, con su cláusula «INDICATING» detrás.
+    expect(claveDoc("+1)SIGNED COMMERCIAL INVOICES IN 03 FOLD,INDICATING, I)FOB VALUE AND FREIGHT")).toBe("INVOICE");
+  });
+
+  it("y el conocimiento también, con la cláusula larga que trae el crédito real", () => {
+    expect(
+      claveDoc(
+        "+2)FULL SET OF (3/3) SHIPPED ON BOARD ORIGINAL BILLS OF LADING PLUS 02 NON NEGOTIABLE COPIES ISSUED TO THE ORDER OF MERIDIAN BANK PLC",
+      ),
+    ).toBe("BL");
+  });
+
+  it("«original documents» no es un certificado de origen", () => {
+    // `/origin/` sin límite de palabra: la «ORIGEN» salía de dentro de «ORIGINAL», y el
+    // certificado del beneficiario perdía su propia regla.
+    expect(claveDoc("+9)BENEFICIARY'S CERTIFICATE CONFIRMING ORIGINAL DOCUMENTS HAVE BEEN SENT")).toMatch(
+      /^BENEFICIARIO/,
+    );
+  });
+
+  it("pero el certificado de origen real sí lo es", () => {
+    expect(claveDoc("+3)CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD")).toBe("ORIGEN");
+  });
+
+  it("los dos certificados del beneficiario son documentos distintos", () => {
+    /*
+     * Lo rompí al clasificar por la cabeza: el crédito real pide dos —uno por los gastos bancarios
+     * y otro por los documentos enviados por correo— y los dos se llaman «BENEFICIARY'S
+     * CERTIFICATE». Con la clave sacada de la cabeza quedaban siendo el mismo documento, así que
+     * presentar uno daba por cumplidos los dos.
+     */
+    const a = claveDoc("+9)BENEFICIARY'S CERTIFICATE CONFIRMING ALL ADVISING BANK CHARGES OUTSIDE SRI LANKA SETTLED");
+    const b = claveDoc("+10)BENEFICIARY'S CERTIFICATE CONFIRMING THAT A FULL SET OF COPY DOCUMENTS HAVE BEEN EMAILED");
+    expect(a).not.toBe(b);
+    expect(a).toMatch(/^BENEFICIARIO/);
+    expect(b).toMatch(/^BENEFICIARIO/);
   });
 });

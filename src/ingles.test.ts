@@ -180,6 +180,9 @@ describe("cobertura sobre el expediente real", () => {
     ["el análisis no llega al mínimo", "PROTEIN 47,2 PCT"],
     ["el certificado solo repite la exigencia", "FISH MEAL 54 PCT MIN"],
     ["el certificado no declara nada comparable", "SAMPLE RECEIVED IN GOOD ORDER"],
+    // la lista entera, que es como vienen los análisis de verdad y el 45A no dice cuál mirar
+    ["el análisis declara varios parámetros", "MOISTURE 9,5 % - PROTEIN 61,1 % - FAT 8,2 % - ASH 16,0 %"],
+    ["el análisis abrevia el operador con punto", "PROTEIN MIN. 54 %"],
   ])("ningún hallazgo queda con español: %s", (_nombre, analisis) => {
     const credito = parseMT700(SWIFT_CSU2025099)!;
     const c = (valor: string) => ({ valor, confianza: 0.9 });

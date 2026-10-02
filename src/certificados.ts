@@ -1,4 +1,4 @@
-import { type CamposDoc, claveDoc, parseNumero } from "./consistencia";
+import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero } from "./consistencia";
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { parseFecha } from "./fechas";
 import { comparaISBP, emisorAdmitido, esCertificadoDeOrigen, exigePrevioAlEmbarque } from "./isbp";
@@ -54,7 +54,29 @@ const corto = (s: string, n = 60) => {
  */
 export function emisorQueNombra(exigencia: string): string | undefined {
   const m = /issued by\s+((?:[^,;.]|\.(?=\S))+)/i.exec(exigencia);
-  return m?.[1]?.trim() || undefined;
+  const crudo = m?.[1]?.trim();
+  if (!crudo) return undefined;
+  /*
+   * Y el nombre termina donde empieza lo que el documento tiene que decir.
+   *
+   * «ISSUED BY CARRIER OR ITS AGENT **STATING** THE VESSEL AGE» daba como emisor exigido la frase
+   * entera, que después no coincidía con nada y mandaba a discrepancia un certificado correcto.
+   */
+  const cabeza = cabezaDeExigencia(crudo.toLowerCase());
+  if (!cabeza || cabeza === crudo.toLowerCase()) return crudo;
+  return crudo.slice(0, cabeza.length).trim() || crudo;
+}
+
+/**
+ * Los nombres que satisfacen al emisor exigido: el crédito puede dar una alternativa.
+ *
+ * «ISSUED BY SGS OR INTERTEK» son dos emisores admitidos, no uno llamado «SGS OR INTERTEK».
+ */
+function emisoresAdmitidos(nombrado: string): string[] {
+  return nombrado
+    .split(/\s+\bor\b\s+|\s*\/\s*/i)
+    .map((x) => x.replace(/^\s*(an?|the)\s+/i, "").trim())
+    .filter(Boolean);
 }
 
 /**
@@ -71,7 +93,7 @@ export function emisorQueNombra(exigencia: string): string | undefined {
  * comportamiento que había.
  */
 function describeUnaFuncion(nombrado: string): boolean {
-  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health)\b/i.test(
+  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health|carrier|shipper|master|manufacturer|producer|supplier|surveyor|laboratory|lab|agent|agents|forwarder|forwarders|insurer|underwriters?|inspector|inspection|company|beneficiary|exporter|packer|mill|factory|third party)\b/i.test(
     nombrado,
   );
 }
@@ -81,12 +103,27 @@ function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, e
 }
 
 /** El peso que declara un documento, en kilos, si se puede leer. */
+/**
+ * El peso bruto en kilos, leyendo la unidad **pegada al número**.
+ *
+ * Antes la unidad se buscaba en todo el texto y con `\b(t|…)` sin cierre, así que «TOTAL GROSS
+ * WEIGHT 54.040 KGS» multiplicaba por mil: la «T» de «TOTAL» alcanzaba. Cincuenta y cuatro
+ * toneladas se volvían cincuenta y cuatro mil, y la nota de peso correcta salía discrepante contra
+ * el packing. Lo mismo con «THE WEIGHT IS…» o con cualquier aclaración entre paréntesis.
+ *
+ * Así que se busca el primer par número-unidad y se usa esa unidad. Si el número viene sin unidad,
+ * se toma como kilos, que es como lo escriben los documentos de granel.
+ */
+const PESO_CON_UNIDAD = /(\d[\d.,]*)\s*(kgs?|kilogramos?|kilos?|mts?|tons?|tonnes?|toneladas?|t)\b/i;
+
 function pesoEnKg(campos: CamposDoc): number | null {
   const bruto = val(campos.pesoBruto);
   if (!bruto) return null;
-  const n = parseNumero(bruto);
+  const m = PESO_CON_UNIDAD.exec(bruto);
+  const n = parseNumero(m?.[1] ?? bruto);
   if (n === null) return null;
-  return /\b(t|mt|mts|ton|tons|tonne|tonnes|tonelada)/i.test(bruto) ? n * 1000 : n;
+  const unidad = (m?.[2] ?? "").toLowerCase();
+  return /^(mts?|tons?|tonnes?|toneladas?|t)$/.test(unidad) ? n * 1000 : n;
 }
 
 /* ─────────────────────────── las reglas ─────────────────────────── */
@@ -130,10 +167,25 @@ export function reglasCertificados(input: {
          * motor **sí** puede decidir es un caso, y ahí no hay nada que averiguar: que lo haya
          * emitido el propio beneficiario cuando el crédito nombra a un tercero.
          */
-        const distinto = comparaISBP(emisor ?? "", nombrado) === "DISTINTO";
+        const opciones = emisoresAdmitidos(nombrado);
+        const distinto = !opciones.some((o) => comparaISBP(emisor ?? "", o) !== "DISTINTO");
         const porFuncion = describeUnaFuncion(nombrado);
+        /*
+         * Y si el crédito nombra al **beneficiario** como emisor, que lo emita él es lo pedido.
+         *
+         * «CERTIFICATE ISSUED BY BENEFICIARY CONFIRMING…» es redacción corriente del 46A, y la
+         * rama de abajo —«lo emite el beneficiario y el crédito nombra a un tercero»— disparaba
+         * sobre el documento correcto. No nombra a un tercero: lo nombra a él.
+         */
+        const esElBeneficiario =
+          Boolean(emisor) && Boolean(input.beneficiario) && comparaISBP(emisor!, input.beneficiario!) !== "DISTINTO";
+        const nombraAlBeneficiario = opciones.some(
+          (o) =>
+            /\bbeneficiar/i.test(o) || (input.beneficiario ? comparaISBP(o, input.beneficiario) !== "DISTINTO" : false),
+        );
         const loEmiteElBeneficiario =
           distinto &&
+          !nombraAlBeneficiario &&
           Boolean(emisor) &&
           Boolean(input.beneficiario) &&
           comparaISBP(emisor!, input.beneficiario!) !== "DISTINTO";
@@ -143,7 +195,13 @@ export function reglasCertificados(input: {
                 `cert-emisor-${sufijo}`,
                 "ISBP 821 Q3",
                 `${nombre}: lo emite ${corto(nombrado, 40)}`,
-                loEmiteElBeneficiario ? "DISCREPANCIA" : !distinto ? "OK" : porFuncion ? "ATENCION" : "DISCREPANCIA",
+                loEmiteElBeneficiario
+                  ? "DISCREPANCIA"
+                  : !distinto || (nombraAlBeneficiario && esElBeneficiario)
+                    ? "OK"
+                    : porFuncion
+                      ? "ATENCION"
+                      : "DISCREPANCIA",
                 loEmiteElBeneficiario
                   ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
                   : !distinto
@@ -248,7 +306,15 @@ export function reglasCertificados(input: {
 
     /* la calidad que el crédito exige, contra la que el análisis certifica */
     if (claveDoc(c.exigencia) === "ANALISIS" && input.mercaderiaDelCredito) {
-      const texto = [val(c.campos.mercaderia), val(c.campos.numeroDoc), c.nombreArchivo].filter(Boolean).join(" ");
+      /*
+       * Lo que el certificado declara sale de sus campos, nunca de cómo se llama el documento.
+       *
+       * `nombreArchivo` estaba acá dentro, y la pantalla lo llena con la línea del 46A: con eso, un
+       * crédito que pide «ANALYSIS CERTIFICATE SHOWING PROTEIN 54 PCT» y un examinador que todavía
+       * no cargó la calidad daban CUMPLE sobre el número que escribió el banco emisor. El motor
+       * leía la exigencia y la devolvía como resultado.
+       */
+      const texto = [val(c.campos.mercaderia), val(c.campos.numeroDoc)].filter(Boolean).join(" ");
       for (const [j, sp] of cotejarEspecificaciones(input.mercaderiaDelCredito, texto).entries()) {
         out.push(
           regla(

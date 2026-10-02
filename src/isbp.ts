@@ -15,6 +15,7 @@
  * Las reglas citan su párrafo. Las que salen de la edición 2023 lo dicen.
  */
 
+import { cabezaDeExigencia } from "./consistencia";
 import type { ReglaPresentacion } from "./presentacion";
 
 /* ─────────────────────── A1 — abreviaturas de uso común ─────────────────────── */
@@ -234,7 +235,20 @@ export type EmisorAdmitido = "CUALQUIERA" | "CUALQUIERA_MENOS_BENEFICIARIO" | "E
  */
 export function emisorAdmitido(textoExigencia: string): EmisorAdmitido {
   const t = normISBP(textoExigencia);
-  if (/\b(independent|official|qualified|competent|first class|well known|local)\b/.test(t)) {
+  /*
+   * El calificativo del Q5 tiene que calificar **al emisor**, no aparecer en cualquier parte.
+   *
+   * Se buscaba en toda la línea, así que un «BENEFICIARY'S CERTIFICATE CONFIRMING COPY DOCUMENTS
+   * SENT TO APPLICANT'S LOCAL AGENT» quedaba clasificado como «cualquiera menos el beneficiario»
+   * —por ese «local», que describe a quién se le manda la copia— y el certificado que el crédito le
+   * pide expresamente al beneficiario salía discrepante por estar emitido por el beneficiario.
+   *
+   * Así que se mira solo donde el crédito describe al emisor: el tramo que sigue a «issued by», o
+   * el nombre del propio documento («INDEPENDENT INSPECTION CERTIFICATE»).
+   */
+  const tramoDelEmisor = /\b(?:issued by|emitido por)\b(.*)$/.exec(t)?.[1] ?? "";
+  const donde = `${cabezaDeExigencia(t)} ${tramoDelEmisor}`;
+  if (/\b(independent|official|qualified|competent|first class|well known|local)\b/.test(donde)) {
     return "CUALQUIERA_MENOS_BENEFICIARIO";
   }
   if (/\bissued by\b|\bemitido por\b/.test(t)) return "EL_QUE_NOMBRA_EL_CREDITO";
