@@ -1086,3 +1086,46 @@ describe("la cantidad de la factura contra la que pide el crédito (art. 30)", (
     expect(r).toBeUndefined();
   });
 });
+
+describe("el seguro fechado después del embarque (art. 28 e)", () => {
+  /*
+   * El artículo admite un documento de seguro fechado después del embarque si dice que la cobertura
+   * rige desde una fecha no posterior a él. Esa excepción se buscaba dentro de `coberturaDesde`,
+   * que es un **lugar** —la pantalla ofrece «Cover from» para escribir «MONTEVIDEO»—, así que era
+   * inalcanzable: un certificado bajo póliza flotante emitido después del embarque, que es el caso
+   * corriente, salía discrepante por construcción y no por lo que decía el papel.
+   */
+  const conSeguro = (campos: Partial<CamposDoc>) =>
+    reglasUCP({
+      lc: LC,
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ fechaEmbarque: campo("08-abr-25") }) }],
+      seguro: {
+        campos: doc({
+          tipoSeguro: campo("INSURANCE CERTIFICATE"),
+          fechaSeguro: campo("10-abr-25"),
+          coberturaDesde: campo("MONTEVIDEO"),
+          coberturaHasta: campo("COLOMBO"),
+          ...campos,
+        }),
+      },
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-28e");
+
+  it("sin cláusula de vigencia, fechado después es discrepancia", () => {
+    expect(conSeguro({})?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("con la cláusula, la excepción del artículo se alcanza", () => {
+    const r = conSeguro({ vigenciaSeguro: campo("COVER EFFECTIVE FROM 05-APR-2025") });
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("y «warehouse to warehouse» también la alcanza", () => {
+    expect(conSeguro({ vigenciaSeguro: campo("WAREHOUSE TO WAREHOUSE") })?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("un seguro fechado antes del embarque no necesita ninguna cláusula", () => {
+    expect(conSeguro({ fechaSeguro: campo("05-abr-25") })?.estado).toBe("OK");
+  });
+});

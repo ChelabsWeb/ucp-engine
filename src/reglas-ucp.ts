@@ -987,9 +987,18 @@ function reglasSeguro(
   const fEmb = embarque?.texto ?? null;
   const a = fSeg ? parseFecha(fSeg) : null;
   const b = embarque?.fecha ?? null;
-  const mencionaCoberturaEfectiva = /effective|efectiva|attachment|desde el|from\s+\d/i.test(
-    `${val(seg, "coberturaDesde") ?? ""} ${val(seg, "tipoSeguro") ?? ""}`,
-  );
+  /*
+   * La excepción del 28 (e): el documento puede estar fechado después del embarque si dice que la
+   * cobertura rige desde una fecha no posterior a él.
+   *
+   * Se buscaba en `coberturaDesde`, que es un **lugar**, así que la excepción era inalcanzable: un
+   * certificado bajo póliza flotante emitido después del embarque —el caso corriente— salía
+   * discrepante por construcción. La cláusula tiene su propio campo desde ahora.
+   */
+  const mencionaCoberturaEfectiva =
+    /effective|efectiva|attachment|attaching|desde el|from\s+\d|warehouse to warehouse/i.test(
+      `${val(seg, "vigenciaSeguro") ?? ""} ${val(seg, "coberturaDesde") ?? ""} ${val(seg, "tipoSeguro") ?? ""}`,
+    );
   out.push(
     a && b
       ? a <= b

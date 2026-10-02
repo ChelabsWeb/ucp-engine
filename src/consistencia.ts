@@ -115,6 +115,15 @@ export interface CamposDoc {
   monedaAsegurada?: CampoDoc;
   coberturaDesde?: CampoDoc; // lugar donde empieza la cobertura
   coberturaHasta?: CampoDoc; // lugar donde termina
+  /*
+   * La cláusula de vigencia: «cover effective from 01-APR-2025», «warehouse to warehouse».
+   *
+   * Va aparte de `coberturaDesde`, que es un **lugar**. Sin este campo la excepción del artículo
+   * 28 (e) era inalcanzable: se la buscaba dentro del lugar, que nunca la contiene, así que un
+   * certificado bajo póliza flotante emitido después del embarque —el caso corriente— salía
+   * discrepante por construcción y no por lo que decía el papel.
+   */
+  vigenciaSeguro?: CampoDoc;
 }
 
 /* ------------------------- helpers de normalización ------------------------- */
@@ -663,6 +672,7 @@ export const SCHEMA_DOC = {
     monedaAsegurada: campoSchema,
     coberturaDesde: campoSchema,
     coberturaHasta: campoSchema,
+    vigenciaSeguro: campoSchema,
   },
   required: [
     "exportador",
@@ -1347,6 +1357,7 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
 /** Los campos del documento de seguro, que no es un `TipoDocExterno` pero se lee igual. */
 export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
   "tipoSeguro",
+  "vigenciaSeguro",
   "emisorSeguro",
   "fechaSeguro",
   "montoAsegurado",
