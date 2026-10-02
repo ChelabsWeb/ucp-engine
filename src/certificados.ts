@@ -383,16 +383,30 @@ export function reglasCertificados(input: {
     /* el certificado de origen: que diga el origen que el crédito nombra */
     if (esCertificadoDeOrigen(c.exigencia)) {
       const pais = /certificate of\s+([a-z]+)\s+origin/i.exec(c.exigencia)?.[1];
-      const dice = val(c.campos.mercaderia) ?? val(c.campos.numeroDoc) ?? "";
-      const enDoc = val(c.campos.puertoEmbarque) ?? dice;
+      /*
+       * El origen puede estar escrito en cualquiera de los campos del certificado.
+       *
+       * Antes el lugar tenía prioridad y tapaba al resto: un certificado que dice «COUNTRY OF
+       * ORIGIN: URUGUAY» en su texto y «MONTEVIDEO» en el lugar salía a verificar **mostrando
+       * «MONTEVIDEO»** como evidencia, o sea el campo equivocado. Se busca en los tres y la
+       * evidencia cita el que lo trae, que es lo que la persona necesita leer.
+       */
+      const donde = [val(c.campos.mercaderia), val(c.campos.puertoEmbarque), val(c.campos.numeroDoc)].filter(
+        Boolean,
+      ) as string[];
       if (pais) {
+        const loTrae = donde.find((x) => new RegExp(pais, "i").test(x));
         out.push(
           regla(
             `cert-origen-${sufijo}`,
             "46A",
             `${nombre}: indica origen ${pais.toUpperCase()}`,
-            enDoc && new RegExp(pais, "i").test(enDoc) ? "OK" : "ATENCION",
-            enDoc ? `el documento dice "${corto(enDoc)}"` : "no se leyó el origen: verificar a mano",
+            loTrae ? "OK" : "ATENCION",
+            loTrae
+              ? `el documento dice "${corto(loTrae)}"`
+              : donde.length > 0
+                ? `no se leyó el origen; el documento dice "${corto(donde.join(" · "))}": verificar a mano`
+                : "no se leyó el origen: verificar a mano",
           ),
         );
       }

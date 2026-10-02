@@ -491,3 +491,38 @@ describe("un certificado que acredita un hecho anterior al embarque", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("el certificado de origen y dónde está escrito el origen", () => {
+  /*
+   * El lugar tenía prioridad sobre los demás campos y los tapaba: un certificado que dice «COUNTRY
+   * OF ORIGIN: URUGUAY» en su texto y «MONTEVIDEO» en el lugar salía a verificar **mostrando
+   * «MONTEVIDEO»** como evidencia — el campo equivocado, sobre un documento que sí decía el origen.
+   */
+  const correrOrigen = (campos: Partial<CamposDoc>) =>
+    reglasCertificados({
+      lc: LC,
+      docs: [],
+      hoy: new Date(2025, 3, 20),
+      certificados: [{ exigencia: "+3)CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD", campos: doc(campos) }],
+    }).find((x) => x.id.startsWith("cert-origen"));
+
+  it("lo encuentra en el texto aunque el lugar diga otra cosa", () => {
+    const r = correrOrigen({
+      mercaderia: campo("FISH MEAL — COUNTRY OF ORIGIN: URUGUAY"),
+      puertoEmbarque: campo("MONTEVIDEO"),
+    });
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/URUGUAY/);
+  });
+
+  it("y en el lugar cuando ahí está", () => {
+    expect(correrOrigen({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") })?.estado).toBe("OK");
+  });
+
+  it("si no está en ninguno, va a verificar mostrando lo que sí se leyó", () => {
+    const r = correrOrigen({ puertoEmbarque: campo("MONTEVIDEO"), mercaderia: campo("FISH MEAL") });
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/MONTEVIDEO/);
+    expect(r?.evidencia).toMatch(/verificar/);
+  });
+});

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { type DatosMT750, type DatosMT752, mt750, mt752 } from "./mt750";
+import { SWIFT_CSU2025099 } from "./fixtures";
+import { type DatosMT750, type DatosMT752, modoDeHonrar, mt750, mt752 } from "./mt750";
+import { parseMT700 } from "./swift-lc";
 
 /**
  * Lo que pasa cuando el examen da rojo y el banco no quiere rechazar.
@@ -125,5 +127,32 @@ describe("la autorización (MT752)", () => {
     const r = mt752({ ...BASE752, condiciones: ["Sujeto a confirmación del ordenante — sin excepción"] });
     expect(campos(r.texto).get("79Z")!.join(" ")).not.toMatch(/[—óñ]/);
     expect(r.avisos.join(" ")).toMatch(/characters/i);
+  });
+});
+
+describe("con qué modo se honra el crédito (campo 23 del 752)", () => {
+  /*
+   * El 752 lo emite el banco **emisor** autorizando honrar a pesar de las discrepancias, y su campo
+   * 23 dice con qué modo. El crédito ya lo dice en el 41D y el 42C, así que no hace falta
+   * preguntárselo a nadie — y cuando no se puede decidir, devuelve `null` en vez de suponer: el
+   * campo 23 de un mensaje que se cursa a otro banco no es lugar para adivinar.
+   */
+  it("el crédito real: disponible en cualquier banco de Uruguay por negociación", () => {
+    const p = parseMT700(SWIFT_CSU2025099)!;
+    expect(modoDeHonrar(p.extra.disponibleCon, p.extra.giros)).toBe("NEGOCIACION");
+  });
+
+  it.each([
+    ["MERIDIAN BANK PLC BY ACCEPTANCE", "90 DAYS", "ACEPTACION"],
+    ["ISSUING BANK BY DEF PAYMENT", "", "PAGO_DIFERIDO"],
+    ["ISSUING BANK BY PAYMENT", "SIGHT", "PAGO_A_LA_VISTA"],
+    ["ANY BANK", "90 DAYS AFTER B/L DATE", "PAGO_DIFERIDO"],
+  ])("«%s» + «%s» → %s", (disponible, giros, esperado) => {
+    expect(modoDeHonrar(disponible, giros)).toBe(esperado);
+  });
+
+  it("sin los campos no se supone ninguno", () => {
+    expect(modoDeHonrar(null, null)).toBeNull();
+    expect(modoDeHonrar("ANY BANK IN URUGUAY", "")).toBeNull();
   });
 });

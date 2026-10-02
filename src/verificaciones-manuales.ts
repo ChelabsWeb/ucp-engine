@@ -1,4 +1,6 @@
 import type { TipoDocExterno } from "./consistencia";
+import { mencionaDocumento, PARAMETROS_DEL_CREDITO } from "./emision";
+import { avisoAseguradora } from "./lc";
 import type { DocAnalizado } from "./presentacion";
 import type { LcInfo } from "./types";
 
@@ -113,5 +115,78 @@ export function verificacionesManuales(input: {
     });
   }
 
+  /*
+   * ── Las condiciones del 47A que el examen no verifica ──
+   *
+   * El motor lee cuatro cosas del 47A —la fecha de los documentos, el número del crédito, el fee de
+   * discrepancia y la tolerancia— y el resto **desaparecía**. Un crédito que pide «SHIPMENT ADVICE
+   * TO BE SENT TO THE INSURERS WITHIN 5 DAYS AND A CERTIFICATE TO THIS EFFECT MUST ACCOMPANY THE
+   * DOCUMENTS» no generaba ni una regla ni una nota: ni verificada ni dicha. Y una condición del
+   * crédito que nadie mira es exactamente lo que después se discute.
+   *
+   * No todo lo que está en el 47A es una condición a cumplir: una tolerancia, un permiso de embarque
+   * parcial o una autorización de transbordo **configuran** el crédito y no hay documento que las
+   * acredite (arts. 30, 31, 20c). Esas se reconocen con el mismo criterio que usa `emision.ts`, para
+   * no decir dos cosas distintas sobre la misma cláusula en dos pantallas.
+   */
+  /*
+   * El aviso a la aseguradora, que se puede decir con más precisión que «hay una condición».
+   *
+   * `avisoAseguradora` ya parseaba el plazo, la póliza y el correo de esa cláusula del 47A —está
+   * escrita para el crédito real del expediente— y **nadie la llamaba**. Con el plazo a la vista la
+   * nota sirve: dice en cuántos días hay que haber avisado y qué certificado tiene que acompañar los
+   * documentos, en vez de pedirle al examinador que lo lea del párrafo.
+   */
+  const aviso = avisoAseguradora(input.lc.condicionesAdicionales);
+  if (aviso) {
+    lista.push({
+      id: "47a-aviso-aseguradora",
+      fuente: "47A",
+      que: `Que se haya avisado el embarque a la aseguradora dentro de ${aviso.dias} días y que el certificado que lo acredita esté presentado`,
+      porQue:
+        "el aviso se manda fuera del juego de documentos, así que el motor no puede saber si salió ni cuándo" +
+        (aviso.poliza ? `; la condición nombra la póliza ${aviso.poliza}` : ""),
+      documentos: todos,
+    });
+  }
+
+  const sinVerificar = (input.lc.condicionesAdicionales ?? []).filter((c) => {
+    // la del aviso a la aseguradora ya salió arriba, con el plazo adentro
+    if (aviso && c === aviso.texto) return false;
+    if (PARAMETROS_DEL_CREDITO.test(c)) return false;
+    if (!mencionaDocumento(c)) return false;
+    return !LAS_QUE_EL_EXAMEN_MIRA.some((re) => re.test(c));
+  });
+  for (const [i, c] of sinVerificar.entries()) {
+    const corto = c.length > 110 ? `${c.slice(0, 107)}…` : c;
+    lista.push({
+      id: `47a-sin-verificar-${i}`,
+      fuente: "47A",
+      que: `Que se cumpla la condición del crédito: «${corto}»`,
+      porQue:
+        "es una condición documentaria que el motor no sabe verificar, así que no está examinada: leerla contra los papeles presentados",
+      documentos: todos,
+    });
+  }
+
   return lista;
 }
+
+/**
+ * Las condiciones del 47A que el examen **sí** verifica, y con qué regla.
+ *
+ * Están escritas acá y no importadas de `presentacion.ts` a propósito: ese módulo se sincroniza con
+ * romai y no conviene darle dependencias nuevas. Lo que ata las dos listas es un test sobre el
+ * crédito real, que afirma condición por condición qué le pasa a cada una: si alguien cambia un
+ * patrón allá y acá no, esa condición empieza a aparecer como «sin verificar» y el test lo dice.
+ */
+const LAS_QUE_EL_EXAMEN_MIRA = [
+  // 47A+1 del crédito real: la fecha de los documentos (regla `fecha-*`)
+  /ON OR AFTER THE (LETTER OF CREDIT|L\/?C) DATE|DATED (PRIOR|BEFORE).{0,30}(LETTER OF CREDIT|L\/?C)/i,
+  // 47A+2: que citen el número del crédito (regla `lc-num-*`)
+  /INDICATE.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER/i,
+  // 47A+3: el fee de discrepancia, que sale como importe y no como regla
+  /DISCREPANC(Y|IES)\s+FEE|FEE\s+OF\s+(USD|EUR|GBP)/i,
+  // una autorización, no una exigencia: no hay nada que verificar
+  /THIRD\s+PARTY\s+DOCUMENTS?.{0,40}ACCEPTABLE/i,
+];

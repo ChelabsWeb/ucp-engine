@@ -184,3 +184,26 @@ export function mt752(d: DatosMT752): MensajeSwift {
   if (a.hubeQueCambiar) avisos.push(avisoDeCaracteres);
   return { texto: a.texto, avisos };
 }
+
+/**
+ * Con qué modo se honra el crédito, leído de los campos 41D y 42C.
+ *
+ * El 752 lo necesita en su campo 23, y el crédito ya lo dice: el 41D indica con quién está
+ * disponible y **por qué vía** —«ANY BANK IN URUGUAY BY NEGOTIATION»— y el 42C el plazo de los
+ * giros —«SIGHT», «90 DAYS AFTER B/L DATE»—. Devuelve `null` cuando no se puede decidir, en vez de
+ * suponer uno: el campo 23 de un mensaje que se cursa a otro banco no es lugar para adivinar.
+ */
+export function modoDeHonrar(
+  disponibleCon: string | null | undefined,
+  giros: string | null | undefined,
+): ModoDeHonrar | null {
+  const t = `${disponibleCon ?? ""} ${giros ?? ""}`.toUpperCase();
+  if (!t.trim()) return null;
+  if (/\bNEGOTIATION\b|\bNEGOCIACION\b/.test(t)) return "NEGOCIACION";
+  if (/\bACCEPTANCE\b|\bACEPTACION\b/.test(t)) return "ACEPTACION";
+  if (/\bDEF(ERRED)?\s*PAYMENT\b|\bPAGO\s+DIFERIDO\b/.test(t)) return "PAGO_DIFERIDO";
+  if (/\bSIGHT\b|\bA\s+LA\s+VISTA\b/.test(t)) return "PAGO_A_LA_VISTA";
+  // «90 DAYS AFTER B/L DATE» sin decir cómo: es un plazo, así que se honra en diferido
+  if (/\b\d{1,3}\s*(DAYS?|D[ÍI]AS?)\b/.test(t)) return "PAGO_DIFERIDO";
+  return null;
+}

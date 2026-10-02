@@ -74,7 +74,7 @@ const ADMINISTRATIVAS =
  * condiciones no documentarias era una contradicción visible: el motor **lee** la tolerancia del 47A
  * y la aplica al examen, y al mismo tiempo avisaba que el artículo 14(h) la tenía por no puesta.
  */
-const PARAMETROS_DEL_CREDITO =
+export const PARAMETROS_DEL_CREDITO =
   /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b/i;
 
 /**
@@ -87,7 +87,7 @@ const PARAMETROS_DEL_CREDITO =
  * NUMBER», que son del crédito real del expediente y que el propio examen verifica. El consejo era
  * sacar del crédito dos condiciones que funcionan.
  */
-function mencionaDocumento(texto: string): boolean {
+export function mencionaDocumento(texto: string): boolean {
   return /\b(certificates?|certificat|invoices?|documents?|declarations?|statements?|bills? of lading|b\/ls?|packing|lists?|notes?|reports?|receipts?|cop(y|ies)|awbs?|polic(y|ies))\b/i.test(
     texto,
   );

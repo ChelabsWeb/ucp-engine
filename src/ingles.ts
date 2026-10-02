@@ -373,6 +373,25 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the supplier may ship in parts and collect on each, and those shipments cannot be presented under the first credit",
   ],
   [/^Práctica bancaria$/g, "Banking practice"],
+  // ── las condiciones del 47A que el examen no verifica ──
+  [/^Que se cumpla la condición del crédito: «(.+)»$/g, "That the credit's condition is met: «$1»"],
+  [
+    /^es una condición documentaria que el motor no sabe verificar, así que no está examinada: leerla contra los papeles presentados$/g,
+    "it is a documentary condition the engine cannot check, so it has not been examined: read it against the documents presented",
+  ],
+  // el aviso a la aseguradora del 47A
+  [
+    /^Que se haya avisado el embarque a la aseguradora dentro de (\d+) días y que el certificado que lo acredita esté presentado$/g,
+    "That shipment was advised to the insurers within $1 days and that the certificate evidencing it is presented",
+  ],
+  [
+    /^el aviso se manda fuera del juego de documentos, así que el motor no puede saber si salió ni cuándo; la condición nombra la póliza (.+)$/g,
+    "the advice is sent outside the set of documents, so the engine cannot know whether it went out or when; the condition names policy $1",
+  ],
+  [
+    /^el aviso se manda fuera del juego de documentos, así que el motor no puede saber si salió ni cuándo$/g,
+    "the advice is sent outside the set of documents, so the engine cannot know whether it went out or when",
+  ],
   [
     /^El crédito recibido exige (\\d+) documentos? que el que se emite no pide$/g,
     "The credit received requires $1 document(s) that the one to be issued does not ask for",
@@ -658,6 +677,10 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [/^no se leyó un peso comparable: verificar a mano$/g, "no comparable weight was read: check by hand"],
   [/^no se leyó el origen: verificar a mano$/g, "the origin was not read: check by hand"],
+  [
+    /^no se leyó el origen; el documento dice (.+): verificar a mano$/g,
+    "the origin was not read; the document states $1: check by hand",
+  ],
   [
     /^falta la fecha del certificado o la del embarque para compararlas$/g,
     "the date of the certificate or that of shipment is missing, so they cannot be compared",
