@@ -736,3 +736,43 @@ describe("un cero a la izquierda del separador no es un grupo de miles", () => {
     expect(parseNumero("0")).toBe(0);
   });
 });
+
+describe("el incoterm de la LC viene con el lugar pegado", () => {
+  /*
+   * El 45A del crédito real dice «CFR COLOMBO,SRI LANKA INCOTERMS 2020», y el prompt de extracción
+   * pide el valor tal cual aparece, así que eso es lo que llega. `cotejarLCconOperacion` lo comparaba
+   * como texto completo contra el incoterm de la operación —«CFR»— y daba DIFERENTE siempre.
+   *
+   * La misma comparación en la matriz del mismo archivo usa `codigoIncoterm`, que extrae las tres
+   * letras, y da OK. Dos funciones del mismo módulo contestando distinto sobre el mismo dato: salió
+   * de cruzar los 91 puertos reales del ERP — 0 de 91 por una, 91 de 91 por la otra.
+   */
+  const req = {
+    documentosExigidos: [],
+    limiteEmbarque: { valor: "30-abr-25", confianza: 1 },
+    vencimiento: { valor: "30-jun-25", confianza: 1 },
+    plazoPresentacion: { valor: "21 días desde la fecha de embarque (campo 48)", confianza: 1 },
+    toleranciaCantidad: { valor: "±10%", confianza: 1 },
+    parcialesPermitidos: { valor: "ALLOWED", confianza: 1 },
+  };
+  const conIncoterm = (valor: string) => {
+    const campos = { ...docBase(), incoterm: { valor, confianza: 1 } };
+    const opCon = {
+      ...op,
+      incoterm: "CFR",
+      legs: op.legs.map((l) => (l.tipo === "VENTA" ? { ...l, incoterm: "CFR" } : l)),
+    };
+    return cotejarLCconOperacion(req, campos, opCon as never).find((x) => x.campo === "Incoterm");
+  };
+
+  it.each(["CFR COLOMBO, SRI LANKA", "CFR COLOMBO,SRI LANKA INCOTERMS 2020", "CFR", "cfr colombo"])(
+    "«%s» coincide con la operación en CFR",
+    (texto) => {
+      expect(conIncoterm(texto)?.estado).toBe("OK");
+    },
+  );
+
+  it("pero un incoterm distinto sigue siendo distinto", () => {
+    expect(conIncoterm("FOB MONTEVIDEO")?.estado).toBe("DIFERENTE");
+  });
+});

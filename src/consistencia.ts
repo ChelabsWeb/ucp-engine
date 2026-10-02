@@ -1157,11 +1157,20 @@ export function cotejarLCconOperacion(req: RequisitosLC, campos: CamposDoc, op: 
   const incoLC = usable(campos.incoterm)?.valor;
   if (incoLC) {
     const incoOp = op.legs.find((l) => l.tipo === "VENTA")?.incoterm ?? op.incoterm;
+    /*
+     * Se comparan los códigos, no los textos.
+     *
+     * El 45A escribe el incoterm con el lugar pegado —«CFR COLOMBO,SRI LANKA INCOTERMS 2020»— y el
+     * extractor lo trae tal cual, que es lo que corresponde. Comparar eso como texto contra el
+     * «CFR» de la operación daba DIFERENTE siempre. La matriz de este mismo archivo ya usa
+     * `codigoIncoterm` para lo mismo: dos funciones del módulo contestaban distinto sobre el mismo
+     * dato.
+     */
     out.push({
       campo: "Incoterm",
       operacion: incoOp || "sin cargar",
       lc: incoLC,
-      estado: !incoOp ? "SIN_DATO" : normTexto(incoOp) === normTexto(incoLC) ? "OK" : "DIFERENTE",
+      estado: !incoOp ? "SIN_DATO" : codigoIncoterm(incoOp) === codigoIncoterm(incoLC) ? "OK" : "DIFERENTE",
     });
   }
   return out;
