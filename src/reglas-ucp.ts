@@ -1,5 +1,5 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
-import { parseNumero } from "./consistencia";
+import { aKg, cantidadDelCredito, parseNumero, unidadNormal } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { esFacturaComercial } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
@@ -1176,6 +1176,60 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
           : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
       ),
     );
+  }
+
+  /*
+   * ── art. 30: la cantidad de la factura contra la que pide el crédito ──
+   *
+   * La regla de arriba solo **anunciaba** la tolerancia; faltaba aplicarla. El único cotejo de
+   * cantidad que había era entre documentos (14 d), así que si la factura, el packing y el
+   * conocimiento decían todos 48 toneladas contra un crédito de 57, no había nada que marcar: un
+   * embarque 16 % corto pasaba en silencio.
+   *
+   * La tolerancia sale del crédito cuando la declara (39A) y del 30 (b) cuando no. Las magnitudes
+   * que no se pueden convertir entre sí —cabezas contra kilos— no se comparan: pueden ser la misma
+   * carga, y una discrepancia inventada ahí sería peor que el silencio.
+   */
+  const pedido = cantidadDelCredito(ctx.mercaderia);
+  const factura = docs.find((d) => d.tipo === "FACTURA");
+  const cantFac = factura ? val(factura, "cantidad") : null;
+  const uniFac = factura ? val(factura, "unidad") : null;
+  if (pedido && cantFac) {
+    const n = parseNumero(cantFac);
+    const enKgPedido = aKg(pedido.valor, pedido.unidad);
+    const tol = toleranciaDeCantidad(lc, enKgPedido === null);
+    const enKgFac = n === null ? null : aKg(n, uniFac ?? pedido.unidad);
+    /** los dos en kilos, o los dos en la misma unidad que no es de peso. */
+    const par =
+      enKgPedido !== null && enKgFac !== null
+        ? { a: enKgFac, b: enKgPedido }
+        : n !== null && unidadNormal(uniFac ?? "") === unidadNormal(pedido.unidad)
+          ? { a: n, b: pedido.valor }
+          : null;
+    if (par) {
+      const desvio = (par.a - par.b) / par.b;
+      const dentro = Math.abs(desvio) <= tol + 1e-9;
+      out.push(
+        regla(
+          "ucp-30b-cantidad",
+          lc.tolerancia != null ? "39A" : "UCP 600 30b",
+          `Cantidad de la factura dentro de lo que pide el crédito (${pedido.valor} ${pedido.unidad} ±${Math.round(tol * 100)} %)`,
+          dentro ? "OK" : "DISCREPANCIA",
+          `factura ${cantFac} ${uniFac ?? ""} · el crédito pide ${pedido.valor} ${pedido.unidad}`.trim() +
+            (dentro ? "" : ` — ${desvio > 0 ? "+" : ""}${Math.round(desvio * 100)} %`),
+        ),
+      );
+    } else {
+      out.push(
+        regla(
+          "ucp-30b-cantidad",
+          "UCP 600 30b",
+          "Cantidad de la factura dentro de lo que pide el crédito",
+          "ATENCION",
+          `la factura dice ${cantFac} ${uniFac ?? ""} y el crédito ${pedido.valor} ${pedido.unidad}: magnitudes que no se pueden comparar, verificar a mano`.trim(),
+        ),
+      );
+    }
   }
   return out;
 }

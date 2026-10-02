@@ -1007,3 +1007,82 @@ describe("el documento limpio del artículo 27", () => {
     expect(conClausula("3 CARTONS WET")?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("la cantidad de la factura contra la que pide el crédito (art. 30)", () => {
+  /*
+   * No existía la regla, y es un falso negativo de los que cuestan: el crédito real pide «57 MTS»
+   * con 10 % de tolerancia (51,3 a 62,7) y una factura por 48 MT —un 16 % corto— pasaba en
+   * silencio. El único cotejo de cantidad que había era **entre documentos**: si la factura, el
+   * packing y el conocimiento decían todos 48, no había nada que marcar.
+   *
+   * La tolerancia sale del crédito cuando la declara (39A) y del artículo 30 (b) cuando no, que da
+   * 5 % — y ese 5 % no corre cuando la cantidad está expresada en bultos o unidades, porque el
+   * artículo lo limita a peso y volumen.
+   */
+  const conCantidad = (cantidad: string, unidad = "MT", lcOver: Partial<typeof LC> = {}) =>
+    reglasUCP({
+      lc: { ...LC, ...lcOver },
+      credito: { ...CTX, mercaderia: "57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo(unidad) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("dentro de la tolerancia del crédito, cumple", () => {
+    expect(conCantidad("57")?.estado).toBe("OK");
+    expect(conCantidad("52")?.estado).toBe("OK");
+    expect(conCantidad("62")?.estado).toBe("OK");
+  });
+
+  it("un embarque corto fuera de tolerancia es discrepancia", () => {
+    const r = conCantidad("48");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/48/);
+    expect(r?.evidencia).toMatch(/57/);
+  });
+
+  it("y uno excedido también", () => {
+    expect(conCantidad("70")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("la unidad se convierte: el crédito en toneladas y la factura en kilos", () => {
+    expect(conCantidad("53960", "KGS")?.estado).toBe("OK");
+    expect(conCantidad("48000", "KGS")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("sin tolerancia declarada, rige el 5 % del artículo 30 (b)", () => {
+    // 57 ± 5 % = 54,15 a 59,85
+    expect(conCantidad("55", "MT", { tolerancia: undefined })?.estado).toBe("OK");
+    expect(conCantidad("52", "MT", { tolerancia: undefined })?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("pero ese 5 % no corre sobre bultos: el artículo lo limita a peso y volumen", () => {
+    const r = reglasUCP({
+      lc: { ...LC, tolerancia: undefined },
+      credito: { ...CTX, mercaderia: "1360 BAGS OF FISH MEAL" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("1330"), unidad: campo("BAGS") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("magnitudes que no se pueden comparar no se comparan", () => {
+    // Cabezas contra kilos pueden ser la misma carga: callarse es lo correcto.
+    const r = reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: "120 CABEZAS DE GANADO EN PIE" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("54000"), unidad: campo("KGS") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("sin cantidad en el 45A no hay nada contra qué comparar", () => {
+    const r = reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: "FISH MEAL 54PCT MIN" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("48"), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r).toBeUndefined();
+  });
+});

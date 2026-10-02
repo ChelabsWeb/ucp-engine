@@ -4,6 +4,7 @@ import {
   CAMPOS_POR_TIPO,
   CAMPOS_SEGURO,
   type CamposDoc,
+  cantidadDelCredito,
   claveDoc,
   compararDocumento,
   compararEntreDocumentos,
@@ -842,5 +843,42 @@ describe("qué documento pide una línea del 46A", () => {
     expect(a).not.toBe(b);
     expect(a).toMatch(/^BENEFICIARIO/);
     expect(b).toMatch(/^BENEFICIARIO/);
+  });
+});
+
+describe("la cantidad que el crédito pide, leída del 45A", () => {
+  /*
+   * El 45A es prosa y en la misma línea hay varios números que no son la cantidad: el crédito real
+   * dice «57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)» y más abajo «HS CODE NO.2301.20.00».
+   * Tomar el 54 de la proteína o la posición arancelaria por la cantidad del embarque sería peor que
+   * no mirar, así que la unidad se exige.
+   */
+  it("el 45A real", () => {
+    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toEqual({
+      valor: 57,
+      unidad: "MTS",
+    });
+  });
+
+  it("no confunde la proteína con la cantidad", () => {
+    expect(cantidadDelCredito("FISH MEAL 54PCT MIN")).toBeNull();
+  });
+
+  it("ni la posición arancelaria", () => {
+    expect(cantidadDelCredito("FISH MEAL. HS CODE NO.2301.20.00")).toBeNull();
+  });
+
+  it.each([
+    ["25000 KGS OF SOY BEAN MEAL", 25000, "KGS"],
+    ["1360 BAGS OF FISH MEAL", 1360, "BAGS"],
+    ["120 CABEZAS DE GANADO EN PIE", 120, "CABEZAS"],
+    ["54.040,00 KGS NET", 54040, "KGS"],
+  ])("«%s»", (texto, valor, unidad) => {
+    expect(cantidadDelCredito(texto)).toEqual({ valor, unidad });
+  });
+
+  it("sin descripción no se inventa nada", () => {
+    expect(cantidadDelCredito("")).toBeNull();
+    expect(cantidadDelCredito(null)).toBeNull();
   });
 });

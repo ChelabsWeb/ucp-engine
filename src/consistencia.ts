@@ -1381,3 +1381,22 @@ export function schemaPara(campos: (keyof CamposDoc)[]) {
     additionalProperties: false,
   } as const;
 }
+
+/**
+ * La cantidad que el crédito pide, leída del campo 45A.
+ *
+ * El 45A es prosa: «57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)». Lo que se busca es el
+ * primer número con una unidad **de cantidad**, y por eso la unidad se exige: en esa misma línea
+ * hay un 54 que es la proteína y un «2301.20.00» que es la posición arancelaria, y tomar cualquiera
+ * de los dos por la cantidad del embarque sería peor que no mirar.
+ */
+export function cantidadDelCredito(mercaderia: string | null | undefined): { valor: number; unidad: string } | null {
+  const t = (mercaderia ?? "").trim();
+  if (!t) return null;
+  const re =
+    /(\d+(?:[.,]\d+)*)\s*(kgs?|kilos?|kilogramos?|mts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/i;
+  const m = re.exec(t);
+  if (!m) return null;
+  const valor = parseNumero(m[1] ?? "");
+  return valor === null ? null : { valor, unidad: (m[2] ?? "").trim() };
+}

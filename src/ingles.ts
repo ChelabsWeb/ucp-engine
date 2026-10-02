@@ -628,6 +628,17 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el crédito pide «(.+)» y no se leyó un resultado equivalente en el certificado$/g,
     "the credit calls for «$1» and no equivalent result was read in the certificate",
   ],
+  // ── art. 30: la cantidad de la factura contra la del crédito ──
+  [
+    /^Cantidad de la factura dentro de lo que pide el crédito \((.+)\)$/g,
+    "Invoice quantity within what the credit calls for ($1)",
+  ],
+  [/^Cantidad de la factura dentro de lo que pide el crédito$/g, "Invoice quantity within what the credit calls for"],
+  [/^factura (.+) · el crédito pide (.+)$/g, "invoice $1 · the credit calls for $2"],
+  [
+    /^la factura dice (.+) y el crédito (.+): magnitudes que no se pueden comparar, verificar a mano$/g,
+    "the invoice states $1 and the credit $2: these magnitudes cannot be compared, check by hand",
+  ],
   [
     /^el crédito pide «(.+)» sin decir de qué parámetro y el certificado declara más de un resultado en (.+): verificar a mano contra cuál se compara$/g,
     "the credit calls for «$1» without saying which parameter and the certificate states more than one result in $2: check by hand which one it is compared against",
