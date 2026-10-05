@@ -129,6 +129,9 @@ export {
 } from "./lc";
 export type { FallaDeLectura } from "./lectura-fallida";
 export { motivoDeFallaDeLectura } from "./lectura-fallida";
+export type { DatosMT720, MensajeMT720 } from "./mt720";
+/** El crédito transferido, como mensaje SWIFT (UCP 600 art. 38). */
+export { mt720 } from "./mt720";
 export type { DatosMT734, MensajeMT734 } from "./mt734";
 /** El aviso del artículo 16 como mensaje SWIFT MT734, con los largos de campo del estándar. */
 export { mt734 } from "./mt734";
@@ -146,6 +149,12 @@ export {
   normalizarContenedor,
   prepararCampos,
 } from "./numeros";
+export type { Papel, PapelDelBanco } from "./papel";
+/** Qué papel juega el banco que examina, y qué le exigen las UCP por eso (arts. 7, 8, 9, 12, 35). */
+export { papelDelBanco, reglasDelPapel } from "./papel";
+export type { InconsistenciaPreaviso } from "./preaviso";
+/** El pre-aviso contra el crédito operativo que llegó después (UCP 600 art. 11 b). */
+export { cotejarPreaviso, resumenPreaviso } from "./preaviso";
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
 export { ejemplaresDe, feeDiscrepancia, precheckPresentacion, tipoDeExigencia } from "./presentacion";

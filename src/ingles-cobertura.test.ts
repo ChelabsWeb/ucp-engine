@@ -233,3 +233,37 @@ describe("el diccionario cubre todo lo que el motor escribe", () => {
     expect(sinTraducir.map((x) => `«${x.palabra}» en «${x.texto}»`)).toEqual([]);
   });
 });
+
+describe("todo módulo que le habla al examinador se puede alcanzar desde fuera", () => {
+  /*
+   * El defecto más repetido de este repo, cometido acá mismo: `papel.ts`, `preaviso.ts` y `mt720.ts`
+   * quedaron escritos, probados y **sin exportar**. Los tests los importaban por su ruta y pasaban;
+   * la aplicación no los podía alcanzar. Desde afuera eso se ve igual que trabajo que falta.
+   *
+   * La lista de módulos es la de arriba —la que ya se revisa por su texto— así que un módulo nuevo
+   * entra solo también acá. Lo que se afirma es que `index.ts` lo nombre: cómo lo use el producto
+   * es otro control (`examen-cableado.test.ts`, del lado de la aplicación).
+   */
+  const index = FUENTES["./index.ts"] ?? "";
+
+  /**
+   * Los módulos que le hablan al examinador y aun así **no** hacen falta afuera, con su motivo.
+   *
+   * Son los que el propio motor compone: lo que producen llega al producto dentro del resultado del
+   * examen, no por su propia puerta. Forzar un export que nadie usa sería peor que no tenerlo —
+   * ensucia la superficie pública y no prueba nada.
+   */
+  const NO_HACE_FALTA_EXPORTAR: Record<string, string> = {
+    "swift-salida.ts": "el juego de caracteres y el largo de los campos: los usan los armadores de mensajes",
+    "transporte.ts": "la clase del documento de transporte llega al producto como regla, desde reglas-ucp.ts",
+  };
+
+  it("encuentra el index: si no, este control no mira nada", () => {
+    expect(index).toBeTruthy();
+  });
+
+  it.each(MODULOS.filter((m) => NO_HACE_FALTA_EXPORTAR[m] === undefined))("%s se exporta", (modulo) => {
+    const sinExtension = modulo.replace(/\.ts$/, "");
+    expect(index.includes(`"./${sinExtension}"`), `index.ts no nombra a ${modulo}`).toBe(true);
+  });
+});
