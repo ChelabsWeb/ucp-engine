@@ -48,23 +48,51 @@ const FUENTES = import.meta.glob("./*.ts", { query: "?raw", import: "default", e
  * los de `lectura-fallida.ts`, y los traduce el diccionario de la aplicación. Quien los cubre es
  * `textos.test.ts` en `apps/web`, que ata ese diccionario a los textos que el motor produce.
  */
-const MODULOS = [
-  "reglas-ucp.ts",
-  "transporte.ts",
-  "contrato.ts",
-  "consistencia.ts",
-  "presentacion.ts",
-  "certificados.ts",
-  "especificaciones.ts",
-  "verificaciones-manuales.ts",
-  "checking-list.ts",
-  "transferible.ts",
-  "back-to-back.ts",
-  "enmienda-vigencia.ts",
-  "examen.ts",
-  "presentaciones.ts",
-  "emision.ts",
-];
+/**
+ * Los módulos que NO le hablan al examinador, y por eso no se revisan.
+ *
+ * ── Por qué la lista es de exclusiones y no de inclusiones ──────────────────────────────────────
+ * Antes era al revés: una lista a mano de los quince módulos que sí se revisaban. Y una lista a mano
+ * se queda vieja sin avisar — `papel.ts` y `preaviso.ts` se escribieron el mismo día que esto y
+ * **ninguno de los dos estaba siendo revisado**, así que sus textos podían salir en castellano en la
+ * pantalla inglesa sin que nada lo dijera. Es el defecto que este repo ya pagó varias veces: trabajo
+ * conectado a medias, que desde afuera se ve igual que trabajo terminado.
+ *
+ * Así que ahora se revisan **todos** los módulos del motor y acá se nombran las excepciones, una por
+ * una y con su motivo. Agregar un módulo nuevo lo pone bajo control sin que nadie se acuerde; sacarlo
+ * de control obliga a escribir por qué.
+ */
+const NO_LE_HABLAN_AL_EXAMINADOR: Record<string, string> = {
+  "ingles.ts": "es el diccionario: sus cadenas en castellano son las claves",
+  "fixtures.ts": "es el expediente de muestra, no texto de la aplicación",
+  "mock.ts": "datos de prueba",
+  "index.ts": "solo re-exporta",
+  "types.ts": "solo tipos",
+  "fechas.ts": "formatea fechas; el texto que produce no es un hallazgo",
+  "numeros.ts": "desambigua cantidades; sus avisos pasan por `prepararCampos`",
+  "lc.ts": "cálculos sobre el crédito, sin texto para el examinador",
+  "isbp.ts": "compara y ablanda; el texto de los hallazgos es del módulo que los crea",
+  "blindaje.ts": "los motivos de inyección acompañan al documento y se traducen en la pantalla",
+  "sanciones.ts": "las coincidencias llevan el nombre de la lista, que no se traduce",
+  "jurisdicciones.ts": "nombres de jurisdicciones y programas, que no se traducen",
+  "revision-sanciones.ts": "motivos de revisión, que la pantalla arma",
+  "enmiendas.ts": "parsea el 707; el texto del artículo 10 está en enmienda-vigencia.ts",
+  "swift-lc.ts": "parsea el mensaje",
+  "mt734.ts": "el aviso de rechazo va en inglés siempre, por el artículo 16 (c)",
+  "mt750.ts": "los mensajes SWIFT van en inglés siempre",
+  "lectura-fallida.ts": "sus textos nacen en inglés: la clave es el inglés",
+  "redaccion.ts": "propone texto para el crédito, que va en inglés",
+  "checklist.ts": "etiquetas del checklist de romai",
+  "alertas.ts": "alertas de la operación de romai, no del examen",
+  "identidad.ts": "normaliza nombres",
+};
+
+/** Todos los módulos del motor menos los que no le hablan al examinador. */
+const MODULOS = Object.keys(FUENTES)
+  .map((k) => k.replace("./", ""))
+  .filter((m) => !m.endsWith(".test.ts"))
+  .filter((m) => NO_LE_HABLAN_AL_EXAMINADOR[m] === undefined)
+  .sort();
 
 /**
  * Los literales de cadena de un archivo, sin los que están dentro de un comentario.

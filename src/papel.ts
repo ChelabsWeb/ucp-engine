@@ -206,6 +206,33 @@ export function reglasDelPapel(p: PapelDelBanco, input: { conforme: boolean }): 
     );
   }
 
+  /*
+   * El artículo 35, que es de las pocas reglas que protegen al banco que examina.
+   *
+   * «Si un banco designado determina que una presentación es conforme y remite los documentos al
+   * banco emisor o al confirmador, haya honrado o negociado o no, el banco emisor o el confirmador
+   * tiene que honrar o negociar, o reembolsar a ese banco designado, **aun cuando los documentos se
+   * hayan perdido en el tránsito**.»
+   *
+   * Lo que lo activa es la propia determinación de conformidad del banco designado — o sea, el
+   * examen asentado es lo que lo cubre si el juego se pierde en el courier. Un banco designado tiene
+   * que saber eso, y ningún otro artículo del examen se lo dice.
+   *
+   * Solo para un designado o un confirmador, y solo con un juego conforme: al emisor no lo protege
+   * —él es el que tiene que honrar— y con discrepancias no hay determinación que valga.
+   */
+  if (input.conforme && (p.papel === "DESIGNADO" || p.papel === "CONFIRMADOR")) {
+    out.push(
+      regla(
+        "papel-35",
+        "UCP 600 35",
+        "Si los documentos se pierden en el camino, este examen es lo que cubre al banco",
+        "OK",
+        "determinada la conformidad y remitidos los documentos, el emisor o el confirmador tiene que honrar o reembolsar aunque el juego se pierda en el tránsito: conviene que quede asentado qué se examinó y cuándo",
+      ),
+    );
+  }
+
   if (p.confirmacionPedida && (p.papel === "AVISADOR" || p.papel === "DESIGNADO")) {
     out.push(
       regla(

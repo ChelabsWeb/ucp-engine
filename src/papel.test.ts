@@ -132,3 +132,47 @@ describe("con una presentación que no cumple, la obligación no se afirma", () 
     expect(r?.evidencia).toMatch(/discrepanc|no cumple/i);
   });
 });
+
+describe("el artículo 35: los documentos que se pierden en el camino", () => {
+  /*
+   * «Si un banco designado determina que una presentación es conforme y remite los documentos al
+   * banco emisor o al confirmador, haya honrado o negociado o no, el banco emisor o el confirmador
+   * tiene que honrar o negociar, o reembolsar a ese banco designado, **aun cuando los documentos se
+   * hayan perdido en el tránsito** entre el designado y el emisor o el confirmador.»
+   *
+   * Es de las pocas reglas de las UCP que protegen al banco que examina, y lo que la activa es
+   * justamente **su propia determinación de conformidad**. O sea: el examen asentado es lo que lo
+   * cubre si el juego se pierde en el courier. Eso un banco designado tiene que saberlo, y no lo
+   * dice ningún otro artículo del examen.
+   *
+   * Por eso sale solo para un designado o un confirmador, y solo con una presentación conforme: a
+   * un emisor no le protege nada —él es el que tiene que honrar— y con discrepancias no hay
+   * determinación de conformidad que valga.
+   */
+  const conPapel = (bicPropio: string, conforme: boolean, over: Partial<typeof DEL_CREDITO> = {}) =>
+    reglasDelPapel(papelDelBanco({ ...DEL_CREDITO, ...over, bicPropio })!, { conforme });
+
+  const DESIGNADO = {
+    bicDisponibleCon: "BROUUYMM",
+    disponibleCon: "BROUUYMM BY NEGOTIATION",
+  };
+
+  it("al designado con un juego conforme, se le dice que su examen lo cubre", () => {
+    const r = conPapel("BROUUYMMXXX", true, DESIGNADO).find((x) => x.id === "papel-35");
+    expect(r?.fuente).toMatch(/35/);
+    expect(r?.regla).toMatch(/pierd/i);
+    expect(r?.evidencia).toMatch(/remit|reembols/i);
+  });
+
+  it("con discrepancias no se dice: no hay determinación de conformidad que lo active", () => {
+    expect(conPapel("BROUUYMMXXX", false, DESIGNADO).find((x) => x.id === "papel-35")).toBeUndefined();
+  });
+
+  it("al emisor no se le dice: a él no lo protege, él es el que tiene que honrar", () => {
+    expect(conPapel("MRDNLKLX", true).find((x) => x.id === "papel-35")).toBeUndefined();
+  });
+
+  it("ni al avisador que no está designado: no remite documentos contra el crédito", () => {
+    expect(conPapel("BLITUYMM", true).find((x) => x.id === "papel-35")).toBeUndefined();
+  });
+});

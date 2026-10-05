@@ -373,6 +373,105 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the supplier may ship in parts and collect on each, and those shipments cannot be presented under the first credit",
   ],
   [/^Práctica bancaria$/g, "Banking practice"],
+  /*
+   * ── qué papel juega el banco que examina (arts. 7, 8, 9, 12, 35) ──
+   *
+   * Estos son los hallazgos que más importa que estén en inglés: le dicen a un banco si tiene que
+   * pagar, si puede pagar sin estar obligado, o si lo suyo es solo avisar.
+   */
+  [/^52A: el crédito lo emite este banco$/g, "52A: this bank issued the credit"],
+  [/^41A: el crédito está disponible con este banco$/g, "41A: the credit is available with this bank"],
+  [/^57A: el crédito se avisa a través de este banco$/g, "57A: the credit is advised through this bank"],
+  [
+    /^el crédito no nombra a este banco en ninguno de sus campos de banco$/g,
+    "the credit does not name this bank in any of its bank fields",
+  ],
+  [
+    /^Este banco emitió el crédito, así que tiene que honrar una presentación conforme$/g,
+    "This bank issued the credit, so it must honour a complying presentation",
+  ],
+  [/^Este banco emitió el crédito$/g, "This bank issued the credit"],
+  [
+    /^Este banco confirmó el crédito, así que tiene que honrar o negociar y remitir los documentos$/g,
+    "This bank confirmed the credit, so it must honour or negotiate and forward the documents",
+  ],
+  [/^Este banco confirmó el crédito$/g, "This bank confirmed the credit"],
+  [
+    /^Este banco está designado y no confirmó: puede honrar, pero no está obligado$/g,
+    "This bank is nominated and did not confirm: it may honour, but it is not obliged to",
+  ],
+  [
+    /^Este banco avisa el crédito y no asume compromiso de honrar$/g,
+    "This bank advises the credit and undertakes no obligation to honour",
+  ],
+  [/^El crédito no nombra a este banco$/g, "The credit does not name this bank"],
+  [
+    /^El crédito designa sin nombrar un banco: verificar si este banco está incluido$/g,
+    "The credit nominates without naming a bank: check whether this bank is included",
+  ],
+  [
+    /^El crédito pide agregar la confirmación: si este banco la agregó, tiene que honrar$/g,
+    "The credit asks for confirmation to be added: if this bank added it, it must honour",
+  ],
+  [
+    /^Si los documentos se pierden en el camino, este examen es lo que cubre al banco$/g,
+    "If the documents are lost in transit, this examination is what covers the bank",
+  ],
+  [
+    /^— y quedó irrevocablemente obligado desde que lo emitió \(7 b\)$/g,
+    " — and it became irrevocably bound as of the time it issued it (7 b)",
+  ],
+  [
+    /^la presentación tiene discrepancias o documentos faltantes, así que no hay obligación de honrar: lo que sigue es el aviso del artículo 16$/g,
+    "the presentation has discrepancies or missing documents, so there is no obligation to honour: what follows is the article 16 notice",
+  ],
+  [
+    /^determinada la conformidad y remitidos los documentos, el emisor o el confirmador tiene que honrar o reembolsar aunque el juego se pierda en el tránsito: conviene que quede asentado qué se examinó y cuándo$/g,
+    "once compliance is determined and the documents forwarded, the issuing or confirming bank must honour or reimburse even if the set is lost in transit: it is worth having on record what was examined and when",
+  ],
+  [
+    /^el campo 49 pide confirmación, y agregarla es una decisión de este banco que no consta en el expediente: con la confirmación agregada rige el artículo 8 \(a\) y no el 12 \(a\)$/g,
+    "field 49 asks for confirmation, and adding it is a decision of this bank that the file does not record: with the confirmation added, article 8 (a) governs and not 12 (a)",
+  ],
+  // ── el pre-aviso contra el crédito operativo (art. 11 b) ──
+  [/^Monto del crédito$/g, "Credit amount"],
+  [/^Moneda del crédito$/g, "Credit currency"],
+  [
+    /^el crédito operativo es por menos de lo anunciado: el beneficiario pudo haber producido contra el monto del pre-aviso$/g,
+    "the operative credit is for less than was pre-advised: the beneficiary may have produced against the pre-advised amount",
+  ],
+  [
+    /^el crédito operativo es por más de lo anunciado: es inconsistente con el pre-aviso, aunque no lo perjudica$/g,
+    "the operative credit is for more than was pre-advised: inconsistent with the pre-advice, though not to the beneficiary's detriment",
+  ],
+  [
+    /^el crédito operativo está en otra moneda que la anunciada, y el riesgo de cambio no era el que el beneficiario tomó$/g,
+    "the operative credit is in a different currency from the one pre-advised, and the exchange risk is not the one the beneficiary took on",
+  ],
+  [
+    /^el crédito operativo vence antes de lo anunciado: el beneficiario tiene menos tiempo para presentar que el que planificó$/g,
+    "the operative credit expires earlier than pre-advised: the beneficiary has less time to present than it planned for",
+  ],
+  [
+    /^el crédito operativo exige embarcar antes de lo anunciado: el beneficiario pudo haber programado la producción contra la fecha del pre-aviso$/g,
+    "the operative credit requires shipment earlier than pre-advised: the beneficiary may have scheduled production against the pre-advised date",
+  ],
+  [
+    /^el crédito operativo da una fecha distinta de la anunciada: es inconsistente con el pre-aviso, aunque no lo perjudica$/g,
+    "the operative credit gives a different date from the one pre-advised: inconsistent with the pre-advice, though not to the beneficiary's detriment",
+  ],
+  [
+    /^el crédito operativo da menos días para presentar que los anunciados$/g,
+    "the operative credit gives fewer days to present than were pre-advised",
+  ],
+  [
+    /^el crédito operativo da más días para presentar que los anunciados: es inconsistente, aunque no lo perjudica$/g,
+    "the operative credit gives more days to present than were pre-advised: inconsistent, though not to the beneficiary's detriment",
+  ],
+  [
+    /^el crédito operativo está a favor de otro beneficiario que el anunciado: quien produjo contra el pre-aviso no es quien va a poder cobrar$/g,
+    "the operative credit is in favour of a different beneficiary from the one pre-advised: whoever produced against the pre-advice is not who will be able to be paid",
+  ],
   // ── art. 33: lo recibido fuera del horario cuenta como del día hábil siguiente ──
   [
     /^Lo recibido fuera del horario cuenta como presentado el día hábil siguiente$/g,
