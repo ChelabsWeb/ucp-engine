@@ -373,6 +373,23 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the supplier may ship in parts and collect on each, and those shipments cannot be presented under the first credit",
   ],
   [/^Práctica bancaria$/g, "Banking practice"],
+  // ── art. 33: lo recibido fuera del horario cuenta como del día hábil siguiente ──
+  [
+    /^Lo recibido fuera del horario cuenta como presentado el día hábil siguiente$/g,
+    "Anything received outside banking hours counts as presented on the next banking day",
+  ],
+  [
+    /^entregada a las (.+) y el banco atiende hasta las (.+): cuenta como presentada el (.+)$/g,
+    "delivered at $1 and the bank is open until $2: it counts as presented on $3",
+  ],
+  [
+    /^entregada a las (.+) del último día: verificar que haya llegado dentro del horario de atención, porque fuera de él cuenta como del día siguiente$/g,
+    "delivered at $1 on the last day: check that it arrived within banking hours, because outside them it counts as the next day",
+  ],
+  [
+    /^entregada el (.+) fuera del horario, así que cuenta como presentada el (.+): (\d+) días? después del vencimiento$/g,
+    "delivered on $1 outside banking hours, so it counts as presented on $2: $3 day(s) after expiry",
+  ],
   // ── las condiciones del 47A que el examen no verifica ──
   [/^Que se cumpla la condición del crédito: «(.+)»$/g, "That the credit's condition is met: «$1»"],
   [

@@ -13,6 +13,8 @@ import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import {
+  type Cuota,
+  type HorarioDeAtencion,
   operacionDesdeCredito,
   type Presentacion,
   reglasDeGiro,
@@ -80,6 +82,19 @@ export function examinarPresentacion(input: {
   presentacion?: Presentacion;
   /** los giros anteriores contra el mismo crédito */
   anteriores?: Presentacion[];
+  /*
+   * Lo que el motor no puede adivinar y el banco sí sabe.
+   *
+   * `reglasDeGiro` los aceptaba desde el principio y esto no los recibía ni los pasaba, así que no
+   * había forma de que llegaran: la promesa de «cuando están, el motor decide» no se podía cumplir.
+   * Los tres cambian el veredicto, y los tres se callan solos cuando no están.
+   */
+  /** los días en que el banco al que se presenta estuvo cerrado (art. 29 a) */
+  feriados?: Date[];
+  /** el horario de atención del banco al que se presenta (art. 33) */
+  horario?: HorarioDeAtencion | null;
+  /** el calendario de cuotas del crédito, cuando el banco lo cargó (art. 32) */
+  cuotas?: Cuota[];
   /** solo si se quiere pasar una operación ya armada, como hace romai */
   op?: OperationDetail;
   empresaRazonSocial: string;
@@ -147,6 +162,9 @@ export function examinarPresentacion(input: {
         actual: input.presentacion,
         anteriores: input.anteriores,
         parciales: input.credito?.parciales,
+        feriados: input.feriados,
+        horario: input.horario,
+        cuotas: input.cuotas,
       })
     : [];
 

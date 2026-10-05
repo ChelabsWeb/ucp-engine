@@ -97,6 +97,80 @@ export function vencimientoEfectivo(lc: LcInfo, feriados: Date[] = []): Vencimie
   return { segunElCredito: v, efectivo, corrido };
 }
 
+/* ──────────────────── art. 33: cuándo cuenta como presentado ──────────────────── */
+
+/** El horario de atención del banco al que se presenta, en «HH:MM». */
+export interface HorarioDeAtencion {
+  abre: string;
+  cierra: string;
+}
+
+export interface PresentacionEfectiva {
+  /** el momento en que se entregó el juego */
+  entregada: Date;
+  /** el día hábil que cuenta como fecha de presentación */
+  efectiva: Date;
+  corrida: boolean;
+  motivo: "EN_HORARIO" | "FUERA_DE_HORARIO" | "DIA_CERRADO" | "SIN_HORARIO";
+}
+
+const minutos = (hhmm: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  return h >= 0 && h <= 23 && min >= 0 && min <= 59 ? h * 60 + min : null;
+};
+
+/**
+ * Qué día cuenta como fecha de presentación (UCP 600 art. 33).
+ *
+ * «A bank has no obligation to accept a presentation outside of its banking hours.» Dicho al revés:
+ * lo que se entrega fuera del horario cuenta como presentado **el día hábil siguiente**.
+ *
+ * No es trámite: unos documentos dejados a las 18:00 del día del vencimiento llegaron tarde, y el
+ * sello que dice «30-abr 18:00» está registrando una presentación que legalmente es del 2 de mayo.
+ * Al revés también —contar ese día como bueno le da al beneficiario un plazo que no tiene— y los dos
+ * errores cuestan plata.
+ *
+ * El horario de cada banco no se puede adivinar, así que sin él no se corre nada y se dice
+ * (`SIN_HORARIO`). Lo que sí se ve sin ningún dato es el **día cerrado**: un sábado es un sábado en
+ * cualquier plaza, y los feriados se contemplan cuando el banco los carga, igual que en el 29 (a).
+ */
+export function presentacionEfectiva(
+  entregada: Date,
+  horario?: HorarioDeAtencion | null,
+  feriados: Date[] = [],
+): PresentacionEfectiva {
+  const soloDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const cerrado = (d: Date) => esFinDeSemana(d) || feriados.some((f) => mismoDia(f, d));
+  const siguienteHabil = (d: Date) => {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    while (cerrado(x)) x.setDate(x.getDate() + 1);
+    return x;
+  };
+
+  const dia = soloDia(entregada);
+  if (cerrado(dia)) {
+    return { entregada, efectiva: siguienteHabil(dia), corrida: true, motivo: "DIA_CERRADO" };
+  }
+
+  const abre = horario ? minutos(horario.abre) : null;
+  const cierra = horario ? minutos(horario.cierra) : null;
+  if (abre === null || cierra === null) {
+    return { entregada, efectiva: dia, corrida: false, motivo: "SIN_HORARIO" };
+  }
+
+  const cuando = entregada.getHours() * 60 + entregada.getMinutes();
+  if (cuando < abre || cuando > cierra) {
+    return { entregada, efectiva: siguienteHabil(dia), corrida: true, motivo: "FUERA_DE_HORARIO" };
+  }
+  return { entregada, efectiva: dia, corrida: false, motivo: "EN_HORARIO" };
+}
+
+/** La hora de un momento, como la escribiría un sello de recepción. */
+const fmtHora = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
 /** El primer día hábil después de una fecha, sin contar fines de semana. */
 function primerDiaHabilDespues(d: Date): Date {
   const x = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
@@ -147,6 +221,14 @@ export function reglasDeGiro(input: {
    */
   feriados?: Date[];
   /**
+   * El horario de atención del banco al que se presenta, si el banco lo cargó.
+   *
+   * Decide si el juego entregado el último día llegó a tiempo (art. 33): lo que se recibe fuera del
+   * horario cuenta como presentado el día hábil siguiente. Sin él no se corre nada — pero cuando la
+   * entrega cae justo el día del vencimiento, se avisa, porque ahí la hora decide.
+   */
+  horario?: HorarioDeAtencion | null;
+  /**
    * El calendario de cuotas del crédito, si el banco lo cargó.
    *
    * No se parsea del 47A: los créditos lo escriben de veinte maneras y equivocarse acá tiene la
@@ -195,9 +277,56 @@ export function reglasDeGiro(input: {
   }
 
   /* 6e y 29a: la presentación tiene que llegar en o antes del vencimiento */
+  /*
+   * La fecha que cuenta no es la de entrega sino la efectiva (art. 33).
+   *
+   * Con esto una presentación dejada a las 18:00 del día del vencimiento se compara contra el día
+   * hábil siguiente, que es lo que legalmente es. Si el artículo 33 quedara como una nota al
+   * costado, el examen seguiría diciendo que llegó en plazo.
+   */
+  const efectiva = presentacionEfectiva(input.actual.fecha, input.horario, input.feriados ?? []);
   const v = vencimientoEfectivo(input.lc, input.feriados ?? []);
   if (v) {
-    const dias = diffDias(input.actual.fecha, v.efectivo);
+    const dias = diffDias(efectiva.efectiva, v.efectivo);
+    /*
+     * El artículo 33 se dice solo cuando la hora decide, y eso es **un** día.
+     *
+     * Si la entrega es anterior al vencimiento, la hora no cambia nada: correrla un día hábil la
+     * deja igual de en plazo. Si es posterior, ya llegó tarde y la hora tampoco cambia nada. El
+     * único día en que la hora da vuelta el veredicto es el del vencimiento efectivo.
+     *
+     * La primera versión avisaba «ese día o después», y entonces una presentación tres meses tarde
+     * salía pidiendo que alguien verificara el horario de atención. Eso es ruido, y el ruido hace
+     * que el día que importe tampoco se mire.
+     */
+    const entregadaEse = new Date(
+      input.actual.fecha.getFullYear(),
+      input.actual.fecha.getMonth(),
+      input.actual.fecha.getDate(),
+    );
+    if (mismoDia(entregadaEse, v.efectivo)) {
+      if (efectiva.corrida && efectiva.motivo === "FUERA_DE_HORARIO" && input.horario) {
+        out.push(
+          regla(
+            "ucp-33",
+            "UCP 600 33",
+            "Lo recibido fuera del horario cuenta como presentado el día hábil siguiente",
+            "ATENCION",
+            `entregada a las ${fmtHora(input.actual.fecha)} y el banco atiende hasta las ${input.horario.cierra}: cuenta como presentada el ${fmtFecha(efectiva.efectiva)}`,
+          ),
+        );
+      } else if (efectiva.motivo === "SIN_HORARIO") {
+        out.push(
+          regla(
+            "ucp-33",
+            "UCP 600 33",
+            "Lo recibido fuera del horario cuenta como presentado el día hábil siguiente",
+            "ATENCION",
+            `entregada a las ${fmtHora(input.actual.fecha)} del último día: verificar que haya llegado dentro del horario de atención, porque fuera de él cuenta como del día siguiente`,
+          ),
+        );
+      }
+    }
     /*
      * El feriado que el motor no puede conocer.
      *
@@ -211,7 +340,21 @@ export function reglasDeGiro(input: {
      * plazo. Se manda a verificar en vez de rechazar. Dos días hábiles después ya no hay feriado
      * que lo salve, y ahí sí es discrepancia.
      */
-    const podriaSerFeriado = dias < 0 && mismoDia(input.actual.fecha, primerDiaHabilDespues(v.efectivo));
+    /*
+     * La escapatoria del feriado no corre cuando sabemos que el banco estaba abierto.
+     *
+     * El 29 (a) extiende el vencimiento si el banco estuvo cerrado, y por eso una presentación
+     * hecha el primer día hábil siguiente se manda a verificar en vez de rechazarse. Pero si la
+     * fecha se corrió **por el horario** —el banco atendió ese día y el juego llegó a las 18:00—
+     * entonces no hubo cierre que extienda nada: llegó tarde, y decirlo «a verificar» sería dar por
+     * posible un feriado que el propio dato descarta.
+     *
+     * El test lo encontró: con el crédito real, que vence un lunes, el corrimiento del artículo 33
+     * caía justo en el primer día hábil siguiente y se colaba por esta puerta.
+     */
+    const corridaPorHorario = efectiva.motivo === "FUERA_DE_HORARIO";
+    const podriaSerFeriado =
+      dias < 0 && !corridaPorHorario && mismoDia(efectiva.efectiva, primerDiaHabilDespues(v.efectivo));
     out.push(
       regla(
         "giro-vencimiento",
@@ -221,10 +364,12 @@ export function reglasDeGiro(input: {
           : `Presentada antes del vencimiento (${fmtFecha(v.efectivo)})`,
         dias >= 0 ? "OK" : podriaSerFeriado ? "ATENCION" : "DISCREPANCIA",
         dias >= 0
-          ? `presentada el ${fmtFecha(input.actual.fecha)}, quedan ${dias} días`
+          ? `presentada el ${fmtFecha(efectiva.efectiva)}, quedan ${dias} días`
           : podriaSerFeriado
             ? `presentada el ${fmtFecha(input.actual.fecha)}, el primer día hábil después del vencimiento: si el banco estuvo cerrado el ${fmtFecha(v.efectivo)}, el artículo 29 (a) lo extiende hasta este día — verificar el calendario de la plaza`
-            : `presentada el ${fmtFecha(input.actual.fecha)}, ${-dias} días después del vencimiento`,
+            : efectiva.corrida
+              ? `entregada el ${fmtFecha(input.actual.fecha)} fuera del horario, así que cuenta como presentada el ${fmtFecha(efectiva.efectiva)}: ${-dias} día${-dias === 1 ? "" : "s"} después del vencimiento`
+              : `presentada el ${fmtFecha(efectiva.efectiva)}, ${-dias} días después del vencimiento`,
       ),
     );
     if (v.corrido) {
