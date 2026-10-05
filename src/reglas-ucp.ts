@@ -37,6 +37,24 @@ export interface ContextoCredito {
   transbordo?: string | null;
   /** 40E: a qué reglas se declara sujeto el crédito (art. 1) */
   reglasAplicables?: string | null;
+  /*
+   * Los bancos que el crédito nombra, por BIC.
+   *
+   * De acá sale qué papel juega el banco que examina, y eso decide qué le exigen las UCP sobre el
+   * mismo juego de papeles: honrar, poder honrar sin estar obligado, o no examinar para honrar.
+   */
+  /** 52A */
+  bicEmisor?: string | null;
+  /** 57A */
+  bicAvisador?: string | null;
+  /** 41A, cuando el crédito nombra al banco designado por su BIC */
+  bicDisponibleCon?: string | null;
+  /** el destinatario del mensaje, del encabezado */
+  bicReceptor?: string | null;
+  /** 41D/41A como texto: de acá sale la designación abierta que no se puede resolver */
+  disponibleCon?: string | null;
+  /** 49: si el crédito pide agregar la confirmación */
+  confirmacion?: string | null;
 }
 
 const norm = (s: string): string =>

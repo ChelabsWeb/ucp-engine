@@ -10,6 +10,7 @@ import {
 import { aplicarEnmienda, type Enmienda } from "./enmiendas";
 import { ablandarPorISBP } from "./isbp";
 import { prepararCampos } from "./numeros";
+import { type PapelDelBanco, papelDelBanco, reglasDelPapel } from "./papel";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 import { feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import {
@@ -47,6 +48,13 @@ export interface ResultadoExamen extends ResultadoPresentacion {
   saldo: SaldoCredito | null;
   /** lo que el motor no puede verificar y tiene que mirar una persona */
   manuales: VerificacionManual[];
+  /**
+   * Qué papel juega el banco que examina en este crédito, si declaró su BIC.
+   *
+   * `null` cuando no lo declaró: entonces el examen no dice nada sobre la obligación de honrar, que
+   * es distinta según el papel.
+   */
+  papel: PapelDelBanco | null;
 }
 
 /** El contexto del crédito que las reglas necesitan, sacado del propio mensaje SWIFT. */
@@ -64,6 +72,13 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     transbordo: p.extra.transbordo,
     // 40E: con qué reglas se declara el crédito (art. 1).
     reglasAplicables: p.extra.reglas,
+    // los bancos que el crédito nombra: de acá sale el papel del que examina (arts. 7, 8, 9, 12)
+    bicEmisor: p.extra.bicEmisor,
+    bicAvisador: p.extra.bicAvisador,
+    bicDisponibleCon: p.extra.bicDisponibleCon,
+    bicReceptor: p.extra.bicReceptor,
+    disponibleCon: p.extra.disponibleCon,
+    confirmacion: p.extra.confirmacion,
   };
 }
 
@@ -95,6 +110,15 @@ export function examinarPresentacion(input: {
   horario?: HorarioDeAtencion | null;
   /** el calendario de cuotas del crédito, cuando el banco lo cargó (art. 32) */
   cuotas?: Cuota[];
+  /**
+   * El BIC del banco que examina, declarado una vez en sus ajustes.
+   *
+   * Con él el examen dice **qué papel juega en este crédito** y qué le exigen las UCP por eso: el
+   * emisor tiene que honrar una presentación conforme (art. 7 a), un designado que no confirmó no
+   * está obligado (12 a) y un avisador no examina para honrar (art. 9). Son conclusiones distintas
+   * sobre el mismo juego de papeles, y sin el BIC el examen no dice ninguna en vez de suponer.
+   */
+  bicPropio?: string | null;
   /** solo si se quiere pasar una operación ya armada, como hace romai */
   op?: OperationDetail;
   empresaRazonSocial: string;
@@ -207,11 +231,36 @@ export function examinarPresentacion(input: {
 
   // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
   // de considerarse discrepancia, como la falta del número del crédito en un documento
-  const reglas = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro, ...reglas14g]);
-  const faltan = CUENTA(reglas, "FALTA");
-  const discrepancias = CUENTA(reglas, "DISCREPANCIA");
+  const sinElPapel = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro, ...reglas14g]);
+  const faltan = CUENTA(sinElPapel, "FALTA");
+  const discrepancias = CUENTA(sinElPapel, "DISCREPANCIA");
+
+  /*
+   * El papel del banco va al final, porque depende de si la presentación cumple.
+   *
+   * Lo que las UCP le exigen a quien examina no es lo mismo para todos: el emisor tiene que honrar
+   * un juego conforme (arts. 7 a y 15 a), un designado que no confirmó no está obligado (12 a) y un
+   * avisador no examina para honrar (art. 9). Pero eso solo se puede afirmar después de saber si el
+   * juego cumple —con discrepancias no hay obligación de honrar, hay artículo 16— así que se compone
+   * acá y no con las demás.
+   *
+   * Sin el BIC del banco no se dice nada: suponer un papel sería decidir sobre la obligación de
+   * pagar con un dato inventado.
+   */
+  const papel = papelDelBanco({
+    bicPropio: input.bicPropio,
+    bicEmisor: input.credito?.bicEmisor,
+    bicAvisador: input.credito?.bicAvisador,
+    bicDisponibleCon: input.credito?.bicDisponibleCon,
+    bicReceptor: input.credito?.bicReceptor,
+    disponibleCon: input.credito?.disponibleCon,
+    confirmacion: input.credito?.confirmacion,
+  });
+  const delPapel = papel ? reglasDelPapel(papel, { conforme: faltan === 0 && discrepancias === 0 }) : [];
+  const reglas = [...sinElPapel, ...delPapel];
 
   return {
+    papel,
     reglas,
     faltan,
     discrepancias,
@@ -219,7 +268,7 @@ export function examinarPresentacion(input: {
     listo: faltan === 0 && discrepancias === 0 && (input.lc.documentosExigidos ?? []).length > 0,
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
-    reglasUCP: extra.length + deCertificados.length + deGiro.length,
+    reglasUCP: extra.length + deCertificados.length + deGiro.length + delPapel.length,
     saldo: input.presentacion ? saldoDelCredito(input.lc, input.anteriores ?? []) : null,
     manuales: verificacionesManuales({ lc: input.lc, docs: examinables, haySeguro: Boolean(input.seguro) }),
     avisosDeLectura,

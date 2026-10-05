@@ -467,6 +467,17 @@ export function revisarLcInfo(lc: LcInfo): Observacion[] {
       formaCredito: null,
       confirmacion: null,
       disponibleCon: lc.librado ?? null,
+      /*
+       * Sin BIC de ningún banco: esto no viene de un mensaje SWIFT.
+       *
+       * `revisarLcInfo` revisa un crédito cargado a mano, sin encabezado ni campos 52A/57A, así que
+       * no hay con qué decir qué papel juega nadie. En null el examen no dice nada del papel, que es
+       * lo correcto: suponerlo sería decidir sobre la obligación de pagar con un dato inventado.
+       */
+      bicEmisor: null,
+      bicAvisador: null,
+      bicDisponibleCon: null,
+      bicReceptor: null,
       giros: lc.giros ?? null,
       parciales: null,
       transbordo: null,

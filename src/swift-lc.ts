@@ -185,8 +185,33 @@ function senderDelHeader(texto: string): string | null {
 /** El nombre de un banco en 52A/57A: la línea que no es BIC (8 u 11 mayúsculas/dígitos). */
 function nombreBanco(lineas: string[] | null): string | null {
   if (!lineas) return null;
-  const sinBic = lineas.filter((l) => !/^[A-Z0-9]{8}([A-Z0-9]{3})?$/.test(l.trim()));
+  const sinBic = lineas.filter((l) => !ES_BIC.test(l.trim()));
   return sinBic[0]?.trim() || null;
+}
+
+/** La forma de un BIC: ocho caracteres, u once con el código de sucursal. */
+const ES_BIC = /^[A-Z0-9]{8}([A-Z0-9]{3})?$/;
+
+/**
+ * El BIC de un campo de banco (52A, 57A, 41A), que es la primera línea.
+ *
+ * Hace falta además del nombre porque el nombre varía —«BANCO LITORAL (URUGUAY) S.A.» contra
+ * «BANCO LITORAL URUGUAY SA»— y el BIC no. Con él se puede decir qué papel juega el banco que
+ * examina, que es lo que decide qué le exigen las UCP.
+ */
+function bicDeCampo(lineas: string[] | null): string | null {
+  return lineas?.map((l) => l.trim()).find((l) => ES_BIC.test(l)) ?? null;
+}
+
+/** El BIC del destinatario del mensaje, del encabezado. */
+function receptorDelHeader(texto: string): string | null {
+  const i = texto.search(/Receiver\s*:/i);
+  if (i < 0) return null;
+  for (const l of texto.slice(i).split("\n").slice(0, 3)) {
+    const t = l.replace(/^.*Receiver\s*:/i, "").trim();
+    if (ES_BIC.test(t)) return t;
+  }
+  return null;
 }
 
 export interface LcSwift {
@@ -203,6 +228,14 @@ export interface LcSwift {
     formaCredito: string | null; // IRREVOCABLE …
     confirmacion: string | null; // WITHOUT / CONFIRM
     disponibleCon: string | null; // 41D/41A
+    /** 52A: el BIC del banco emisor */
+    bicEmisor: string | null;
+    /** 57A: el BIC del banco a través del cual se avisa */
+    bicAvisador: string | null;
+    /** 41A: el BIC del banco con el que el crédito está disponible, cuando lo nombra por BIC */
+    bicDisponibleCon: string | null;
+    /** el BIC a quien se mandó el mensaje, del encabezado */
+    bicReceptor: string | null;
     giros: string | null; // 42C: SIGHT / 90 DAYS …
     parciales: string | null;
     transbordo: string | null;
@@ -317,6 +350,19 @@ export function parseMT700(textoSwift: string): LcSwift | null {
       formaCredito: texto(cs, "40B") || texto(cs, "40A") || null,
       confirmacion: texto(cs, "49") || null,
       disponibleCon: texto(cs, "41D") || texto(cs, "41A") || null,
+      /*
+       * Los BIC de los bancos que el crédito nombra, y el del destinatario del mensaje.
+       *
+       * De acá sale qué papel juega el banco que examina —emisor, designado, avisador— y eso decide
+       * qué le exigen las UCP: el emisor tiene que honrar una presentación conforme (art. 7 a), un
+       * designado que no confirmó **no** está obligado (art. 12 a) y un avisador que no está
+       * designado no examina para honrar (art. 9). Son conclusiones distintas sobre el mismo juego
+       * de papeles.
+       */
+      bicEmisor: bicDeCampo(campo(cs, "52A")),
+      bicAvisador: bicDeCampo(campo(cs, "57A")),
+      bicDisponibleCon: bicDeCampo(campo(cs, "41A")),
+      bicReceptor: receptorDelHeader(textoSwift),
       giros: texto(cs, "42C") || null,
       parciales,
       transbordo: texto(cs, "43T") || null,
