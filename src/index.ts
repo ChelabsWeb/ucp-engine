@@ -81,7 +81,7 @@ export type { CotejoSpec, Especificacion, Operador, VeredictoSpec } from "./espe
 export { cotejarEspecificaciones, especificacionesDe, pareceVariosDocumentos } from "./especificaciones";
 export type { ResultadoExamen } from "./examen";
 /** El examen completo: lo que exige el crédito más lo que exigen las UCP 600. */
-export { contextoDesdeSwift, examinarPresentacion } from "./examen";
+export { contextoDesdeSwift, examinarConEnmienda, examinarPresentacion } from "./examen";
 /** Fechas de comercio exterior: "08-APR-2025", "16 ABR 2025", "04.03.2025", ISO. */
 export { diffDias, fmtFecha, fmtFechaEn, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente real con el que se validó el motor, para tests y demostraciones. */

@@ -1,5 +1,13 @@
 import { type DocCertificado, reglasCertificados } from "./certificados";
 import { claveDoc, TIPO_DOC_LABEL } from "./consistencia";
+import {
+  aceptacionTacita,
+  creditoVigente,
+  type EstadoEnmienda,
+  type ObservacionEnmienda,
+  revisarEnmienda,
+} from "./enmienda-vigencia";
+import { aplicarEnmienda, type Enmienda } from "./enmiendas";
 import { ablandarPorISBP } from "./isbp";
 import { prepararCampos } from "./numeros";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
@@ -197,5 +205,74 @@ export function examinarPresentacion(input: {
     saldo: input.presentacion ? saldoDelCredito(input.lc, input.anteriores ?? []) : null,
     manuales: verificacionesManuales({ lc: input.lc, docs: examinables, haySeguro: Boolean(input.seguro) }),
     avisosDeLectura,
+  };
+}
+
+/**
+ * El examen cuando hay una enmienda de por medio (UCP 600 art. 10).
+ *
+ * `examinarPresentacion` examina contra un crédito. Acá se decide **cuál**, que es la pregunta que
+ * el artículo 10 contesta y que no es la intuitiva: el emisor queda obligado por la enmienda desde
+ * que la emite (10 b), pero para el beneficiario siguen rigiendo los términos originales hasta que
+ * comunique que la acepta (10 c). Examinar contra el crédito equivocado invierte el resultado
+ * entero.
+ *
+ * Y está la otra mitad, que es la que faltaba: **una presentación puede aceptar la enmienda sin que
+ * nadie la conteste**. Si cumple con el crédito y con la enmienda todavía no aceptada, eso vale
+ * como notificación de aceptación, y desde ese momento el crédito queda enmendado.
+ *
+ * Importa para el giro **siguiente**, no para este. Una presentación que cumple con los dos tiene
+ * el mismo veredicto mire contra cuál; lo que cambia es contra qué se examina el próximo. Por eso
+ * `examen` sigue siendo el del crédito que regía al presentar, y `rigeDespues` es lo que hay que
+ * usar de ahí en adelante.
+ *
+ * Los dos exámenes se corren de verdad, porque no hay manera de saber si cumple con los dos sin
+ * examinarlo contra los dos. Eso lo hace el motor y no la pantalla: la pantalla no decide nada.
+ */
+export function examinarConEnmienda(
+  input: Parameters<typeof examinarPresentacion>[0] & {
+    enmienda: Enmienda;
+    /** qué contestó el beneficiario, si contestó */
+    estado: EstadoEnmienda;
+  },
+): {
+  /** el examen contra el crédito que regía al presentar: es el que vale */
+  examen: ResultadoExamen;
+  /** el mismo juego contra el crédito enmendado, que es con qué se decide la aceptación tácita */
+  contraElEnmendado: ResultadoExamen;
+  rige: "ORIGINAL" | "ENMENDADO";
+  /** contra cuál se examina de acá en adelante, que puede no ser el mismo */
+  rigeDespues: "ORIGINAL" | "ENMENDADO";
+  aceptacion: ReturnType<typeof aceptacionTacita>;
+  observaciones: ObservacionEnmienda[];
+} {
+  const { enmienda, estado, ...base } = input;
+  const enmendada = aplicarEnmienda(base.lc, enmienda);
+  const rige = creditoVigente(estado);
+
+  const contraElOriginal = examinarPresentacion({ ...base, lc: base.lc });
+  const contraElEnmendado = examinarPresentacion({ ...base, lc: enmendada });
+  const examen = rige === "ENMENDADO" ? contraElEnmendado : contraElOriginal;
+
+  /*
+   * «Cumple» es no tener discrepancias ni documentos faltantes.
+   *
+   * Lo que queda para verificar a mano no cuenta en contra: una presentación no deja de cumplir
+   * porque el motor no haya podido mirar algo. Y tampoco cuenta a favor — por eso esto decide la
+   * aceptación tácita y no el veredicto, que lo firma una persona.
+   */
+  const cumple = (r: ResultadoExamen) => r.discrepancias === 0 && r.faltan === 0;
+  const aceptacion = aceptacionTacita(estado, {
+    cumpleConOriginal: cumple(contraElOriginal),
+    cumpleConEnmendado: cumple(contraElEnmendado),
+  });
+
+  return {
+    examen,
+    contraElEnmendado,
+    rige,
+    rigeDespues: aceptacion.aceptada ? "ENMENDADO" : rige,
+    aceptacion,
+    observaciones: revisarEnmienda(enmienda, estado),
   };
 }
