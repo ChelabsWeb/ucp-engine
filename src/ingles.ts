@@ -1370,6 +1370,42 @@ const POR_ESPECIFICIDAD = [...REEMPLAZOS].sort((a, b) => especificidad(b) - espe
 /** Las partes entre comillas, que son cita y quedan intactas. */
 const CITA = /"[^"]*"/g;
 
+const MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const MESES_IN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Las cifras y las fechas, escritas como las escribe quien lee en inglés.
+ *
+ * El diccionario traducía las palabras y dejaba el formato de es-UY, así que un hallazgo decía
+ * «the operative credit is for less: 100.000 → 90.000» y «31-dic-25». Un punto de miles donde el
+ * lector espera un punto decimal no es una molestia de estilo: «54.150» se lee cincuenta y cuatro
+ * con ciento cincuenta milésimas, y el número está en un papel que se cursa a otro banco.
+ *
+ * Se tocan tres cosas y nada más, porque cada una es inequívoca:
+ *
+ * - un número con **punto de miles** —«54.150,00»—, que en inglés no se escribe así nunca;
+ * - una **coma decimal pegada a su unidad** —«61,1 %», «26,5 kg»—, donde la coma no puede ser una
+ *   enumeración;
+ * - el **mes abreviado en castellano** de una fecha, que no se confunde con otra cosa.
+ *
+ * Lo que queda afuera: un número suelto con coma, que podría ser una lista, y cualquier cosa dentro
+ * de comillas, que es lo que el documento dice y reformatearlo sería cambiar la cita.
+ */
+export function cifrasEnIngles(texto: string): string {
+  return texto
+    .replace(/\b\d{1,3}(?:\.\d{3})+(?:,\d+)?\b/g, (n) =>
+      n
+        .replace(/\./g, "\u0001")
+        .replace(/,/g, ".")
+        .replace(/\u0001/g, ","),
+    )
+    .replace(/\b(\d+),(\d+)(?=\s*(?:%|(?:pct|kg|kgs|mt|mts|tn|usd|eur|gbp)\b))/gi, "$1.$2")
+    .replace(/\b(\d{1,2})-([a-záéíóú]{3})-(\d{2,4})\b/gi, (todo, d: string, mes: string, a: string) => {
+      const i = MESES_ES.indexOf(mes.toLowerCase());
+      return i === -1 ? todo : `${d}-${MESES_IN[i]}-${a}`;
+    });
+}
+
 /**
  * Traduce un texto del motor dejando las citas como están.
  *
@@ -1387,6 +1423,7 @@ export function textoEnIngles(texto: string): string {
 
   let out = conHuecos;
   for (const [re, con] of POR_ESPECIFICIDAD) out = out.replace(re, con);
+  out = cifrasEnIngles(out);
 
   return out.replace(/\u0000(\d+)\u0000/g, (_, i) => citas[Number(i)] ?? "");
 }

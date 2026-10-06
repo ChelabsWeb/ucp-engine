@@ -363,3 +363,40 @@ describe("lo que no se toca", () => {
     expect(textoEnIngles("")).toBe("");
   });
 });
+
+describe("los números y las fechas del hallazgo, en inglés", () => {
+  /*
+   * El diccionario traducía las palabras y dejaba el formato de es-UY: con la interfaz en inglés,
+   * un hallazgo decía «the operative credit is for less: 100.000 → 90.000» y «31-dic-25». Un punto
+   * de miles donde el lector espera un punto decimal no es una molestia de estilo: «54.150» se lee
+   * cincuenta y cuatro con ciento cincuenta milésimas, y el número está en un papel que se cursa a
+   * otro banco.
+   *
+   * Lo que **no** se toca es lo que va entre comillas: ahí está lo que el documento dice, y
+   * reformatearlo sería cambiar la cita.
+   */
+  it("el separador de miles y el decimal se dan vuelta", () => {
+    expect(textoEnIngles("el crédito es por 54.150,00 y la factura por 51.262,00")).toContain("54,150.00");
+    expect(textoEnIngles("el crédito es por 54.150,00 y la factura por 51.262,00")).toContain("51,262.00");
+  });
+
+  it("un decimal con coma pegado a su unidad también", () => {
+    expect(textoEnIngles("el certificado declara 61,1 %")).toContain("61.1 %");
+  });
+
+  it("los meses de una fecha se escriben en inglés", () => {
+    // el año se completa: eso ya lo hacía el diccionario, y conviene que el test lo diga
+    expect(textoEnIngles("vence el 31-dic-25")).toContain("31-Dec-2025");
+    expect(textoEnIngles("embarque 08-abr-2025")).toContain("08-Apr-2025");
+  });
+
+  it("**y lo que está entre comillas queda como está: es lo que dice el papel**", () => {
+    const t = textoEnIngles('la factura dice "TOTAL USD 54.150,00 DATED 31-dic-25"');
+    expect(t).toContain('"TOTAL USD 54.150,00 DATED 31-dic-25"');
+  });
+
+  it("y un número que no es una cifra no se toca", () => {
+    // un número de documento o un código no tiene separadores: nada que dar vuelta
+    expect(textoEnIngles("el conocimiento número 2301.20.00")).toContain("2301.20.00");
+  });
+});
