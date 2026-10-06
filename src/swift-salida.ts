@@ -157,6 +157,8 @@ export function referenciaDelMensaje(tipo: TipoDeMensaje, delGiro: string): stri
    * que es el defecto que esto vino a arreglar.
    */
   const largo = 16 - PREFIJO[tipo].length - 1;
-  const cola = base.length > largo ? base.slice(base.length - largo) : base;
+  // El corte cae donde cae, y si cae sobre un guion queda «AUT--MUY-LARGO-7»: dos separadores
+  // seguidos se leen como un campo vacío en el medio.
+  const cola = (base.length > largo ? base.slice(base.length - largo) : base).replace(/^[-/]+/, "");
   return `${PREFIJO[tipo]}-${cola}`;
 }

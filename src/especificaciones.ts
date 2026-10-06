@@ -64,6 +64,22 @@ const SE_PIDE_COMO_PISO = /^(protein|proteina|prote[ií]na|purity|pureza)$/i;
 const SE_PIDE_COMO_TECHO =
   /^(moisture|humedad|fat|grasa|ash|ceniza|fiber|fibre|fibra|salt|sal|ffa|acidity|acidez|tvbn|broken|damaged)$/i;
 
+/**
+ * Dónde la grasa se compra en vez de tolerarse.
+ *
+ * La lista de arriba salió de harina de pescado, donde la grasa es lo que se tolera. En leche en
+ * polvo entera es al revés —la grasa es lo que se paga— así que «26 PCT MIN» con un análisis de
+ * 26,5 % cumple, y salía a verificar a mano. No hay forma de saberlo del número: lo dice la
+ * mercadería, que el crédito nombra en el mismo 45A.
+ */
+const GRASA_ES_LO_QUE_SE_COMPRA = /\b(whole milk|milk powder|cream|manteca|butter|nata|leche entera)\b/i;
+
+/** Si el parámetro medido se exige como techo **en esta mercadería**. */
+function esTecho(parametro: string, mercaderia: string): boolean {
+  if (/^(fat|grasa)$/i.test(parametro) && GRASA_ES_LO_QUE_SE_COMPRA.test(mercaderia)) return false;
+  return SE_PIDE_COMO_TECHO.test(parametro);
+}
+
 const normalizarUnidad = (u: string): string => {
   const t = u.toLowerCase().replace(/\s+/g, "");
   if (t === "pct" || t === "percent" || t === "%") return "%";
@@ -242,7 +258,7 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
     const alReves =
       !porParametro &&
       mismaUnidad.length === 1 &&
-      ((ex.operador === "MIN" && SE_PIDE_COMO_TECHO.test(mismaUnidad[0]!.parametro)) ||
+      ((ex.operador === "MIN" && esTecho(mismaUnidad[0]!.parametro, delCredito)) ||
         (ex.operador === "MAX" && SE_PIDE_COMO_PISO.test(mismaUnidad[0]!.parametro)));
     if (alReves) {
       return [

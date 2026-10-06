@@ -363,3 +363,24 @@ describe("el freno de la tolerancia no puede comerse la calidad", () => {
     expect(especificacionesDe("QUANTITY 5 PCT MORE OR LESS ALLOWED")).toEqual([]);
   });
 });
+
+describe("la grasa se exige en los dos sentidos, según la mercadería", () => {
+  /*
+   * La lista de «se pide como techo» salió de harina de pescado, donde la grasa es lo que se tolera.
+   * En leche en polvo entera es al revés: la grasa es lo que se compra, y «26 PCT MIN» con un
+   * análisis de 26,5 % cumple. Salía a verificar a mano.
+   *
+   * No hay forma de saberlo del número: lo dice la mercadería, que el crédito nombra en el mismo
+   * 45A. Así que la dirección de la grasa se decide ahí, y lo que no se reconoce sigue yendo al
+   * lado seguro.
+   */
+  it("en leche en polvo entera, un mínimo de grasa se compara", () => {
+    const [c] = cotejarEspecificaciones("WHOLE MILK POWDER 26 PCT MIN", "FAT: 26,5 %");
+    expect(c?.veredicto).toBe("CUMPLE");
+  });
+
+  it("y en harina de pescado sigue siendo un techo", () => {
+    const [c] = cotejarEspecificaciones("57 MTS OF FISH MEAL 54 PCT MIN", "FAT: 9,5 %");
+    expect(c?.veredicto, "comparó la proteína contra la grasa").toBe("SIN_COMPARAR");
+  });
+});

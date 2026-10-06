@@ -39,6 +39,11 @@ describe("la referencia del campo 20", () => {
     expect(g1).not.toBe(g2);
   });
 
+  it("y el corte no deja dos separadores seguidos", () => {
+    // «AUT--MUY-LARGO-7» se lee como un campo vacío en el medio
+    expect(referenciaDelMensaje("AUTORIZACION", "UN-NUMERO-DE-CREDITO-MUY-LARGO-7")).not.toMatch(/--/);
+  });
+
   it("sin referencia del giro dice al menos qué mensaje es", () => {
     expect(referenciaDelMensaje("CONSULTA", "")).toBe("DSC");
   });
