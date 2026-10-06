@@ -189,8 +189,28 @@ const NOMBRES_DE_EJEMPLO = ["Al Rashid Trading LLC"];
  * queda es lo que tiene forma de frase y contiene alguna palabra que solo existe en castellano.
  */
 function esTextoDeUsuario(s: string): boolean {
-  if (s.length < 12 || !s.includes(" ")) return false;
+  /*
+   * Una palabra sola también es un texto, si es larga.
+   *
+   * El umbral era doce caracteres **y** tener un espacio, así que «Vencimiento» y «Beneficiario»
+   * —los nombres de campo del cotejo del pre-aviso— no se miraban: la pantalla salía con la interfaz
+   * en inglés y el nombre del campo en castellano, y se vio abriéndola en el navegador.
+   *
+   * Los doce se quedan para lo que tiene espacios, porque ahí abajo viven los fragmentos de
+   * plantilla —«al menos», «como mucho», «el emisor»— que se traducen al armar la frase y no por
+   * separado. Una palabra sola entra desde diez: por debajo están las claves y los códigos
+   * («LECTOR», «CUMPLE», «46A»), que no son texto de nadie.
+   */
+  if (s.includes(" ") ? s.length < 12 : s.length < 10) return false;
   if (/^[a-z0-9-]+$/.test(s)) return false; // ids
+  /*
+   * Las claves en mayúsculas tampoco son texto.
+   *
+   * «BENEFICIARIO» es la clave con que `claveDoc` nombra un tipo de documento, y se compara con
+   * `startsWith`. Traducirla rompería la comparación, que es la misma razón por la que está en
+   * mayúsculas.
+   */
+  if (/^[A-Z][A-Z0-9_]*$/.test(s)) return false;
   /*
    * Las plantillas quedan afuera, y conviene saber por qué.
    *

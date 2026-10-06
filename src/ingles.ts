@@ -662,6 +662,18 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   // ── etiquetas y avisos heredados de romai que también se muestran acá ──
   [/^Emisor \/ shipper$/g, "Issuer / shipper"],
+  /*
+   * Los nombres de campo que el cotejo del pre-aviso usa, anclados.
+   *
+   * «Vencimiento» y «Beneficiario» sueltos no estaban, y la pantalla del pre-aviso salía con la
+   * interfaz en inglés y el nombre del campo en castellano. Se vio abriéndola en el navegador: el
+   * control de cobertura no los mira porque descarta los literales de menos de doce caracteres sin
+   * espacios, y esos dos entran justo ahí.
+   */
+  [/^Vencimiento$/g, "Expiry"],
+  // el nombre del campo de la mercadería, que también se muestra solo
+  [/^Mercader[íi]a$/g, "Goods"],
+  [/^Beneficiario$/g, "Beneficiary"],
   [/^Beneficiario \/ exportador$/g, "Beneficiary / exporter"],
   [/^Fecha límite de embarque$/g, "Latest date of shipment"],
   [/^Fecha a bordo \(vs\. último embarque LC\)$/g, "On board date (vs. latest shipment in the credit)"],
