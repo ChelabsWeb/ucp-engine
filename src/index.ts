@@ -138,6 +138,9 @@ export { mt730 } from "./mt730";
 export type { DatosMT734, MensajeMT734 } from "./mt734";
 /** El aviso del artículo 16 como mensaje SWIFT MT734, con los largos de campo del estándar. */
 export { mt734 } from "./mt734";
+export type { DatosMT740, DatosMT742, DatosMT747, MensajeReembolso } from "./mt740";
+/** Los tres mensajes del reembolso entre bancos (UCP 600 art. 13). */
+export { mt740, mt742, mt747 } from "./mt740";
 export type { DatosMT750, DatosMT752, MensajeSwift, ModoDeHonrar } from "./mt750";
 /** El otro camino cuando el examen da rojo: consultar la dispensa (MT750) y concederla (MT752). */
 export { modoDeHonrar, mt750, mt752 } from "./mt750";
