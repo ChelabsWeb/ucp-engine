@@ -89,3 +89,54 @@ export function importeSwift(n: number): string {
   const [entero, decimales = ""] = n.toFixed(2).split(".");
   return `${entero},${decimales.replace(/0+$/, "")}`;
 }
+
+/**
+ * La referencia del campo 20: la de **este** mensaje, no la del crédito.
+ *
+ * La pantalla ponía el número del crédito del emisor en el campo 20 de los tres mensajes que puede
+ * cursar, así que el MT734, el MT750 y el MT752 del mismo expediente salían con la misma
+ * referencia de remitente. Y el 20 es por donde el otro banco contesta **un** mensaje: con los tres
+ * iguales, una respuesta no dice a cuál responde. Peor todavía, la referencia era la del otro
+ * banco, no la nuestra.
+ *
+ * La referencia propia que este sistema tiene es la del giro —«CSU2025099-2»—, que identifica la
+ * presentación en el banco que examina. Con un prefijo por tipo de mensaje queda única por mensaje y
+ * sigue diciendo de qué giro se trata.
+ *
+ * El `ACK` del MT730 ya seguía este criterio; esto lo extiende a los otros tres y lo deja en un solo
+ * lugar, con su test.
+ */
+export type TipoDeMensaje = "RECHAZO" | "CONSULTA" | "AUTORIZACION" | "ACUSE";
+
+const PREFIJO: Record<TipoDeMensaje, string> = {
+  /** MT734, el aviso de rechazo del artículo 16 */
+  RECHAZO: "RFS",
+  /** MT750, las discrepancias avisadas pidiendo autorización */
+  CONSULTA: "DSC",
+  /** MT752, la autorización a honrar */
+  AUTORIZACION: "AUT",
+  /** MT730, el acuse */
+  ACUSE: "ACK",
+};
+
+export function referenciaDelMensaje(tipo: TipoDeMensaje, delGiro: string): string {
+  const base = aJuegoSwift(delGiro).texto.trim();
+  /*
+   * Sin referencia del giro, la referencia es solo el prefijo.
+   *
+   * «NONREF» es lo que la red acepta cuando no hay referencia, pero acá siempre hay algo que decir:
+   * el tipo de mensaje. Un campo 20 que dice «RFS» es menos informativo que uno que dice
+   * «RFS-CSU2025099-2» y más que uno que miente.
+   */
+  if (!base) return PREFIJO[tipo];
+  /*
+   * Se recorta por la izquierda, no por la derecha.
+   *
+   * El campo 20 admite 16 caracteres y lo que distingue un giro de otro es el final —el sufijo
+   * «-2»—, así que cortar la cola junta todos los giros del mismo crédito en una sola referencia,
+   * que es el defecto que esto vino a arreglar.
+   */
+  const largo = 16 - PREFIJO[tipo].length - 1;
+  const cola = base.length > largo ? base.slice(base.length - largo) : base;
+  return `${PREFIJO[tipo]}-${cola}`;
+}

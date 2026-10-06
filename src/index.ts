@@ -184,6 +184,7 @@ export { scrubForLLM } from "./scrub";
 export type { CampoSwift, LcSwift } from "./swift-lc";
 /** Intérprete determinista de mensajes SWIFT MT700 y MT710. */
 export { esMensajeSwift, fechaSwift, listaSwift, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
+export { referenciaDelMensaje, type TipoDeMensaje } from "./swift-salida";
 export type {
   ContextoTransferencia,
   GravedadTransferencia,
