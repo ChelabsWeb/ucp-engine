@@ -27,6 +27,14 @@ export interface Presentacion {
   importe: number | null;
   /** la fecha a bordo del documento de transporte, si ya la hay */
   fechaEmbarque?: string | null;
+  /**
+   * La hora que dice el sello de recepción, «HH:MM» (art. 33).
+   *
+   * Es un dato y no una derivación del instante: lo recibido fuera del horario cuenta como
+   * presentado el día hábil siguiente, y un juego recibido a las 11:00 llegó a las 11:00 aunque el
+   * examinador lo abra a las 18:30.
+   */
+  horaDeRecepcion?: string | null;
 }
 
 /* ───────────────────────────── el saldo ───────────────────────────── */
@@ -111,7 +119,7 @@ export interface PresentacionEfectiva {
   /** el día hábil que cuenta como fecha de presentación */
   efectiva: Date;
   corrida: boolean;
-  motivo: "EN_HORARIO" | "FUERA_DE_HORARIO" | "DIA_CERRADO" | "SIN_HORARIO";
+  motivo: "EN_HORARIO" | "FUERA_DE_HORARIO" | "DIA_CERRADO" | "SIN_HORARIO" | "SIN_HORA";
 }
 
 const minutos = (hhmm: string): number | null => {
@@ -141,6 +149,18 @@ export function presentacionEfectiva(
   entregada: Date,
   horario?: HorarioDeAtencion | null,
   feriados: Date[] = [],
+  /**
+   * La hora que dice el sello de recepción, «HH:MM».
+   *
+   * **No se saca del instante**, y eso es el arreglo: `Date.getHours()` devuelve la hora del huso
+   * del proceso, y el navegador corre en el huso del banco mientras el servidor corre en UTC. El
+   * mismo instante daba EN_HORARIO en la pantalla y FUERA_DE_HORARIO en el registro, que es
+   * exactamente lo que no puede pasar.
+   *
+   * Y hay una razón de fondo para que sea un dato: un juego recibido a las 11:00 y examinado a las
+   * 18:30 **llegó a las 11:00**. El instante del clic del examinador no es la hora de recepción.
+   */
+  horaDeRecepcion?: string | null,
 ): PresentacionEfectiva {
   const soloDia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const cerrado = (d: Date) => esFinDeSemana(d) || feriados.some((f) => mismoDia(f, d));
@@ -161,15 +181,16 @@ export function presentacionEfectiva(
     return { entregada, efectiva: dia, corrida: false, motivo: "SIN_HORARIO" };
   }
 
-  const cuando = entregada.getHours() * 60 + entregada.getMinutes();
+  // sin la hora del sello no se mira el reloj del proceso: la del servidor es la de otro continente
+  const cuando = horaDeRecepcion ? minutos(horaDeRecepcion) : null;
+  if (cuando === null) {
+    return { entregada, efectiva: dia, corrida: false, motivo: "SIN_HORA" };
+  }
   if (cuando < abre || cuando > cierra) {
     return { entregada, efectiva: siguienteHabil(dia), corrida: true, motivo: "FUERA_DE_HORARIO" };
   }
   return { entregada, efectiva: dia, corrida: false, motivo: "EN_HORARIO" };
 }
-
-/** La hora de un momento, como la escribiría un sello de recepción. */
-const fmtHora = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 
 /** El primer día hábil después de una fecha, sin contar fines de semana. */
 function primerDiaHabilDespues(d: Date): Date {
@@ -284,7 +305,12 @@ export function reglasDeGiro(input: {
    * hábil siguiente, que es lo que legalmente es. Si el artículo 33 quedara como una nota al
    * costado, el examen seguiría diciendo que llegó en plazo.
    */
-  const efectiva = presentacionEfectiva(input.actual.fecha, input.horario, input.feriados ?? []);
+  const efectiva = presentacionEfectiva(
+    input.actual.fecha,
+    input.horario,
+    input.feriados ?? [],
+    input.actual.horaDeRecepcion,
+  );
   const v = vencimientoEfectivo(input.lc, input.feriados ?? []);
   if (v) {
     const dias = diffDias(efectiva.efectiva, v.efectivo);
@@ -312,7 +338,17 @@ export function reglasDeGiro(input: {
             "UCP 600 33",
             "Lo recibido fuera del horario cuenta como presentado el día hábil siguiente",
             "ATENCION",
-            `entregada a las ${fmtHora(input.actual.fecha)} y el banco atiende hasta las ${input.horario.cierra}: cuenta como presentada el ${fmtFecha(efectiva.efectiva)}`,
+            `recibida a las ${input.actual.horaDeRecepcion} y el banco atiende hasta las ${input.horario.cierra}: cuenta como presentada el ${fmtFecha(efectiva.efectiva)}`,
+          ),
+        );
+      } else if (efectiva.motivo === "SIN_HORA") {
+        out.push(
+          regla(
+            "ucp-33",
+            "UCP 600 33",
+            "Lo recibido fuera del horario cuenta como presentado el día hábil siguiente",
+            "ATENCION",
+            `el banco atiende hasta las ${input.horario?.cierra ?? "—"} y no se cargó la hora del sello de recepción: ese dato decide si este juego llegó en plazo`,
           ),
         );
       } else if (efectiva.motivo === "SIN_HORARIO") {
@@ -322,7 +358,7 @@ export function reglasDeGiro(input: {
             "UCP 600 33",
             "Lo recibido fuera del horario cuenta como presentado el día hábil siguiente",
             "ATENCION",
-            `entregada a las ${fmtHora(input.actual.fecha)} del último día: verificar que haya llegado dentro del horario de atención, porque fuera de él cuenta como del día siguiente`,
+            "no se cargó el horario de atención del banco: verificar que el juego haya llegado dentro de él, porque fuera del horario cuenta como presentado el día siguiente",
           ),
         );
       }
@@ -368,7 +404,7 @@ export function reglasDeGiro(input: {
           : podriaSerFeriado
             ? `presentada el ${fmtFecha(input.actual.fecha)}, el primer día hábil después del vencimiento: si el banco estuvo cerrado el ${fmtFecha(v.efectivo)}, el artículo 29 (a) lo extiende hasta este día — verificar el calendario de la plaza`
             : efectiva.corrida
-              ? `entregada el ${fmtFecha(input.actual.fecha)} fuera del horario, así que cuenta como presentada el ${fmtFecha(efectiva.efectiva)}: ${-dias} día${-dias === 1 ? "" : "s"} después del vencimiento`
+              ? `recibida el ${fmtFecha(input.actual.fecha)} a las ${input.actual.horaDeRecepcion}, fuera del horario, así que cuenta como presentada el ${fmtFecha(efectiva.efectiva)}: ${-dias} día${-dias === 1 ? "" : "s"} después del vencimiento`
               : `presentada el ${fmtFecha(efectiva.efectiva)}, ${-dias} días después del vencimiento`,
       ),
     );

@@ -882,3 +882,35 @@ describe("la cantidad que el crédito pide, leída del 45A", () => {
     expect(cantidadDelCredito(null)).toBeNull();
   });
 });
+
+describe("la cantidad del 45A cuando el crédito describe el envase", () => {
+  /*
+   * `cantidadDelCredito` se quedaba con el **primer** número con unidad, y los créditos describen el
+   * envase antes del total todo el tiempo: «PACKED IN 50 KG BAGS, TOTAL 57 MTS». Con eso el motor
+   * comparaba la factura contra el peso de una bolsa y daba discrepancias de seis cifras sobre
+   * facturas correctas — la misma clase de error de mil veces que este repo ya pagó con «53,960».
+   *
+   * Cuando hay más de una cantidad y no se puede decir cuál es el total, no se elige: el examen lo
+   * dice. Elegir mal acá cuesta más que no decir nada.
+   */
+  it.each([
+    ["FISH MEAL 54PCT MIN PACKED IN 50 KG BAGS, TOTAL 57 MTS", 57, "MTS"],
+    ["FROZEN BEEF IN 25 KG CARTONS, TOTAL NET WEIGHT 25.000 KGS", 25000, "KGS"],
+    ["57 MTS OF FISH MEAL PACKED IN BAGS OF 50 KG", 57, "MTS"],
+    ["SOYBEAN MEAL IN BAGS OF 50 KGS NET EACH. QUANTITY: 1000 MT", 1000, "MT"],
+  ])("«%s» → %s %s", (texto, valor, unidad) => {
+    expect(cantidadDelCredito(texto)).toEqual({ valor, unidad });
+  });
+
+  it("y si hay dos cantidades y ninguna se anuncia como el total, no se elige", () => {
+    // Dos ítems distintos: el crédito pide los dos y el motor no sabe cuál comparar.
+    expect(cantidadDelCredito("500 MT OF SOYBEAN MEAL AND 300 MT OF SUNFLOWER MEAL")).toBeNull();
+  });
+
+  it("el 45A del crédito real sigue leyéndose igual", () => {
+    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toEqual({
+      valor: 57,
+      unidad: "MTS",
+    });
+  });
+});

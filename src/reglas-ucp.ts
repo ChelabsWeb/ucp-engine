@@ -1137,6 +1137,17 @@ function reglasSeguro(
 
 /* ──────────────────── reglas que valen para cualquier documento ──────────────────── */
 
+/**
+ * Si la unidad mide volumen.
+ *
+ * El 5 % del artículo 30 (b) no corre sobre «a stipulated number of packing units or individual
+ * items», y el volumen no es ninguna de las dos: va con el peso. Ponerle tolerancia cero a los
+ * litros hacía discrepante un embarque de 19.600 contra 20.000, que cumple.
+ */
+function esVolumen(unidad: string): boolean {
+  return /^(litros?|lt?rs?|liters?|litres?|l|m3|cbm|metros?\s*c[uú]bicos?)$/i.test(unidad.trim());
+}
+
 function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[], hoy: Date): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -1224,13 +1235,40 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
   if (pedido && cantFac) {
     const n = parseNumero(cantFac);
     const enKgPedido = aKg(pedido.valor, pedido.unidad);
-    const tol = toleranciaDeCantidad(lc, enKgPedido === null);
-    const enKgFac = n === null ? null : aKg(n, uniFac ?? pedido.unidad);
+
+    /*
+     * Sin unidad en la factura no se le atribuye la del crédito.
+     *
+     * La pantalla ofrece «Quantity» y «Unit» por separado, así que una factura cargada con «53.960»
+     * y la unidad vacía es corriente — y ponerle «MTS» a un número que está en kilos da +94567 %.
+     * Es la misma clase de error de mil veces que este repo ya pagó con «53,960».
+     */
+    if (!uniFac) {
+      out.push(
+        regla(
+          "ucp-30b-cantidad",
+          "UCP 600 30b",
+          "Cantidad de la factura dentro de lo que pide el crédito",
+          "ATENCION",
+          `la factura dice ${cantFac} y no se leyó en qué unidad: sin eso no se puede comparar contra ${pedido.valor} ${pedido.unidad}`,
+        ),
+      );
+      return out;
+    }
+
+    /*
+     * La tolerancia: «about» manda sobre todo lo demás (30 a), y el 5 % del 30 (b) no corre sobre
+     * bultos ni unidades — pero **sí** sobre el volumen, que el artículo nombra junto al peso.
+     */
+    const porAbout = /\b(about|approximately|circa|aproximadamente|aprox)\b/i.test(ctx.mercaderia ?? "");
+    const enUnidades = enKgPedido === null && !esVolumen(pedido.unidad);
+    const tol = porAbout ? 0.1 : toleranciaDeCantidad(lc, enUnidades);
+    const enKgFac = n === null ? null : aKg(n, uniFac);
     /** los dos en kilos, o los dos en la misma unidad que no es de peso. */
     const par =
       enKgPedido !== null && enKgFac !== null
         ? { a: enKgFac, b: enKgPedido }
-        : n !== null && unidadNormal(uniFac ?? "") === unidadNormal(pedido.unidad)
+        : n !== null && unidadNormal(uniFac) === unidadNormal(pedido.unidad)
           ? { a: n, b: pedido.valor }
           : null;
     if (par) {
@@ -1239,7 +1277,7 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
       out.push(
         regla(
           "ucp-30b-cantidad",
-          lc.tolerancia != null ? "39A" : "UCP 600 30b",
+          porAbout ? "UCP 600 30a" : lc.tolerancia != null ? "39A" : "UCP 600 30b",
           `Cantidad de la factura dentro de lo que pide el crédito (${pedido.valor} ${pedido.unidad} ±${Math.round(tol * 100)} %)`,
           dentro ? "OK" : "DISCREPANCIA",
           `factura ${cantFac} ${uniFac ?? ""} · el crédito pide ${pedido.valor} ${pedido.unidad}`.trim() +

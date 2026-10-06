@@ -1129,3 +1129,48 @@ describe("el seguro fechado después del embarque (art. 28 e)", () => {
     expect(conSeguro({ fechaSeguro: campo("05-abr-25") })?.estado).toBe("OK");
   });
 });
+
+describe("la cantidad, con lo que la auditoría encontró", () => {
+  const conCantidad = (cantidad: string, unidad: string, mercaderia: string, lcOver: Partial<typeof LC> = {}) =>
+    reglasUCP({
+      lc: { ...LC, ...lcOver },
+      credito: { ...CTX, mercaderia },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: unidad ? campo(unidad) : vacio }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("sin unidad en la factura no se le atribuye la del crédito", () => {
+    /*
+     * La pantalla ofrece «Quantity» y «Unit» por separado, así que una factura cargada con «53.960»
+     * y la unidad vacía era corriente. El motor le ponía la unidad del crédito —toneladas— a un
+     * número que estaba en kilos: +94567 %, la misma clase de error de mil veces de siempre.
+     */
+    const r = conCantidad("53.960", "", "57 MTS OF FISH MEAL");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/unidad/i);
+  });
+
+  it("los litros llevan la tolerancia del 30 (b), que es de peso y volumen", () => {
+    // El artículo excluye del 5 % los bultos y las unidades, no el volumen.
+    expect(conCantidad("19600", "LITRES", "20000 LITRES OF SUNFLOWER OIL", { tolerancia: undefined })?.estado).toBe(
+      "OK",
+    );
+    expect(conCantidad("490", "M3", "500 M3 OF SAWN TIMBER", { tolerancia: undefined })?.estado).toBe("OK");
+  });
+
+  it("pero los bultos siguen sin tolerancia", () => {
+    expect(conCantidad("1330", "BAGS", "1360 BAGS OF FISH MEAL", { tolerancia: undefined })?.estado).toBe(
+      "DISCREPANCIA",
+    );
+  });
+
+  it("«about» sobre la cantidad da ±10 % y cita el 30 (a)", () => {
+    /*
+     * El 30 (a) dice que «about» admite ±10 %. El motor aplicaba el 5 % del 30 (b) y encima citaba
+     * ese artículo, que no es el que rige el caso: un embarque a +7 % contra «ABOUT 57 MTS» cumple.
+     */
+    const r = conCantidad("61", "MTS", "ABOUT 57 MTS OF FISH MEAL", { tolerancia: undefined });
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toMatch(/30a/);
+  });
+});

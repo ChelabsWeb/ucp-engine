@@ -132,6 +132,9 @@ export function toleranciaDe(lc: LcInfo | null | undefined): number {
  * menos con condiciones, que es otra regla y todavía no está.
  */
 export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
+  // una tolerancia declarada «solo en cantidad» no mueve el tope del importe: admitirla pagaba de
+  // más, que es el error que no se ve hasta que alguien concilia
+  if (lc?.toleranciaAplicaA === "CANTIDAD") return 0;
   return lc?.tolerancia ?? 0;
 }
 
@@ -144,7 +147,9 @@ export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
  */
 export function toleranciaDeCantidad(lc: LcInfo | null | undefined, enBultos = false): number {
   if (enBultos) return 0;
-  return Math.max(lc?.tolerancia ?? 0, TOLERANCIA_DEFAULT);
+  // y una declarada «solo en valor» no mueve la de cantidad: ahí vuelve a regir el 5 % del 30 (b)
+  const declarada = lc?.toleranciaAplicaA === "IMPORTE" ? 0 : (lc?.tolerancia ?? 0);
+  return Math.max(declarada, TOLERANCIA_DEFAULT);
 }
 
 /* ─── A6: ¿cuándo entra la plata? ──────────────────────────────────────────────

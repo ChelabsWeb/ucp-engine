@@ -153,6 +153,15 @@ export interface LcInfo {
   plazoPresentacion: string;
   /** tolerancia de cantidad/monto de la LC como fracción (0.05 = ±5 %); null = no dice → rige el ±5 % habitual */
   tolerancia?: number | null;
+  /**
+   * A qué se aplica la tolerancia que el crédito declara.
+   *
+   * Los créditos lo dicen: «IN QUANTITY AND VALUE», «IN QUANTITY ONLY». Hace falta porque un solo
+   * número aplicado a los dos lados admitía un giro 10 % por encima del monto cuando el crédito
+   * solo había dado tolerancia de cantidad — y pagar de más es el error que no se ve hasta que
+   * alguien concilia. Sin decirlo, rige para los dos.
+   */
+  toleranciaAplicaA?: "AMBAS" | "CANTIDAD" | "IMPORTE" | null;
   /** campo 46A tal cual (caso CSU2025099): de acá salen el weight note y los certificados del beneficiario */
   documentosExigidos?: string[] | null;
   /** campo 47A tal cual: condiciones operativas (aviso a la aseguradora, fee por discrepancia, fechas) */

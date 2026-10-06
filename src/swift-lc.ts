@@ -286,6 +286,24 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     if (c) tolerancia = parseTolerancia(c.replace(/pct/i, "%"));
   }
 
+  /*
+   * A qué se aplica la tolerancia, que el crédito dice y antes se ignoraba.
+   *
+   * «IN QUANTITY ONLY» con «AMOUNT NOT TO BE EXCEEDED» al lado es redacción corriente, y meterla en
+   * un solo número que se aplicaba al importe admitía un giro 10 % por encima del monto. El 39A es
+   * la tolerancia del importe del crédito, así que cuando viene por ahí rige para los dos salvo que
+   * el 47A diga otra cosa.
+   */
+  const textoTolerancia = condiciones.filter((x) => /toleran|more or less/i.test(x)).join(" ");
+  const soloCantidad = /\b(in\s+)?quantity\s+only\b|\bonly\s+in\s+quantity\b|\bsolo\s+en\s+cantidad\b/i.test(
+    textoTolerancia,
+  );
+  const soloImporte =
+    /\b(in\s+)?(value|amount)\s+only\b|\bonly\s+in\s+(value|amount)\b|\bsolo\s+en\s+(valor|importe)\b/i.test(
+      textoTolerancia,
+    );
+  const toleranciaAplicaA = soloCantidad ? "CANTIDAD" : soloImporte ? "IMPORTE" : "AMBAS";
+
   const dias = /(\d{1,3})/.exec(texto(cs, "48"))?.[1] ?? null;
   const plazoPresentacion = dias ? `${dias} días desde la fecha de embarque (campo 48)` : "";
 
@@ -310,6 +328,7 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     limiteEmbarque: limiteEmbarque ?? "—",
     plazoPresentacion: plazoPresentacion || "—",
     tolerancia,
+    toleranciaAplicaA,
     documentosExigidos: docs.length ? docs : null,
     condicionesAdicionales: condiciones.length ? condiciones : null,
     fechaEmision: emision,

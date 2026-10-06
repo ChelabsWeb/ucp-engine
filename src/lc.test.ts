@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fmtFecha } from "./fechas";
+import { SWIFT_CSU2025099 } from "./fixtures";
 import {
   avisoAseguradora,
   cobroEstimado,
@@ -13,6 +14,7 @@ import {
   toleranciaDeCantidad,
   toleranciaDeImporte,
 } from "./lc";
+import { parseMT700 } from "./swift-lc";
 import type { LcInfo } from "./types";
 
 const LC: LcInfo = {
@@ -194,5 +196,45 @@ describe("la tolerancia del importe y la de la cantidad son dos cosas (UCP 600 a
     // Es la primera condición del 30 (b): «provided the credit does not state the quantity in terms
     // of a stipulated number of packing units or individual items».
     expect(toleranciaDeCantidad(conTolerancia(null), true)).toBe(0);
+  });
+});
+
+describe("a qué se aplica la tolerancia que el crédito declara", () => {
+  /*
+   * El 47A del crédito real dice «A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND VALUE», y el
+   * parser metía cualquier tolerancia del 47A en un solo número que se aplicaba al importe. Un
+   * crédito que dice **«IN QUANTITY ONLY»** —redacción corriente, y a veces con «AMOUNT NOT TO BE
+   * EXCEEDED» al lado— terminaba admitiendo un giro 10 % por encima del monto.
+   *
+   * Es la segunda mitad del arreglo de la tolerancia: la primera separó las funciones (importe y
+   * cantidad), esta separa el **dato de origen**. Pagar de más es el otro error caro, el que no se
+   * ve hasta que alguien concilia.
+   */
+  const conCondicion = (c: string) =>
+    parseMT700(SWIFT_CSU2025099.replace(/A TOLERANCE OF 10 PCT[\s\S]*?ALLOWED\./, c))!;
+
+  it("el crédito real dice cantidad y valor: rige para los dos", () => {
+    const lc = parseMT700(SWIFT_CSU2025099)!.lc;
+    expect(toleranciaDeImporte(lc)).toBeCloseTo(0.1);
+    expect(toleranciaDeCantidad(lc)).toBeCloseTo(0.1);
+  });
+
+  it("«in quantity only» no toca el importe", () => {
+    const lc = conCondicion("A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY ONLY ALLOWED.").lc;
+    expect(toleranciaDeImporte(lc), "el tope del importe se movió").toBe(0);
+    expect(toleranciaDeCantidad(lc)).toBeCloseTo(0.1);
+  });
+
+  it("«in value only» no toca la cantidad", () => {
+    const lc = conCondicion("A TOLERANCE OF 10 PCT MORE OR LESS IN VALUE ONLY ALLOWED.").lc;
+    expect(toleranciaDeImporte(lc)).toBeCloseTo(0.1);
+    // la cantidad vuelve al 5 % del artículo 30 (b), que es lo que rige sin declaración
+    expect(toleranciaDeCantidad(lc)).toBeCloseTo(0.05);
+  });
+
+  it("sin decir a qué se aplica, rige para los dos", () => {
+    const lc = conCondicion("A TOLERANCE OF 10 PCT MORE OR LESS ALLOWED.").lc;
+    expect(toleranciaDeImporte(lc)).toBeCloseTo(0.1);
+    expect(toleranciaDeCantidad(lc)).toBeCloseTo(0.1);
   });
 });

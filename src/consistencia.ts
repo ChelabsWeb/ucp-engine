@@ -1405,9 +1405,42 @@ export function cantidadDelCredito(mercaderia: string | null | undefined): { val
   const t = (mercaderia ?? "").trim();
   if (!t) return null;
   const re =
-    /(\d+(?:[.,]\d+)*)\s*(kgs?|kilos?|kilogramos?|mts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/i;
-  const m = re.exec(t);
-  if (!m) return null;
-  const valor = parseNumero(m[1] ?? "");
-  return valor === null ? null : { valor, unidad: (m[2] ?? "").trim() };
+    /(\d+(?:[.,]\d+)*)\s*(kgs?|kilos?|kilogramos?|mts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/gi;
+  const encontradas = [...t.matchAll(re)]
+    .map((m) => ({ valor: parseNumero(m[1] ?? ""), unidad: (m[2] ?? "").trim(), en: m.index ?? 0, crudo: m[0] }))
+    .filter((x): x is { valor: number; unidad: string; en: number; crudo: string } => x.valor !== null);
+  if (encontradas.length === 0) return null;
+  if (encontradas.length === 1) return { valor: encontradas[0]!.valor, unidad: encontradas[0]!.unidad };
+
+  /*
+   * Con más de una cantidad, la que vale es la que el crédito anuncia como el total.
+   *
+   * Los créditos describen el envase antes del total todo el tiempo —«PACKED IN 50 KG BAGS, TOTAL 57
+   * MTS»— y quedarse con la primera hacía comparar la factura contra el peso de una bolsa: una
+   * discrepancia de seis cifras sobre una factura correcta, la misma clase de error de mil veces que
+   * este repo ya pagó con «53,960».
+   *
+   * Y lo que viene después de «of» o «each» es el contenido de un bulto, no el embarque.
+   */
+  const ANUNCIA_TOTAL =
+    /\b(total|quantity|cantidad|net\s+weight|peso\s+neto|gross\s+weight|peso\s+bruto)\b[^\d]{0,24}$/i;
+  const DEL_BULTO = /\b(of|de|each|cada|c\/u)\s*$/i;
+  const anunciadas = encontradas.filter((x) => ANUNCIA_TOTAL.test(t.slice(Math.max(0, x.en - 40), x.en)));
+  if (anunciadas.length === 1) {
+    return { valor: anunciadas[0]!.valor, unidad: anunciadas[0]!.unidad };
+  }
+
+  const noDelBulto = encontradas.filter((x) => !DEL_BULTO.test(t.slice(Math.max(0, x.en - 12), x.en)));
+  if (noDelBulto.length === 1) {
+    return { valor: noDelBulto[0]!.valor, unidad: noDelBulto[0]!.unidad };
+  }
+
+  /*
+   * Si siguen quedando varias, no se elige.
+   *
+   * Dos ítems distintos —«500 MT OF SOYBEAN MEAL AND 300 MT OF SUNFLOWER MEAL»— no tienen un total
+   * que el motor pueda deducir, y elegir uno daría una discrepancia inventada sobre la suma. El
+   * examen lo dice en vez de decidir.
+   */
+  return null;
 }

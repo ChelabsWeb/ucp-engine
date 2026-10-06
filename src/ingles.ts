@@ -499,8 +499,20 @@ const REEMPLAZOS: [RegExp, string][] = [
     "delivered at $1 and the bank is open until $2: it counts as presented on $3",
   ],
   [
-    /^entregada a las (.+) del último día: verificar que haya llegado dentro del horario de atención, porque fuera de él cuenta como del día siguiente$/g,
-    "delivered at $1 on the last day: check that it arrived within banking hours, because outside them it counts as the next day",
+    /^no se cargó el horario de atención del banco: verificar que el juego haya llegado dentro de él, porque fuera del horario cuenta como presentado el día siguiente$/g,
+    "the bank's banking hours have not been loaded: check that the set arrived within them, because outside banking hours it counts as presented the next day",
+  ],
+  [
+    /^el banco atiende hasta las (.+) y no se cargó la hora del sello de recepción: ese dato decide si este juego llegó en plazo$/g,
+    "the bank is open until $1 and the time on the receipt stamp was not entered: that is what decides whether this set arrived in time",
+  ],
+  [
+    /^recibida a las (.+) y el banco atiende hasta las (.+): cuenta como presentada el (.+)$/g,
+    "received at $1 and the bank is open until $2: it counts as presented on $3",
+  ],
+  [
+    /^recibida el (.+) a las (.+), fuera del horario, así que cuenta como presentada el (.+): (\d+) días? después del vencimiento$/g,
+    "received on $1 at $2, outside banking hours, so it counts as presented on $3: $4 day(s) after expiry",
   ],
   [
     /^entregada el (.+) fuera del horario, así que cuenta como presentada el (.+): (\d+) días? después del vencimiento$/g,
