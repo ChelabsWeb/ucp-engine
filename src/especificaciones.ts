@@ -28,6 +28,29 @@ export interface Especificacion {
 const PARAMETROS =
   /\b(protein|proteina|prote[ií]na|moisture|humedad|fat|grasa|ash|ceniza|fiber|fibre|fibra|salt|sal|ffa|acidity|acidez|tvbn|purity|pureza|broken|damaged)\b/i;
 
+/*
+ * Lo que un por ciento del 45A puede ser sin ser calidad.
+ *
+ * En el mismo campo viaja la tolerancia de cantidad y de importe —artículo 30— escrita en por
+ * ciento, y leerla como una especificación hacía que un análisis conforme saliera discrepante por
+ * no cumplir la tolerancia del embarque. La pista puede venir antes del número («TOLERANCE MAX 5
+ * PCT») o después («5 PCT MORE OR LESS ALLOWED»), así que se mira a los dos lados.
+ */
+const NO_ES_CALIDAD =
+  /\b(toleran(?:ce|cia)|more or less|plus or minus|m[áa]s o menos|about|approximately|circa|quantity|cantidad|amount|importe|value|valor|drawings?|shipment|embarque)\b|\+\s*\/\s*-|±/i;
+
+/**
+ * Los parámetros que se exigen como piso y los que se exigen como techo.
+ *
+ * Esto no sale del UCP sino de la mercadería: la proteína se compra, la humedad se tolera. Sirve
+ * para una sola cosa, y es no aparear al revés — cuando el crédito dice «54 PCT MIN» sin nombrar
+ * de qué, un análisis que solo declara humedad no es el resultado que ese mínimo pide, y
+ * compararlos daba 9,5 contra 54 y una discrepancia sobre un certificado conforme.
+ */
+const SE_PIDE_COMO_PISO = /^(protein|proteina|prote[ií]na|purity|pureza)$/i;
+const SE_PIDE_COMO_TECHO =
+  /^(moisture|humedad|fat|grasa|ash|ceniza|fiber|fibre|fibra|salt|sal|ffa|acidity|acidez|tvbn|broken|damaged)$/i;
+
 const normalizarUnidad = (u: string): string => {
   const t = u.toLowerCase().replace(/\s+/g, "");
   if (t === "pct" || t === "percent" || t === "%") return "%";
@@ -85,6 +108,18 @@ export function especificacionesDe(texto: string): Especificacion[] {
      * que sigue es del próximo renglón, no de este. Se corta en el primer dígito y se descarta si
      * viene con dos puntos, que es la marca de que etiqueta al valor siguiente.
      */
+    /*
+     * Las ventanas se cortan en el separador, no a los 40 caracteres secos.
+     *
+     * «PROTEIN 54 PCT MIN, QUANTITY 57 MTS» tiene la palabra que delata una tolerancia a doce
+     * caracteres del número que sí es calidad. La coma —o el punto y coma, o el renglón— es lo que
+     * separa un concepto del otro en un 45A, y respetarla es lo que deja que el freno descarte la
+     * tolerancia sin comerse la especificación de al lado.
+     */
+    const corte = (t: string, desdeElFinal: boolean) => {
+      const partes = t.split(/[,;.\n]/);
+      return (desdeElFinal ? partes[partes.length - 1] : partes[0]) ?? "";
+    };
     const ventanaPrevia = texto.slice(Math.max(finAnterior, m.index - 40), m.index);
     const crudo = texto.slice(m.index + m[0].length, m.index + m[0].length + 24);
     const haciaAdelante = crudo.split(/\d/)[0] ?? "";
@@ -94,6 +129,17 @@ export function especificacionesDe(texto: string): Especificacion[] {
       PARAMETROS.exec(antes)?.[0] ?? previos[previos.length - 1]?.[0] ?? PARAMETROS.exec(despues)?.[0] ?? "";
     const parametro = nombrado.toLowerCase();
     finAnterior = m.index + m[0].length;
+
+    /*
+     * Un por ciento que el campo presenta como tolerancia no entra.
+     *
+     * Solo cuando la especificación no nombra ningún parámetro de calidad: si el papel dice
+     * «PROTEIN», es proteína aunque la palabra «quantity» ande cerca. Y el silencio es la postura
+     * segura en los dos sentidos — perderse una exigencia manda a verificar, leer la tolerancia
+     * como exigencia rechaza una presentación conforme.
+     */
+    const contexto = [m[1] ?? "", corte(ventanaPrevia, true), corte(texto.slice(finAnterior, finAnterior + 30), false)];
+    if (!parametro && contexto.some((t) => NO_ES_CALIDAD.test(t))) continue;
 
     const clave = `${parametro}|${operador}|${valor}|${unidad}`;
     if (visto.has(clave)) continue;
@@ -165,6 +211,29 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
           medida: null,
           veredicto: "SIN_COMPARAR" as const,
           detalle: `el crédito pide «${ex.texto}» sin decir de qué parámetro y el certificado declara más de un resultado en ${ex.unidad}: verificar a mano contra cuál se compara`,
+        },
+      ];
+    }
+    /*
+     * Y el único candidato nombra un parámetro que no se exige en esa dirección.
+     *
+     * «54 PCT MIN» contra un análisis que solo declara «MOISTURE 9,5 %» daba discrepancia: nadie
+     * exige un mínimo de humedad, así que lo que estaba mal era el apareo, no el certificado. Sale
+     * a verificar a mano, que es lo que corresponde cuando el crédito no dijo de qué era el
+     * porcentaje y el papel no trae el resultado que podría serlo.
+     */
+    const alReves =
+      !porParametro &&
+      mismaUnidad.length === 1 &&
+      ((ex.operador === "MIN" && SE_PIDE_COMO_TECHO.test(mismaUnidad[0]!.parametro)) ||
+        (ex.operador === "MAX" && SE_PIDE_COMO_PISO.test(mismaUnidad[0]!.parametro)));
+    if (alReves) {
+      return [
+        {
+          exigida: ex,
+          medida: null,
+          veredicto: "SIN_COMPARAR" as const,
+          detalle: `el crédito pide «${ex.texto}» sin decir de qué parámetro y lo único que el certificado declara en ${ex.unidad} es ${mismaUnidad[0]!.parametro}, que no se exige en ese sentido: verificar a mano contra cuál se compara`,
         },
       ];
     }

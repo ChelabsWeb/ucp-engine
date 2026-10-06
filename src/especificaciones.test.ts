@@ -274,3 +274,59 @@ describe("el operador escrito con punto", () => {
     expect(c?.veredicto).toBe("SIN_COMPARAR");
   });
 });
+
+describe("un porcentaje en el 45A no es siempre una exigencia de calidad", () => {
+  /*
+   * Los dos falsos positivos que esta regla producía sobre el crédito real.
+   *
+   * El 45A no habla solo de calidad: en el mismo campo van la tolerancia de cantidad y de importe,
+   * y van escritas en por ciento. El motor las leía como una especificación más —«como mucho 5 %»—
+   * y después las comparaba contra el único porcentaje del análisis, que es la proteína. Un
+   * certificado que declara 61,1 % de proteína salía discrepante por no cumplir una tolerancia de
+   * embarque. Peor todavía: salía discrepante **y** conforme a la vez, porque la proteína también
+   * se comparaba bien contra el 54 PCT MIN.
+   */
+  const CON_TOLERANCIA = "57 MTS OF FISH MEAL 54 PCT MIN\nTOLERANCE MAX 5 PCT IN QUANTITY AND AMOUNT";
+
+  it("la tolerancia de cantidad e importe no se lee como una especificación", () => {
+    expect(especificacionesDe(CON_TOLERANCIA).map((e) => e.valor)).toEqual([54]);
+  });
+
+  it("y un análisis conforme no sale discrepante por la tolerancia del embarque", () => {
+    const c = cotejarEspecificaciones(CON_TOLERANCIA, "CRUDE PROTEIN: 61,1 %");
+    expect(c.map((x) => x.veredicto)).toEqual(["CUMPLE"]);
+  });
+
+  it("«5 PCT MORE OR LESS» tampoco, aunque la pista venga después del número", () => {
+    expect(especificacionesDe("QUANTITY 5 PCT MORE OR LESS ALLOWED")).toEqual([]);
+  });
+
+  it("pero una coma corta la ventana: la proteína sobrevive a la cantidad que viene detrás", () => {
+    // el freno no puede comerse lo que sí es calidad, o el módulo deja de mirar lo que vino a mirar
+    const e = especificacionesDe("PROTEIN 54 PCT MIN, QUANTITY 57 MTS");
+    expect(e.map((x) => x.valor)).toEqual([54]);
+  });
+
+  /*
+   * Y el apareo por unidad, cuando el crédito no dice de qué es el porcentaje.
+   *
+   * «57 MTS OF FISH MEAL 54PCT MIN» no nombra el parámetro: cuando el análisis declara un solo
+   * porcentaje, el motor asume que es ese. Si ese único resultado es la humedad, la cuenta sale
+   * 9,5 contra un mínimo de 54 y el certificado sale discrepante. Nadie exige un mínimo de
+   * humedad —se exige un máximo— así que el apareo estaba mal, no el certificado.
+   */
+  it("un mínimo sin nombre no se compara contra la humedad, que se exige al revés", () => {
+    const [c] = cotejarEspecificaciones("57 MTS OF FISH MEAL 54 PCT MIN", "MOISTURE: 9,5 %");
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+  });
+
+  it("y un máximo sin nombre tampoco se compara contra la proteína", () => {
+    const [c] = cotejarEspecificaciones("FISH MEAL MAX 10 PCT", "CRUDE PROTEIN: 61,1 %");
+    expect(c?.veredicto).toBe("SIN_COMPARAR");
+  });
+
+  it("pero el caso real sigue comparándose: un mínimo sin nombre contra la proteína", () => {
+    const [c] = cotejarEspecificaciones("57 MTS OF FISH MEAL 54 PCT MIN", "CRUDE PROTEIN: 61,1 %");
+    expect(c?.veredicto).toBe("CUMPLE");
+  });
+});
