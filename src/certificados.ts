@@ -19,6 +19,28 @@ import type { LcInfo } from "./types";
  */
 
 /** Un certificado presentado, apareado con el ítem del 46A que pretende cubrir. */
+/**
+ * Los campos de un certificado del 46A: los que este archivo lee de verdad.
+ *
+ * Estaba escrito a mano en la pantalla, que es la forma que tuvo el peor defecto del repo —una
+ * lista de diecinueve campos contra un esquema de treinta y uno, y siete artículos del transporte
+ * que nunca corrían por falta de dónde escribir el dato—. Acá la lista vive al lado de las reglas
+ * que la consumen, con un test que la contrasta contra el archivo.
+ *
+ * `exportador` y `fechaSeguro` no están: no son campos propios, son los respaldos con que se leen
+ * el emisor y la fecha cuando la extracción los nombró así. Darles casilla propia pondría dos
+ * casillas para el mismo dato.
+ */
+export const CAMPOS_CERTIFICADO: (keyof CamposDoc)[] = [
+  "emisorSeguro",
+  "mercaderia",
+  "fechaDocumento",
+  "numeroDoc",
+  "puertoEmbarque",
+  "pesoBruto",
+  "referenciaProforma",
+];
+
 export interface DocCertificado {
   /** el texto del ítem del 46A, tal como lo escribe el crédito */
   exigencia: string;
