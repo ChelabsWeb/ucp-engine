@@ -236,6 +236,15 @@ export interface LcSwift {
     bicDisponibleCon: string | null;
     /** el BIC a quien se mandó el mensaje, del encabezado */
     bicReceptor: string | null;
+    /**
+     * 53A: el banco al que el designado le reclama su reembolso.
+     *
+     * Si está, el artículo 13 se aplica: el crédito tiene que decir si el reembolso se sujeta a las
+     * URR 725, y hay una condición que no puede poner.
+     */
+    bancoReembolsador: string | null;
+    /** 78: instrucciones al banco pagador, aceptante o negociador */
+    instruccionesAlBanco: string | null;
     giros: string | null; // 42C: SIGHT / 90 DAYS …
     parciales: string | null;
     transbordo: string | null;
@@ -363,6 +372,8 @@ export function parseMT700(textoSwift: string): LcSwift | null {
       bicAvisador: bicDeCampo(campo(cs, "57A")),
       bicDisponibleCon: bicDeCampo(campo(cs, "41A")),
       bicReceptor: receptorDelHeader(textoSwift),
+      bancoReembolsador: bicDeCampo(campo(cs, "53A")) ?? nombreBanco(campo(cs, "53A")),
+      instruccionesAlBanco: texto(cs, "78") || null,
       giros: texto(cs, "42C") || null,
       parciales,
       transbordo: texto(cs, "43T") || null,

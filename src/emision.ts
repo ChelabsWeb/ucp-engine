@@ -405,6 +405,65 @@ export function revisarCredito(p: LcSwift): Observacion[] {
     );
   }
 
+  /*
+   * ── art. 13: el reembolso entre bancos ──
+   *
+   * Solo cuando el crédito nombra un banco reembolsador (53A): si el designado se cobra del emisor,
+   * no hay reembolso entre bancos que regular y el artículo no se aplica. Marcarlo igual sería ruido
+   * en todos los créditos normales.
+   */
+  if (p.extra.bancoReembolsador?.trim()) {
+    const donde = [
+      p.extra.instruccionesAlBanco ?? "",
+      ...(p.lc.condicionesAdicionales ?? []),
+      p.extra.infoAlDestinatario ?? "",
+    ].join(" \n ");
+
+    /*
+     * 13 (a): el crédito tiene que decir si el reembolso se sujeta a las URR.
+     *
+     * No decirlo no lo deja inoperable —el 13 (b) suple las reglas que faltan— y por eso va como
+     * AVISO: un banco que ve «IMPIDE» donde el artículo tiene una respuesta deja de confiar en las
+     * que sí impiden. Pero conviene saberlo antes de aceptar la designación, porque lo que suple el
+     * artículo no es lo mismo que lo que suplen las URR.
+     */
+    if (!/\bURR\b|uniform rules for bank[\s-]?to[\s-]?bank reimbursement/i.test(donde)) {
+      out.push(
+        obs(
+          "ucp-13a",
+          "AVISO",
+          "UCP 600 13a",
+          "El crédito nombra un banco reembolsador y no dice si el reembolso se sujeta a las URR",
+          "campo 53A",
+          "indicar en el 78 o en las condiciones si rigen las URR 725; sin eso rige el 13 (b): la autorización no puede llevar vencimiento, no se puede exigir certificado de cumplimiento al reembolsador, y el emisor reembolsa igual si el reembolsador no paga a primer requerimiento",
+        ),
+      );
+    }
+
+    /*
+     * 13 (b) (iii): al banco que reclama no se le puede exigir un certificado de cumplimiento para
+     * cobrarle **al reembolsador**.
+     *
+     * La distinción importa: pedirle al designado que certifique al **emisor** es otra cosa, y
+     * marcarlo sería inventar una prohibición que el artículo no tiene. Lo que el artículo niega es
+     * condicionar el reembolso a un papel que nadie está obligado a darle.
+     */
+    const certificadoAlReembolsador =
+      /certif\w*[\s\S]{0,90}reimbursing bank|reimbursing bank[\s\S]{0,90}certif\w*/i.test(donde);
+    if (certificadoAlReembolsador) {
+      out.push(
+        obs(
+          "ucp-13b-iii",
+          "CONFLICTO",
+          "UCP 600 13b-iii",
+          "El crédito exige un certificado de cumplimiento para cobrarle al banco reembolsador",
+          "campo 78",
+          "sacarlo: el artículo dice que al banco que reclama no se le puede exigir ese certificado, así que el banco designado que acepte la designación quedaría esperando un reembolso que depende de un papel que nadie tiene que darle",
+        ),
+      );
+    }
+  }
+
   return [...out11, ...out];
 }
 
@@ -478,6 +537,8 @@ export function revisarLcInfo(lc: LcInfo): Observacion[] {
       bicAvisador: null,
       bicDisponibleCon: null,
       bicReceptor: null,
+      bancoReembolsador: null,
+      instruccionesAlBanco: null,
       giros: lc.giros ?? null,
       parciales: null,
       transbordo: null,

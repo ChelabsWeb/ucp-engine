@@ -373,6 +373,23 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the supplier may ship in parts and collect on each, and those shipments cannot be presented under the first credit",
   ],
   [/^Práctica bancaria$/g, "Banking practice"],
+  // ── art. 13: el reembolso entre bancos ──
+  [
+    /^El crédito nombra un banco reembolsador y no dice si el reembolso se sujeta a las URR$/g,
+    "The credit names a reimbursing bank and does not state whether reimbursement is subject to the URR",
+  ],
+  [
+    /^indicar en el 78 o en las condiciones si rigen las URR 725; sin eso rige el 13 \(b\): la autorización no puede llevar vencimiento, no se puede exigir certificado de cumplimiento al reembolsador, y el emisor reembolsa igual si el reembolsador no paga a primer requerimiento$/g,
+    "state in field 78 or in the conditions whether URR 725 applies; without that, 13 (b) governs: the authorisation may not carry an expiry date, no certificate of compliance may be required of the reimbursing bank, and the issuing bank reimburses anyway if the reimbursing bank does not pay on first demand",
+  ],
+  [
+    /^El crédito exige un certificado de cumplimiento para cobrarle al banco reembolsador$/g,
+    "The credit requires a certificate of compliance in order to claim on the reimbursing bank",
+  ],
+  [
+    /^sacarlo: el artículo dice que al banco que reclama no se le puede exigir ese certificado, así que el banco designado que acepte la designación quedaría esperando un reembolso que depende de un papel que nadie tiene que darle$/g,
+    "take it out: the article says the claiming bank may not be required to supply that certificate, so a nominated bank that accepts the nomination would be waiting on a reimbursement that depends on a document nobody has to give it",
+  ],
   /*
    * ── qué papel juega el banco que examina (arts. 7, 8, 9, 12, 35) ──
    *
