@@ -417,6 +417,8 @@ export function revisarCredito(p: LcSwift): Observacion[] {
       p.extra.instruccionesAlBanco ?? "",
       ...(p.lc.condicionesAdicionales ?? []),
       p.extra.infoAlDestinatario ?? "",
+      // el 40E: «UCPURR LATEST VERSION» es el código estándar para declarar las URR, y no se miraba
+      p.extra.reglas ?? "",
     ].join(" \n ");
 
     /*
@@ -427,7 +429,8 @@ export function revisarCredito(p: LcSwift): Observacion[] {
      * que sí impiden. Pero conviene saberlo antes de aceptar la designación, porque lo que suple el
      * artículo no es lo mismo que lo que suplen las URR.
      */
-    if (!/\bURR\b|uniform rules for bank[\s-]?to[\s-]?bank reimbursement/i.test(donde)) {
+    // «URR725» se escribe sin espacio tan seguido como «URR 725»: un `\bURR\b` no lo encuentra
+    if (!/\bURR\s*\d*\b|\bUCPURR\b|uniform rules for bank[\s-]?to[\s-]?bank reimbursement/i.test(donde)) {
       out.push(
         obs(
           "ucp-13a",
@@ -448,8 +451,23 @@ export function revisarCredito(p: LcSwift): Observacion[] {
      * marcarlo sería inventar una prohibición que el artículo no tiene. Lo que el artículo niega es
      * condicionar el reembolso a un papel que nadie está obligado a darle.
      */
+    /*
+     * Lo que el artículo niega es exigirle el certificado **al reembolsador**, no que las dos
+     * palabras aparezcan cerca.
+     *
+     * La versión anterior saltaba por proximidad: un 78 que dijera «certify compliance on its
+     * covering letter **to us** and claim reimbursement from the reimbursing bank» daba CONFLICTO
+     * sobre un crédito bien redactado —el certificado es para el emisor, que es práctica universal—
+     * y hasta una frase que solo nombraba las dos cosas de paso. El propio comentario de arriba
+     * advertía contra eso.
+     *
+     * Ahora se exige que el certificado vaya **dirigido** al reembolsador: «to the reimbursing
+     * bank», «to them when claiming». Si está dirigido a otro, no es lo que el artículo prohíbe.
+     */
     const certificadoAlReembolsador =
-      /certif\w*[\s\S]{0,90}reimbursing bank|reimbursing bank[\s\S]{0,90}certif\w*/i.test(donde);
+      /certif\w*[^.;]{0,80}?\bto\s+(the|our|your|its)?\s*reimbursing\s+bank\b|\bto\s+(the|our|your|its)?\s*reimbursing\s+bank\b[^.;]{0,40}?certif\w*/i.test(
+        donde,
+      );
     if (certificadoAlReembolsador) {
       out.push(
         obs(

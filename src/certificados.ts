@@ -109,10 +109,28 @@ function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, e
  * 07-APR-2025 PRIOR TO LOADING». Es la fecha que importa para el párrafo A12b, y la única que el
  * motor puede usar para decidir cuando la emisión es posterior al embarque.
  */
+const NOMBRA_EL_HECHO =
+  /\b(carried out|performed|conducted|effected|inspected|surveyed|examined|fumigated|analy[sz]ed|drawn|taken|realizad[oa]|efectuad[oa]|inspeccionad[oa])\b[^.;\n]{0,60}?\b(on|at|el|the)?\b/i;
+
 function fechaDelHecho(campos: CamposDoc): Date | null {
   const texto = val(campos.mercaderia) ?? "";
   if (!texto) return null;
-  return parseFecha(texto);
+  /*
+   * La fecha del **hecho**, que es la que el papel nombra, no la primera que aparece.
+   *
+   * Un certificado imprime su propio número y fecha antes del cuerpo: «CERTIFICATE NO. 4471 DATED
+   * 10-APR-2025. INSPECTION CARRIED OUT ON 07-APR-2025». Quedarse con la primera daba discrepancia
+   * **y afirmaba en la evidencia que el hecho era del 10**, que es una afirmación falsa sobre el
+   * papel. Y al revés, una fecha anterior suelta —la del crédito en el encabezado— lo daba por
+   * bueno.
+   *
+   * Si el texto no nombra el hecho, no se elige ninguna: el veredicto vuelve a apoyarse en la
+   * emisión, que es lo que el documento evidencia.
+   */
+  const m = NOMBRA_EL_HECHO.exec(texto);
+  if (!m) return null;
+  const desde = texto.slice((m.index ?? 0) + m[0].length);
+  return parseFecha(desde.slice(0, 40));
 }
 
 /** El peso que declara un documento, en kilos, si se puede leer. */

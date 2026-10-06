@@ -1,4 +1,5 @@
 import { parseFecha } from "./fechas";
+import { comparaISBP } from "./isbp";
 import { diasPresentacion } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { LcInfo } from "./types";
@@ -41,7 +42,32 @@ export interface InconsistenciaPreaviso {
 
 const FUENTE = "UCP 600 11b";
 
-const texto = (v: unknown): string => (v === null || v === undefined ? "" : String(v).trim());
+/*
+ * Lo que el parser deja cuando un campo no vino no es un dato.
+ *
+ * El 31D es optativo en un MT705 y el parser pone «—». Contarlo como «el pre-aviso trae este campo»
+ * hacía que el operativo saliera inconsistente por traer un vencimiento que nadie anunció, que es
+ * exactamente lo contrario de lo que este módulo promete: agregar detalle no es contradecir.
+ */
+const VACIO = /^[\s—–\-.]*$/;
+
+const texto = (v: unknown): string => {
+  const t = v === null || v === undefined ? "" : String(v).trim();
+  return VACIO.test(t) ? "" : t;
+};
+
+/**
+ * Si el pre-aviso y el crédito operativo son el mismo crédito.
+ *
+ * Sin esto, `resumenPreaviso` no puede distinguir «no encontré inconsistencias» de «no había nada
+ * que comparar»: el cotejo devuelve `[]` en los dos casos, y el primero es una afirmación sobre el
+ * emisor mientras el segundo es la ausencia de una.
+ */
+export function sonElMismoCredito(preaviso: LcInfo, operativo: LcInfo): boolean {
+  const a = texto(preaviso.numero).toUpperCase();
+  const b = texto(operativo.numero).toUpperCase();
+  return !a || !b || a === b;
+}
 
 export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): InconsistenciaPreaviso[] {
   /*
@@ -110,8 +136,15 @@ export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): Inconsiste
     if (!delPreaviso || !delOperativo || delPreaviso === delOperativo) continue;
     const f1 = parseFecha(delPreaviso);
     const f2 = parseFecha(delOperativo);
-    // sin poder leer las dos fechas no se dice cuál es peor, pero la diferencia se informa igual
-    const antes = f1 && f2 ? f2.getTime() < f1.getTime() : false;
+    /*
+     * Sin poder leer las dos fechas no se informa nada.
+     *
+     * Antes se informaba la diferencia diciendo «es inconsistente, aunque no lo perjudica» — y eso
+     * es justamente lo que no se sabe cuando no se pudo leer una de las dos. Afirmar que no
+     * perjudica sobre un dato ilegible es peor que callarse.
+     */
+    if (!f1 || !f2) continue;
+    const antes = f2.getTime() < f1.getTime();
     marcar(
       campo,
       delPreaviso,
@@ -145,9 +178,16 @@ export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): Inconsiste
    * Se informa como lo más grave, no como un campo más: quien produjo contra el pre-aviso no es
    * quien va a poder cobrar.
    */
-  const ben1 = texto(preaviso.beneficiario).toUpperCase();
-  const ben2 = texto(operativo.beneficiario).toUpperCase();
-  if (ben1 && ben2 && ben1 !== ben2) {
+  /*
+   * El beneficiario se compara con el criterio de la ISBP, no letra por letra.
+   *
+   * Se comparaba con `===` al lado de reglas que usan `comparaISBP`, que tolera abreviaturas (A1) y
+   * errores de tipeo (A23). Un punto de más en la razón social disparaba la afirmación más grave
+   * del módulo: «quien produjo contra el pre-aviso no es quien va a poder cobrar».
+   */
+  const ben1 = texto(preaviso.beneficiario);
+  const ben2 = texto(operativo.beneficiario);
+  if (ben1 && ben2 && comparaISBP(ben1, ben2) === "DISTINTO") {
     marcar(
       "Beneficiario",
       texto(preaviso.beneficiario),
@@ -161,7 +201,19 @@ export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): Inconsiste
 }
 
 /** El resumen: si el emisor cumplió el artículo 11 (b), y a cuántos perjudica lo que no cumplió. */
-export function resumenPreaviso(inconsistencias: InconsistenciaPreaviso[]) {
+export function resumenPreaviso(inconsistencias: InconsistenciaPreaviso[], comparable = true) {
   const perjudican = inconsistencias.filter((x) => x.peorParaElBeneficiario).length;
-  return { total: inconsistencias.length, perjudican, consistente: inconsistencias.length === 0 };
+  return {
+    total: inconsistencias.length,
+    perjudican,
+    /*
+     * `comparable` separa «no encontré nada» de «no había nada que comparar».
+     *
+     * Con dos créditos de números distintos el cotejo devuelve `[]` —correcto, no son el mismo
+     * crédito— y el resumen lo leía como «consistente». Decir que un emisor cumplió el artículo
+     * 11 (b) porque le pasamos dos créditos que no se corresponden es peor que no decir nada.
+     */
+    comparable,
+    consistente: comparable && inconsistencias.length === 0,
+  };
 }

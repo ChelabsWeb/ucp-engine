@@ -246,7 +246,19 @@ export function emisorAdmitido(textoExigencia: string): EmisorAdmitido {
    * Así que se mira solo donde el crédito describe al emisor: el tramo que sigue a «issued by», o
    * el nombre del propio documento («INDEPENDENT INSPECTION CERTIFICATE»).
    */
-  const tramoDelEmisor = /\b(?:issued by|emitido por)\b(.*)$/.exec(t)?.[1] ?? "";
+  /*
+   * El tramo del emisor termina donde empieza lo que el documento tiene que decir.
+   *
+   * «ISSUED BY BENEFICIARY **CERTIFYING THAT** … APPLICANT\'S **LOCAL** AGENT» es una sola frase, y
+   * mirarla entera hacía que ese «local» —que califica al agente del ordenante, no al emisor—
+   * clasificara el certificado como «cualquiera menos el beneficiario». Con eso, el certificado que
+   * el crédito le pide **al beneficiario** salía discrepante por estar emitido por él.
+   *
+   * Es el mismo arreglo que ya se hizo para el nombre del emisor: cortar donde empieza la
+   * descripción.
+   */
+  const tramoCrudo = /\b(?:issued by|emitido por)\b(.*)$/.exec(t)?.[1] ?? "";
+  const tramoDelEmisor = cabezaDeExigencia(tramoCrudo.trim());
   const donde = `${cabezaDeExigencia(t)} ${tramoDelEmisor}`;
   if (/\b(independent|official|qualified|competent|first class|well known|local)\b/.test(donde)) {
     return "CUALQUIERA_MENOS_BENEFICIARIO";

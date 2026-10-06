@@ -106,3 +106,69 @@ describe("la condición que el artículo niega (13 b iii)", () => {
     expect(r.find((o) => o.fuente.includes("13b"))).toBeUndefined();
   });
 });
+
+describe("las formas en que un crédito declara las URR de verdad", () => {
+  /*
+   * `\bURR\b` no matchea «URR725» —sin espacio, como lo escriben— y el campo **40E** ni se miraba,
+   * cuando el código SWIFT estándar para esto es justamente «UCPURR LATEST VERSION». Los dos casos
+   * daban aviso sobre un crédito que sí lo declara.
+   */
+  it.each([
+    ["REIMBURSEMENT IS SUBJECT TO URR725.", null],
+    ["REIMBURSEMENT SUBJECT TO ICC URR 725", null],
+    ["CLAIMS SUBJECT TO UNIFORM RULES FOR BANK-TO-BANK REIMBURSEMENTS", null],
+  ])("«%s» no deja aviso", (instrucciones) => {
+    expect(del13(con({ bancoReembolsador: "CITIUS33", instruccionesAlBanco: instrucciones }))).toEqual([]);
+  });
+
+  it("y el 40E «UCPURR LATEST VERSION» tampoco, que es el código estándar", () => {
+    expect(del13(con({ bancoReembolsador: "CITIUS33", reglas: "UCPURR LATEST VERSION" }))).toEqual([]);
+  });
+
+  it("pero un crédito que no lo dice sigue dando aviso", () => {
+    expect(del13(con({ bancoReembolsador: "CITIUS33", reglas: "UCP LATEST VERSION" }))).toHaveLength(1);
+  });
+});
+
+describe("el certificado de cumplimiento: a quién se le exige", () => {
+  /*
+   * La regla saltaba por **proximidad de palabras**: cualquier 78 que mencionara «certify» y
+   * «reimbursing bank» en noventa caracteres daba CONFLICTO, aunque el certificado fuera para el
+   * emisor. El propio comentario del código advertía contra eso.
+   *
+   * Lo que el artículo niega es condicionar **el reembolso** a ese papel, así que lo que hay que
+   * mirar es a quién se lo exige, no si las dos palabras están cerca.
+   */
+  it("certificar al emisor en la carta de remesa no es lo que el artículo prohíbe", () => {
+    const r = del13(
+      con({
+        bancoReembolsador: "CITIUS33",
+        instruccionesAlBanco:
+          "NEGOTIATING BANK TO CERTIFY COMPLIANCE ON ITS COVERING LETTER TO US AND CLAIM REIMBURSEMENT FROM THE REIMBURSING BANK.",
+      }),
+    );
+    expect(r.find((o) => o.fuente.includes("13b"))).toBeUndefined();
+  });
+
+  it("ni una frase que solo nombra las dos cosas de paso", () => {
+    const r = del13(
+      con({
+        bancoReembolsador: "CITIUS33",
+        instruccionesAlBanco:
+          "WE SHALL AUTHORIZE THE REIMBURSING BANK TO HONOUR YOUR CLAIM. BENEFICIARY'S CERTIFICATE IS NOT REQUIRED IN DUPLICATE.",
+      }),
+    );
+    expect(r.find((o) => o.fuente.includes("13b"))).toBeUndefined();
+  });
+
+  it("pero exigírselo al reembolsador sigue siendo conflicto", () => {
+    const r = del13(
+      con({
+        bancoReembolsador: "CITIUS33",
+        instruccionesAlBanco:
+          "WHEN CLAIMING, NEGOTIATING BANK MUST CERTIFY TO THE REIMBURSING BANK THAT ALL TERMS AND CONDITIONS OF THE CREDIT HAVE BEEN COMPLIED WITH.",
+      }),
+    );
+    expect(r.find((o) => o.fuente.includes("13b"))?.gravedad).toBe("CONFLICTO");
+  });
+});

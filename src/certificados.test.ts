@@ -526,3 +526,96 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
     expect(r?.evidencia).toMatch(/verificar/);
   });
 });
+
+describe("la fecha del hecho, cuando el certificado trae varias", () => {
+  /*
+   * `fechaDelHecho` tomaba **la primera fecha del texto**, y un certificado imprime su propio número
+   * y fecha antes del cuerpo. Con eso:
+   *
+   * - un certificado que dice «CERTIFICATE NO. 4471 DATED 10-APR-2025. INSPECTION CARRIED OUT ON
+   *   07-APR-2025 PRIOR TO LOADING» daba DISCREPANCIA **y afirmaba en la evidencia que el hecho era
+   *   del 10**, que es una afirmación falsa sobre el papel;
+   * - y al revés, cualquier fecha anterior suelta en el texto —la del crédito, por ejemplo— lo daba
+   *   por bueno.
+   *
+   * La fecha que importa es la del **hecho**, y el papel la nombra: «carried out on», «inspected
+   * on», «issued at … on». Si no se puede saber cuál es, no se elige.
+   */
+  const EX = "+11)PRE-SHIPMENT INSPECTION CERTIFICATE ISSUED BY SGS";
+
+  const correrTexto = (queCertifica: string, fechaDocumento = "15-abr-25") =>
+    reglasCertificados({
+      lc: LC,
+      docs: [{ tipo: "BL", campos: doc({ fechaEmbarque: { valor: "08-abr-25", confianza: 0.9 } }) }],
+      hoy: new Date(2025, 3, 20),
+      certificados: [
+        {
+          exigencia: EX,
+          campos: doc({
+            fechaDocumento: { valor: fechaDocumento, confianza: 0.9 },
+            mercaderia: { valor: queCertifica, confianza: 0.9 },
+          }),
+        },
+      ],
+    }).find((x) => x.id.startsWith("cert-previo"));
+
+  it("la fecha propia del certificado no se toma por la del hecho", () => {
+    const r = correrTexto(
+      "CERTIFICATE NO. 4471 DATED 15-abr-25. INSPECTION CARRIED OUT AT MONTEVIDEO ON 07-abr-25 PRIOR TO LOADING.",
+    );
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/07/);
+  });
+
+  it("y una fecha suelta que no nombra el hecho no lo da por bueno", () => {
+    // La fecha del crédito en el encabezado del certificado no dice cuándo se inspeccionó.
+    const r = correrTexto("ISSUED UNDER L/C LCMRDN25000471 DATED 20-mar-25. GOODS IN GOOD ORDER.");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/no dice cu[aá]ndo/i);
+  });
+
+  it("el hecho nombrado y posterior al embarque sigue siendo discrepancia", () => {
+    expect(correrTexto("INSPECTION CARRIED OUT ON 11-abr-25.")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+describe("el calificativo del Q5 dentro de un «issued by»", () => {
+  /*
+   * `emisorAdmitido` mira el tramo que sigue a «issued by» entero, así que un certificado que el
+   * crédito le pide **al beneficiario** y que de paso menciona un «local agent» quedaba clasificado
+   * como «cualquiera menos el beneficiario» — y salía discrepante por estar emitido por quien el
+   * crédito nombró. Es el mismo defecto que ya se arregló para la forma sin «issued by».
+   */
+  it("un certificado pedido al beneficiario no se vuelve ajeno por mencionar un agente local", () => {
+    const r = reglasCertificados({
+      lc: LC,
+      docs: [],
+      beneficiario: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 20),
+      certificados: [
+        {
+          exigencia:
+            "CERTIFICATE ISSUED BY BENEFICIARY CERTIFYING THAT ONE SET OF NON-NEGOTIABLE DOCUMENTS HAS BEEN SENT TO APPLICANT'S LOCAL AGENT IN COLOMBO",
+          campos: doc({ emisorSeguro: { valor: "CEREALSUR S.A", confianza: 0.9 } }),
+        },
+      ],
+    }).find((x) => x.id.startsWith("cert-emisor"));
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("pero «issued by an independent surveyor» sigue excluyendo al beneficiario", () => {
+    const r = reglasCertificados({
+      lc: LC,
+      docs: [],
+      beneficiario: "CEREALSUR S.A",
+      hoy: new Date(2025, 3, 20),
+      certificados: [
+        {
+          exigencia: "INSPECTION CERTIFICATE ISSUED BY AN INDEPENDENT SURVEYOR",
+          campos: doc({ emisorSeguro: { valor: "CEREALSUR S.A", confianza: 0.9 } }),
+        },
+      ],
+    }).find((x) => x.id.startsWith("cert-emisor"));
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+});

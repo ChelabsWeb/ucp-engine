@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cotejarPreaviso, resumenPreaviso } from "./preaviso";
+import { cotejarPreaviso, resumenPreaviso, sonElMismoCredito } from "./preaviso";
 import type { LcInfo } from "./types";
 
 /**
@@ -113,5 +113,56 @@ describe("el resumen", () => {
     const r = resumenPreaviso(malo);
     expect(r.consistente).toBe(false);
     expect(r.perjudican).toBe(2);
+  });
+});
+
+describe("lo que el pre-aviso no trae, y los nombres escritos distinto", () => {
+  /*
+   * Dos defectos que convertían este módulo —cuya afirmación más grave es «quien produjo contra el
+   * pre-aviso no es quien va a poder cobrar»— en una alarma por un punto.
+   */
+  it("un punto en la razón social no hace que sea otro beneficiario", () => {
+    /*
+     * El beneficiario se comparaba con `===` al lado de reglas que usan `comparaISBP`, que tolera
+     * abreviaturas (A1) y errores de tipeo (A23) justamente para esto.
+     */
+    const r = cotejarPreaviso(PREAVISO, operativo({ beneficiario: "CEREALSUR S.A." }));
+    expect(r).toEqual([]);
+  });
+
+  it("pero otro beneficiario sigue siendo lo más grave", () => {
+    const r = cotejarPreaviso(PREAVISO, operativo({ beneficiario: "OTRA EMPRESA S.A" }));
+    expect(r[0]?.campo).toMatch(/beneficiario/i);
+    expect(r[0]?.peorParaElBeneficiario).toBe(true);
+  });
+
+  it("el «—» con que el parser marca un campo ausente no es una fecha", () => {
+    /*
+     * El 31D es optativo en un MT705, y el parser deja «—» cuando no está. Eso contaba como «el
+     * pre-aviso trae este campo», así que el operativo salía «inconsistente» por traer un
+     * vencimiento que el pre-aviso nunca anunció — justo lo contrario de lo que el módulo promete:
+     * agregar detalle no es contradecir.
+     */
+    const r = cotejarPreaviso({ ...PREAVISO, vencimiento: "—" }, operativo());
+    expect(r).toEqual([]);
+  });
+
+  it("y cuando las fechas no se pueden leer, no se afirma que no perjudica", () => {
+    // Antes decía «es inconsistente, aunque no lo perjudica» sobre algo que no se sabe.
+    const r = cotejarPreaviso({ ...PREAVISO, vencimiento: "ver carta adjunta" }, operativo());
+    expect(r).toEqual([]);
+  });
+
+  it("dos créditos con números distintos no se informan como consistentes", () => {
+    /*
+     * `cotejarPreaviso` devuelve `[]` cuando los números difieren —correcto, no son el mismo
+     * crédito— y `resumenPreaviso` lo leía como «consistente: true». Decir que un emisor cumplió el
+     * artículo 11 (b) porque le pasamos dos créditos que no se corresponden es peor que no decir
+     * nada.
+     */
+    const otro = operativo({ numero: "OTRO-123" });
+    const r = resumenPreaviso(cotejarPreaviso(PREAVISO, otro), sonElMismoCredito(PREAVISO, otro));
+    expect(r.consistente).toBe(false);
+    expect(r.comparable).toBe(false);
   });
 });

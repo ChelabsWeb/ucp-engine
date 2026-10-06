@@ -160,7 +160,7 @@ export type { Papel, PapelDelBanco } from "./papel";
 export { papelDelBanco, reglasDelPapel } from "./papel";
 export type { InconsistenciaPreaviso } from "./preaviso";
 /** El pre-aviso contra el crédito operativo que llegó después (UCP 600 art. 11 b). */
-export { cotejarPreaviso, resumenPreaviso } from "./preaviso";
+export { cotejarPreaviso, resumenPreaviso, sonElMismoCredito } from "./preaviso";
 export type { DocAnalizado, Ejemplares, EstadoRegla, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
 /** El examen previo a presentar: regla por regla, con evidencia. */
 export { ejemplaresDe, feeDiscrepancia, precheckPresentacion, tipoDeExigencia } from "./presentacion";
