@@ -132,6 +132,9 @@ export { motivoDeFallaDeLectura } from "./lectura-fallida";
 export type { DatosMT720, MensajeMT720 } from "./mt720";
 /** El crédito transferido, como mensaje SWIFT (UCP 600 art. 38). */
 export { mt720 } from "./mt720";
+export type { DatosMT730, MensajeMT730 } from "./mt730";
+/** El acuse, que es por donde viaja la aceptación de una enmienda (UCP 600 art. 10 c). */
+export { mt730 } from "./mt730";
 export type { DatosMT734, MensajeMT734 } from "./mt734";
 /** El aviso del artículo 16 como mensaje SWIFT MT734, con los largos de campo del estándar. */
 export { mt734 } from "./mt734";
