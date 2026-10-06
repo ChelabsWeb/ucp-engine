@@ -36,8 +36,21 @@ const PARAMETROS =
  * no cumplir la tolerancia del embarque. La pista puede venir antes del número («TOLERANCE MAX 5
  * PCT») o después («5 PCT MORE OR LESS ALLOWED»), así que se mira a los dos lados.
  */
-const NO_ES_CALIDAD =
-  /\b(toleran(?:ce|cia)|more or less|plus or minus|m[áa]s o menos|about|approximately|circa|quantity|cantidad|amount|importe|value|valor|drawings?|shipment|embarque)\b|\+\s*\/\s*-|±/i;
+const NO_ES_CALIDAD = /\b(toleran(?:ce|cia)|more or less|plus or minus|m[áa]s o menos)\b|\+\s*\/\s*-|±/i;
+
+/**
+ * Qué tan cerca del número tiene que estar la palabra para que lo califique.
+ *
+ * La primera versión de este freno miraba cuarenta caracteres a cada lado y la lista incluía
+ * «about», «quantity», «shipment», «value» — palabras que el artículo 30 usa y que están en casi
+ * cualquier 45A. Con eso, «ABOUT 57 MTS OF FISH MEAL 54 PCT MIN» perdía la exigencia de proteína
+ * entera: no quedaba ni discrepancia ni «a verificar», quedaba nada, y un análisis por debajo del
+ * mínimo pasaba en silencio.
+ *
+ * Una tolerancia se escribe **pegada** a su número: «TOLERANCE MAX 5 PCT», «5 PCT MORE OR LESS».
+ * Doce caracteres alcanzan para eso y no para cruzar media línea de mercadería.
+ */
+const CERCA = 12;
 
 /**
  * Los parámetros que se exigen como piso y los que se exigen como techo.
@@ -138,7 +151,11 @@ export function especificacionesDe(texto: string): Especificacion[] {
      * segura en los dos sentidos — perderse una exigencia manda a verificar, leer la tolerancia
      * como exigencia rechaza una presentación conforme.
      */
-    const contexto = [m[1] ?? "", corte(ventanaPrevia, true), corte(texto.slice(finAnterior, finAnterior + 30), false)];
+    const contexto = [
+      m[1] ?? "",
+      corte(ventanaPrevia, true).slice(-CERCA),
+      corte(texto.slice(finAnterior, finAnterior + CERCA), false),
+    ];
     if (!parametro && contexto.some((t) => NO_ES_CALIDAD.test(t))) continue;
 
     const clave = `${parametro}|${operador}|${valor}|${unidad}`;

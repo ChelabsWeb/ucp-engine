@@ -330,3 +330,36 @@ describe("un porcentaje en el 45A no es siempre una exigencia de calidad", () =>
     expect(c?.veredicto).toBe("CUMPLE");
   });
 });
+
+describe("el freno de la tolerancia no puede comerse la calidad", () => {
+  /*
+   * El arreglo de la mañana estuvo demasiado ancho y produjo algo peor que lo que arregló.
+   *
+   * La lista traía «about», «quantity», «shipment», «value», «amount» —palabras que el artículo 30
+   * usa y que están en casi cualquier 45A— y la ventana era de cuarenta caracteres. Con eso,
+   * «ABOUT 57 MTS OF FISH MEAL 54 PCT MIN» perdía la exigencia de proteína **entera**: no quedaba
+   * ni discrepancia ni «a verificar», quedaba nada. Un análisis de 50 % contra un mínimo de 54
+   * pasaba en silencio total, con la cara de un examen normal.
+   *
+   * Un falso positivo rechaza algo conforme y alguien lo discute. Esto deja pasar algo que no lo
+   * es, y nadie lo mira nunca.
+   */
+  it.each([
+    ["ABOUT 57 MTS OF FISH MEAL 54 PCT MIN", "CRUDE PROTEIN: 50,0 %"],
+    ["QUANTITY: 57 MTS FISH MEAL 54 PCT MIN", "CRUDE PROTEIN: 50,0 %"],
+    ["57 MTS OF FISH MEAL 54 PCT MIN SHIPMENT FROM MONTEVIDEO", "CRUDE PROTEIN: 50,0 %"],
+    ["FISH MEAL 54 PCT MIN CFR COLOMBO TOTAL VALUE USD 71250", "CRUDE PROTEIN: 50,0 %"],
+    // el mínimo de este es 46, así que el análisis que no lo cumple es otro
+    ["APPROXIMATELY 500 MT SOYBEAN MEAL 46 PCT MIN", "CRUDE PROTEIN: 44,0 %"],
+  ])("«%s» sigue exigiendo su mínimo", (credito, analisis) => {
+    const [c] = cotejarEspecificaciones(credito, analisis);
+    expect(c?.veredicto, "la exigencia de calidad desapareció").toBe("NO_CUMPLE");
+  });
+
+  it("y la tolerancia de verdad se sigue descartando", () => {
+    // lo que el arreglo vino a hacer, que no se puede perder al estrecharlo
+    const con = "57 MTS OF FISH MEAL 54 PCT MIN\nTOLERANCE MAX 5 PCT IN QUANTITY AND AMOUNT";
+    expect(cotejarEspecificaciones(con, "CRUDE PROTEIN: 61,1 %").map((x) => x.veredicto)).toEqual(["CUMPLE"]);
+    expect(especificacionesDe("QUANTITY 5 PCT MORE OR LESS ALLOWED")).toEqual([]);
+  });
+});

@@ -131,8 +131,26 @@ function regla(id: string, fuente: string, texto: string, estado: EstadoRegla, e
  * 07-APR-2025 PRIOR TO LOADING». Es la fecha que importa para el párrafo A12b, y la única que el
  * motor puede usar para decidir cuando la emisión es posterior al embarque.
  */
-const NOMBRA_EL_HECHO =
-  /\b(carried out|performed|conducted|effected|inspected|surveyed|examined|fumigated|analy[sz]ed|drawn|taken|realizad[oa]|efectuad[oa]|inspeccionad[oa])\b[^.;\n]{0,60}?\b(on|at|el|the)?\b/i;
+/*
+ * Los formularios lo escriben como sustantivo, no como verbo.
+ *
+ * La primera versión solo reconocía verbos —«carried out», «inspected»— y «DATE OF INSPECTION:
+ * 07-APR-2025» es la forma más común de todas: un formulario con su etiqueta. No entraba, así que
+ * el certificado salía discrepante **y la evidencia decía «no dice cuándo ocurrió lo que
+ * acredita»** sobre un papel que lo dice en su primera línea.
+ */
+const HECHO =
+  "inspection|survey|sampling|fumigation|analysis|examination|inspecci[óo]n|muestreo|fumigaci[óo]n|an[áa]lisis";
+const NOMBRA_EL_HECHO = new RegExp(
+  // el verbo: «INSPECTION CARRIED OUT AT MONTEVIDEO ON 07-APR»
+  String.raw`\b(carried out|performed|conducted|effected|inspected|surveyed|examined|fumigated|analy[sz]ed|drawn|taken|realizad[oa]|efectuad[oa]|inspeccionad[oa])\b[^.;\n]{0,60}?\b(on|at|el|the)?\b` +
+    // o el sustantivo con su etiqueta: «DATE OF INSPECTION:», «INSPECTION DATE», «FECHA DE MUESTREO»
+    String.raw`|\b(?:date of|fecha de[l]?)\s+(?:${HECHO})\b\s*:?\s*` +
+    String.raw`|\b(?:${HECHO})\s+(?:date|fecha)\b\s*:?\s*` +
+    // o el sustantivo con su preposición: «INSPECTION ON 11-APR», «FUMIGACIÓN EL 7 DE ABRIL»
+    String.raw`|\b(?:${HECHO})\b[^.;\n]{0,20}?\b(?:on|at|el)\b\s*`,
+  "gi",
+);
 
 function fechaDelHecho(campos: CamposDoc): Date | null {
   const texto = val(campos.mercaderia) ?? "";
@@ -149,10 +167,23 @@ function fechaDelHecho(campos: CamposDoc): Date | null {
    * Si el texto no nombra el hecho, no se elige ninguna: el veredicto vuelve a apoyarse en la
    * emisión, que es lo que el documento evidencia.
    */
-  const m = NOMBRA_EL_HECHO.exec(texto);
-  if (!m) return null;
-  const desde = texto.slice((m.index ?? 0) + m[0].length);
-  return parseFecha(desde.slice(0, 40));
+  /*
+   * La fecha tiene que estar en la misma oración que el hecho, y se miran todas las menciones.
+   *
+   * La ventana eran cuarenta caracteres secos y cruzaba el punto, así que «SAMPLES TAKEN. L/C DATED
+   * 20-MAR. INSPECTION ON 11-APR» tomaba la fecha del crédito por la del hecho y daba por bueno un
+   * certificado cuya inspección fue posterior al embarque. El punto es lo que separa una cosa de la
+   * otra en un certificado, igual que la coma en un 45A.
+   *
+   * Y se recorren todas: la primera mención puede no traer fecha —«SAMPLES TAKEN.»— y quedarse en
+   * ella es perder la que sí la trae.
+   */
+  for (const m of texto.matchAll(NOMBRA_EL_HECHO)) {
+    const desde = texto.slice(m.index + m[0].length);
+    const f = parseFecha((desde.split(/[.;\n]/)[0] ?? "").slice(0, 40));
+    if (f) return f;
+  }
+  return null;
 }
 
 /** El peso que declara un documento, en kilos, si se puede leer. */

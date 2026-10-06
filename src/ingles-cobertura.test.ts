@@ -205,6 +205,15 @@ function esTextoDeUsuario(s: string): boolean {
    */
   if (s.includes("${")) return false;
   /*
+   * Un patrón escrito con `String.raw` sigue siendo un patrón.
+   *
+   * Las expresiones regulares largas se arman así para no escapar las barras dos veces, y el
+   * extractor de literales las ve como cualquier cadena. Una lista de alternativas en dos idiomas
+   * —`inspected|…|inspeccionado`— dispara la heurística del castellano por la misma razón por la
+   * que está escrita: tiene palabras en castellano adentro. No es texto para nadie.
+   */
+  if (/\\b|\[\^|\{\d|\(\?:|\|/.test(s) && !/[.,;:]\s/.test(s)) return false;
+  /*
    * Dos clases de cadena que parecen texto y no lo son.
    *
    * Las `description` del esquema de extracción se las lee el modelo, igual que los prompts. Y los

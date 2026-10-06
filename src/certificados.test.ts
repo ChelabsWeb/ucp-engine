@@ -619,3 +619,64 @@ describe("el calificativo del Q5 dentro de un «issued by»", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 });
+
+describe("cómo un certificado nombra la fecha de lo que acredita", () => {
+  /*
+   * La regla de la mañana solo reconocía **verbos**, y los formularios usan sustantivos.
+   *
+   * «DATE OF INSPECTION: 07-APR-2025» es la forma más común de todas —un formulario con su
+   * etiqueta— y no entraba, así que el certificado salía discrepante **y la evidencia decía «no
+   * dice cuándo ocurrió lo que acredita»** sobre un papel que lo dice en su primera línea. Afirmar
+   * eso sobre el documento es peor que la discrepancia misma.
+   *
+   * Y la otra mitad tampoco funcionaba: la ventana de cuarenta caracteres cruzaba el punto, así que
+   * «SAMPLES TAKEN. L/C DATED 20-MAR. INSPECTION ON 11-APR» tomaba la fecha del crédito por la del
+   * hecho y daba el certificado por bueno. El hecho fue el 11, posterior al embarque.
+   */
+  const EXIGENCIA = "PRE-SHIPMENT INSPECTION CERTIFICATE ISSUED BY SGS";
+  /*
+   * La fecha del certificado va en **sus campos**, no en el input.
+   *
+   * La primera versión de este bloque la pasaba como `fechaDocumento` del input, que es la de la
+   * factura: `fd` quedaba nulo y los cuatro casos caían en la rama «falta la fecha del certificado
+   * o la del embarque», o sea que tres de ellos pasaban en verde sin tocar la regla que dicen
+   * probar. Se vio imprimiendo la salida, no leyendo el test.
+   */
+  const correr = (mercaderia: string) =>
+    reglasCertificados({
+      certificados: [
+        {
+          exigencia: EXIGENCIA,
+          campos: {
+            mercaderia: { valor: mercaderia, confianza: 1 },
+            emisorSeguro: { valor: "SGS", confianza: 1 },
+            fechaDocumento: { valor: "15-abr-25", confianza: 1 },
+          },
+          nombreArchivo: "insp.pdf",
+        },
+      ],
+      exigencias: [EXIGENCIA],
+      /*
+       * La fecha de embarque sale del conocimiento, no de un parámetro.
+       *
+       * Pasarla como `fechaEmbarque` del input no hacía nada: `reglasCertificados` la lee del BL que
+       * viene en `docs`. Sin ella los cuatro casos caían en «falta la fecha del certificado o la del
+       * embarque», que es la segunda vez que este bloque pasaba en verde sin tocar la regla.
+       */
+      docs: [{ tipo: "BL", campos: { fechaEmbarque: { valor: "08-abr-25", confianza: 1 } }, nombreArchivo: "bl.pdf" }],
+    } as never).find((r) => r.id.startsWith("cert-previo"));
+
+  it.each([
+    "DATE OF INSPECTION: 07-abr-25. GOODS FOUND IN GOOD CONDITION PRIOR TO LOADING.",
+    "INSPECTION DATE 07-abr-25 AT MONTEVIDEO PORT. QUANTITY 57 MT.",
+    "SAMPLING DATE: 07-abr-25. FUMIGATION DATE: 07-abr-25.",
+  ])("«%s» dice cuándo ocurrió", (texto) => {
+    expect(correr(texto)?.estado, "el papel lo dice y el motor dijo que no").not.toBe("DISCREPANCIA");
+  });
+
+  it("**y una fecha de otra cosa, detrás de un punto, no es la del hecho**", () => {
+    const r = correr("SAMPLES TAKEN. L/C DATED 20-mar-25. INSPECTION ON 11-abr-25.");
+    expect(r?.estado, "tomó la fecha del crédito por la del hecho").toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("11-abr-25");
+  });
+});
