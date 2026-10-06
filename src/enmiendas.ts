@@ -1,3 +1,4 @@
+import type { EstadoEnmienda } from "./enmienda-vigencia";
 import { type CampoSwift, esMensajeSwift, fechaSwift, listaSwift, montoSwift, tokenizarSwift } from "./swift-lc";
 import type { LcInfo } from "./types";
 
@@ -115,6 +116,42 @@ export function montoResultante(lc: LcInfo, e: Enmienda): number | null {
 }
 
 /** Aplica la enmienda sobre la LC (lo que la enmienda no menciona, no se toca). */
+/**
+ * El crédito que rige hoy, con todas las enmiendas que hubo (UCP 600 art. 10 c).
+ *
+ * El motor aceptaba **una** enmienda y la mesa precargaba la última, así que un crédito con dos
+ * acumulativas —una que sube el monto y otra que acorta el vencimiento— se examinaba contra un
+ * crédito que no era ni el original ni el enmendado: el original con la segunda, perdiendo la
+ * primera.
+ *
+ * El artículo dice que la aceptación es por enmienda. De ahí sale todo lo demás:
+ *
+ * - las **aceptadas** se aplican todas, en el orden en que llegaron, y eso no tiene ambigüedad: el
+ *   beneficiario dijo que sí a cada una;
+ * - las **rechazadas** no cambian nada, aunque la de al lado sí;
+ * - la que **no tiene respuesta** queda aparte, porque es la presentación misma la que dice si la
+ *   acepta —y eso lo decide `examinarConEnmienda` comparando los dos exámenes.
+ *
+ * Y si hay más de una sin responder, se dice en vez de elegir: la aceptación tácita se decide
+ * mirando un juego de documentos contra dos créditos, y con tres no hay cómo repartirla sin
+ * inventar. `ambiguo` es lo que la pantalla tiene que mostrar ahí.
+ */
+export function creditoVigenteCon(
+  lc: LcInfo,
+  enmiendas: { enmienda: Enmienda; estado: EstadoEnmienda }[],
+): { lc: LcInfo; sinResponder: Enmienda | null; ambiguo: boolean } {
+  let vigente = lc;
+  for (const { enmienda, estado } of enmiendas) {
+    if (estado === "ACEPTADA") vigente = aplicarEnmienda(vigente, enmienda);
+  }
+  const abiertas = enmiendas.filter((x) => x.estado === "SIN_RESPUESTA" || x.estado === "ACEPTADA_EN_PARTE");
+  return {
+    lc: vigente,
+    sinResponder: abiertas.length === 1 ? abiertas[0]!.enmienda : null,
+    ambiguo: abiertas.length > 1,
+  };
+}
+
 export function aplicarEnmienda(lc: LcInfo, e: Enmienda): LcInfo {
   const monto = montoResultante(lc, e);
   return {

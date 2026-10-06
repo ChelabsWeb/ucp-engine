@@ -75,7 +75,14 @@ export type { Conformidad, EstadoEnmienda, ObservacionEnmienda } from "./enmiend
 export { aceptacionTacita, creditoVigente, revisarEnmienda } from "./enmienda-vigencia";
 export type { CambioLC, Enmienda } from "./enmiendas";
 /** Enmiendas MT707: qué cambia contra el crédito vigente y cómo se aplica. */
-export { aplicarEnmienda, diffEnmienda, esEnmienda, montoResultante, parseMT707 } from "./enmiendas";
+export {
+  aplicarEnmienda,
+  creditoVigenteCon,
+  diffEnmienda,
+  esEnmienda,
+  montoResultante,
+  parseMT707,
+} from "./enmiendas";
 export type { CotejoSpec, Especificacion, Operador, VeredictoSpec } from "./especificaciones";
 /** La calidad que el crédito exige contra la que el análisis certifica. */
 export { cotejarEspecificaciones, especificacionesDe, pareceVariosDocumentos } from "./especificaciones";

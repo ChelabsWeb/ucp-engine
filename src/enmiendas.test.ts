@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { aplicarEnmienda, diffEnmienda, esEnmienda, montoResultante, parseMT707 } from "./enmiendas";
+import {
+  aplicarEnmienda,
+  creditoVigenteCon,
+  diffEnmienda,
+  type Enmienda,
+  esEnmienda,
+  montoResultante,
+  parseMT707,
+} from "./enmiendas";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { parseMT700 } from "./swift-lc";
+import type { LcInfo } from "./types";
 
 const LC = parseMT700(MT710_CSU2025099)!.lc;
 
@@ -78,5 +87,86 @@ describe("diffEnmienda / aplicarEnmienda — qué cambia antes de tocar la LC", 
     expect(nueva.documentosExigidos).toEqual(lc.documentosExigidos);
     expect(nueva.condicionesAdicionales!.length).toBe((lc.condicionesAdicionales ?? []).length + 2);
     expect(nueva.condicionesAdicionales!.some((c) => /SGS/.test(c))).toBe(true);
+  });
+});
+
+describe("un crédito con más de una enmienda", () => {
+  /*
+   * El artículo 10 (c) dice que la aceptación es **por enmienda**: el beneficiario puede aceptar una
+   * y no la otra, y mientras no comunique nada siguen rigiendo los términos originales.
+   *
+   * El motor aceptaba una sola, y la mesa precargaba la última. Con dos enmiendas acumulativas —una
+   * que cambia el monto y otra el vencimiento— se examinaba contra un crédito que no es ni el
+   * original ni el enmendado: el original con la segunda, perdiendo la primera.
+   *
+   * Lo que no tiene ambigüedad: las que el beneficiario **aceptó** se aplican todas, en orden. Lo
+   * que sí la tiene es más de una sin respuesta, porque la aceptación tácita se decide mirando la
+   * presentación y no se puede repartir entre dos. Ahí el motor lo dice en vez de elegir.
+   */
+  const base: LcInfo = {
+    numero: "LC-1",
+    monto: 100000,
+    moneda: "USD",
+    vencimiento: "31-dic-25",
+    bancoEmisor: "",
+    bancoAvisador: "",
+    limiteEmbarque: "",
+    plazoPresentacion: "",
+  };
+  const enmienda = (x: Partial<Enmienda>): Enmienda => ({
+    numeroLC: "LC-1",
+    numeroEnmienda: "1",
+    fecha: null,
+    narrativa: null,
+    ...x,
+  });
+  // el 32B de una enmienda trae el **aumento**, no el monto nuevo: por eso `aumento` y no `monto`
+  const sube = enmienda({ numeroEnmienda: "1", aumento: 20000 });
+  const acorta = enmienda({ numeroEnmienda: "2", vencimiento: "30-nov-25" });
+
+  it("las aceptadas se aplican todas, en orden", () => {
+    const r = creditoVigenteCon(base, [
+      { enmienda: sube, estado: "ACEPTADA" },
+      { enmienda: acorta, estado: "ACEPTADA" },
+    ]);
+    expect(r.lc.monto, "se perdió la enmienda del monto").toBe(120000);
+    expect(r.lc.vencimiento, "se perdió la enmienda del vencimiento").toBe("30-nov-25");
+    expect(r.sinResponder).toBeNull();
+  });
+
+  it("una rechazada no cambia nada, aunque la de al lado sí", () => {
+    const r = creditoVigenteCon(base, [
+      { enmienda: sube, estado: "RECHAZADA" },
+      { enmienda: acorta, estado: "ACEPTADA" },
+    ]);
+    expect(r.lc.monto).toBe(100000);
+    expect(r.lc.vencimiento).toBe("30-nov-25");
+  });
+
+  it("la que no tiene respuesta queda aparte: es la que decide la presentación (10 c)", () => {
+    const r = creditoVigenteCon(base, [
+      { enmienda: sube, estado: "ACEPTADA" },
+      { enmienda: acorta, estado: "SIN_RESPUESTA" },
+    ]);
+    expect(r.lc.monto, "la aceptada tiene que estar aplicada").toBe(120000);
+    expect(r.lc.vencimiento, "la que no se contestó no rige todavía").toBe("31-dic-25");
+    expect(r.sinResponder?.numeroEnmienda).toBe("2");
+  });
+
+  it("**con dos sin responder no se elige: se dice**", () => {
+    const r = creditoVigenteCon(base, [
+      { enmienda: sube, estado: "SIN_RESPUESTA" },
+      { enmienda: acorta, estado: "SIN_RESPUESTA" },
+    ]);
+    expect(r.sinResponder, "eligió una de las dos").toBeNull();
+    expect(r.ambiguo, "no avisó que hay más de una sin responder").toBe(true);
+    expect(r.lc.monto).toBe(100000);
+  });
+
+  it("sin enmiendas, el crédito es el que era", () => {
+    const r = creditoVigenteCon(base, []);
+    expect(r.lc).toEqual(base);
+    expect(r.sinResponder).toBeNull();
+    expect(r.ambiguo).toBe(false);
   });
 });
