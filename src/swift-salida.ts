@@ -106,7 +106,14 @@ export function importeSwift(n: number): string {
  * El `ACK` del MT730 ya seguía este criterio; esto lo extiende a los otros tres y lo deja en un solo
  * lugar, con su test.
  */
-export type TipoDeMensaje = "RECHAZO" | "CONSULTA" | "AUTORIZACION" | "ACUSE";
+export type TipoDeMensaje =
+  | "RECHAZO"
+  | "CONSULTA"
+  | "AUTORIZACION"
+  | "ACUSE"
+  | "REEMBOLSO_AUTORIZA"
+  | "REEMBOLSO_RECLAMA"
+  | "REEMBOLSO_ENMIENDA";
 
 const PREFIJO: Record<TipoDeMensaje, string> = {
   /** MT734, el aviso de rechazo del artículo 16 */
@@ -117,6 +124,19 @@ const PREFIJO: Record<TipoDeMensaje, string> = {
   AUTORIZACION: "AUT",
   /** MT730, el acuse */
   ACUSE: "ACK",
+  /*
+   * Los tres del reembolso (art. 13) llevan prefijo propio.
+   *
+   * La primera versión de la pantalla les prestó los de arriba —el reclamo salía con «DSC», que es
+   * el de una consulta por discrepancias— y eso deshace lo que esta función vino a arreglar: la
+   * referencia tiene que decir de qué mensaje se trata, no parecerse a otro.
+   */
+  /** MT740, la autorización de reembolso */
+  REEMBOLSO_AUTORIZA: "RMA",
+  /** MT742, el reclamo contra esa autorización */
+  REEMBOLSO_RECLAMA: "RMC",
+  /** MT747, la enmienda de la autorización */
+  REEMBOLSO_ENMIENDA: "RMX",
 };
 
 export function referenciaDelMensaje(tipo: TipoDeMensaje, delGiro: string): string {

@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  aparearConExigencias,
-  CAMPOS_CERTIFICADO,
-  type DocCertificado,
-  emisorQueNombra,
-  reglasCertificados,
-} from "./certificados";
+import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 } from "./fixtures";
 import type { DocAnalizado } from "./presentacion";

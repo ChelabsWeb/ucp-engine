@@ -8,10 +8,16 @@ describe("la referencia del campo 20", () => {
    * cursar sobre un expediente salían con la misma —y con la del otro banco, no con la nuestra.
    */
   it("cada mensaje del mismo giro lleva una referencia distinta", () => {
-    const refs = ["RECHAZO", "CONSULTA", "AUTORIZACION", "ACUSE"].map((t) =>
-      referenciaDelMensaje(t as never, "CSU2025099-2"),
-    );
-    expect(new Set(refs).size).toBe(4);
+    const refs = [
+      "RECHAZO",
+      "CONSULTA",
+      "AUTORIZACION",
+      "ACUSE",
+      "REEMBOLSO_AUTORIZA",
+      "REEMBOLSO_RECLAMA",
+      "REEMBOLSO_ENMIENDA",
+    ].map((t) => referenciaDelMensaje(t as never, "CSU2025099-2"));
+    expect(new Set(refs).size).toBe(7);
   });
 
   it("y dice de qué giro se trata", () => {
