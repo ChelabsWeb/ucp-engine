@@ -161,6 +161,23 @@ describe("el certificado de cumplimiento: a quién se le exige", () => {
     expect(r.find((o) => o.fuente.includes("13b"))).toBeUndefined();
   });
 
+  /*
+   * Y las tres formas que el arreglo anterior dejó pasar.
+   *
+   * Exigir que el certificado vaya «dirigido a» el reembolsador cerró el falso positivo y abrió
+   * tres falsos negativos, todos con la redacción corriente: el artículo no habla de a quién se le
+   * dirige el papel sino de **condicionar el reembolso** a él. Si el reclamo al reembolsador no se
+   * paga sin el certificado, está prohibido, lo diga como lo diga.
+   */
+  it.each([
+    "CLAIMS ON THE REIMBURSING BANK MUST BE ACCOMPANIED BY YOUR CERTIFICATE THAT ALL TERMS HAVE BEEN COMPLIED WITH.",
+    "REIMBURSING BANK WILL HONOUR YOUR CLAIM ONLY AGAINST YOUR CERTIFICATE OF COMPLIANCE.",
+    "WHEN CLAIMING FROM THE REIMBURSING BANK, CERTIFY THAT ALL TERMS AND CONDITIONS ARE COMPLIED WITH.",
+  ])("«%s» también lo condiciona", (texto) => {
+    const r = del13(con({ bancoReembolsador: "CITIUS33", instruccionesAlBanco: texto }));
+    expect(r.find((o) => o.fuente.includes("13b"))?.gravedad).toBe("CONFLICTO");
+  });
+
   it("pero exigírselo al reembolsador sigue siendo conflicto", () => {
     const r = del13(
       con({

@@ -66,7 +66,16 @@ const texto = (v: unknown): string => {
 export function sonElMismoCredito(preaviso: LcInfo, operativo: LcInfo): boolean {
   const a = texto(preaviso.numero).toUpperCase();
   const b = texto(operativo.numero).toUpperCase();
-  return !a || !b || a === b;
+  /*
+   * Sin número en alguno de los dos **no** son el mismo crédito: son dos mensajes sin vínculo
+   * verificado.
+   *
+   * Devolvía `true` y la pantalla entonces afirmaba «el crédito operativo no es inconsistente con
+   * lo que se pre-avisó», que es una afirmación sobre el cumplimiento del artículo 11 (b) apoyada en
+   * nada. Es la misma distinción que el resto del repo: no encontrar algo no es lo mismo que no
+   * haber podido mirar.
+   */
+  return Boolean(a) && Boolean(b) && a === b;
 }
 
 export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): InconsistenciaPreaviso[] {
@@ -185,9 +194,22 @@ export function cotejarPreaviso(preaviso: LcInfo, operativo: LcInfo): Inconsiste
    * errores de tipeo (A23). Un punto de más en la razón social disparaba la afirmación más grave
    * del módulo: «quien produjo contra el pre-aviso no es quien va a poder cobrar».
    */
+  /*
+   * Lo que la ISBP tolera en un documento no alcanza para decir que dos mensajes hablan de la misma
+   * empresa.
+   *
+   * Comparar con `===` disparaba por un punto de más en la razón social. Pasar a `comparaISBP`
+   * arregló eso y abrió lo contrario: «NEW CEREALSUR S.A» **contiene** a «CEREALSUR S.A.» y salía
+   * EQUIVALENTE, así que otra persona jurídica pasaba por el mismo beneficiario y el módulo callaba
+   * justo donde tiene que hablar más fuerte.
+   *
+   * El criterio que separa los dos casos: `IGUAL` es la misma escritura normalizada —el punto, los
+   * espacios— y eso sí se calla. `EQUIVALENTE` es contención y `TIPEO` es una letra de diferencia:
+   * en un nombre de empresa las dos cosas cambian de quién se habla, y se informan.
+   */
   const ben1 = texto(preaviso.beneficiario);
   const ben2 = texto(operativo.beneficiario);
-  if (ben1 && ben2 && comparaISBP(ben1, ben2) === "DISTINTO") {
+  if (ben1 && ben2 && comparaISBP(ben1, ben2) !== "IGUAL") {
     marcar(
       "Beneficiario",
       texto(preaviso.beneficiario),

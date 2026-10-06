@@ -461,13 +461,24 @@ export function revisarCredito(p: LcSwift): Observacion[] {
      * y hasta una frase que solo nombraba las dos cosas de paso. El propio comentario de arriba
      * advertía contra eso.
      *
-     * Ahora se exige que el certificado vaya **dirigido** al reembolsador: «to the reimbursing
-     * bank», «to them when claiming». Si está dirigido a otro, no es lo que el artículo prohíbe.
+     * Exigir que el certificado vaya **dirigido** al reembolsador cerró el falso positivo y abrió
+     * tres falsos negativos con la redacción corriente: «CLAIMS ON THE REIMBURSING BANK MUST BE
+     * ACCOMPANIED BY YOUR CERTIFICATE», «REIMBURSING BANK WILL HONOUR YOUR CLAIM ONLY AGAINST YOUR
+     * CERTIFICATE», «WHEN CLAIMING FROM THE REIMBURSING BANK, CERTIFY THAT…». El artículo no habla
+     * de a quién se le dirige el papel: habla de **condicionar el reembolso** a él.
+     *
+     * Así que se mira eso —el certificado y el reclamo al reembolsador en la misma oración— y se
+     * descarta el caso que había dado el falso positivo: cuando el certificado va explícitamente
+     * para otro. «CERTIFY COMPLIANCE ON ITS COVERING LETTER TO US AND CLAIM REIMBURSEMENT FROM THE
+     * REIMBURSING BANK» es práctica universal y no es lo que el artículo prohíbe.
      */
-    const certificadoAlReembolsador =
-      /certif\w*[^.;]{0,80}?\bto\s+(the|our|your|its)?\s*reimbursing\s+bank\b|\bto\s+(the|our|your|its)?\s*reimbursing\s+bank\b[^.;]{0,40}?certif\w*/i.test(
-        donde,
-      );
+    const oraciones = donde.split(/[.;]/);
+    const certificadoAlReembolsador = oraciones.some((o) => {
+      if (!/certif/i.test(o) || !/reimburs/i.test(o)) return false;
+      // el certificado dirigido a otro: a nosotros, al emisor, a ustedes
+      const paraOtro = /certif\w*[^,]{0,60}?\bto\s+(us|you|yourselves|the\s+issuing\s+bank)\b/i.test(o);
+      return !paraOtro;
+    });
     if (certificadoAlReembolsador) {
       out.push(
         obs(

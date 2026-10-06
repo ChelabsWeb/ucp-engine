@@ -166,3 +166,50 @@ describe("lo que el pre-aviso no trae, y los nombres escritos distinto", () => {
     expect(r.comparable).toBe(false);
   });
 });
+
+describe("el beneficiario del pre-aviso: tolerar un punto no es tolerar otra empresa", () => {
+  /*
+   * Comparar con `comparaISBP` cerró el falso positivo del punto y abrió uno peor en el otro
+   * sentido: la tolerancia de la ISBP está pensada para un dato de un documento contra el crédito
+   * —abreviaturas (A1), un error de tipeo (A23)—, no para decidir si dos mensajes hablan de la
+   * **misma persona jurídica**.
+   *
+   * «NEW CEREALSUR S.A» contiene a «CEREALSUR S.A.» y salía EQUIVALENTE, así que el módulo callaba
+   * justo donde tiene que hablar más fuerte: quien produjo contra el pre-aviso no es quien va a
+   * poder cobrar.
+   *
+   * La salida no es volver a `===` —el punto seguiría disparando— sino separar los dos casos: lo
+   * que la ISBP tolera no se informa, lo demás sí.
+   */
+  it.each(["NEW CEREALSUR S.A", "CEREALSUR S.A. SUCURSAL PARAGUAY", "CEREALSUR SA (IN LIQUIDATION)", "ACROMEALS S.A"])(
+    "«%s» no es el beneficiario del pre-aviso",
+    (beneficiario) => {
+      const r = cotejarPreaviso(PREAVISO, operativo({ beneficiario }));
+      expect(
+        r.map((x) => x.campo),
+        "no dijo nada sobre el beneficiario",
+      ).toContain("Beneficiario");
+    },
+  );
+
+  it("pero un punto de más sigue sin ser otro beneficiario", () => {
+    expect(cotejarPreaviso(PREAVISO, operativo({ beneficiario: "CEREALSUR S.A." }))).toEqual([]);
+  });
+});
+
+describe("dos mensajes sin número no son el mismo crédito por omisión", () => {
+  /*
+   * `parseMT700` deja «—» cuando no hay campo 20, `VACIO` lo vuelve cadena vacía y la condición
+   * `!a || !b` daba `true`. La pantalla entonces mostraba «el crédito operativo no es inconsistente
+   * con lo que se pre-avisó» sobre dos mensajes cuyo vínculo nunca se verificó, que es exactamente
+   * lo que `comparable` vino a evitar.
+   */
+  it("sin número en uno de los dos, no se afirma nada", () => {
+    expect(sonElMismoCredito(PREAVISO, operativo({ numero: "" }))).toBe(false);
+    expect(sonElMismoCredito({ ...PREAVISO, numero: "—" }, operativo())).toBe(false);
+  });
+
+  it("y con el mismo número sí", () => {
+    expect(sonElMismoCredito(PREAVISO, operativo())).toBe(true);
+  });
+});
