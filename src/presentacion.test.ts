@@ -465,3 +465,29 @@ describe("el número del crédito citado en el documento, y quién lo pide", () 
     expect(correr(lc, lc.numero)?.fuente).toBe("47A");
   });
 });
+
+describe("«listo» no es «verificado»", () => {
+  /*
+   * La distinción que vino del ERP y vale igual acá.
+   *
+   * El 46A del crédito real exige diez documentos y el producto sabe leer tres: los otros siete se
+   * tildan a mano. Un resultado que dijera «conforme» sobre eso manda a alguien al banco confiado,
+   * y el rechazo —con su cargo por juego— aparece allá.
+   *
+   * `listo` dice «nada de lo que miré está mal». `verificado` dice «además, lo miré todo». Con una
+   * sola regla en ATENCION, lo primero sigue siendo cierto y lo segundo no.
+   */
+  it("con algo a verificar, está listo pero no verificado", () => {
+    const r = precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["COMMERCIAL INVOICE", "CERTIFICATE OF ORIGIN IN 02 FOLD"] },
+      docs: [{ tipo: "FACTURA" as const, campos: {} as CamposDoc, nombreArchivo: "f.pdf" }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    });
+    const atencion = r.reglas.filter((x) => x.estado === "ATENCION").length;
+    expect(atencion, "el caso no dejó nada a verificar: el test no mira lo que dice").toBeGreaterThan(0);
+    expect(r.sinVerificar).toBe(atencion);
+    expect(r.verificado, "se dio por verificado con cosas sin mirar").toBe(false);
+  });
+});

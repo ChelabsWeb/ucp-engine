@@ -102,6 +102,18 @@ export interface ResultadoPresentacion {
   discrepancias: number;
   atencion: number;
   listo: boolean;
+  /**
+   * Además, no quedó nada sin mirar. `listo && !verificado` = «listo en lo que vi».
+   *
+   * No son lo mismo y confundirlos cuesta plata: el 46A del caso real exige diez documentos y el
+   * producto sabe analizar tres. Anunciar «conforme» sobre siete certificados tildados a mano manda
+   * a alguien al banco confiado, y el rechazo —con su cargo por juego— aparece allá. `listo` dice
+   * «nada de lo que miré está mal»; `verificado` dice «además, lo miré todo». Quien muestre esto
+   * tiene que decir las dos cosas.
+   */
+  verificado: boolean;
+  /** cuántas reglas quedaron en ATENCION, que es lo que falta mirar a mano */
+  sinVerificar: number;
   feePorJuego: number | null;
   /** días que quedan para presentar (negativo = vencido), si se puede calcular */
   diasParaPresentar: number | null;
@@ -528,6 +540,8 @@ export function precheckPresentacion(input: {
     discrepancias,
     atencion,
     listo: faltan === 0 && discrepancias === 0 && exigidos.length > 0,
+    verificado: faltan === 0 && discrepancias === 0 && atencion === 0 && exigidos.length > 0,
+    sinVerificar: atencion,
     feePorJuego: feeDiscrepancia(lc.condicionesAdicionales),
     diasParaPresentar,
   };
