@@ -327,7 +327,10 @@ describe("quién emite, con las redacciones que los créditos usan de verdad", (
   });
 
   it.each([
-    ["+11)SHIPPING COMPANY CERTIFICATE ISSUED BY CARRIER OR ITS AGENT STATING THE VESSEL AGE", "OCEANLINE URUGUAY S.A."],
+    [
+      "+11)SHIPPING COMPANY CERTIFICATE ISSUED BY CARRIER OR ITS AGENT STATING THE VESSEL AGE",
+      "OCEANLINE URUGUAY S.A.",
+    ],
     ["+8)CERTIFICATE OF ANALYSIS ISSUED BY MANUFACTURER", "MOLSUR S.A."],
     ["+12)PACKING DECLARATION ISSUED BY SHIPPER", "MOLSUR S.A."],
   ])("un rol del comercio no es un nombre propio: «%s»", (exigencia, emisor) => {

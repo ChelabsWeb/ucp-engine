@@ -101,7 +101,7 @@ export function mencionaDocumento(texto: string): boolean {
 /**
  * Lo que dice que el crédito operativo todavía no llegó (UCP 600 art. 11 a).
  *
- * Tiene que ser específico o arruina todo. El 47A del expediente real dice «BENEFICIARY SHOULD
+ * Tiene que ser específico o arruina todo. El 47A del expediente de referencia dice «BENEFICIARY SHOULD
  * ADVISE FULL DETAILS OF SHIPMENT WITHIN 05 DAYS»: un patrón que buscara «full details» marcaría
  * como no operativo el crédito con el que se validó el motor entero. Lo que importa es que los
  * detalles **sigan**, o que el mensaje diga que el operativo es otro.

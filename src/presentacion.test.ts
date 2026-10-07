@@ -24,7 +24,7 @@ const base: CamposDoc = {
   numeroDoc: vacio,
 };
 
-/* los tres documentos reales del caso, con lo que el banco mira */
+/* los tres documentos del expediente del caso, con lo que el banco mira */
 const FACTURA: CamposDoc = {
   ...base,
   exportador: campo("CEREALSUR S.A"),

@@ -3,7 +3,7 @@ import { cotejarEspecificaciones, especificacionesDe, pareceVariosDocumentos } f
 import { SWIFT_CSU2025099 } from "./fixtures";
 import { parseMT700 } from "./swift-lc";
 
-/* Del expediente real: el crédito dice «57 MTS OF FISH MEAL 54PCT MIN» y el certificado
+/* Del expediente de referencia: el crédito dice «57 MTS OF FISH MEAL 54PCT MIN» y el certificado
    de análisis de Caliset declara «PROTEIN 61,1%». */
 const MERCADERIA_DEL_CREDITO = parseMT700(SWIFT_CSU2025099)!.campos.mercaderia.valor;
 const CERTIFICADO_REAL = `CERTIFICATE OF ANALYSIS
@@ -76,7 +76,7 @@ describe("el crédito contra el certificado, con los papeles reales", () => {
 });
 
 describe("un archivo con más de un documento adentro", () => {
-  it("el del caso real trae el análisis y la fumigación juntos", () => {
+  it("el del caso de referencia trae el análisis y la fumigación juntos", () => {
     const dos = `CERTIFICATE OF ANALYSIS
 VESSEL: STELLA AUSTRAL
 PROTEIN 61,1%
@@ -325,7 +325,7 @@ describe("un porcentaje en el 45A no es siempre una exigencia de calidad", () =>
     expect(c?.veredicto).toBe("SIN_COMPARAR");
   });
 
-  it("pero el caso real sigue comparándose: un mínimo sin nombre contra la proteína", () => {
+  it("pero el caso de referencia sigue comparándose: un mínimo sin nombre contra la proteína", () => {
     const [c] = cotejarEspecificaciones("57 MTS OF FISH MEAL 54 PCT MIN", "CRUDE PROTEIN: 61,1 %");
     expect(c?.veredicto).toBe("CUMPLE");
   });

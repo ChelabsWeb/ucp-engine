@@ -7,7 +7,7 @@ import { parseMT700 } from "./swift-lc";
 /**
  * El crédito que llegó contra el contrato que se firmó.
  *
- * El caso real: la proforma 2025099 —que es el contrato de venta, firmada por las dos partes—
+ * El caso de referencia: la proforma 2025099 —que es el contrato de venta, firmada por las dos partes—
  * pactó seis documentos y treinta días para presentar. El crédito que emitió el Meridian Bank pide
  * diez documentos y da veintiuno. Nadie lo notó hasta ahora, y es la clase de cosa que hay que
  * ver ANTES de embarcar: después, conseguir un certificado de fumigación que no estaba en el trato

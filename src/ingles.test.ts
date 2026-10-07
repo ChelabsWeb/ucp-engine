@@ -5,13 +5,13 @@ import { contextoDesdeSwift, DOCUMENTOS_CSU2025099, parseMT700, SWIFT_CSU2025099
 import { manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
 
 /**
- * La prueba que importa es de **cobertura**: sobre el expediente real, ningún hallazgo puede
+ * La prueba que importa es de **cobertura**: sobre el expediente de referencia, ningún hallazgo puede
  * quedar con español afuera de las comillas. Si alguien agrega una regla nueva al motor y no la
  * traduce, este test falla antes de que el texto llegue a un aviso de rechazo.
  */
 
 /**
- * El expediente real examinado en una fecha dada.
+ * El expediente de referencia examinado en una fecha dada.
  *
  * La fecha es un parámetro y no una constante porque **las reglas de plazo solo existen cuando una
  * fecha pasó**. Con un solo escenario al día, «Presentar dentro de 21 días del BL» y «presentada
@@ -94,7 +94,7 @@ function sinTraducirEn(r: { reglas: { regla: string; evidencia?: string | null }
     .filter((x) => x.palabra !== null);
 }
 
-describe("cobertura sobre el expediente real", () => {
+describe("cobertura sobre el expediente de referencia", () => {
   /*
    * Un documento de transporte de cada clase.
    *

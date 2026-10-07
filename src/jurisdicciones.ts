@@ -4,7 +4,7 @@ import type { ParteScreenear } from "./sanciones";
  * El control que de verdad corresponde sobre un puerto.
  *
  * Los puertos se estaban cotejando por nombre contra las listas de personas y entidades, y eso
- * produce basura. Caso real del expediente CSU2025099: el puerto de descarga «COLOMBO,SRI LANKA»
+ * produce basura. Caso de referencia del expediente CSU2025099: el puerto de descarga «COLOMBO,SRI LANKA»
  * daba coincidencia parcial con «TAMILS REHABILITATION ORGANISATION», porque esa entidad tiene
  * entre sus alias «TSUNAMI RELIEF FUND -- COLOMBO, SRI LANKA». Todas las palabras del puerto
  * estaban dentro del alias, así que el cotejo por contención —que para empresas es correcto,

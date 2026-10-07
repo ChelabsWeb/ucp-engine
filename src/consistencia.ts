@@ -822,7 +822,7 @@ export interface CruceDocumentos {
 }
 
 /**
- * El BL del caso real dice "cartons" y el packing list "bags" del mismo embarque: UCP 600 art. 14d
+ * El BL del caso de referencia dice "cartons" y el packing list "bags" del mismo embarque: UCP 600 art. 14d
  * exige que los documentos no se contradigan entre sí, y el banco cobra USD 80 por cada juego con
  * discrepancias. Esto cruza los documentos ya analizados de la operación entre ellos.
  */

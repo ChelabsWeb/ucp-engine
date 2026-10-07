@@ -49,7 +49,7 @@ describe("un puerto no se coteja contra nombres de personas y entidades", () => 
     expect(screenear([comoEmpresa], [TRO])).toHaveLength(1);
   });
 
-  it("el expediente real no produce ninguna coincidencia contra esta entrada", () => {
+  it("el expediente de referencia no produce ninguna coincidencia contra esta entrada", () => {
     const credito = parseMT700(SWIFT_CSU2025099)!;
     const partes = partesAScreenear({
       lc: credito.lc,

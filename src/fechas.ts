@@ -38,7 +38,7 @@ export function fmtFecha(d: Date): string {
   return `${String(d.getDate()).padStart(2, "0")}-${MESES[d.getMonth()]}-${String(d.getFullYear()).slice(2)}`;
 }
 
-/* meses en inglés (los documentos reales vienen así: "08-APR-2025", "April 08th, 2025") */
+/* meses en inglés (los documentos del expediente vienen así: "08-APR-2025", "April 08th, 2025") */
 const MESES_EN = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 
 /**
@@ -70,7 +70,7 @@ const valida = (y: number, m: number, d: number): Date | null => {
 
 /**
  * Fecha del dominio "30-sep-26" y, desde el caso CSU2025099, las formas en que las escriben los
- * documentos reales: "08-APR-2025" (BL), "08/04/25" (factura DGI), "08/04/2025" y "21/12/2024"
+ * documentos del expediente: "08-APR-2025" (BL), "08/04/25" (factura DGI), "08/04/2025" y "21/12/2024"
  * (packing), "April 08th, 2025" (certificados), "2025-04-08" (ISO). Numéricas = día/mes/año
  * (convención uruguaya y de los bancos de la región). Lo difuso ("+21 días", "~fin ago") → null.
  */

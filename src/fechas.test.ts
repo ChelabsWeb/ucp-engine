@@ -6,7 +6,7 @@ describe("parseFecha", () => {
     expect(parseFecha("15-ago-26")).toEqual(new Date(2026, 7, 15));
   });
 
-  it("caso CSU2025099: las fechas como vienen en los documentos reales", () => {
+  it("caso CSU2025099: las fechas como vienen en los documentos del expediente", () => {
     expect(parseFecha("08-APR-2025")).toEqual(new Date(2025, 3, 8)); // BL
     expect(parseFecha("08/04/25")).toEqual(new Date(2025, 3, 8)); // factura DGI
     expect(parseFecha("08/04/2025")).toEqual(new Date(2025, 3, 8)); // packing

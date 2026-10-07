@@ -12,7 +12,7 @@ import { parseMT700 } from "./swift-lc";
  * con qué compararlo— pero **no puede ganar una discrepancia**. Una presentación conforme no se
  * vuelve discrepante porque al motor le falte un dato propio.
  *
- * Existe porque esa regla se rompía en la práctica. El conocimiento del expediente real dice
+ * Existe porque esa regla se rompía en la práctica. El conocimiento del expediente de referencia dice
  * «NOTIFY ORIENT FEED (PVT) LTD», que es exactamente el ordenante que el crédito pide notificar; con
  * el campo 50 sin leer, `bl-notify` comparaba contra una cadena vacía y daba DISCREPANCIA, con la
  * evidencia terminando en «· ordenante » y nada después. El propio hallazgo delataba que el dato

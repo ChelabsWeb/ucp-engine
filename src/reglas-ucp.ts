@@ -273,7 +273,7 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
  * Una factura titulada «proforma» o «provisional» no satisface la exigencia de factura comercial.
  *
  * La regla estaba escrita en `isbp.ts`, exportada y probada, y nadie la llamaba: el examen no la
- * ejecutaba nunca. Apareció en un backtest contra los tipos de documento reales del ERP, donde
+ * ejecutaba nunca. Apareció en un backtest contra los tipos de documentos del expediente del ERP, donde
  * «Proforma invoice» se clasificaba igual que una factura comercial.
  *
  * Importa más desde que lo no exigido se desestima (art. 14 g): si la proforma cuenta como la

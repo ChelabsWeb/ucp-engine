@@ -13,7 +13,7 @@ import { parseMT700 } from "../swift-lc";
 import type { Empresa, OperationDetail } from "../types";
 
 /**
- * DATASET DORADO — el expediente REAL de la operación CSU2025099 que mandó Cerealsur el 8-sep-2026
+ * DATASET DORADO — el expediente de REFERENCIA de la operación CSU2025099 que mandó Cerealsur el 8-sep-2026
  * (harina de pescado Molsur → Orient Feed, Sri Lanka, LC del Meridian Bank, embarcada el 08-abr-2025),
  * transcripto documento por documento, contra la operación tal como la importó el ETL.
  *

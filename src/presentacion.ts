@@ -105,7 +105,7 @@ export interface ResultadoPresentacion {
   /**
    * Además, no quedó nada sin mirar. `listo && !verificado` = «listo en lo que vi».
    *
-   * No son lo mismo y confundirlos cuesta plata: el 46A del caso real exige diez documentos y el
+   * No son lo mismo y confundirlos cuesta plata: el 46A del caso de referencia exige diez documentos y el
    * producto sabe analizar tres. Anunciar «conforme» sobre siete certificados tildados a mano manda
    * a alguien al banco confiado, y el rechazo —con su cargo por juego— aparece allá. `listo` dice
    * «nada de lo que miré está mal»; `verificado` dice «además, lo miré todo». Quien muestre esto
@@ -377,7 +377,7 @@ export function precheckPresentacion(input: {
        *
        * Faltaba la mitad del control: si el campo 50 del crédito no se pudo leer, `cliente` queda
        * vacío y el resultado era DISCREPANCIA — con la evidencia terminando en «· ordenante » y
-       * nada después. El conocimiento del expediente real dice «NOTIFY ORIENT FEED (PVT) LTD», que
+       * nada después. El conocimiento del expediente de referencia dice «NOTIFY ORIENT FEED (PVT) LTD», que
        * es exactamente el ordenante, y salía discrepante por un dato que falta de este lado.
        */
       const ok = nt && cliente ? norm(nt).includes(norm(cliente).split(" ")[0]) : false;
@@ -449,7 +449,7 @@ export function precheckPresentacion(input: {
   }
 
   /* D3: la LC fija cómo figura el beneficiario; los documentos propios tienen que repetirlo (en el
-     caso real la proforma llevaba Colón 1498 y la LC Cerrito 820) */
+     caso de referencia la proforma llevaba Colón 1498 y la LC Cerrito 820) */
   if (lc.beneficiarioDireccion && input.empresaDireccion) {
     const calle = (s: string) =>
       norm(s)

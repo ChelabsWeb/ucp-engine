@@ -12,7 +12,26 @@ Lo usan dos productos y por eso vive acá:
 
 Antes de este repo había dos copias del mismo motor, una en cada uno, y la paridad se mantenía a
 mano. No se mantuvo: cinco arreglos encontrados en uno tardaron cinco días en cruzar al otro, y el
-de incoterm —que daba DIFERENTE en 91 de 91 puertos reales del ERP— llevaba más.
+de incoterm —que daba DIFERENTE en 91 de 91 puertos del ERP— llevaba más.
+
+## El expediente de referencia
+
+Los tests no corren contra casos de juguete: corren contra un expediente completo —crédito MT710,
+factura, packing, conocimiento de embarque, certificados, enmienda— que atraviesa el motor de punta
+a punta. Es el caso `CSU2025099`: una exportación de harina de pescado de Montevideo a Colombo,
+pagada con un crédito irrevocable no confirmado, con tolerancia del 10 %, embarques parciales
+permitidos y once documentos exigidos en el 46A.
+
+**Ese expediente es inventado.** Está modelado sobre la forma de una operación de verdad —por eso
+tiene las rarezas que tiene: el mismo contenedor escrito de dos maneras en dos papeles, la LC
+llegando dentro de un correo reenviado dos veces, un conocimiento recibido para embarque sin
+anotación de a bordo— pero las empresas, los bancos, las personas, las direcciones, los números de
+crédito, de factura, de contenedor y de póliza no existen. Cualquier parecido con una operación
+real es la forma, no los datos.
+
+Esto importa para leer los tests: cuando un comentario dice «el packing del expediente escribe
+«DEMU 410037-1» y el conocimiento «DEMU4100371»», está describiendo un problema que pasa de verdad,
+con datos que no.
 
 ## El principio
 

@@ -3,7 +3,7 @@ import { type CamposDoc, parseNumero } from "./consistencia";
 /**
  * Números escritos por gente distinta, en países distintos, sobre el mismo embarque.
  *
- * El expediente real CSU2025099 tiene el caso de manual: la factura escribe la cantidad
+ * El expediente de referencia CSU2025099 tiene el caso de manual: la factura escribe la cantidad
  * como «53,960» y el packing como «53.960,00 Kgs». Es el mismo embarque. La coma seguida
  * de tres dígitos es genuinamente ambigua — puede ser separador de miles (53.960) o
  * decimal (53,96) — y si se elige mal y la unidad son toneladas, el error es de mil veces.
@@ -93,7 +93,7 @@ const fmt = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 3,
 /**
  * Un número de contenedor, comparable.
  *
- * El mismo contenedor viaja escrito de dos formas: el packing del caso real dice
+ * El mismo contenedor viaja escrito de dos formas: el packing del caso de referencia dice
  * «DEMU 410037-1» y el conocimiento de embarque «DEMU4100371». Son el mismo. Comparar el
  * texto tal cual daría una contradicción entre documentos que no existe.
  */

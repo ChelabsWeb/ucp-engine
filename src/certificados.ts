@@ -8,7 +8,7 @@ import type { LcInfo } from "./types";
 /**
  * Los otros documentos del campo 46A.
  *
- * El crédito del caso real exige diez y solo tres —factura, packing y conocimiento de
+ * El crédito del caso de referencia exige diez y solo tres —factura, packing y conocimiento de
  * embarque— tienen reglas propias. Los otros siete son certificados: origen, análisis,
  * fumigación, veterinario, nota de peso y dos certificados del beneficiario. Hasta ahora
  * el motor solo sabía si estaban o si faltaban.
@@ -56,7 +56,7 @@ const corto = (s: string, n = 60) => {
  *
  * El punto **no** termina el nombre si está pegado a la palabra siguiente: en SWIFT las
  * abreviaturas van así —«GOVT.VETERINERY AUTHORITY IN URUGUAY», «CO.LTD»— y cortar en el primer
- * punto dejaba «GOVT» como emisor exigido. Con eso, el certificado veterinario del expediente real
+ * punto dejaba «GOVT» como emisor exigido. Con eso, el certificado veterinario del expediente de referencia
  * daba discrepancia contra el organismo que de verdad lo firma, y solo pasaba si el papel repetía
  * la abreviatura del crédito letra por letra, con su error de tipeo incluido.
  */

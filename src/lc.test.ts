@@ -104,7 +104,11 @@ describe("avisoAseguradora — condición 47A del caso CSU2025099", () => {
   const cond =
     "BENEFICIARY SHOULD ADVISE FULL DETAILS OF SHIPMENT WITHIN 05 DAYS AFTER SHIPMENT DATE QUOTING POLICY NO IN0099IP000001 TO LANKASEGUROS GENERAL INSURANCE LTD, NO.10,LANKASEGUROS HOUSE, HARBOUR MAWATHA COLOMBO 01,SRI LANKA ON FAX NO 94-11-2000000,ON EMAIL POLIZAS(AT)LANKASEGUROS.EXAMPLE A CERTIFICATE TO THIS EFFECT MUST ACCOMPANY THE ORIGINAL DOCUMENTS.";
   it('saca los días, la póliza y el email (con "(at)")', () => {
-    expect(avisoAseguradora([cond])).toMatchObject({ dias: 5, poliza: "IN0099IP000001", email: "polizas@lankaseguros.example" });
+    expect(avisoAseguradora([cond])).toMatchObject({
+      dias: 5,
+      poliza: "IN0099IP000001",
+      email: "polizas@lankaseguros.example",
+    });
   });
   it("sin condición de aviso → null; otras condiciones no confunden", () => {
     expect(

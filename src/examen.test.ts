@@ -6,7 +6,7 @@ import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
 import type { OperationDetail } from "./types";
 
-/** El examen completo, sobre el expediente real. */
+/** El examen completo, sobre el expediente de referencia. */
 
 const swift = parseMT700(SWIFT_CSU2025099)!;
 const CTX = contextoDesdeSwift(swift);
@@ -104,7 +104,7 @@ describe("la cantidad ambigua de la factura real", () => {
   });
 });
 
-describe("el expediente real, examinado entero", () => {
+describe("el expediente de referencia, examinado entero", () => {
   const docs: DocAnalizado[] = [
     { tipo: "FACTURA", campos: DOCUMENTOS_CSU2025099.FACTURA!, nombreArchivo: "Invoice A 4401" },
     { tipo: "PACKING", campos: DOCUMENTOS_CSU2025099.PACKING!, nombreArchivo: "Packing list Molsur" },

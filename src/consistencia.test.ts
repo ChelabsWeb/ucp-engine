@@ -747,7 +747,7 @@ describe("el incoterm de la LC viene con el lugar pegado", () => {
    *
    * La misma comparación en la matriz del mismo archivo usa `codigoIncoterm`, que extrae las tres
    * letras, y da OK. Dos funciones del mismo módulo contestando distinto sobre el mismo dato: salió
-   * de cruzar los 91 puertos reales del ERP — 0 de 91 por una, 91 de 91 por la otra.
+   * de cruzar los 91 puertos del ERP — 0 de 91 por una, 91 de 91 por la otra.
    */
   const req = {
     documentosExigidos: [],

@@ -4,7 +4,7 @@ import { quedaEspanol, textoEnIngles } from "./ingles";
 /**
  * Que ningún texto del motor se quede sin traducir, aunque ningún escenario lo genere.
  *
- * El test de cobertura por escenarios —`ingles.test.ts`— examina el expediente real y comprueba que
+ * El test de cobertura por escenarios —`ingles.test.ts`— examina el expediente de referencia y comprueba que
  * los hallazgos salgan en inglés. Sirve, pero solo ve los textos que ese examen produce: cuatro
  * veces seguidas se agregaron reglas nuevas —los artículos 19, 23, 24, 25, la zona de puertos, el
  * contrato de fletamento— y el test calló, porque el expediente es un embarque marítimo y esas

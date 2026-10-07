@@ -112,7 +112,11 @@ describe("el aviso del artículo 16", () => {
   });
 
   it("dice las tres cosas que el 16(c) exige, y en ese orden", () => {
-    const a = avisoDeRechazo(lc, conDiscrepancias, { ...base, hoy: dia(2025, 4, 14), presentador: "MERIDIAN BANK PLC" })!;
+    const a = avisoDeRechazo(lc, conDiscrepancias, {
+      ...base,
+      hoy: dia(2025, 4, 14),
+      presentador: "MERIDIAN BANK PLC",
+    })!;
     const t = a.texto;
     // i) que rechaza
     const iRefusa = t.search(/refus/i);

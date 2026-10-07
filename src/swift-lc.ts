@@ -7,7 +7,7 @@ import type { LcInfo } from "./types";
  * Parser DETERMINISTA de cartas de crédito en formato SWIFT (MT700 / MT710; un MT707 —enmienda—
  * tiene otra semántica en el campo 21 y NO se parsea con esto).
  *
- * Caso real CSU2025099: el banco avisador (Litoral) reenvía por mail el mensaje SWIFT tal
+ * Caso de referencia CSU2025099: el banco avisador (Litoral) reenvía por mail el mensaje SWIFT tal
  * cual, con los campos numerados (31D, 44C, 46A, 47A, 48…). Eso no necesita IA: se parsea y
  * listo — gratis, exacto y sin alucinaciones. La IA queda para las LC escaneadas o en prosa.
  *

@@ -6,7 +6,7 @@
  * auditor. La inteligencia artificial vive afuera (en la app) y solo EXTRAE texto de
  * documentos escaneados; el veredicto de cada regla lo decide este paquete.
  *
- * Viene de romai, donde se construyó y se validó contra el expediente real CSU2025099.
+ * Viene de romai, donde se construyó y se validó contra el expediente de referencia CSU2025099.
  */
 
 /** Alertas por vencimiento, plazo de presentación y embarque. */
@@ -100,7 +100,7 @@ export type { ResultadoExamen } from "./examen";
 export { contextoDesdeSwift, examinarConEnmienda, examinarPresentacion } from "./examen";
 /** Fechas de comercio exterior: "08-APR-2025", "16 ABR 2025", "04.03.2025", ISO. */
 export { diffDias, fmtFecha, fmtFechaEn, isoMontevideo, parseFecha } from "./fechas";
-/** El expediente real con el que se validó el motor, para tests y demostraciones. */
+/** El expediente de referencia con el que se validó el motor, para tests y demostraciones. */
 export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099, SWIFT_TRANSFERIBLE_DERIVADO } from "./fixtures";
 export { desvioEnIngles, manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
 export type { EmisorAdmitido, VeredictoISBP } from "./isbp";

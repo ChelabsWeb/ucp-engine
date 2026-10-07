@@ -158,7 +158,7 @@ describe("el 31D trae fecha y lugar", () => {
   /*
    * Dónde vence el crédito decide si los documentos tienen que **llegar** allá o solo salir.
    *
-   * Con el crédito del caso real —«250630 URUGUAY»— los papeles se presentan en Montevideo. Con
+   * Con el crédito del caso de referencia —«250630 URUGUAY»— los papeles se presentan en Montevideo. Con
    * «250630 COLOMBO» hay que sumarle el courier a Sri Lanka, tres a cinco días que nadie descuenta
    * hasta que es tarde. El campo existía en romai y se perdió al armar el motor: la regla que lo
    * usa es del beneficiario, que es quien manda los papeles.

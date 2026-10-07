@@ -356,7 +356,7 @@ export function cotejarEspecificaciones(delCredito: string, delCertificado: stri
 /**
  * ¿Este archivo parece traer más de un documento?
  *
- * Pasa de verdad: en el expediente real, el certificado de análisis y el de fumigación
+ * Pasa de verdad: en el expediente de referencia, el certificado de análisis y el de fumigación
  * viajan en un mismo archivo, uno detrás del otro. Si se lee como si fuera uno solo, los
  * campos de los dos se mezclan y el examen compara cualquier cosa.
  */

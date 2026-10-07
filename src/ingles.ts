@@ -1454,7 +1454,7 @@ export function manualEnIngles(m: VerificacionManual): VerificacionManual {
 /**
  * Las palabras que solo existen en español, para detectar lo que el diccionario no cubre.
  *
- * Se usa en el test: si un hallazgo del expediente real queda con una de estas afuera de las
+ * Se usa en el test: si un hallazgo del expediente de referencia queda con una de estas afuera de las
  * comillas, es que hay una plantilla nueva sin traducir. Preferimos que el test falle antes que
  * mandarle a un banco un aviso a medias.
  */

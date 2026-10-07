@@ -58,7 +58,7 @@ describe("a quién hay que screenear", () => {
 });
 
 describe("el cotejo contra las listas", () => {
-  it("el expediente real no coincide con una lista que no lo contiene", () => {
+  it("el expediente de referencia no coincide con una lista que no lo contiene", () => {
     const l = lista([{ id: "X1", nombre: "ACME WEAPONS LLC", tipo: "ENTIDAD", programa: "NPWMD" }]);
     expect(screenear(PARTES, l)).toEqual([]);
   });
@@ -200,9 +200,9 @@ describe("el tipo de la entrada tiene que tener sentido para el rol de la parte"
   });
 
   it("y una empresa con una entidad o con una persona, que puede ser unipersonal", () => {
-    expect(screenear(como("ORDENANTE", "ORIENT FEED PVT LTD"), [entrada("ORIENT FEED LIMITED", "ENTIDAD")])).toHaveLength(
-      1,
-    );
+    expect(
+      screenear(como("ORDENANTE", "ORIENT FEED PVT LTD"), [entrada("ORIENT FEED LIMITED", "ENTIDAD")]),
+    ).toHaveLength(1);
     expect(
       screenear(como("BENEFICIARIO", "RODRIGUEZ HERMANOS"), [entrada("RODRIGUEZ HERMANOS", "PERSONA")]),
     ).toHaveLength(1);

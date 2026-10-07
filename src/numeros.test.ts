@@ -9,7 +9,7 @@ import {
 } from "./numeros";
 
 /**
- * Los casos salen del expediente real CSU2025099: la factura A 4401 y el packing list de
+ * Los casos salen del expediente de referencia CSU2025099: la factura A 4401 y el packing list de
  * Molsur escriben los mismos números de formas distintas.
  */
 

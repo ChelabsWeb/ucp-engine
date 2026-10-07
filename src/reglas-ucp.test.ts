@@ -89,7 +89,7 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 
-  it("20a-iii: el puerto del caso real coincide con el 44E del crédito", () => {
+  it("20a-iii: el puerto del caso de referencia coincide con el 44E del crédito", () => {
     const r = buscar(
       [{ tipo: "BL", campos: doc({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") }) }],
       "ucp-20a-iii-puertoEmbarque",
@@ -312,7 +312,7 @@ describe("el documento de transporte se examina con el artículo que le correspo
 
   it("un crédito que EXIGE un conocimiento de fletamento no puede rechazarlo por serlo", () => {
     /*
-     * El caso real de los graneles: un crédito de cereal o de harina a granel pide «CHARTER PARTY
+     * El caso de referencia de los graneles: un crédito de cereal o de harina a granel pide «CHARTER PARTY
      * BILL OF LADING» en el 46A, y existe el artículo 22 justamente para examinarlo. Marcarlo como
      * discrepancia por estar sujeto a fletamento es rechazar el documento que el propio crédito
      * pidió.
@@ -661,7 +661,7 @@ describe("quién emite y quién embarca, que no son la misma pregunta (arts. 18 
   });
 
   it("si no hay beneficiario cargado, no se inventa el veredicto", () => {
-    // El contexto del caso real sí lo trae, así que acá se lo saca a propósito: lo que se prueba es
+    // El contexto del caso de referencia sí lo trae, así que acá se lo saca a propósito: lo que se prueba es
     // qué hace el motor cuando el crédito llegó sin el campo 59 legible.
     const r = reglasUCP({
       lc: LC,
@@ -698,7 +698,7 @@ describe("la cantidad en bultos (UCP 600 art. 30 b)", () => {
     expect(con45A("1360 BAGS OF FISH MEAL")?.regla).toMatch(/en bultos/i);
   });
 
-  it("y con la mercadería del caso real, corre el 5 %", () => {
+  it("y con la mercadería del caso de referencia, corre el 5 %", () => {
     expect(con45A("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.regla).toMatch(/±5/);
   });
 });
@@ -932,7 +932,7 @@ describe("la descripción de la factura cuando el crédito lista mercaderías (a
   });
 
   it("si el crédito no enumera, sigue bastando el parecido", () => {
-    // El crédito del caso real describe una sola mercadería, sin lista.
+    // El crédito del caso de referencia describe una sola mercadería, sin lista.
     expect(conFactura("57 MTS OF FISH MEAL 54PCT MIN", "FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")?.estado).toBe("OK");
   });
 });

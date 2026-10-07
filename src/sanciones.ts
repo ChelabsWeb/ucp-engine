@@ -280,7 +280,7 @@ const GENERICAS = new Set([
  *
  * Se descuentan las genéricas antes de contar, no se exige que alguna lo sea. La diferencia importa:
  * «ORIENT FEED LIMITED» no tiene ninguna palabra larga y distintiva —«super» y «feed» son cortas—
- * pero juntas identifican a alguien, y es el ordenante del expediente real. Lo que no identifica es
+ * pero juntas identifican a alguien, y es el ordenante del expediente de referencia. Lo que no identifica es
  * quedarse con «LOGISTICS» a secas.
  */
 const propias = (ws: string[]) => ws.filter((w) => !GENERICAS.has(w));
@@ -369,7 +369,7 @@ function coteja(parte: ParteScreenear, e: EntradaSancion): Omit<Coincidencia, "p
    * Un puerto no se coteja por nombre. Las listas son de personas, entidades y buques, y sus
    * alias incluyen ubicaciones: «TAMILS REHABILITATION ORGANISATION» tiene entre sus alias
    * «TSUNAMI RELIEF FUND -- COLOMBO, SRI LANKA», y con eso el puerto «COLOMBO,SRI LANKA» del
-   * expediente real daba una coincidencia parcial que no significa nada. El control que le
+   * expediente de referencia daba una coincidencia parcial que no significa nada. El control que le
    * corresponde a un puerto es en qué jurisdicción está, y eso lo hace `jurisdicciones.ts`.
    */
   if (esLugar(parte.rol)) return null;
