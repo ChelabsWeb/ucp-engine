@@ -259,13 +259,25 @@ export function examinarPresentacion(input: {
   const delPapel = papel ? reglasDelPapel(papel, { conforme: faltan === 0 && discrepancias === 0 }) : [];
   const reglas = [...sinElPapel, ...delPapel];
 
+  /*
+   * El examen compuesto cuenta sobre **todas** las reglas, no solo las del precheck.
+   *
+   * `atencion` se recalcula acá porque las reglas de los artículos, de los certificados, del giro y
+   * del papel del banco se suman después; y de ahí salen `verificado` y `sinVerificar`, que son lo
+   * que separa «nada de lo que miré está mal» de «además, lo miré todo».
+   */
+  const atencion = CUENTA(reglas, "ATENCION");
+  const hayExigidos = (input.lc.documentosExigidos ?? []).length > 0;
+
   return {
     papel,
     reglas,
     faltan,
     discrepancias,
-    atencion: CUENTA(reglas, "ATENCION"),
-    listo: faltan === 0 && discrepancias === 0 && (input.lc.documentosExigidos ?? []).length > 0,
+    atencion,
+    listo: faltan === 0 && discrepancias === 0 && hayExigidos,
+    verificado: faltan === 0 && discrepancias === 0 && atencion === 0 && hayExigidos,
+    sinVerificar: atencion,
     feePorJuego: feeDiscrepancia(input.lc.condicionesAdicionales),
     diasParaPresentar: base.diasParaPresentar,
     reglasUCP: extra.length + deCertificados.length + deGiro.length + delPapel.length,
