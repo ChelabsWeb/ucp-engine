@@ -1,9 +1,8 @@
 {
-  "name": "@cotejo/ucp-engine",
+  "name": "@chelabs/ucp-engine",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "El examen documental de una carta de crédito contra las UCP 600, como motor puro y determinista.",
+  "description": "El examen documental de una carta de crédito contra las UCP 600 y la ISBP 821, como motor puro y determinista. Compartido por cotejo y romai.",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
@@ -14,12 +13,20 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "verificar": "pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.11",
     "fast-check": "^4.9.0",
     "typescript": "^5.8.0",
-    "vitest": "^4.1.10"
-  }
+    "vitest": "^4.1.10",
+    "@biomejs/biome": "^2.5.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChelabsWeb/ucp-engine.git"
+  },
+  "license": "UNLICENSED"
 }
