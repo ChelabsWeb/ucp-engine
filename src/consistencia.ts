@@ -712,6 +712,23 @@ export const PROMPT_DOC =
   "fechaEmbarque = en un BL la fecha SHIPPED ON BOARD; fechaDocumento = la fecha de emisión del documento (DATE / PLACE AND DATE OF ISSUE). " +
   "hsCode = la partida arancelaria (HS CODE) tal cual. numeroLC = el número de carta de crédito si el documento lo cita (L/C No., LC:). referenciaProforma = en una factura, la frase que cita la proforma " +
   "('goods shipped as per proforma invoice no. …'). flete = en un BL, 'FREIGHT PREPAID' o 'FREIGHT COLLECT'; en una factura, la línea de flete desglosada. notify = en un BL, el NOTIFY PARTY. " +
+  /*
+   * Los cuatro campos que deciden CON QUÉ ARTÍCULO se examina el documento.
+   *
+   * El esquema los pedía y el prompt no los explicaba, así que el modelo los llenaba por su cuenta
+   * o los dejaba vacíos — y un campo vacío hace que la regla salga «no se leyó», que es una fila
+   * amarilla sobre un papel que puede estar perfecto. Importan porque cambian el artículo: un sea
+   * waybill no se examina con el 20 sino con el 21, y un conocimiento de fletamento está excluido
+   * salvo que el crédito lo permita (art. 22).
+   */
+  "tipoDocumento = cómo se titula el papel, tal cual ('COMMERCIAL INVOICE', 'PROFORMA INVOICE', " +
+  "'BILL OF LADING', 'SEA WAYBILL', 'CHARTER PARTY BILL OF LADING'): de eso sale con qué artículo " +
+  "se lo examina, así que copialo del encabezado sin interpretar. " +
+  "tipoTransporte = el medio, si el documento lo dice ('MARITIMO', 'AEREO', 'CARRETERO', 'MULTIMODAL'). " +
+  "buque = el nombre del barco y su viaje, como figura ('MSC AMALFI V.247W'). " +
+  "charterParty = la mención de fletamento si existe ('CHARTER PARTY', 'FREIGHT PAYABLE AS PER CHARTER PARTY'), vacío si no aparece. " +
+  "precioUnitario = en una factura, el precio por unidad con su unidad ('USD 950,00 PER MT'): es lo que " +
+  "permite recalcular la cantidad cuando el total y la cantidad no cierran. " +
   'Si un campo no aparece, devolvé valor "" y confianza 0. La confianza refleja qué tan seguro estás de que el ' +
   "valor corresponde a ese campo (1 = textual e inequívoco; <0.6 = dedujiste o es ambiguo). " +
   "NUNCA inventes datos: si no está, no lo pongas. Fechas: dejalas como están en el documento.";
