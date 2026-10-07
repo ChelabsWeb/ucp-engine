@@ -53,6 +53,15 @@ export {
   compararEntreDocumentos,
   cotejarLC,
   cotejarLCconOperacion,
+  /*
+   * Los dos juegos de datos de demostración.
+   *
+   * Viven acá y no en un `fixtures` de tests porque los usa el producto: la ruta que lee documentos
+   * los devuelve cuando no hay clave de API, para que la pantalla se pueda mostrar sin gastar una
+   * llamada. Estaban en el módulo y no en el índice, así que desde afuera no existían.
+   */
+  DOC_DEMO,
+  LC_DEMO,
   normalizarCamposDoc,
   normalizarLC,
   normConfianza,
@@ -190,7 +199,7 @@ export { describirCoincidencia, MOMENTOS_DE_SCREENING, partesAScreenear, screene
 export { scrubForLLM } from "./scrub";
 export type { CampoSwift, LcSwift } from "./swift-lc";
 /** Intérprete determinista de mensajes SWIFT MT700 y MT710. */
-export { esMensajeSwift, fechaSwift, listaSwift, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
+export { esMensajeSwift, fechaSwift, listaSwift, lugarDe, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
 export { referenciaDelMensaje, type TipoDeMensaje } from "./swift-salida";
 export type {
   ContextoTransferencia,

@@ -153,3 +153,26 @@ describe("el beneficiario, que es quien cobra", () => {
     expect(p.lc.beneficiarioDireccion).not.toContain("CEREALSUR");
   });
 });
+
+describe("el 31D trae fecha y lugar", () => {
+  /*
+   * Dónde vence el crédito decide si los documentos tienen que **llegar** allá o solo salir.
+   *
+   * Con el crédito del caso real —«250630 URUGUAY»— los papeles se presentan en Montevideo. Con
+   * «250630 COLOMBO» hay que sumarle el courier a Sri Lanka, tres a cinco días que nadie descuenta
+   * hasta que es tarde. El campo existía en romai y se perdió al armar el motor: la regla que lo
+   * usa es del beneficiario, que es quien manda los papeles.
+   */
+  it("el lugar sale del 31D, separado de la fecha", () => {
+    expect(parseMT700(MT710_CSU2025099)?.extra.lugarVencimiento).toBe("URUGUAY");
+  });
+
+  it("y cuando el 31D solo trae la fecha, no se inventa un lugar", () => {
+    const sinLugar = MT710_CSU2025099.replace("250630 URUGUAY", "250630");
+    expect(parseMT700(sinLugar)?.extra.lugarVencimiento).toBeNull();
+  });
+
+  it("la fecha sigue leyéndose igual, con lugar o sin él", () => {
+    expect(parseMT700(MT710_CSU2025099)?.lc.vencimiento).toBe("30-jun-25");
+  });
+});

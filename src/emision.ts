@@ -552,6 +552,8 @@ export function revisarLcInfo(lc: LcInfo): Observacion[] {
       // No viene de un mensaje SWIFT, así que no hay 72Z ni 79 que mirar.
       infoAlDestinatario: null,
       fechaEmision: lc.fechaEmision ?? null,
+      // El lugar del 31D no está en una `LcInfo`: viene del mensaje, y acá no hay mensaje.
+      lugarVencimiento: null,
       formaCredito: null,
       confirmacion: null,
       disponibleCon: lc.librado ?? null,

@@ -225,6 +225,16 @@ export interface LcSwift {
   extra: {
     tipoMensaje: string | null; // MT700 / MT710 …
     fechaEmision: string | null;
+    /**
+     * El 31D trae fecha **y lugar**: «250630 URUGUAY».
+     *
+     * Dónde vence no es un adorno: si el crédito vence en el país del emisor, los documentos no
+     * alcanzan con salir a tiempo, tienen que **llegar** allá antes de esa fecha, y el courier son
+     * entre tres y cinco días que nadie descuenta hasta que es tarde. Estaba en romai y se perdió al
+     * armar el motor; vuelve porque la regla que lo usa —«vence afuera»— es del beneficiario, que es
+     * quien manda los papeles.
+     */
+    lugarVencimiento: string | null;
     formaCredito: string | null; // IRREVOCABLE …
     confirmacion: string | null; // WITHOUT / CONFIRM
     disponibleCon: string | null; // 41D/41A
@@ -256,6 +266,14 @@ export interface LcSwift {
     /** 72Z y 79: de acá sale si el mensaje dice que el crédito operativo sigue (art. 11 a) */
     infoAlDestinatario: string | null;
   };
+}
+
+/** El lugar del 31D, que viene pegado a la fecha: «250630 URUGUAY» → «URUGUAY». */
+export function lugarDe(raw: string | null | undefined): string | null {
+  const t = (raw ?? "").trim();
+  if (!t) return null;
+  const sinFecha = t.replace(/^\s*\d{6}\s*/, "").trim();
+  return sinFecha || null;
 }
 
 const seguro = (valor: string | null | undefined, confianza = 1): { valor: string; confianza: number } =>
@@ -375,6 +393,7 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     extra: {
       tipoMensaje: tipoMensaje ? `MT${tipoMensaje}` : null,
       fechaEmision: emision,
+      lugarVencimiento: lugarDe(vencimientoRaw),
       formaCredito: texto(cs, "40B") || texto(cs, "40A") || null,
       confirmacion: texto(cs, "49") || null,
       disponibleCon: texto(cs, "41D") || texto(cs, "41A") || null,
