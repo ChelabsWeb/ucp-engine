@@ -76,6 +76,14 @@ export interface ResolucionDiscrepancia {
 export interface DocExternoGuardado {
   id: string;
   tipo: TipoDocExterno;
+  /**
+   * La línea del 46A que este papel satisface, para los certificados.
+   *
+   * Es lo que los ata a lo que el banco va a pedir: sin ella el motor no sabe quién tiene que
+   * emitirlo —el crédito lo nombra— ni si la fecha tiene que ser previa al embarque. Los cuatro
+   * documentos con columna propia no la necesitan: su exigencia se deduce del tipo.
+   */
+  exigencia?: string | null;
   nombreArchivo: string;
   storagePath: string | null;
   campos: CamposDoc;
