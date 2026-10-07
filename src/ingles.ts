@@ -925,6 +925,10 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^verificar a mano$/g, "check by hand"],
   [/^el comprador$/g, "the buyer"],
   [/^Conocimiento de embarque$/g, "Bill of lading"],
+  // la etiqueta del quinto tipo: los otros siete papeles que el 46A pide
+  [/^Certificado del 46A$/g, "Field 46A certificate"],
+  [/^Certificado$/g, "Certificate"],
+  [/^certificado$/g, "certificate"],
   [/^Carta de crédito$/g, "Letter of credit"],
   // ── multimodal, terrestre y courier (UCP 600 arts. 19, 24 y 25) ──
   [

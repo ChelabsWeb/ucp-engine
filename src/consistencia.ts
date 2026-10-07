@@ -24,21 +24,39 @@ import type {
   Severity,
 } from "./types";
 
-export type TipoDocExterno = "FACTURA" | "LC" | "PACKING" | "BL";
+/**
+ * Los documentos que el producto sabe leer y comparar.
+ *
+ * Los cuatro primeros tienen columna propia en la matriz y su juego de campos. `CERTIFICADO` es
+ * distinto y por eso va último: lo que lo define no es un tipo sino **qué línea del 46A satisface**,
+ * y esa línea es texto del crédito. Son los otros siete papeles del crédito real —origen, análisis,
+ * fumigación, veterinario, nota de peso y los del propio beneficiario—, los que llegan de terceros y
+ * se reenvían sin mirar. Se examinan con `reglasCertificados`, apareados con su exigencia.
+ */
+export type TipoDocExterno = "FACTURA" | "LC" | "PACKING" | "BL" | "CERTIFICADO";
 
 export const TIPO_DOC_LABEL: Record<TipoDocExterno, string> = {
   FACTURA: "Factura comercial",
   LC: "Carta de crédito",
   PACKING: "Packing list",
   BL: "Bill of lading",
+  CERTIFICADO: "Certificado del 46A",
 };
 
-/** A qué columna de la matriz aporta cada tipo de documento. */
-const COLUMNA_DE_TIPO: Record<TipoDocExterno, "lc" | "invoice" | "packing" | "bl"> = {
+/**
+ * A qué columna de la matriz aporta cada tipo de documento.
+ *
+ * Un certificado no aporta a ninguna: la matriz compara los cuatro documentos que el crédito pide
+ * con campos equivalentes —quién exporta, cuánto, a qué puerto— y un certificado de fumigación no
+ * tiene nada de eso que comparar. Se examina aparte, con `reglasCertificados`, contra la línea del
+ * 46A que satisface.
+ */
+const COLUMNA_DE_TIPO: Record<TipoDocExterno, "lc" | "invoice" | "packing" | "bl" | null> = {
   FACTURA: "invoice",
   LC: "lc",
   PACKING: "packing",
   BL: "bl",
+  CERTIFICADO: null,
 };
 
 /** Un campo extraído por la IA: el valor tal cual aparece + su confianza 0..1. */
@@ -1283,6 +1301,28 @@ export function cotejarLC(
  * que **ese documento** puede tener: a un conocimiento de embarque no se le pregunta el monto
  * asegurado, y preguntárselo no solo agranda la gramática — invita al modelo a inventar.
  */
+/**
+ * Los campos de un certificado del 46A: los que este archivo lee de verdad.
+ *
+ * Estaba escrito a mano en la pantalla, que es la forma que tuvo el peor defecto del repo —una
+ * lista de diecinueve campos contra un esquema de treinta y uno, y siete artículos del transporte
+ * que nunca corrían por falta de dónde escribir el dato—. Acá la lista vive al lado de las reglas
+ * que la consumen, con un test que la contrasta contra el archivo.
+ *
+ * `exportador` y `fechaSeguro` no están: no son campos propios, son los respaldos con que se leen
+ * el emisor y la fecha cuando la extracción los nombró así. Darles casilla propia pondría dos
+ * casillas para el mismo dato.
+ */
+export const CAMPOS_CERTIFICADO: (keyof CamposDoc)[] = [
+  "emisorSeguro",
+  "mercaderia",
+  "fechaDocumento",
+  "numeroDoc",
+  "puertoEmbarque",
+  "pesoBruto",
+  "referenciaProforma",
+];
+
 export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
   FACTURA: [
     // El primero: si se titula «proforma» no satisface la exigencia de factura comercial.
@@ -1369,6 +1409,14 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "numeroDoc",
     "hsCode",
   ],
+  /*
+   * De un certificado se leen pocos campos y a propósito.
+   *
+   * Son los que las reglas miran de verdad —quién lo emite, cuándo, qué certifica, su número, el
+   * lugar y el peso— y nada más: pedirle a un certificado de fumigación el flete o el incoterm es
+   * invitar al modelo a inventarlos. Es la misma lista que la pantalla ofrece para cargarlo a mano.
+   */
+  CERTIFICADO: CAMPOS_CERTIFICADO,
 };
 
 /** Los campos del documento de seguro, que no es un `TipoDocExterno` pero se lee igual. */
