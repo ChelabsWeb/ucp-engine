@@ -4,6 +4,24 @@ import { limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
 /**
+ * Dónde puede estar escrito que los documentos citen el número del crédito.
+ *
+ * Vive a nivel de módulo y se exporta porque la misma pregunta se hace en dos lugares —los cuatro
+ * documentos de la matriz y los demás papeles del 46A— y dos copias del mismo regex se separan: una
+ * se corrige y la otra no, y el motor empieza a contestar distinto según por dónde entró el papel.
+ */
+export const PIDE_CITAR_NUMERO_LC =
+  /INDICAT\w*.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
+
+/** El campo donde el crédito lo pide, para que la fuente del hallazgo mande al lugar correcto. */
+export function dondeSePideElNumeroLC(lc: LcInfo): "47A" | "46A" | null {
+  const cond = (lc.condicionesAdicionales ?? []).join(" ").toUpperCase();
+  if (PIDE_CITAR_NUMERO_LC.test(cond)) return "47A";
+  const exigidos = (lc.documentosExigidos ?? []).join(" ").toUpperCase();
+  return PIDE_CITAR_NUMERO_LC.test(exigidos) ? "46A" : null;
+}
+
+/**
  * Pre-check UCP 600 del paquete documental ANTES de presentarlo al banco (oportunidades A1/A2).
  *
  * El banco examina documentos, no mercadería (art. 5), y el 70 % de las presentaciones se
@@ -269,18 +287,13 @@ export function precheckPresentacion(input: {
    * bancaria —ayuda a vincular los papeles de un expediente— y su falta no es discrepancia: la
    * propia ISBP 2023 dejó de considerarla una.
    */
-  const PIDE_CITARLO = /INDICAT\w*.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
   /* También el 46A: este crédito lo pide dentro del documento exigido —«COMMERCIAL INVOICE …
      INDICATING CONTRACT NUMBER AMS2026164, NUMBER OF LETTER OF CREDIT»— y mirar solo el 47A lo
      daba por no pedido. Donde el crédito lo escriba, lo escribió. */
   /* Y se guarda DÓNDE lo pide: la fuente de un hallazgo tiene que poder ir a buscarse al campo
      que lo sostiene, y «47A» sobre algo escrito en el 46A es mandar al banco al lugar
      equivocado. */
-  const pedidoEn: "47A" | "46A" | null = PIDE_CITARLO.test(cond)
-    ? "47A"
-    : PIDE_CITARLO.test(exigidos.join(" ").toUpperCase())
-      ? "46A"
-      : null;
+  const pedidoEn = dondeSePideElNumeroLC(lc);
   const loPideElCredito = pedidoEn !== null;
   const exigeNumeroLC = loPideElCredito || exigidos.length > 0;
   const exigeFechaDesdeLC =

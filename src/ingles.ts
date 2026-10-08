@@ -1186,6 +1186,12 @@ const REEMPLAZOS: [RegExp, string][] = [
 
   // ── plantillas de regla ──
   [/\bcita el número de la LC\b/g, "quotes the credit number"],
+  [/\bel número de LC que cita es el del crédito\b/g, "the credit number it quotes is this credit's"],
+  [
+    /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano$/g,
+    "the credit requires it in field $1 and none was read on the document: check by hand",
+  ],
+  [/^dice "(.+)" y el crédito es "(.+)"$/g, 'states "$1" while the credit is "$2"'],
   [/\bfechado el día de la LC o después\b/g, "dated on or after the credit date"],
   [/^BL consignado\b/g, "B/L consigned"],
   [/^BL marcado\b/g, "B/L marked"],

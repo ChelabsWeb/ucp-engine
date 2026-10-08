@@ -2,7 +2,7 @@ import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero } from "./cons
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { fmtFecha, parseFecha } from "./fechas";
 import { comparaISBP, emisorAdmitido, esCertificadoDeOrigen, exigePrevioAlEmbarque } from "./isbp";
-import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
+import { type DocAnalizado, dondeSePideElNumeroLC, type EstadoRegla, type ReglaPresentacion } from "./presentacion";
 import type { LcInfo } from "./types";
 
 /**
@@ -213,9 +213,54 @@ export function reglasCertificados(input: {
   const packing = input.docs.find((d) => d.tipo === "PACKING");
   const fechaEmbarque = val(bl?.campos.fechaEmbarque) ?? null;
 
+  const pedidoEn = input.lc ? dondeSePideElNumeroLC(input.lc) : null;
+  const mismoNumero = (x: string, y: string) =>
+    x.replace(/[^A-Z0-9]/gi, "").toUpperCase() === y.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+
   input.certificados.forEach((c, i) => {
     const nombre = c.nombreArchivo ?? corto(c.exigencia, 40);
     const sufijo = `${claveDoc(c.exigencia)}-${i}`;
+
+    /*
+     * El número del crédito también se mira acá, y acá es donde el banco lo encontró.
+     *
+     * La regla ya existía para los cuatro documentos con columna en la matriz. Pero un shipment
+     * notice, una carta de presentación y los certificados de un tercero entran por `certificados`,
+     * y salían sin que nadie les mirara el número: de las tres observaciones que un banco levantó
+     * sobre una presentación real, **dos eran ésta**, y las dos sobre papeles que pasan por acá.
+     *
+     * La distinción entre omitirlo y citar otro es la misma que en `presentacion.ts`, y por eso el
+     * «dónde lo pide el crédito» sale de la misma función: dos copias se separan.
+     */
+    const numeroCitado = val(c.campos.numeroLC);
+    const numeroDelCredito = input.lc?.numero ?? "";
+    if (numeroCitado && numeroDelCredito && !mismoNumero(numeroCitado, numeroDelCredito)) {
+      out.push({
+        id: `cert-lc-num-${sufijo}`,
+        fuente: "UCP 600 14d",
+        regla: `${nombre}: el número de LC que cita es el del crédito`,
+        estado: "DISCREPANCIA",
+        evidencia: `dice "${numeroCitado}" y el crédito es "${numeroDelCredito}"`,
+      });
+    } else if (pedidoEn) {
+      out.push({
+        id: `cert-lc-num-${sufijo}`,
+        fuente: pedidoEn,
+        regla: `${nombre}: cita el número de la LC`,
+        /*
+         * Que no se haya LEÍDO no es que el documento no lo TENGA.
+         *
+         * El número puede estar impreso chico, en una esquina o en una hoja que no se subió, y
+         * dictaminar discrepancia sobre una falla de lectura es el falso positivo que este motor no
+         * se permite: cuesta el fee, la demora y la confianza sobre un papel que estaba bien. Va a
+         * que lo mire una persona, igual que la regla hermana de los documentos de la matriz.
+         */
+        estado: numeroCitado ? "OK" : "ATENCION",
+        evidencia: numeroCitado
+          ? `dice "${numeroCitado}"`
+          : `el crédito lo pide en el campo ${pedidoEn} y no se leyó en el documento: verificar a mano`,
+      });
+    }
 
     /* quién lo emite (ISBP 821 Q3 a Q5, y L3 para el de origen) */
     const admitido = emisorAdmitido(c.exigencia);

@@ -4,6 +4,7 @@ import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 } from "./fixtures";
 import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
+import type { LcInfo } from "./types";
 
 /** Los siete documentos del 46A que hasta ahora solo se contaban como presentes o ausentes. */
 
@@ -681,5 +682,82 @@ describe("cómo un certificado nombra la fecha de lo que acredita", () => {
     const r = correr("SAMPLES TAKEN. L/C DATED 20-mar-25. INSPECTION ON 11-abr-25.");
     expect(r?.estado, "tomó la fecha del crédito por la del hecho").toBe("DISCREPANCIA");
     expect(r?.evidencia).toContain("11-abr-25");
+  });
+});
+
+/**
+ * El número del crédito en los papeles que NO están en la matriz.
+ *
+ * La regla hermana, en `presentacion.ts`, corre sobre la factura, el packing, el conocimiento y la
+ * LC. Pero un shipment notice, una carta de presentación y los certificados de un tercero entran
+ * por acá — y de las tres observaciones que un banco levantó sobre una presentación real, **dos
+ * eran ésta, y las dos sobre papeles que pasan por acá**. El motor no veía ninguna.
+ *
+ * El crédito de ese caso no exigía la cita en todos los documentos: la pedía en el 46A para la
+ * factura. Por eso la discrepancia no puede colgar de «el crédito lo pidió» —se habría quedado
+ * muda— sino del artículo 14 (d): un dato que contradice al crédito es conflicto, lo pida quien lo
+ * pida.
+ */
+describe("el número del crédito en un papel del 46A", () => {
+  const lcCon = (cond: string[], exigidos: string[] = []) =>
+    ({
+      numero: "LCMRDN25000471",
+      condicionesAdicionales: cond,
+      documentosExigidos: exigidos,
+    }) as unknown as LcInfo;
+
+  const correr = (numeroEnElPapel: string | null, lc: LcInfo) =>
+    (
+      reglasCertificados({
+        lc,
+        certificados: [
+          {
+            exigencia: "11. SHIPMENT NOTICE IN 1 COPY INDICATING THAT HAS EMAILED APPLICANT",
+            nombreArchivo: "shipment notice",
+            campos: (numeroEnElPapel
+              ? { numeroLC: { valor: numeroEnElPapel, confianza: 1 } }
+              : {}) as unknown as CamposDoc,
+          },
+        ],
+        docs: [],
+        hoy: new Date(2026, 7, 13),
+      } as never) as ReturnType<typeof reglasCertificados>
+    ).filter((r) => r.id.startsWith("cert-lc-num-"));
+
+  const NO_PIDE = lcCon(["1.T/T REIMBURSEMENTS ARE NOT ALLOWED."]);
+  const PIDE_47A = lcCon(["2.ALL DOCUMENTS SHOUD INDICATE THE LETTER OF CREDIT NUMBER."]);
+  const PIDE_46A = lcCon(
+    ["1.T/T REIMBURSEMENTS ARE NOT ALLOWED."],
+    ["1. COMMERCIAL INVOICE INDICATING CONTRACT NUMBER, NUMBER OF LETTER OF CREDIT"],
+  );
+
+  it("un número que contradice al crédito es discrepancia del 14 (d), aunque el crédito no pida citarlo", () => {
+    const [r] = correr("779101LC26000047", NO_PIDE);
+    expect(r?.estado, "el banco lo observó sobre un crédito que no exigía la cita").toBe("DISCREPANCIA");
+    expect(r?.fuente, "el 14 (d) es lo que lo sostiene, no una condición que nadie escribió").toBe("UCP 600 14d");
+    expect(r?.evidencia).toContain("779101LC26000047");
+    expect(r?.evidencia, "sin el número del crédito al lado no se puede verificar en el papel").toContain(
+      "LCMRDN25000471",
+    );
+  });
+
+  it("el mismo número con otra puntuación es el mismo, y no genera ruido", () => {
+    expect(correr("LC MRDN-25000471", NO_PIDE)).toHaveLength(0);
+  });
+
+  it("si no lo cita y el crédito no lo pide, no hay regla", () => {
+    expect(correr(null, NO_PIDE)).toHaveLength(0);
+  });
+
+  it("si el crédito lo pide, la fuente dice en qué campo lo pide", () => {
+    expect(correr("LCMRDN25000471", PIDE_47A)[0]?.fuente).toBe("47A");
+    expect(correr("LCMRDN25000471", PIDE_46A)[0]?.fuente, "lo pide el 46A, no el 47A").toBe("46A");
+  });
+
+  it("que no se haya leído manda a verificar: no es que el papel no lo tenga", () => {
+    const [r] = correr(null, PIDE_47A);
+    expect(r?.estado, "dictaminar discrepancia sobre una falla de lectura es el falso positivo que no se permite").toBe(
+      "ATENCION",
+    );
   });
 });
