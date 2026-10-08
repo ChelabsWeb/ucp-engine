@@ -143,7 +143,11 @@ export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
  *
  * El ±5 % rige salvo que el crédito exprese la cantidad en bultos o unidades, que es la primera
  * condición del inciso. No está condicionado al 39A —que es tolerancia de importe— así que un
- * crédito con 39A 00/00 sigue admitiendo el 5 % en la cantidad; si el crédito da más, vale más.
+ * crédito con 39A 00/00 sigue admitiendo el 5 % en la cantidad.
+ *
+ * Y cuando el crédito declara un porcentaje, **rige ese**, sea mayor o menor que el 5 %: el inciso
+ * abre con «unless the credit stipulates…», así que su 5 % es el default de un crédito que no dice
+ * nada. Decía «si el crédito da más, vale más», que era la mitad de la regla.
  */
 export function toleranciaDeCantidad(lc: LcInfo | null | undefined, enBultos = false): number {
   if (enBultos) return 0;
