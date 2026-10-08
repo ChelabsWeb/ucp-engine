@@ -147,9 +147,26 @@ export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
  */
 export function toleranciaDeCantidad(lc: LcInfo | null | undefined, enBultos = false): number {
   if (enBultos) return 0;
-  // y una declarada «solo en valor» no mueve la de cantidad: ahí vuelve a regir el 5 % del 30 (b)
-  const declarada = lc?.toleranciaAplicaA === "IMPORTE" ? 0 : (lc?.tolerancia ?? 0);
-  return Math.max(declarada, TOLERANCIA_DEFAULT);
+  // una declarada «solo en valor» no mueve la de cantidad: ahí vuelve a regir el 5 % del 30 (b)
+  if (lc?.toleranciaAplicaA === "IMPORTE") return TOLERANCIA_DEFAULT;
+  /*
+   * Lo que el crédito estipula RIGE, también cuando es menos que el 5 %.
+   *
+   * Era `Math.max(declarada, TOLERANCIA_DEFAULT)`, que solo contemplaba «si el crédito da más,
+   * vale más». Pero el 30 (b) abre con «unless the credit stipulates that the quantity must not
+   * be exceeded or reduced»: su 5 % es el default de un crédito que no dice nada. Un crédito con
+   * 39A «PLUS/MINUS 3 PCT» sí dice, y por el artículo 1 rige el crédito — ensancharlo al 5 % daba
+   * por conforme un +4,4 % que el banco no autorizó, con la evidencia citando el 39A para
+   * sostener un número que el 39A no tiene.
+   */
+  /*
+   * Y el cero NO es «sin margen»: «00/00» es la convención del 39A para no declarar tolerancia, no
+   * para prohibirla. Un crédito con 00/00 de importe sigue admitiendo el ±5 % de cantidad del
+   * 30 (b) —eso ya estaba probado y este arreglo no lo toca—; lo que cambia es el caso de un
+   * porcentaje declarado de verdad.
+   */
+  if (lc?.tolerancia != null && lc.tolerancia > 0) return lc.tolerancia;
+  return TOLERANCIA_DEFAULT;
 }
 
 /* ─── A6: ¿cuándo entra la plata? ──────────────────────────────────────────────

@@ -1044,6 +1044,65 @@ describe("la cantidad de la factura contra la que pide el crédito (art. 30)", (
     expect(conCantidad("70")?.estado).toBe("DISCREPANCIA");
   });
 
+  /*
+   * Los tres de abajo son indulgencias del artículo 30: el motor dejaba pasar cantidades que el
+   * crédito no autoriza. Para un banco eso es peor que una discrepancia de más — la discrepancia
+   * la discute el exportador, el pase libre lo paga el banco y nadie lo ve.
+   */
+  it("«about» en la fecha de embarque NO le da ±10 % a la cantidad", () => {
+    /* El 30 (a) exige que «about» esté «used in connection with the amount of the credit, the
+       quantity or the unit price». Un «SHIPMENT ABOUT MID APRIL» habla de la fecha: tomarlo como
+       tolerancia de cantidad daba por buena una factura 8 % excedida citando el artículo
+       equivocado en la evidencia. */
+    const r = reglasUCP({
+      lc: { ...LC, tolerancia: undefined },
+      credito: { ...CTX, mercaderia: "57 MTS OF FISH MEAL 54PCT MIN\nSHIPMENT ABOUT MID APRIL 2025" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("61.5"), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r?.estado, "+7,9 % con el 5 % del 30 (b) es discrepancia").toBe("DISCREPANCIA");
+    expect(r?.fuente, "el «about» de la fecha no es el del 30 (a)").not.toBe("UCP 600 30a");
+  });
+
+  it("pero «about» pegado a la cantidad sí da el ±10 % del 30 (a)", () => {
+    const r = reglasUCP({
+      lc: { ...LC, tolerancia: undefined },
+      credito: { ...CTX, mercaderia: "ABOUT 57 MTS OF FISH MEAL 54PCT MIN" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("61.5"), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r?.estado, "+7,9 % entra en el ±10 %").toBe("OK");
+    expect(r?.fuente).toBe("UCP 600 30a");
+  });
+
+  it("una tolerancia declarada MENOR al 5 % rige: no se ensancha al 30 (b)", () => {
+    /* El 30 (b) da 5 % «unless the credit stipulates…». Si el crédito estipula 3 %, rige el crédito
+       (art. 1): ensancharlo al 5 % con `Math.max` daba por conforme un +4,4 % que el crédito no
+       autoriza, y la evidencia lo atribuía al 39A — un número que el 39A no dijo. */
+    const r = conCantidad("59.5", "MT", { tolerancia: 0.03 });
+    expect(r?.estado, "+4,4 % sobre un crédito que admite 3 %").toBe("DISCREPANCIA");
+    expect(r?.regla, "el enunciado tiene que decir el 3 %, no el 5 %").toMatch(/±3\s*%/);
+  });
+
+  it("una tolerancia declarada MAYOR sigue rigiendo", () => {
+    expect(conCantidad("62", "MT", { tolerancia: 0.1 })?.estado).toBe("OK");
+  });
+
+  it("cuando el crédito tiene dos cantidades y no hay total, lo DICE en vez de callarse", () => {
+    /* `cantidadDelCredito` devuelve null a propósito —dos ítems no tienen un total deducible— y su
+       comentario dice «el examen lo dice en vez de decidir». No lo decía: el llamador tenía un `if`
+       sin `else` y la regla desaparecía del examen. Una regla ausente se lee como «no aplica». */
+    const r = reglasUCP({
+      lc: { ...LC, tolerancia: undefined },
+      credito: { ...CTX, mercaderia: "500 MT OF SOYBEAN MEAL AND 300 MT OF SUNFLOWER MEAL" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("800"), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+    expect(r, "la regla no puede faltar: faltar se lee como «no aplica»").toBeDefined();
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia, "tiene que decir qué leyó y por qué no decide").toMatch(/500|300|a mano/i);
+  });
+
   it("la unidad se convierte: el crédito en toneladas y la factura en kilos", () => {
     expect(conCantidad("53960", "KGS")?.estado).toBe("OK");
     expect(conCantidad("48000", "KGS")?.estado).toBe("DISCREPANCIA");

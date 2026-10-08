@@ -1548,20 +1548,44 @@ export function schemaPara(campos: (keyof CamposDoc)[]) {
  * La cantidad que el crédito pide, leída del campo 45A.
  *
  * El 45A es prosa: «57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)». Lo que se busca es el
+ * Devuelve también `en`, la posición del número en el texto: el 30 (a) solo da su ±10 % cuando
+ * «about» está «used in connection with … the quantity», así que quien aplique la tolerancia
+ * necesita saber dónde está la cantidad para mirar si el «about» le corresponde a ella.
+ *
  * primer número con una unidad **de cantidad**, y por eso la unidad se exige: en esa misma línea
  * hay un 54 que es la proteína y un «2301.20.00» que es la posición arancelaria, y tomar cualquiera
  * de los dos por la cantidad del embarque sería peor que no mirar.
  */
-export function cantidadDelCredito(mercaderia: string | null | undefined): { valor: number; unidad: string } | null {
+/**
+ * Todas las cantidades con unidad que el 45A nombra, en orden y con su posición.
+ *
+ * Existe aparte porque **«no hay ninguna» y «hay varias y no se puede elegir» son dos cosas
+ * distintas** y `cantidadDelCredito` devuelve `null` en las dos. Un crédito que describe la
+ * mercadería sin cantidad («FISH MEAL 54PCT MIN») no da nada contra qué comparar: ahí callarse es
+ * correcto. Uno con dos ítems y sin total («500 MT OF SOYBEAN MEAL AND 300 MT OF SUNFLOWER MEAL»)
+ * sí tiene cantidades, y que el examen se saltee la línea en silencio se lee como «no aplica».
+ */
+export function cantidadesDelCredito(
+  mercaderia: string | null | undefined,
+): { valor: number; unidad: string; en: number; crudo: string }[] {
   const t = (mercaderia ?? "").trim();
-  if (!t) return null;
+  if (!t) return [];
   const re =
     /(\d+(?:[.,]\d+)*)\s*(kgs?|kilos?|kilogramos?|mts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/gi;
-  const encontradas = [...t.matchAll(re)]
+  return [...t.matchAll(re)]
     .map((m) => ({ valor: parseNumero(m[1] ?? ""), unidad: (m[2] ?? "").trim(), en: m.index ?? 0, crudo: m[0] }))
     .filter((x): x is { valor: number; unidad: string; en: number; crudo: string } => x.valor !== null);
+}
+
+export function cantidadDelCredito(
+  mercaderia: string | null | undefined,
+): { valor: number; unidad: string; en: number } | null {
+  const t = (mercaderia ?? "").trim();
+  if (!t) return null;
+  const encontradas = cantidadesDelCredito(mercaderia);
   if (encontradas.length === 0) return null;
-  if (encontradas.length === 1) return { valor: encontradas[0]!.valor, unidad: encontradas[0]!.unidad };
+  if (encontradas.length === 1)
+    return { valor: encontradas[0]!.valor, unidad: encontradas[0]!.unidad, en: encontradas[0]!.en };
 
   /*
    * Con más de una cantidad, la que vale es la que el crédito anuncia como el total.
@@ -1578,12 +1602,12 @@ export function cantidadDelCredito(mercaderia: string | null | undefined): { val
   const DEL_BULTO = /\b(of|de|each|cada|c\/u)\s*$/i;
   const anunciadas = encontradas.filter((x) => ANUNCIA_TOTAL.test(t.slice(Math.max(0, x.en - 40), x.en)));
   if (anunciadas.length === 1) {
-    return { valor: anunciadas[0]!.valor, unidad: anunciadas[0]!.unidad };
+    return { valor: anunciadas[0]!.valor, unidad: anunciadas[0]!.unidad, en: anunciadas[0]!.en };
   }
 
   const noDelBulto = encontradas.filter((x) => !DEL_BULTO.test(t.slice(Math.max(0, x.en - 12), x.en)));
   if (noDelBulto.length === 1) {
-    return { valor: noDelBulto[0]!.valor, unidad: noDelBulto[0]!.unidad };
+    return { valor: noDelBulto[0]!.valor, unidad: noDelBulto[0]!.unidad, en: noDelBulto[0]!.en };
   }
 
   /*

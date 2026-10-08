@@ -1,5 +1,5 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
-import { aKg, cantidadDelCredito, parseNumero, unidadNormal } from "./consistencia";
+import { aKg, cantidadDelCredito, cantidadesDelCredito, parseNumero, unidadNormal } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { esFacturaComercial } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
@@ -1234,6 +1234,33 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
   const factura = docs.find((d) => d.tipo === "FACTURA");
   const cantFac = factura ? val(factura, "cantidad") : null;
   const uniFac = factura ? val(factura, "unidad") : null;
+  /*
+   * Cuando el crédito trae la cantidad en una forma que no se puede resolver —dos ítems sin un
+   * total, «500 MT OF SOYBEAN MEAL AND 300 MT OF SUNFLOWER MEAL»— `cantidadDelCredito` devuelve
+   * null a propósito, y su comentario dice «el examen lo dice en vez de decidir». No lo decía:
+   * esto era un `if` sin `else` y la regla desaparecía del examen.
+   *
+   * Una regla ausente no se lee como «no pude»: se lee como «no aplica». El operador ve el examen
+   * completo sin una línea de cantidad y concluye que no había nada que mirar, que es exactamente
+   * la falla silenciosa que el repo no admite. Si hay factura con cantidad y el crédito no se pudo
+   * resolver, se dice.
+   */
+  /* Y solo cuando el crédito SÍ nombra cantidades: ver `cantidadesDelCredito`. */
+  if (!pedido && cantFac && cantidadesDelCredito(ctx.mercaderia).length > 0) {
+    out.push(
+      regla(
+        "ucp-30b-cantidad",
+        "UCP 600 30b",
+        "Cantidad de la factura dentro de lo que pide el crédito",
+        "ATENCION",
+        `la factura dice ${cantFac} ${uniFac ?? ""} y del crédito no se pudo deducir una cantidad única (${(ctx.mercaderia ?? "").replace(/\s+/g, " ").trim().slice(0, 80)}): verificar a mano`.replace(
+          /\s+/g,
+          " ",
+        ),
+      ),
+    );
+    return out;
+  }
   if (pedido && cantFac) {
     const n = parseNumero(cantFac);
     const enKgPedido = aKg(pedido.valor, pedido.unidad);
@@ -1262,7 +1289,23 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
      * La tolerancia: «about» manda sobre todo lo demás (30 a), y el 5 % del 30 (b) no corre sobre
      * bultos ni unidades — pero **sí** sobre el volumen, que el artículo nombra junto al peso.
      */
-    const porAbout = /\b(about|approximately|circa|aproximadamente|aprox)\b/i.test(ctx.mercaderia ?? "");
+    /*
+     * El «about» tiene que ser el de la CANTIDAD, no cualquiera del 45A.
+     *
+     * El 30 (a) lo dice con todas las letras: «about» or «approximately» «used in connection with
+     * the amount of the credit, the quantity or the unit price». Buscarlo en todo el campo le daba
+     * el ±10 % a un crédito cuyo «about» era de la fecha —«SHIPMENT ABOUT MID APRIL 2025», que es
+     * el 30 (a) hablando de otra cosa— y dejaba pasar una factura 8 % excedida citando ese
+     * artículo como respaldo. El falso positivo lo discute el exportador; este pase libre lo paga
+     * el banco y no lo ve nadie.
+     *
+     * Se mira el mismo renglón y los 24 caracteres previos al número, que es donde el 45A lo
+     * escribe: «ABOUT 57 MTS», «QUANTITY: ABOUT 57 MTS». Un «about» posterior o de otra línea no
+     * cuenta.
+     */
+    const antesDeLaCantidad = (ctx.mercaderia ?? "").slice(0, pedido.en);
+    const renglonDeLaCantidad = antesDeLaCantidad.slice(antesDeLaCantidad.lastIndexOf("\n") + 1);
+    const porAbout = /\b(about|approximately|circa|aproximadamente|aprox)\b[^\n]{0,24}$/i.test(renglonDeLaCantidad);
     const enUnidades = enKgPedido === null && !esVolumen(pedido.unidad);
     const tol = porAbout ? 0.1 : toleranciaDeCantidad(lc, enUnidades);
     const enKgFac = n === null ? null : aKg(n, uniFac);

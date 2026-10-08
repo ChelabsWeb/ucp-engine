@@ -856,7 +856,10 @@ describe("la cantidad que el crédito pide, leída del 45A", () => {
    * no mirar, así que la unidad se exige.
    */
   it("el 45A real", () => {
-    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toEqual({
+    /* `toMatchObject` y no `toEqual`: lo que el test afirma es QUÉ cantidad leyó. La función
+       devuelve además `en` —la posición, que el 30 (a) necesita para saber si un «about» le
+       corresponde a la cantidad— y eso es un detalle de implementación, no parte de la promesa. */
+    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toMatchObject({
       valor: 57,
       unidad: "MTS",
     });
@@ -876,7 +879,7 @@ describe("la cantidad que el crédito pide, leída del 45A", () => {
     ["120 CABEZAS DE GANADO EN PIE", 120, "CABEZAS"],
     ["54.040,00 KGS NET", 54040, "KGS"],
   ])("«%s»", (texto, valor, unidad) => {
-    expect(cantidadDelCredito(texto)).toEqual({ valor, unidad });
+    expect(cantidadDelCredito(texto)).toMatchObject({ valor, unidad });
   });
 
   it("sin descripción no se inventa nada", () => {
@@ -901,7 +904,7 @@ describe("la cantidad del 45A cuando el crédito describe el envase", () => {
     ["57 MTS OF FISH MEAL PACKED IN BAGS OF 50 KG", 57, "MTS"],
     ["SOYBEAN MEAL IN BAGS OF 50 KGS NET EACH. QUANTITY: 1000 MT", 1000, "MT"],
   ])("«%s» → %s %s", (texto, valor, unidad) => {
-    expect(cantidadDelCredito(texto)).toEqual({ valor, unidad });
+    expect(cantidadDelCredito(texto)).toMatchObject({ valor, unidad });
   });
 
   it("y si hay dos cantidades y ninguna se anuncia como el total, no se elige", () => {
@@ -910,7 +913,7 @@ describe("la cantidad del 45A cuando el crédito describe el envase", () => {
   });
 
   it("el 45A del crédito real sigue leyéndose igual", () => {
-    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toEqual({
+    expect(cantidadDelCredito("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)")).toMatchObject({
       valor: 57,
       unidad: "MTS",
     });
