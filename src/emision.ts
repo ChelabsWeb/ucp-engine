@@ -549,7 +549,8 @@ export function revisarLcInfo(lc: LcInfo): Observacion[] {
     },
     extra: {
       tipoMensaje: null,
-      // No viene de un mensaje SWIFT, así que no hay 72Z ni 79 que mirar.
+      // No viene de un mensaje SWIFT, así que no hay 45A crudo ni 72Z ni 79 que mirar.
+      bienes: null,
       infoAlDestinatario: null,
       fechaEmision: lc.fechaEmision ?? null,
       // El lugar del 31D no está en una `LcInfo`: viene del mensaje, y acá no hay mensaje.

@@ -27,6 +27,17 @@ export interface ContextoCredito {
   puertoDestino?: string | null;
   /** 45A: la descripción de la mercadería en el crédito */
   mercaderia?: string | null;
+  /**
+   * 45A ENTERO, sin recortar.
+   *
+   * `mercaderia` viene cortada en el primer incoterm porque sirve para comparar descripciones
+   * contra los documentos, y ahí el «CFR XINGANG INCOTERMS 2020» sobra. Pero un crédito puede
+   * poner el incoterm en el punto 3 y la CANTIDAD en el 4 —«3.UNIT PRICE: USD780/MT CFR
+   * XINGANG,CHINA 4.QUANTITY: 500MTS (+/-5%)»—, y con el recorte la cantidad se perdía: la regla
+   * del art. 30 no corría y un embarque corto o excedido pasaba en silencio. Las reglas que
+   * necesitan datos del 45A que no son la descripción leen de acá.
+   */
+  mercaderiaCompleta?: string | null;
   /** 50: el ordenante, a cuyo nombre se emite la factura (art. 18a-ii) */
   aplicante?: string | null;
   /** 59: el beneficiario, que es quien tiene que emitir la factura (art. 18a-i) */
@@ -1230,7 +1241,18 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
    * que no se pueden convertir entre sí —cabezas contra kilos— no se comparan: pueden ser la misma
    * carga, y una discrepancia inventada ahí sería peor que el silencio.
    */
-  const pedido = cantidadDelCredito(ctx.mercaderia);
+  /*
+   * El 45A entero, pero solo si es el MISMO campo que `mercaderia`.
+   *
+   * Son dos vistas del 45A —una recortada en el incoterm, otra no— y quien arma el contexto puede
+   * setear una y olvidar la otra: ahí el crudo viejo le ganaría a la descripción nueva y la regla
+   * mediría contra la cantidad de otro crédito. Como el recorte es un prefijo del campo entero, la
+   * coherencia se verifica en vez de asumirse.
+   */
+  const recorte = (ctx.mercaderia ?? "").trim();
+  const entero = (ctx.mercaderiaCompleta ?? "").trim();
+  const texto45A = entero && (!recorte || entero.includes(recorte)) ? entero : ctx.mercaderia;
+  const pedido = cantidadDelCredito(texto45A);
   const factura = docs.find((d) => d.tipo === "FACTURA");
   const cantFac = factura ? val(factura, "cantidad") : null;
   const uniFac = factura ? val(factura, "unidad") : null;
@@ -1246,14 +1268,14 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
    * resolver, se dice.
    */
   /* Y solo cuando el crédito SÍ nombra cantidades: ver `cantidadesDelCredito`. */
-  if (!pedido && cantFac && cantidadesDelCredito(ctx.mercaderia).length > 0) {
+  if (!pedido && cantFac && cantidadesDelCredito(texto45A).length > 0) {
     out.push(
       regla(
         "ucp-30b-cantidad",
         "UCP 600 30b",
         "Cantidad de la factura dentro de lo que pide el crédito",
         "ATENCION",
-        `la factura dice ${cantFac} ${uniFac ?? ""} y del crédito no se pudo deducir una cantidad única (${(ctx.mercaderia ?? "").replace(/\s+/g, " ").trim().slice(0, 80)}): verificar a mano`.replace(
+        `la factura dice ${cantFac} ${uniFac ?? ""} y del crédito no se pudo deducir una cantidad única (${(texto45A ?? "").replace(/\s+/g, " ").trim().slice(0, 80)}): verificar a mano`.replace(
           /\s+/g,
           " ",
         ),
@@ -1303,7 +1325,7 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
      * escribe: «ABOUT 57 MTS», «QUANTITY: ABOUT 57 MTS». Un «about» posterior o de otra línea no
      * cuenta.
      */
-    const antesDeLaCantidad = (ctx.mercaderia ?? "").slice(0, pedido.en);
+    const antesDeLaCantidad = (texto45A ?? "").slice(0, pedido.en);
     const renglonDeLaCantidad = antesDeLaCantidad.slice(antesDeLaCantidad.lastIndexOf("\n") + 1);
     const porAbout = /\b(about|approximately|circa|aproximadamente|aprox)\b[^\n]{0,24}$/i.test(renglonDeLaCantidad);
     const enUnidades = enKgPedido === null && !esVolumen(pedido.unidad);
@@ -1318,15 +1340,45 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
           : null;
     if (par) {
       const desvio = (par.a - par.b) / par.b;
+      /*
+       * Con embarques parciales permitidos (43P), quedarse corto NO es discrepancia: es un giro.
+       *
+       * El crédito de este caso pide 500 MT y la primera factura es de 223,27 —el 45 %—, con 43P
+       * ALLOWED. Medir cada giro contra el total y marcarlo discrepante sería inventar un rechazo
+       * sobre un paquete correcto, que es peor que el silencio que esta regla vino a tapar.
+       *
+       * Lo que el 43P no autoriza es PASARSE: la tolerancia del 30 (b) es sobre la cantidad del
+       * crédito, no un permiso para girar de más. Por eso el exceso sigue siendo discrepancia.
+       *
+       * Y el corto queda en ATENCION, no en OK: el banco no lo rechaza —es un giro parcial— pero
+       * el motor no puede distinguir «embarqué el 45 % a propósito» de «cargué mal la cantidad»,
+       * y darlo por conforme sería volver al silencio que esta regla vino a tapar. Lo dice y lo
+       * mira una persona.
+       *
+       * Lo que todavía no se mira es la SUMA de los giros anteriores contra el total; eso necesita
+       * `anteriores`, y mientras no esté, un parcial corto se informa como parcial y nada más.
+       */
+      const parcialesOk = Boolean(
+        ctx.parciales &&
+          /allowed|permit/i.test(ctx.parciales) &&
+          !/not\s+allowed|no\s+permit|prohib/i.test(ctx.parciales),
+      );
+      const corto = desvio < 0;
       const dentro = Math.abs(desvio) <= tol + 1e-9;
+      /* el giro corto bajo 43P no es ninguna de las dos cosas: ver el comentario de arriba */
+      const porParcial = parcialesOk && corto && !dentro;
       out.push(
         regla(
           "ucp-30b-cantidad",
           porAbout ? "UCP 600 30a" : lc.tolerancia != null ? "39A" : "UCP 600 30b",
           `Cantidad de la factura dentro de lo que pide el crédito (${pedido.valor} ${pedido.unidad} ±${Math.round(tol * 100)} %)`,
-          dentro ? "OK" : "DISCREPANCIA",
+          dentro ? "OK" : porParcial ? "ATENCION" : "DISCREPANCIA",
           `factura ${cantFac} ${uniFac ?? ""} · el crédito pide ${pedido.valor} ${pedido.unidad}`.trim() +
-            (dentro ? "" : ` — ${desvio > 0 ? "+" : ""}${Math.round(desvio * 100)} %`),
+            (porParcial
+              ? ` — es el ${Math.round((par.a / par.b) * 100)} % del crédito, y el 43P admite embarques parciales: no se mide contra el total. Queda por verificar que la SUMA de los giros no lo exceda.`
+              : dentro
+                ? ""
+                : ` — ${desvio > 0 ? "+" : ""}${Math.round(desvio * 100)} %`),
         ),
       );
     } else {

@@ -224,6 +224,15 @@ export interface LcSwift {
   /** extras útiles que la operación todavía no modela */
   extra: {
     tipoMensaje: string | null; // MT700 / MT710 …
+    /**
+     * El 45A ENTERO, sin el recorte en el incoterm que lleva `campos.mercaderia`.
+     *
+     * Ese recorte es correcto para comparar descripciones contra los documentos, pero hay créditos
+     * que ponen el incoterm en el punto 3 y la CANTIDAD en el 4 —«3.UNIT PRICE: USD780/MT CFR
+     * XINGANG,CHINA 4.QUANTITY: 500MTS (+/-5%)»— y ahí se perdía la cantidad: la regla del art. 30
+     * no corría y un embarque corto o excedido pasaba en silencio.
+     */
+    bienes: string | null;
     fechaEmision: string | null;
     /**
      * El 31D trae fecha **y lugar**: «250630 URUGUAY».
@@ -378,6 +387,9 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     moneda: seguro(moneda),
     cantidad: seguro(cant?.[1] ?? null),
     unidad: seguro(cant?.[2] ?? null),
+    /* Recortada en el primer incoterm a propósito: esto se compara contra la descripción de los
+       documentos y ahí el «CFR COLOMBO INCOTERMS 2020» sobra. El 45A entero va en `extra.bienes`,
+       porque hay créditos que ponen la cantidad DESPUÉS del incoterm. */
     mercaderia: seguro(bienes.split(/\s(?=CFR|CIF|FOB|HS CODE|INCOTERM)/i)[0]?.replace(/^\+?\s*\d\)\s*/, "") ?? null),
     puertoEmbarque: seguro(puertoEmb),
     puertoDestino: seguro(puertoDest),
@@ -392,6 +404,7 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     campos,
     extra: {
       tipoMensaje: tipoMensaje ? `MT${tipoMensaje}` : null,
+      bienes: bienes || null,
       fechaEmision: emision,
       lugarVencimiento: lugarDe(vencimientoRaw),
       formaCredito: texto(cs, "40B") || texto(cs, "40A") || null,

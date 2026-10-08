@@ -1033,9 +1033,24 @@ describe("la cantidad de la factura contra la que pide el crédito (art. 30)", (
     expect(conCantidad("62")?.estado).toBe("OK");
   });
 
-  it("un embarque corto fuera de tolerancia es discrepancia", () => {
+  /*
+   * ── Cambio de criterio (8-oct): el giro CORTO bajo 43P ALLOWED es ATENCION, no DISCREPANCIA ──
+   *
+   * Con embarques parciales permitidos, presentar por menos cantidad que el total del crédito es
+   * un giro parcial y el banco no lo rechaza: llamarlo discrepancia era inventar un rechazo. El
+   * caso que lo destapó es real — 223,27 MT contra un crédito de 500 con 43P ALLOWED, primer
+   * embarque de un contrato, aceptado por el banco.
+   *
+   * Tampoco pasa a OK: el motor no distingue «embarqué el 45 % a propósito» de «cargué mal la
+   * cantidad». Queda dicho y lo mira una persona.
+   *
+   * El EXCESO sigue siendo discrepancia con o sin parciales, y el corto vuelve a serlo cuando el
+   * crédito los prohíbe. El crédito de referencia de estos tests tiene 43P ALLOWED, y por eso
+   * varios de abajo cambiaron de veredicto.
+   */
+  it("un embarque corto fuera de tolerancia queda en atención: el 43P admite parciales", () => {
     const r = conCantidad("48");
-    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.estado).toBe("ATENCION");
     expect(r?.evidencia).toMatch(/48/);
     expect(r?.evidencia).toMatch(/57/);
   });
@@ -1103,22 +1118,87 @@ describe("la cantidad de la factura contra la que pide el crédito (art. 30)", (
     expect(r?.evidencia, "tiene que decir qué leyó y por qué no decide").toMatch(/500|300|a mano/i);
   });
 
+  /*
+   * Un 45A real que pone el incoterm ANTES de la cantidad.
+   *
+   * El crédito de AMS2026164 numera el campo: «3.UNIT PRICE: USD780/MT CFR XINGANG,CHINA» y recién
+   * en el punto 4 «QUANTITY: 500MTS (+/-5%)». El parser recorta la descripción en el primer
+   * incoterm —correcto para comparar descripciones contra los documentos— y con eso perdía la
+   * cantidad, el total, el packing y el fabricante. Resultado: esta regla NO corría contra ese
+   * crédito, y un embarque corto o excedido pasaba sin que nada lo dijera.
+   */
+  const CUARENTA_Y_CINCO_A = [
+    "1.NAME OF COMMODITY: BOVINE MEAT AND BONE MEAL",
+    "2.SPECIFICATION: PROTEIN: MIN 45% FAT: MAX 12%",
+    "3.UNIT PRICE: USD780/MT CFR XINGANG,CHINA",
+    "4.QUANTITY: 500MTS (+/-5%)",
+    "5.TOTAL AMOUNT: USD 390,000.00",
+    "6. PACKING: BULK IN CONTAINERS",
+  ].join(" ");
+
+  const conElCreditoEntero = (cantidad: string, parciales: string | null = null) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia: undefined },
+      credito: { ...CTX, mercaderia: "BOVINE MEAT AND BONE MEAL", mercaderiaCompleta: CUARENTA_Y_CINCO_A, parciales },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("la cantidad se lee aunque el 45A la ponga después del incoterm", () => {
+    const r = conElCreditoEntero("500");
+    expect(r, "sin la cantidad del crédito la regla no existe y el examen se queda mudo").toBeDefined();
+    expect(r?.estado).toBe("OK");
+    expect(r?.regla, "tiene que decir contra qué compara").toMatch(/500/);
+  });
+
+  it("y entonces un embarque excedido es discrepancia", () => {
+    expect(conElCreditoEntero("530")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Con parciales PERMITIDOS, un embarque corto NO es discrepancia: es un giro parcial.
+   *
+   * Sin esto, leer la cantidad habría sido peor que no leerla. El caso real es una factura de
+   * 223,27 MT contra un crédito de 500 con 43P ALLOWED —el 45 % del total— y marcarla discrepante
+   * sería inventar un rechazo sobre un paquete que el banco aceptó. Pasarse del total sigue siendo
+   * discrepancia aunque los parciales estén permitidos: lo que el 30 (b) tolera es la variación de
+   * la cantidad, no girar por encima del crédito.
+   */
+  it("con parciales permitidos, un embarque corto es un parcial y no una discrepancia", () => {
+    const r = conElCreditoEntero("223.27", "ALLOWED");
+    expect(r?.estado, "223 de 500 con 43P ALLOWED es un giro parcial, no un faltante").toBe("ATENCION");
+    expect(r?.evidencia, "la evidencia tiene que decir por qué no se marca").toMatch(/parcial/i);
+  });
+
+  it("pero pasarse del crédito es discrepancia aunque los parciales estén permitidos", () => {
+    expect(conElCreditoEntero("530", "ALLOWED")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("con parciales NO permitidos, el embarque corto vuelve a ser discrepancia", () => {
+    expect(conElCreditoEntero("223.27", "NOT ALLOWED")?.estado).toBe("DISCREPANCIA");
+  });
+
   it("la unidad se convierte: el crédito en toneladas y la factura en kilos", () => {
     expect(conCantidad("53960", "KGS")?.estado).toBe("OK");
-    expect(conCantidad("48000", "KGS")?.estado).toBe("DISCREPANCIA");
+    // corto con 43P ALLOWED → atención (ver la nota de criterio de arriba)
+    expect(conCantidad("48000", "KGS")?.estado).toBe("ATENCION");
   });
 
   it("sin tolerancia declarada, rige el 5 % del artículo 30 (b)", () => {
     // 57 ± 5 % = 54,15 a 59,85
     expect(conCantidad("55", "MT", { tolerancia: undefined })?.estado).toBe("OK");
-    expect(conCantidad("52", "MT", { tolerancia: undefined })?.estado).toBe("DISCREPANCIA");
+    expect(conCantidad("52", "MT", { tolerancia: undefined })?.estado).toBe("ATENCION");
   });
 
   it("pero ese 5 % no corre sobre bultos: el artículo lo limita a peso y volumen", () => {
     const r = reglasUCP({
       lc: { ...LC, tolerancia: undefined },
       credito: { ...CTX, mercaderia: "1360 BAGS OF FISH MEAL" },
-      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("1330"), unidad: campo("BAGS") }) }],
+      /* Por EXCESO y no por defecto: el crédito de referencia permite parciales, y un giro corto
+         queda en atención por eso (ver la nota de criterio). Pasarse sigue siendo discrepancia con
+         o sin parciales, así que el exceso aísla lo que este test quiere probar — que sobre bultos
+         no hay 5 % que valga. */
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("1390"), unidad: campo("BAGS") }) }],
       hoy: HOY,
     }).find((x) => x.id === "ucp-30b-cantidad");
     expect(r?.estado).toBe("DISCREPANCIA");
@@ -1138,7 +1218,11 @@ describe("la cantidad de la factura contra la que pide el crédito (art. 30)", (
   it("sin cantidad en el 45A no hay nada contra qué comparar", () => {
     const r = reglasUCP({
       lc: LC,
-      credito: { ...CTX, mercaderia: "FISH MEAL 54PCT MIN" },
+      /* Las DOS vistas del 45A: `mercaderia` es el campo recortado en el incoterm y
+         `mercaderiaCompleta` el campo entero. Pisar una sola dejaría la cantidad del crédito de
+         referencia asomando por la otra, y el test mediría contra «57 MTS» creyendo que no hay
+         cantidad. */
+      credito: { ...CTX, mercaderia: "FISH MEAL 54PCT MIN", mercaderiaCompleta: "FISH MEAL 54PCT MIN" },
       docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo("48"), unidad: campo("MT") }) }],
       hoy: HOY,
     }).find((x) => x.id === "ucp-30b-cantidad");
@@ -1218,7 +1302,8 @@ describe("la cantidad, con lo que la auditoría encontró", () => {
   });
 
   it("pero los bultos siguen sin tolerancia", () => {
-    expect(conCantidad("1330", "BAGS", "1360 BAGS OF FISH MEAL", { tolerancia: undefined })?.estado).toBe(
+    // por exceso, para que el 43P del crédito de referencia no se cruce (ver la nota de criterio)
+    expect(conCantidad("1390", "BAGS", "1360 BAGS OF FISH MEAL", { tolerancia: undefined })?.estado).toBe(
       "DISCREPANCIA",
     );
   });
