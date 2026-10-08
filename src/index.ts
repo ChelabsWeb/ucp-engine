@@ -199,7 +199,16 @@ export { describirCoincidencia, MOMENTOS_DE_SCREENING, partesAScreenear, screene
 export { scrubForLLM } from "./scrub";
 export type { CampoSwift, LcSwift } from "./swift-lc";
 /** Intérprete determinista de mensajes SWIFT MT700 y MT710. */
-export { esMensajeSwift, fechaSwift, listaSwift, lugarDe, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
+export {
+  esMensajeSwift,
+  fechaSwift,
+  listaSwift,
+  lugarDe,
+  montoSwift,
+  normalizarSwiftDePdf,
+  parseMT700,
+  tokenizarSwift,
+} from "./swift-lc";
 export { referenciaDelMensaje, type TipoDeMensaje } from "./swift-salida";
 export type {
   ContextoTransferencia,
