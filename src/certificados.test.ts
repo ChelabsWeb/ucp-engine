@@ -40,6 +40,47 @@ const correr = (certificados: DocCertificado[], docs: DocAnalizado[] = [BL, PACK
 
 const exigencia = (re: RegExp) => EXIGIDOS.find((e) => re.test(e))!;
 
+/*
+ * Quién emite un certificado NO es quién exporta.
+ *
+ * El crédito nombra al emisor en seis de sus once documentos: «ISSUED BY CHAMBER OF COMMERCE IN
+ * URUGUAY», «ISSUED BY MINISTRY OF LIVESTOCK», «ISSUED BY AN ACCREDITED SURVEYOR». Eso es una
+ * exigencia que se verifica, y el motor la verificaba contra el campo `exportador`.
+ *
+ * En el expediente real eso hacía que las siete reglas dijeran «el documento lo emite YARUS S.A.»
+ * — el frigorífico que embarca — para el certificado de la Cámara Mercantil, el del Ministerio y
+ * los cuatro de Caliset. Afirmar quién firmó un papel que va al banco, y afirmarlo mal, es peor
+ * que decir que no se leyó.
+ */
+describe("el emisor de un certificado es un dato propio, no el exportador", () => {
+  const exigencia = "CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE IN URUGUAY IN 1 ORIGINAL AND 2 COPIES";
+
+  const correr = (campos: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>>) =>
+    reglasCertificados({
+      lc: LC,
+      certificados: [{ exigencia, campos: doc(campos) }],
+      docs: [],
+      beneficiario: "AGROMEALS S.A.",
+      hoy: HOY,
+    }).find((r) => /lo emite/.test(r.regla));
+
+  it("no dice que lo emite el exportador cuando no se leyó quién lo emite", () => {
+    const r = correr({ exportador: campo("YARUS S.A.") });
+    expect(r?.evidencia, "YARUS embarca; el certificado de origen lo firma la Cámara").not.toMatch(/YARUS/);
+    expect(r?.estado, "sin el dato no se puede dictaminar").toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no se leyó|verificar/i);
+  });
+
+  it("y cuando sí se leyó, lo usa", () => {
+    const r = correr({
+      exportador: campo("YARUS S.A."),
+      emisor: campo("CAMARA MERCANTIL DE PRODUCTOS DEL PAIS"),
+    });
+    expect(r?.evidencia).toMatch(/CAMARA MERCANTIL/);
+    expect(r?.evidencia).not.toMatch(/YARUS/);
+  });
+});
+
 describe("la nota de peso", () => {
   const item = exigencia(/WEIGHT/i);
 
@@ -107,11 +148,13 @@ describe("el certificado de análisis", () => {
 });
 
 describe("quién puede emitir cada certificado", () => {
+  /* El emisor va en su campo propio: `exportador` es quien embarca, y usarlo acá hacía que el
+     motor afirmara que el certificado de la Cámara Mercantil lo firmaba el frigorífico. */
   it("si el crédito nombra al emisor, tiene que ser ese", () => {
     const r = correr([
       {
         exigencia: "CERTIFICATE OF ANALYSIS ISSUED BY CALISET",
-        campos: doc({ exportador: campo("OTRO LABORATORIO SRL") }),
+        campos: doc({ emisor: campo("OTRO LABORATORIO SRL") }),
         nombreArchivo: "Analysis",
       },
     ]);
@@ -122,7 +165,7 @@ describe("quién puede emitir cada certificado", () => {
     const r = correr([
       {
         exigencia: "CERTIFICATE OF ANALYSIS ISSUED BY CALISET LIMITED",
-        campos: doc({ exportador: campo("CALISET LTD") }),
+        campos: doc({ emisor: campo("CALISET LTD") }),
         nombreArchivo: "Analysis",
       },
     ]);
@@ -133,7 +176,7 @@ describe("quién puede emitir cada certificado", () => {
     const r = correr([
       {
         exigencia: "INDEPENDENT INSPECTION CERTIFICATE",
-        campos: doc({ exportador: campo("CEREALSUR S.A") }),
+        campos: doc({ emisor: campo("CEREALSUR S.A") }),
         nombreArchivo: "Inspection",
       },
     ]);
@@ -144,7 +187,7 @@ describe("quién puede emitir cada certificado", () => {
     const r = correr([
       {
         exigencia: "INDEPENDENT INSPECTION CERTIFICATE",
-        campos: doc({ exportador: campo("CALISET S.A.") }),
+        campos: doc({ emisor: campo("CALISET S.A.") }),
         nombreArchivo: "Inspection",
       },
     ]);

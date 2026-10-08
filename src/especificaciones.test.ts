@@ -13,6 +13,42 @@ We also certify not contain salmonella.
 ANTI-OXIDANT TREATED: BUTILHIDROXITOLUENO (BTH): 700 ppm
 CALISET S.A. BY AN INDEPENDENT SURVEYOR`;
 
+/*
+ * El 45A de un crédito real de harina de carne y hueso: once especificaciones, y el motor
+ * conocía la mitad.
+ *
+ * Las que faltaban —CALCIUM, DIGESTIBILITY, PHOSPHORUS, TVN, ACID VALUE— salían como «la
+ * especificación que el crédito exige», sin nombre, y DIGESTIBILITY encima mutilada a
+ * «IGESTIBILITY» porque el nombre se capturaba con {3,12} y tiene trece letras. Un examen que no
+ * puede nombrar lo que exige no se puede discutir con el banco.
+ */
+describe("las especificaciones del 45A de harina de carne (caso real)", () => {
+  const CUARENTA_Y_CINCO_A =
+    "2.SPECIFICATION: PROTEIN: MIN 45% FAT: MAX 12% ASH: MAX 37% CALCIUM: MIN 8% " +
+    "DIGESTIBILITY: MIN 85% MOISTURE: MAX 10% FIBER: MAX 3% PHOSPHORUS: MIN 4% " +
+    "TVN: MAX 50MG/100G SALMONELLA FREE ACID VALUE: MAX 5MGKOH/G";
+
+  it("las nombra a todas, y DIGESTIBILITY entera", () => {
+    const e = especificacionesDe(CUARENTA_Y_CINCO_A);
+    const nombres = e.map((x) => x.parametro);
+    for (const n of ["protein", "fat", "ash", "calcium", "digestibility", "moisture", "fiber", "phosphorus"]) {
+      expect(nombres, `falta «${n}»: el examen no puede nombrar lo que exige`).toContain(n);
+    }
+    /* Como nombre EXACTO, no como substring: «digestibility» contiene «igestibility» y un
+       `toMatch` daba rojo sobre el valor correcto. */
+    expect(nombres, "«IGESTIBILITY» es el nombre comido por el límite de 12 letras").not.toContain("igestibility");
+  });
+
+  it("y con el operador correcto, que es lo que invierte el veredicto", () => {
+    const e = especificacionesDe(CUARENTA_Y_CINCO_A);
+    const de = (n: string) => e.find((x) => x.parametro === n);
+    expect(de("calcium")).toMatchObject({ operador: "MIN", valor: 8 });
+    expect(de("digestibility")).toMatchObject({ operador: "MIN", valor: 85 });
+    expect(de("phosphorus")).toMatchObject({ operador: "MIN", valor: 4 });
+    expect(de("fat")).toMatchObject({ operador: "MAX", valor: 12 });
+  });
+});
+
 describe("leer una especificación", () => {
   it("«54PCT MIN», como lo escribe el crédito real", () => {
     const e = especificacionesDe("57 MTS OF FISH MEAL 54PCT MIN (FOR ANIMAL FEED USE)");

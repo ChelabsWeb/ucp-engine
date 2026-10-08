@@ -264,7 +264,16 @@ export function reglasCertificados(input: {
 
     /* quién lo emite (ISBP 821 Q3 a Q5, y L3 para el de origen) */
     const admitido = emisorAdmitido(c.exigencia);
-    const emisor = val(c.campos.emisorSeguro) ?? val(c.campos.exportador);
+    /*
+     * De dónde sale quién emite, y de dónde NO.
+     *
+     * No del `exportador`: ese es quien embarca la mercadería, y en un certificado de tercero no
+     * tiene nada que ver con quién lo firma. Cayendo ahí, el motor decía que el certificado de
+     * origen de la Cámara Mercantil lo emitía el frigorífico, y lo decía en un examen que va al
+     * banco. Sin el dato, la regla lo dice y manda a verificar: no saber es un estado válido,
+     * afirmar mal no.
+     */
+    const emisor = val(c.campos.emisor) ?? val(c.campos.emisorSeguro);
     if (admitido === "EL_QUE_NOMBRA_EL_CREDITO") {
       const nombrado = emisorQueNombra(c.exigencia);
       if (nombrado) {

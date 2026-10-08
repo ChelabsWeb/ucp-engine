@@ -25,8 +25,17 @@ export interface Especificacion {
 }
 
 /** Los parámetros que aparecen escritos con nombre en los créditos de alimentos y granos. */
+/*
+ * Los parámetros de calidad que un 45A nombra.
+ *
+ * La lista salió corta contra el primer crédito de harina de carne y hueso: pedía once
+ * especificaciones y el motor conocía seis. Las otras cinco —CALCIUM, DIGESTIBILITY, PHOSPHORUS,
+ * TVN, ACID VALUE— se cotejaban igual, pero sin nombre: «la especificación que el crédito exige»
+ * en vez de «el calcio». Un examen que no puede nombrar lo que exige no se puede discutir con el
+ * banco, que es para lo que existe.
+ */
 const PARAMETROS =
-  /\b(protein|proteina|prote[ií]na|moisture|humedad|fat|grasa|ash|ceniza|fiber|fibre|fibra|salt|sal|ffa|acidity|acidez|tvbn|purity|pureza|broken|damaged)\b/i;
+  /\b(protein|proteina|prote[ií]na|moisture|humedad|fat|grasa|ash|ceniza|fiber|fibre|fibra|salt|sal|ffa|acidity|acidez|tvbn|tvn|purity|pureza|broken|damaged|calcium|calcio|digestibility|digestibilidad|phosphorus|fosforo|f[oó]sforo|acid value|valor acido|valor [aá]cido|salmonella|melamine|melamina|nitrofuran)\b/i;
 
 /*
  * Lo que un por ciento del 45A puede ser sin ser calidad.
@@ -102,7 +111,9 @@ export function especificacionesDe(texto: string): Especificacion[] {
   const re = new RegExp(
     // el parámetro no puede ser el operador: sin este freno, «MIN 54%» leía «MIN» como
     // el nombre del parámetro y perdía el operador, que es lo único que no se puede errar
-    String.raw`((?!(?:min|max|m[ií]n|m[áa]x)(?:imum|imo)?\b)[A-Za-zÁÉÍÓÚáéíóúñ]{3,12}\s*:?\s*)?` +
+    // hasta 18 y no 12: «DIGESTIBILITY» tiene trece letras y salía mutilada a «IGESTIBILITY».
+    // Ampliar no mete ruido — el nombre final lo decide `PARAMETROS`, que es una lista cerrada.
+    String.raw`((?!(?:min|max|m[ií]n|m[áa]x)(?:imum|imo)?\b)[A-Za-zÁÉÍÓÚáéíóúñ]{3,18}\s*:?\s*)?` +
       // el punto de «MIN.» y «MAX.» entra acá: sin él el operador se perdía y el número quedaba
       // leído como un nominal, que invierte el veredicto en los dos sentidos
       String.raw`(min(?:imum)?|max(?:imum)?|m[ií]n(?:imo)?|m[áa]x(?:imo)?|not less than|no menos de)?\.?\s*` +

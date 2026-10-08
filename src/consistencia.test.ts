@@ -56,6 +56,27 @@ function docBase(): CamposDoc {
 
 const fila = (r: Resultado, campo: string) => r.matriz.find((m) => m.campo.startsWith(campo.split(" ")[0]));
 
+/*
+ * El «shipment notice» es un documento del 46A como cualquier otro.
+ *
+ * Este crédito lo pide en el punto 11 —«SHIPMENT NOTICE IN 1 COPY INDICATING THAT HAS EMAILED
+ * APPLICANT…»— y `claveDoc` no lo conocía: caía en `TXT:` con el texto entero, así que el
+ * presentado nunca apareaba con su exigencia y quedaba fuera del examen.
+ */
+describe("claveDoc reconoce el shipment notice", () => {
+  it("el presentado y la exigencia del 46A dan la misma clave", () => {
+    const exigencia =
+      "SHIPMENT NOTICE IN 1 COPY INDICATING THAT HAS EMAILED APPLICANT WITH THE EMAIL ADDRESS LITCFD(AT)EXAMPLE.COM WITHIN 3 DAYS AFTER SHIPMENT";
+    expect(claveDoc("SHIPMENT NOTICE")).toBe(claveDoc(exigencia));
+    expect(claveDoc("SHIPMENT NOTICE"), "no puede caer en el texto crudo").not.toMatch(/^TXT:/);
+  });
+
+  it("y no se confunde con el conocimiento de embarque ni con el packing", () => {
+    expect(claveDoc("SHIPMENT NOTICE")).not.toBe(claveDoc("FULL SET OF BILLS OF LADING"));
+    expect(claveDoc("SHIPMENT NOTICE")).not.toBe(claveDoc("PACKING LIST"));
+  });
+});
+
 describe("aKg — B6: sin unidad reconocida NO adivina", () => {
   it("convierte KG, MT/TON y LB", () => {
     expect(aKg(253000, "KG")).toBe(253000);

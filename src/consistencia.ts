@@ -143,6 +143,15 @@ export interface CamposDoc {
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
   precioUnitario?: CampoDoc; // "USD 800,00" — con él y el total se desambigua una cantidad
+  /**
+   * Quién EMITE y firma el documento, cuando no es quien lo exporta.
+   *
+   * El crédito nombra al emisor en la mayoría de los certificados que pide —«ISSUED BY CHAMBER OF
+   * COMMERCE IN URUGUAY», «ISSUED BY MINISTRY OF LIVESTOCK», «ISSUED BY AN ACCREDITED SURVEYOR»—
+   * y eso se verifica. Sin este campo la regla caía al `exportador`, que es el frigorífico que
+   * embarca, y afirmaba que el certificado de la Cámara Mercantil lo emitía YARUS S.A.
+   */
+  emisor?: CampoDoc;
   /* documento de seguro (UCP 600 art. 28) */
   tipoSeguro?: CampoDoc; // "INSURANCE POLICY" / "CERTIFICATE" / "COVER NOTE"
   emisorSeguro?: CampoDoc; // la compañía que lo emite y firma
@@ -702,6 +711,7 @@ export const SCHEMA_DOC = {
     juegoOriginales: campoSchema,
     precioUnitario: campoSchema,
     tipoSeguro: campoSchema,
+    emisor: campoSchema,
     emisorSeguro: campoSchema,
     fechaSeguro: campoSchema,
     montoAsegurado: campoSchema,
@@ -822,6 +832,9 @@ export const PROMPT_DOC =
   "clausulaDefecto = cualquier anotación sobre el estado defectuoso de la mercadería o del embalaje ('BAGS TORN', " +
   "'STAINED'), vacío si el documento está limpio. " +
   "juegoOriginales = cuántos originales se emitieron, tal cual ('3/3', 'THREE (3)', 'ZERO (0)'). " +
+  "emisor = quién EMITE y firma el documento, cuando no es el exportador: la cámara de comercio de un " +
+  "certificado de origen, el ministerio de un sanitario, la empresa inspectora de un análisis. Copiá el " +
+  "nombre tal cual figura al pie o en el membrete; si no se lee, dejalo vacío — no pongas el exportador. " +
   "En un documento de seguro: tipoSeguro = la cobertura contratada tal cual ('INSTITUTE CARGO CLAUSES (A)', " +
   "'ALL RISKS'), no el título del papel —ése va en tipoDocumento—. emisorSeguro = quién lo emite, que para el " +
   "artículo 28 tiene que ser una compañía de seguros o su agente: copiá el nombre tal cual, aunque sea un bróker. " +
@@ -1216,6 +1229,11 @@ function clavePorTexto(s: string): string {
   // normTexto ya sacó el apóstrofo: "beneficiary s certificate"
   if (/beneficiary.{0,3}certificate|certificado del beneficiario/.test(s)) return `BENEFICIARIO:${s.slice(0, 40)}`;
   if (/\bdraft|bill of exchange|letra de cambio|giro/.test(s)) return "GIRO";
+  /* El aviso de embarque al ordenante: el crédito lo pide como documento y hay que presentarlo.
+     Sin esto caía en `TXT:` con el texto entero de la exigencia, que nunca coincide con el título
+     del papel, y el documento quedaba afuera del examen. Va DESPUÉS del conocimiento de embarque
+     para que «shipment» no le robe el BL. */
+  if (/shipment notice|aviso de embarque|notice of shipment/.test(s)) return "AVISO_EMBARQUE";
   return `TXT:${s}`;
 }
 
