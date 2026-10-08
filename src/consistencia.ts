@@ -96,6 +96,14 @@ export interface DocExternoGuardado {
   exigencia?: string | null;
   nombreArchivo: string;
   storagePath: string | null;
+  /**
+   * Qué documento reemplazó a éste, cuando el banco lo observó y el emisor reemitió.
+   *
+   * El reemplazado no entra al examen —se filtra antes— pero queda como traza de qué se presentó
+   * y qué observaron. En el expediente real fueron cuatro de los once certificados, cada uno
+   * declarándolo en su cara: «This certificate replaces the previous Nr.: 185010».
+   */
+  reemplazadoPor?: string | null;
   campos: CamposDoc;
   discrepancias: number;
   creadoEn: string;
