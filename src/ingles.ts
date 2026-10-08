@@ -927,6 +927,8 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Conocimiento de embarque$/g, "Bill of lading"],
   // la etiqueta del quinto tipo: los otros siete papeles que el 46A pide
   [/^Certificado del 46A$/g, "Field 46A certificate"],
+  [/^Documento de seguro$/g, "Insurance document"],
+  [/^documento de seguro$/g, "insurance document"],
   [/^Certificado$/g, "Certificate"],
   [/^certificado$/g, "certificate"],
   [/^Carta de crédito$/g, "Letter of credit"],

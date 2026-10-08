@@ -17,6 +17,7 @@ import {
   parseNumero,
   SCHEMA_DOC,
   schemaPara,
+  TIPO_DOC_LABEL,
   type TipoDocExterno,
 } from "./consistencia";
 import { operationDetails } from "./mock";
@@ -912,5 +913,49 @@ describe("la cantidad del 45A cuando el crédito describe el envase", () => {
       valor: 57,
       unidad: "MTS",
     });
+  });
+});
+
+/**
+ * El documento de seguro es un tipo que el producto puede cargar, no solo uno que el motor sabe
+ * examinar.
+ *
+ * El motor tenía las siete reglas del artículo 28 escritas y probadas desde el principio, y el ERP
+ * no se las ejecutaba nunca: `examinarPresentacion` recibe el seguro por su propio parámetro y no
+ * había forma de cargar una póliza, porque `TipoDocExterno` no la nombraba. Eso no se ve desde
+ * adentro del motor —sus tests le pasan el seguro a mano— y por eso la red va acá: si alguien saca
+ * `SEGURO` del tipo, el producto vuelve a quedarse sin poder cargarlo y este archivo lo dice.
+ */
+describe("el seguro es un documento que se puede cargar", () => {
+  it("tiene etiqueta, campos propios y ninguna columna en la matriz", () => {
+    expect(TIPO_DOC_LABEL.SEGURO, "sin etiqueta no hay botón que lo ofrezca").toBeTruthy();
+    expect(CAMPOS_POR_TIPO.SEGURO, "sin campos, la extracción le pide el esquema de otro documento").toEqual(
+      CAMPOS_SEGURO,
+    );
+    expect(CAMPOS_SEGURO).toContain("montoAsegurado");
+    expect(CAMPOS_SEGURO).toContain("coberturaDesde");
+    expect(CAMPOS_SEGURO).toContain("coberturaHasta");
+  });
+
+  it("no se compara como los cuatro de la matriz: se examina con el artículo 28", () => {
+    /*
+     * Pintar un seguro en la matriz daría cuatro columnas vacías —no tiene exportador ni cantidad
+     * que cruzar contra la operación— y cuatro columnas vacías se leen como «no se pudo leer».
+     */
+    const r = compararDocumento(
+      {
+        tipoSeguro: { valor: "INSTITUTE CARGO CLAUSES (A)", confianza: 1 },
+        montoAsegurado: { valor: "59.565,00", confianza: 1 },
+      } as unknown as CamposDoc,
+      op,
+      { razonSocial: "CEREALSUR S.A.", direccion: "" } as never,
+      "SEGURO",
+    );
+    for (const fila of r.matriz) {
+      expect(
+        [fila.lc?.valor, fila.invoice?.valor, fila.packing?.valor, fila.bl?.valor].every((v) => v == null),
+        "el seguro aportó a una columna de la matriz: ahí no va",
+      ).toBe(true);
+    }
   });
 });

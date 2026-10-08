@@ -33,7 +33,7 @@ import type {
  * fumigación, veterinario, nota de peso y los del propio beneficiario—, los que llegan de terceros y
  * se reenvían sin mirar. Se examinan con `reglasCertificados`, apareados con su exigencia.
  */
-export type TipoDocExterno = "FACTURA" | "LC" | "PACKING" | "BL" | "CERTIFICADO";
+export type TipoDocExterno = "FACTURA" | "LC" | "PACKING" | "BL" | "CERTIFICADO" | "SEGURO";
 
 export const TIPO_DOC_LABEL: Record<TipoDocExterno, string> = {
   FACTURA: "Factura comercial",
@@ -41,6 +41,7 @@ export const TIPO_DOC_LABEL: Record<TipoDocExterno, string> = {
   PACKING: "Packing list",
   BL: "Bill of lading",
   CERTIFICADO: "Certificado del 46A",
+  SEGURO: "Documento de seguro",
 };
 
 /**
@@ -57,6 +58,15 @@ const COLUMNA_DE_TIPO: Record<TipoDocExterno, "lc" | "invoice" | "packing" | "bl
   PACKING: "packing",
   BL: "bl",
   CERTIFICADO: null,
+  /*
+   * El seguro tampoco: se examina con el artículo 28, que no se parece a nada de la matriz.
+   *
+   * Lo que se le mira es quién lo emite —una compañía de seguros o su agente, nunca un bróker—,
+   * que no esté fechado después del embarque, que vaya en la moneda del crédito, que cubra al menos
+   * el 110 % del valor CIF y que el tramo cubierto vaya del puerto de carga al de descarga. Nada de
+   * eso es «el mismo campo en dos papeles», que es lo único que la matriz sabe hacer.
+   */
+  SEGURO: null,
 };
 
 /** Un campo extraído por la IA: el valor tal cual aparece + su confianza 0..1. */
@@ -1309,6 +1319,21 @@ export function cotejarLC(
  * que **ese documento** puede tener: a un conocimiento de embarque no se le pregunta el monto
  * asegurado, y preguntárselo no solo agranda la gramática — invita al modelo a inventar.
  */
+export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
+  "tipoSeguro",
+  "vigenciaSeguro",
+  "emisorSeguro",
+  "fechaSeguro",
+  "montoAsegurado",
+  "monedaAsegurada",
+  "coberturaDesde",
+  "coberturaHasta",
+  "numeroDoc",
+  "mercaderia",
+  "puertoEmbarque",
+  "puertoDestino",
+];
+
 /**
  * Los campos de un certificado del 46A: los que este archivo lee de verdad.
  *
@@ -1425,23 +1450,10 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
    * invitar al modelo a inventarlos. Es la misma lista que la pantalla ofrece para cargarlo a mano.
    */
   CERTIFICADO: CAMPOS_CERTIFICADO,
+  SEGURO: CAMPOS_SEGURO,
 };
 
 /** Los campos del documento de seguro, que no es un `TipoDocExterno` pero se lee igual. */
-export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
-  "tipoSeguro",
-  "vigenciaSeguro",
-  "emisorSeguro",
-  "fechaSeguro",
-  "montoAsegurado",
-  "monedaAsegurada",
-  "coberturaDesde",
-  "coberturaHasta",
-  "numeroDoc",
-  "mercaderia",
-  "puertoEmbarque",
-  "puertoDestino",
-];
 
 /**
  * El esquema para un tipo de documento.

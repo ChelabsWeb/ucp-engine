@@ -34,6 +34,7 @@ const NOMBRE: Record<TipoDocExterno, string> = {
   BL: "conocimiento de embarque",
   LC: "carta de crédito",
   CERTIFICADO: "certificado",
+  SEGURO: "documento de seguro",
 };
 
 /**

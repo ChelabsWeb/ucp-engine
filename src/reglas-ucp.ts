@@ -206,6 +206,7 @@ const NOMBRE: Record<TipoDocExterno, string> = {
   BL: "Conocimiento de embarque",
   LC: "Carta de crédito",
   CERTIFICADO: "Certificado",
+  SEGURO: "Documento de seguro",
 };
 
 /** El documento de seguro no entra en la matriz de la operación: viaja aparte. */
