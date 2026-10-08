@@ -743,7 +743,38 @@ export const PROMPT_DOC =
   "Extraé SOLO los campos pedidos, con el valor TAL CUAL aparece en el documento (no lo reformatees ni lo traduzcas). " +
   "Para exportador e importador extraé SOLO la razón social (sin dirección ni ciudad); en un bill of lading el exportador es el SHIPPER " +
   "y el importador el NOTIFY PARTY; el campo consignatario es el CONSIGNEE tal cual (p. ej. 'TO THE ORDER OF MERIDIAN BANK PLC'). " +
-  "bultos = número TOTAL de bultos del documento (si hay varios contenedores, la suma; si es una hoja parcial —'sheet 1 of 2'— bajá la confianza a < 0.6); " +
+  /*
+   * `cantidad` y `unidad` tienen que salir del MISMO renglón. VA PRIMERO A PROPÓSITO.
+   *
+   * Un documento de comercio dice la misma carga dos veces: «53.96 MTS OF FISH MEAL» en la
+   * descripción y «TOTAL NET WEIGHT: 53.960 KGS» en el detalle. Sobre la factura de referencia el
+   * modelo tomó el número de un renglón y la unidad del otro —53.960 con «MTS»— y el motor lo pasó
+   * a kilos: 53.960.000, mil veces la carga. No es un error visible: el número existe, la unidad
+   * existe, y la cifra entra en la comparación contra el crédito como si fuera real.
+   *
+   * Esta instrucción ya se escribió una vez y se perdió, y al perderse el error volvió exacto. Va
+   * arriba de todo porque es la única del prompt cuyo incumplimiento se mide en órdenes de
+   * magnitud: las demás dejan un campo vacío, ésta deja un número mil veces más grande.
+   */
+  "ANTES QUE NADA: cantidad y unidad SIEMPRE del MISMO renglón. Si el número lo sacás de " +
+  "'TOTAL NET WEIGHT: 53.960 KGS', la unidad es KGS, aunque el documento diga la misma carga en toneladas en " +
+  "otra línea. Un papel suele repetir la carga en toneladas y en kilos: mezclar el número de una con la unidad " +
+  "de la otra multiplica o divide por mil. Para `cantidad` preferí el renglón del peso NETO total. " +
+  "Si no podés atar el número y la unidad al mismo renglón, bajá la confianza a < 0.6. " +
+  /*
+   * El bloque de totales se lee entero, no hasta el primer renglón.
+   *
+   * La factura los pone juntos —TOTAL NET WEIGHT, TOTAL GROSS WEIGHT, TOTAL BAGS— y el modelo
+   * devolvía el neto y dejaba los otros dos vacíos, con el dato a dos centímetros. Vacío no es
+   * neutro: el cruce de peso bruto entre la factura y el packing sale «no se leyó», que es una fila
+   * amarilla sobre papeles que coinciden.
+   */
+  "Ojo con el bloque de totales: el peso NETO, el peso BRUTO y el total de bultos suelen ir en renglones " +
+  "seguidos del mismo bloque ('TOTAL NET WEIGHT' / 'TOTAL GROSS WEIGHT' / 'TOTAL BAGS'). Son tres campos " +
+  "distintos —cantidad, pesoBruto y bultos—: leé el bloque entero y llenálos a los tres, no solo el primero. " +
+  "El peso neto nunca va en pesoBruto. " +
+  "bultos = número TOTAL de bultos del documento (en una factura suele venir como 'TOTAL BAGS: 1.360' o " +
+  "'TOTAL CARTONS: 680'; si hay varios contenedores, la suma; si es una hoja parcial —'sheet 1 of 2'— bajá la confianza a < 0.6); " +
   "tipoBulto = qué son (bags, cartons, pallets…); pesoBruto = peso bruto TOTAL con su unidad; " +
   "fechaEmbarque = en un BL la fecha SHIPPED ON BOARD; fechaDocumento = la fecha de emisión del documento (DATE / PLACE AND DATE OF ISSUE). " +
   "hsCode = la partida arancelaria (HS CODE) tal cual. numeroLC = el número de carta de crédito si el documento lo cita (L/C No., LC:). referenciaProforma = en una factura, la frase que cita la proforma " +
@@ -765,6 +796,41 @@ export const PROMPT_DOC =
   "charterParty = la mención de fletamento si existe ('CHARTER PARTY', 'FREIGHT PAYABLE AS PER CHARTER PARTY'), vacío si no aparece. " +
   "precioUnitario = en una factura, el precio por unidad con su unidad ('USD 950,00 PER MT'): es lo que " +
   "permite recalcular la cantidad cuando el total y la cantidad no cierran. " +
+  /*
+   * Los ocho campos del documento de seguro (art. 28).
+   *
+   * El esquema los pedía y el prompt no explicaba ninguno, que es el mismo defecto que hacía leer
+   * «53.960 MTS» donde el papel decía kilos. Dos son los que más se equivocan: `tipoSeguro` no es
+   * el título del papel sino la cobertura contratada, y `coberturaDesde`/`coberturaHasta` son
+   * LUGARES, no fechas. El motor se defiende —si ahí llega una fecha no dictamina— pero entonces
+   * la regla sale «a verificar» sobre una póliza que está perfecta, y eso es una fila amarilla que
+   * alguien tiene que ir a mirar para nada.
+   */
+  /*
+   * Los cuatro campos del conocimiento que deciden si el banco lo observa.
+   *
+   * El esquema los pedía sin explicarlos, y de ellos salen tres artículos enteros: el 20 (a) (ii)
+   * mira la anotación de a bordo, el 26 (a) rechaza la mercadería estibada sobre cubierta y el 27
+   * exige que el documento esté limpio. Un campo vacío manda la regla a «no se leyó», y «no se
+   * leyó» sobre la anotación de a bordo es justo la fila que nadie quiere ver dudosa.
+   */
+  "En un conocimiento de embarque: onBoard = la anotación de a bordo tal cual ('SHIPPED ON BOARD 08 APR 2025'), " +
+  "con su fecha si la trae; si el documento solo dice que la mercadería fue RECIBIDA para embarque y no hay " +
+  "anotación de a bordo, dejalo VACÍO, no copies la fecha de emisión. " +
+  "onDeck = la mención de estiba sobre cubierta ('SHIPPED ON DECK', 'ON DECK'), vacío si no aparece; no confundir " +
+  "con 'ON DECK AT SHIPPER'S RISK' impreso en las condiciones generales, que no dice dónde viajó esta carga. " +
+  "clausulaDefecto = cualquier anotación sobre el estado defectuoso de la mercadería o del embalaje ('BAGS TORN', " +
+  "'STAINED'), vacío si el documento está limpio. " +
+  "juegoOriginales = cuántos originales se emitieron, tal cual ('3/3', 'THREE (3)', 'ZERO (0)'). " +
+  "En un documento de seguro: tipoSeguro = la cobertura contratada tal cual ('INSTITUTE CARGO CLAUSES (A)', " +
+  "'ALL RISKS'), no el título del papel —ése va en tipoDocumento—. emisorSeguro = quién lo emite, que para el " +
+  "artículo 28 tiene que ser una compañía de seguros o su agente: copiá el nombre tal cual, aunque sea un bróker. " +
+  "fechaSeguro = la fecha del documento. montoAsegurado y monedaAsegurada = la suma asegurada con su moneda " +
+  "('USD 59.565,00' → monto 59.565,00 y moneda USD). " +
+  "coberturaDesde y coberturaHasta = los LUGARES entre los que corre la cobertura ('from warehouse Montevideo to " +
+  "Colombo' → desde MONTEVIDEO, hasta COLOMBO): son plazas, NO fechas. Si lo único que encontrás es una fecha de " +
+  "vigencia ('COVER EFFECTIVE FROM 01-APR-2025'), eso va en vigenciaSeguro y los dos campos de cobertura quedan " +
+  "vacíos. vigenciaSeguro = desde cuándo rige, si el documento lo declara. " +
   'Si un campo no aparece, devolvé valor "" y confianza 0. La confianza refleja qué tan seguro estás de que el ' +
   "valor corresponde a ese campo (1 = textual e inequívoco; <0.6 = dedujiste o es ambiguo). " +
   "NUNCA inventes datos: si no está, no lo pongas. Fechas: dejalas como están en el documento.";

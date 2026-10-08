@@ -14,6 +14,7 @@ import {
   LC_DEMO,
   normalizarCamposDoc,
   normConfianza,
+  PROMPT_DOC,
   parseNumero,
   SCHEMA_DOC,
   schemaPara,
@@ -957,5 +958,73 @@ describe("el seguro es un documento que se puede cargar", () => {
         "el seguro aportó a una columna de la matriz: ahí no va",
       ).toBe(true);
     }
+  });
+});
+
+/**
+ * El prompt explica todos los campos que el esquema pide.
+ *
+ * Es el defecto que ya apareció dos veces en este expediente y las dos veces costó caro: el
+ * esquema pide un campo, el prompt no lo explica, y el modelo lo llena por su cuenta. Con
+ * `cantidad` y `unidad` eso dio 53.960.000 kg —mil veces la carga— sobre la factura real. Con los
+ * campos del seguro daba fechas donde el motor espera lugares, y la regla del tramo cubierto salía
+ * «a verificar» sobre pólizas correctas.
+ *
+ * No alcanza con que el campo aparezca en algún lado del prompt: tiene que estar explicado. Por eso
+ * se exige que el nombre vaya seguido de un «=», que es como el prompt define cada uno.
+ */
+describe("el prompt no pide campos que no explica", () => {
+  /**
+   * La regla que ata la cantidad con su unidad no se puede perder.
+   *
+   * Ya se perdió una vez —una reescritura de historia se llevó el commit que la agregaba— y al
+   * perderse el error volvió idéntico: la factura se leyó «53.960 MTS» donde el papel dice KGS, y
+   * el motor la pasó a kilos como 53.960.000. Mil veces la carga, entrando en la comparación
+   * contra el crédito como si fuera el papel.
+   *
+   * El test anterior no la cuidaba: `cantidad` y `unidad` están en la lista de campos obvios,
+   * justamente porque se explican por el nombre. Lo que no se explica solo es que los dos tienen
+   * que salir del mismo renglón, y eso vale un test propio.
+   */
+  it("la cantidad y su unidad salen del mismo renglón, y el prompt lo dice", () => {
+    expect(PROMPT_DOC, "sin esto la factura se lee mil veces más grande").toMatch(/MISMO renglón/);
+    expect(PROMPT_DOC, "falta el ejemplo que lo hace concreto").toMatch(/TOTAL NET WEIGHT/);
+    expect(PROMPT_DOC, "falta decir qué pasa si no se puede atar: bajar la confianza").toMatch(/confianza a < 0\.6/);
+  });
+
+  it("cada campo del esquema de cada tipo está definido en PROMPT_DOC", () => {
+    /*
+     * Los que no necesitan definición, y por qué.
+     *
+     * Unos se explican solos —un puerto de embarque es un puerto de embarque— y otros están
+     * definidos en prosa corrida en vez de con «campo = », como el consignatario. La lista es corta
+     * a propósito: cada nombre que entra acá es una definición que alguien decidió no escribir.
+     */
+    const OBVIOS = new Set([
+      "exportador",
+      "importador",
+      "cantidad",
+      "unidad",
+      "moneda",
+      "montoTotal",
+      "mercaderia",
+      "puertoEmbarque",
+      "puertoDestino",
+      "incoterm",
+      "numeroDoc",
+      "consignatario",
+    ]);
+    const sinExplicar: string[] = [];
+    for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
+      for (const campo of campos) {
+        if (OBVIOS.has(campo as string)) continue;
+        // el prompt define algunos de a pares: «montoAsegurado y monedaAsegurada = …»
+        if (!new RegExp(`\\b${campo}( y \\w+)? = `).test(PROMPT_DOC)) sinExplicar.push(`${tipo}.${String(campo)}`);
+      }
+    }
+    expect(
+      sinExplicar,
+      "el esquema los pide y el prompt no dice qué son: el modelo los va a llenar por su cuenta",
+    ).toEqual([]);
   });
 });
