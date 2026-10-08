@@ -92,6 +92,122 @@ const CONOCIDOS = new Set([
   "79",
 ]);
 
+/**
+ * Los nombres impresos de los campos MT700/710.
+ *
+ * Son los del estándar SWIFT, no una invención de cada banco: el que imprime el mensaje pone el
+ * nombre oficial. Sirven para separar el nombre del VALOR cuando vienen pegados en un renglón,
+ * que es como salen de un PDF. Un nombre que no esté acá no rompe nada: ese campo queda con el
+ * título adelante, igual que antes.
+ */
+const NOMBRE_DEL_CAMPO: Record<string, string> = {
+  "27": "Sequence of Total",
+  "40A": "Form of Documentary Credit",
+  "40B": "Form of Documentary Credit",
+  "40E": "Applicable Rules",
+  "20": "Sender's Reference",
+  "21": "Documentary Credit Number",
+  "23": "Reference to Pre-Advice",
+  "26E": "Number of Amendment",
+  "30": "Date of Amendment",
+  "31C": "Date of Issue",
+  "31D": "Date and Place of Expiry",
+  "31E": "New Date of Expiry",
+  "32B": "Currency Code, Amount",
+  "33B": "Currency Code, Amount",
+  "34B": "Currency Code, Amount",
+  "39A": "Percentage Credit Amt Tolerance",
+  "39B": "Maximum Credit Amount",
+  "39C": "Additional Amounts Covered",
+  "41A": "Available With...By... - BIC",
+  "41D": "Available With...By... - Name&Addr",
+  "42C": "Drafts at...",
+  "42A": "Drawee - FI BIC",
+  "42D": "Drawee - Name & Address",
+  "42P": "Deferred Payment Details",
+  "43P": "Partial Shipments",
+  "43T": "Transhipment",
+  "44A": "Place of Taking in Charge/Dispatch",
+  "44E": "Port of Loading/Airport of Dep.",
+  "44F": "Port of Discharge/Airport of Dest",
+  "44B": "Place of Final Destination/Delivery",
+  "44C": "Latest Date of Shipment",
+  "44D": "Shipment Period",
+  "45A": "Description of Goods and/or Services",
+  "46A": "Documents Required",
+  "46B": "Documents Required",
+  "47A": "Additional Conditions",
+  "47B": "Additional Conditions",
+  "48": "Period for Presentation in Days",
+  "49": "Confirmation Instructions",
+  "50": "Applicant",
+  "51A": "Applicant Bank - FI BIC",
+  "52A": "Issuing Bank - FI BIC",
+  "52D": "Issuing Bank - Name & Address",
+  "53A": "Reimbursement Bank - FI BIC",
+  "57A": "'Advise Through' Bank - FI BIC",
+  "57D": "'Advise Through' Bank - Name & Addr",
+  "59": "Beneficiary - Name & Address",
+  "71B": "Charges",
+  "71D": "Charges",
+  "72Z": "Sender to Receiver Information",
+  "78": "Instr to Payg/Accptg/Negotg Bank",
+  "79": "Narrative",
+};
+
+/**
+ * Le devuelve los renglones a un SWIFT que llegó en una sola línea.
+ *
+ * Así sale de un PDF, que es como el banco avisa el crédito: por mail, con el mensaje adjunto.
+ * Al extraer ese texto **los saltos de línea no existen** —lo que en el papel se ve como renglones
+ * es el renderizado— y el parser determinista no reconocía nada: cero campos, `parseMT700` null,
+ * y el crédito se iba al camino de la IA, que cuesta y alucina, para leer un mensaje que es
+ * perfectamente estructurado.
+ *
+ * Hace dos cosas, las dos necesarias:
+ *   1. corta antes de cada tag conocido, que es lo que `tokenizarSwift` espera encontrar al
+ *      principio de un renglón;
+ *   2. separa el NOMBRE impreso del campo de su valor. Sin esto el número de crédito sale como
+ *      «Documentary Credit Number LCMRDN25000471», y así se compara contra los documentos.
+ *
+ * Si el mensaje ya tenía sus renglones, lo devuelve intacto: se nota porque ya tokeniza.
+ */
+export function normalizarSwiftDePdf(texto: string): string {
+  if (tokenizarSwift(texto).length >= 3) return texto;
+  const tags = [...texto.matchAll(/(?:^|\s)(\d{2}[A-Z]?)\s*:\s*/g)].filter((m) => CONOCIDOS.has(m[1] ?? ""));
+  if (tags.length < 3) return texto;
+
+  const partes: string[] = [];
+  for (const [i, m] of tags.entries()) {
+    const tag = m[1] ?? "";
+    const desde = (m.index ?? 0) + m[0].length;
+    const hasta = i + 1 < tags.length ? (tags[i + 1]?.index ?? texto.length) : texto.length;
+    let valor = texto.slice(desde, hasta).trim();
+    const nombre = NOMBRE_DEL_CAMPO[tag];
+    /* El nombre se compara sin distinguir mayúsculas ni cuántos espacios hay: los bancos lo
+       imprimen con el mismo texto pero no siempre con el mismo espaciado. */
+    if (nombre) {
+      const re = new RegExp(`^${nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}\\s*`, "i");
+      valor = valor.replace(re, "").trim();
+    }
+    partes.push(`     ${tag}: ${nombre ?? ""}`.trimEnd());
+    /*
+     * Y los renglones de ADENTRO del campo: en el PDF quedaron como una tirada de espacios, que
+     * es la sangría con que el banco imprime cada línea. Tres o más seguidos eran un salto.
+     *
+     * No es cosmético. El 42A trae el librado en cuatro líneas —BIC, banco, sucursal, ciudad— y
+     * la letra a la vista lo copia TEXTUAL, sin el título: con los espacios pegados saldría
+     * «CIBKCNBJ110             CHINA CITIC BANK…» impreso en un papel que va al banco. Lo mismo
+     * las direcciones del 50 y el 59.
+     */
+    for (const linea of valor.split(/\s{3,}/)) {
+      const l = linea.trim();
+      if (l) partes.push(`          ${l}`);
+    }
+  }
+  return partes.join("\n");
+}
+
 /** Separa el mensaje en campos {tag, lineas}. Lo que no pertenece a un campo se ignora. */
 export function tokenizarSwift(texto: string): CampoSwift[] {
   const campos: CampoSwift[] = [];
@@ -170,10 +286,17 @@ export function montoSwift(v: string): { moneda: string | null; monto: number | 
 export function listaSwift(lineas: string[] | null): string[] {
   if (!lineas) return [];
   const out: string[] = [];
-  /* Un ítem nuevo adentro del renglón: número, punto o paréntesis, espacio y MAYÚSCULA. Las tres
-     condiciones juntas son las que dejan afuera «NO.12,HARBOUR ROAD» y «DTD 04.03.2025», que
-     también tienen dígitos con punto y no abren nada. */
-  const partidas = lineas.flatMap((l) => l.split(/(?<=[.\s])(?=\d{1,2}[.)]\s+[A-Z])/));
+  /*
+   * Un ítem nuevo adentro del renglón, en las dos formas que usan los bancos:
+   *
+   *   «+3)CERTIFICATE OF ORIGIN»   el marcador del SWIFT, que va pegado al texto;
+   *   «3. PACKING LIST / WEIGHT»   numeración corrida, que necesita espacio y MAYÚSCULA detrás.
+   *
+   * La segunda pide las tres condiciones juntas porque sin ellas se parten «NO.12,HARBOUR ROAD» y
+   * «DTD 04.03.2025», que también llevan dígitos con punto y no abren ningún ítem. La primera no
+   * las necesita: el «+» delante ya es inequívoco.
+   */
+  const partidas = lineas.flatMap((l) => l.split(/(?<=[.\s])(?=\d{1,2}[.)]\s+[A-Z])|(?<=\s)(?=\+\d{1,2}\))/));
   for (const l of partidas) {
     const m = /^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l);
     if (m) out.push((m[2] ?? m[1]).trim());

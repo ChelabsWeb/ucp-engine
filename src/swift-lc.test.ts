@@ -1,9 +1,99 @@
 import { describe, expect, it } from "vitest";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
-import { esMensajeSwift, fechaSwift, listaSwift, montoSwift, parseMT700, tokenizarSwift } from "./swift-lc";
+import {
+  esMensajeSwift,
+  fechaSwift,
+  listaSwift,
+  montoSwift,
+  normalizarSwiftDePdf,
+  parseMT700,
+  tokenizarSwift,
+} from "./swift-lc";
 
 /* La LC REAL del caso CSU2025099 (MT710 avisado por Standard Chartered a Banco Litoral el
    25-mar-2025), tal cual la reenvía el banco por mail — sin la cuenta de cobro de cargos. */
+
+/**
+ * El crédito que llega como PDF.
+ *
+ * El banco avisa el crédito por mail con el SWIFT adjunto en PDF, y así es como Agromeals lo
+ * recibe. Al extraer ese texto **los saltos de línea no existen**: lo que en el papel se ve como
+ * renglones es el renderizado, y el mensaje entero sale en una línea.
+ *
+ * Con eso el parser determinista no se enteraba de nada —`esMensajeSwift` false, cero campos
+ * tokenizados, `parseMT700` null— y el crédito se iba al camino de la IA, que cuesta plata y
+ * alucina, para leer un mensaje que es perfectamente estructurado.
+ */
+describe("normalizarSwiftDePdf — el mensaje viene en una sola línea", () => {
+  const plano = MT710_CSU2025099.replace(/\s+/g, " ");
+
+  it("sin normalizar, el parser determinista no reconoce nada", () => {
+    expect(esMensajeSwift(plano), "si esto da true, el problema ya no existe y el test sobra").toBe(false);
+    expect(tokenizarSwift(plano)).toHaveLength(0);
+    expect(parseMT700(plano)).toBeNull();
+  });
+
+  it("normalizado, se parsea igual que el original", () => {
+    const n = normalizarSwiftDePdf(plano);
+    expect(esMensajeSwift(n)).toBe(true);
+    const p = parseMT700(n);
+    const original = parseMT700(MT710_CSU2025099)!;
+    expect(p, "no parseó").not.toBeNull();
+    expect(p!.lc.numero).toBe(original.lc.numero);
+    expect(p!.lc.monto).toBe(original.lc.monto);
+    expect(p!.lc.moneda).toBe(original.lc.moneda);
+    expect(p!.lc.vencimiento).toBe(original.lc.vencimiento);
+    expect(p!.lc.limiteEmbarque).toBe(original.lc.limiteEmbarque);
+    expect((p!.lc.documentosExigidos ?? []).length, "los documentos del 46A tienen que salir todos, no uno").toBe(
+      (original.lc.documentosExigidos ?? []).length,
+    );
+  });
+
+  it("separa el NOMBRE del campo de su valor: sin eso el número de crédito sale con el título pegado", () => {
+    const p = parseMT700(normalizarSwiftDePdf(plano))!;
+    expect(p.lc.numero, "«Documentary Credit Number LCMRDN25000471» no es un número de crédito").not.toMatch(
+      /Documentary|Credit Number/i,
+    );
+  });
+
+  /*
+   * Los renglones de ADENTRO de un campo también se recuperan.
+   *
+   * El 42A trae el librado en cuatro líneas —BIC, banco, sucursal, ciudad— y en el PDF eso queda
+   * como una tirada de espacios. Importa porque la LETRA A LA VISTA copia ese campo **textual**,
+   * sin el título, y tiene que salir en sus cuatro renglones: con los espacios pegados saldría
+   * «CIBKCNBJ110             CHINA CITIC BANK…» impreso en un papel que se presenta al banco.
+   */
+  it("devuelve los renglones de adentro de un campo multilínea", () => {
+    const multilinea = [
+      "     52A: Issuing Bank - FI BIC",
+      "          MRDNLKLXXXX",
+      "          MERIDIAN BANK PLC",
+      "          COLOMBO  LK",
+      "      20: Sender's Reference",
+      "          900114477-R",
+      "      21: Documentary Credit Number",
+      "          LCMRDN25000471",
+    ].join("\n");
+    const aplanado = multilinea.replace(/\n/g, "          ");
+    const cs = tokenizarSwift(normalizarSwiftDePdf(aplanado));
+    const banco = cs.find((c) => c.tag === "52A");
+    expect(banco?.lineas, "las tres líneas del banco, no una sola con espacios").toEqual([
+      "MRDNLKLXXXX",
+      "MERIDIAN BANK PLC",
+      "COLOMBO  LK",
+    ]);
+  });
+
+  it("un mensaje que YA tiene sus renglones no se toca", () => {
+    expect(normalizarSwiftDePdf(MT710_CSU2025099)).toBe(MT710_CSU2025099);
+  });
+
+  it("y un texto que no es un SWIFT tampoco", () => {
+    const carta = "Estimados, adjuntamos el crédito recibido a vuestro favor. Saludos.";
+    expect(normalizarSwiftDePdf(carta)).toBe(carta);
+  });
+});
 
 describe("swift-lc — detección y tokenización", () => {
   it("reconoce el MT710 real y NO una factura o un mail cualquiera", () => {
