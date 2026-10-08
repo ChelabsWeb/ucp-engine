@@ -1414,6 +1414,9 @@ export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
  */
 export const CAMPOS_CERTIFICADO: (keyof CamposDoc)[] = [
   "emisorSeguro",
+  /* El número del crédito que el papel cita: si cita otro, contradice al crédito (art. 14 d). Es
+     donde un banco real encontró dos de las tres observaciones de una presentación. */
+  "numeroLC",
   "mercaderia",
   "fechaDocumento",
   "numeroDoc",
