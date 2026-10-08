@@ -95,6 +95,53 @@ describe("normalizarSwiftDePdf — el mensaje viene en una sola línea", () => {
   });
 });
 
+/*
+ * El 42A/42D COMPLETO, que es lo que se copia en la letra a la vista.
+ *
+ * `lc.librado` pasa por `nombreBanco`, que devuelve la primera línea que no es un BIC: para un
+ * 42A de cuatro renglones —BIC, banco, sucursal, ciudad— eso deja «CHINA CITIC BANK» y tira el
+ * resto. Pero la letra lo copia TEXTUAL y sin el título del campo, y así lo explicó quien la
+ * escribe a mano: «va todo lo del campo, sin considerar el título Drawee - FI BIC».
+ *
+ * Imprimir solo el nombre del banco en el papel que se gira es perder el BIC y la sucursal, que
+ * es por donde el banco emisor lo rutea.
+ */
+describe("el librado completo, para la letra", () => {
+  const CON_42A = [
+    "     42A: Drawee - FI BIC",
+    "          CIBKCNBJ110",
+    "          CHINA CITIC BANK",
+    "          SHENYANG BRANCH",
+    "          SHENYANG  CN",
+    "      20: Sender's Reference",
+    "          779113963782-R",
+    "      21: Documentary Credit Number",
+    "          722101LC26000047",
+  ].join("\n");
+
+  it("devuelve las cuatro líneas del campo, el BIC incluido", () => {
+    const p = parseMT700(CON_42A)!;
+    expect(p.extra.libradoLineas).toEqual(["CIBKCNBJ110", "CHINA CITIC BANK", "SHENYANG BRANCH", "SHENYANG  CN"]);
+  });
+
+  it("y `librado` sigue siendo solo el nombre, que es lo que compara la matriz", () => {
+    expect(parseMT700(CON_42A)!.lc.librado).toBe("CHINA CITIC BANK");
+  });
+
+  it("con 42D (nombre y dirección, sin BIC) también trae el campo entero", () => {
+    const con42D = CON_42A.replace("42A: Drawee - FI BIC", "42D: Drawee - Name & Address").replace(
+      "          CIBKCNBJ110\n",
+      "",
+    );
+    expect(parseMT700(con42D)!.extra.libradoLineas?.[0]).toBe("CHINA CITIC BANK");
+  });
+
+  it("sin 42A ni 42D no inventa líneas", () => {
+    const sinLibrado = CON_42A.split("\n").slice(5).join("\n");
+    expect(parseMT700(sinLibrado)?.extra.libradoLineas ?? []).toEqual([]);
+  });
+});
+
 describe("swift-lc — detección y tokenización", () => {
   it("reconoce el MT710 real y NO una factura o un mail cualquiera", () => {
     expect(esMensajeSwift(MT710_CSU2025099)).toBe(true);

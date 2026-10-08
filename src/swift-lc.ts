@@ -369,6 +369,16 @@ export interface LcSwift {
      * no corría y un embarque corto o excedido pasaba en silencio.
      */
     bienes: string | null;
+    /**
+     * El 42A / 42D COMPLETO, renglón por renglón.
+     *
+     * `lc.librado` pasa por `nombreBanco` y se queda con la primera línea que no es un BIC, que es
+     * lo que la matriz necesita para comparar nombres. Pero la LETRA A LA VISTA copia el campo
+     * TEXTUAL y sin su título —«va todo lo del campo, sin considerar el título Drawee - FI BIC»,
+     * según quien la escribe a mano— y ahí el BIC y la sucursal hacen falta: son por donde el
+     * banco emisor rutea el giro.
+     */
+    libradoLineas: string[];
     fechaEmision: string | null;
     /**
      * El 31D trae fecha **y lugar**: «250630 URUGUAY».
@@ -541,6 +551,7 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     extra: {
       tipoMensaje: tipoMensaje ? `MT${tipoMensaje}` : null,
       bienes: bienes || null,
+      libradoLineas: (campo(cs, "42D") ?? campo(cs, "42A") ?? []).map((l) => l.trim()).filter(Boolean),
       fechaEmision: emision,
       lugarVencimiento: lugarDe(vencimientoRaw),
       formaCredito: texto(cs, "40B") || texto(cs, "40A") || null,
