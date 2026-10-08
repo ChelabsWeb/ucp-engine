@@ -269,7 +269,19 @@ export function precheckPresentacion(input: {
    * bancaria —ayuda a vincular los papeles de un expediente— y su falta no es discrepancia: la
    * propia ISBP 2023 dejó de considerarla una.
    */
-  const loPideElCredito = /INDICATE.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER/.test(cond);
+  const PIDE_CITARLO = /INDICAT\w*.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
+  /* También el 46A: este crédito lo pide dentro del documento exigido —«COMMERCIAL INVOICE …
+     INDICATING CONTRACT NUMBER AMS2026164, NUMBER OF LETTER OF CREDIT»— y mirar solo el 47A lo
+     daba por no pedido. Donde el crédito lo escriba, lo escribió. */
+  /* Y se guarda DÓNDE lo pide: la fuente de un hallazgo tiene que poder ir a buscarse al campo
+     que lo sostiene, y «47A» sobre algo escrito en el 46A es mandar al banco al lugar
+     equivocado. */
+  const pedidoEn: "47A" | "46A" | null = PIDE_CITARLO.test(cond)
+    ? "47A"
+    : PIDE_CITARLO.test(exigidos.join(" ").toUpperCase())
+      ? "46A"
+      : null;
+  const loPideElCredito = pedidoEn !== null;
   const exigeNumeroLC = loPideElCredito || exigidos.length > 0;
   const exigeFechaDesdeLC =
     /ON OR AFTER THE (LETTER OF CREDIT|L\/?C) DATE|DATED (PRIOR|BEFORE).{0,30}(LETTER OF CREDIT|L\/?C)/.test(cond);
@@ -281,14 +293,23 @@ export function precheckPresentacion(input: {
         (n && norm(n).includes(norm(lc.numero))) || (n && norm(lc.numero).includes(norm(n)) && n.length >= 6);
       reglas.push({
         id: `lc-num-${d.tipo}`,
-        fuente: loPideElCredito ? "47A" : "Práctica bancaria",
+        /*
+         * Omitirlo y citar OTRO no son la misma falta, y por eso no comparten fuente.
+         *
+         * Que falte es discrepancia solo si el crédito pidió citarlo (47A o 46A); si no lo pidió,
+         * la ISBP 2023 dejó de considerarlo una. Pero un documento que dice pertenecer a un
+         * crédito distinto no omitió nada: entra en conflicto con el crédito, y eso es el
+         * artículo 14 (d) sin importar quién pidió qué. Un dígito cambiado al tipear ya costó un
+         * paquete devuelto.
+         */
+        fuente: n && !cita ? "UCP 600 14d" : (pedidoEn ?? "Práctica bancaria"),
         regla: `${nombre}: cita el número de la LC`,
-        estado: !n ? "ATENCION" : cita ? "OK" : loPideElCredito ? "DISCREPANCIA" : "ATENCION",
+        estado: !n ? "ATENCION" : cita ? "OK" : "DISCREPANCIA",
         evidencia: !n
           ? "no se leyó un número de LC en el documento: verificar a mano"
-          : cita || loPideElCredito
+          : cita
             ? `dice "${n}"`
-            : `dice "${n}" y el crédito no pide que lo cite: verificar que sea el mismo expediente`,
+            : `dice "${n}" y el crédito es "${lc.numero}": el documento pertenece a otro expediente o está mal tipeado`,
       });
     }
     if (exigeFechaDesdeLC && emision) {

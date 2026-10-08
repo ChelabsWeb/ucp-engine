@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generarChecklist } from "./checklist";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
+import { ablandarPorISBP } from "./isbp";
 import { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
 import type { OperationDetail } from "./types";
@@ -444,20 +445,95 @@ describe("el número del crédito citado en el documento, y quién lo pide", () 
       hoy: HOY,
     }).reglas.find((x) => x.id === "lc-num-FACTURA");
 
-  it("si el crédito lo pide, la fuente es el 47A y un número distinto es discrepancia", () => {
+  it("si el crédito lo pide, omitirlo es discrepancia y la fuente es el 47A", () => {
+    const r = correr(lc, "");
+    expect(r?.estado, "el crédito lo exige y el documento no lo trae").toBe("ATENCION");
+    expect(r?.fuente, "la obligación de citarlo sale del 47A").toBe("47A");
+  });
+
+  it("y citar OTRO número también, pero la fuente es el 14 (d): es conflicto, no omisión", () => {
     const r = correr(lc, "OTRO-NUMERO-123");
-    expect(r?.fuente).toBe("47A");
     expect(r?.estado).toBe("DISCREPANCIA");
+    /* El 47A sostiene que hay que citarlo; que lo citado no contradiga al crédito lo sostiene el
+       14 (d), que es el artículo más preciso para este caso y el que se podrá discutir con el
+       banco. */
+    expect(r?.fuente).toBe("UCP 600 14d");
   });
 
   it("si el crédito no lo pide, la fuente no lo inventa", () => {
     expect(correr(sinLaCondicion, lc.numero)?.fuente).not.toBe("47A");
   });
 
-  it("y entonces un número distinto no es discrepancia: nadie lo exigió", () => {
-    const r = correr(sinLaCondicion, "OTRO-NUMERO-123");
+  /*
+   * OMITIR el número y CITAR OTRO no son la misma falta.
+   *
+   * Que falte, cuando el crédito no lo pidió, no es discrepancia: lo dice la ISBP 2023 y es lo que
+   * este bloque venía cuidando. Pero un documento que dice «LC 779101LC26000047» contra un crédito
+   * 722101LC26000047 no omitió nada: afirma pertenecer a OTRO crédito, y eso es el artículo 14 (d)
+   * —los datos no pueden entrar en conflicto con el crédito— sin importar quién pidió qué.
+   *
+   * El caso es real y caro: el banco devolvió un paquete por esto. Un dígito cambiado al tipear el
+   * asunto de un mail.
+   */
+  it("un número DISTINTO es discrepancia por el 14 (d), aunque el crédito no pida citarlo", () => {
+    const r = correr(sinLaCondicion, "779101LC26000047");
+    expect(r?.estado, "no es una omisión: el documento dice pertenecer a otro crédito").toBe("DISCREPANCIA");
+    expect(r?.fuente, "el 14 (d) es lo que lo sostiene, no el 47A que nadie escribió").toContain("14");
+    expect(r?.evidencia, "tiene que mostrar los dos números para que se pueda discutir").toMatch(/779101/);
+    expect(r?.evidencia).toMatch(/722101|LCMRDN/);
+  });
+
+  /*
+   * Hay créditos que piden citar el número DENTRO del documento exigido, no en las condiciones
+   * adicionales: «COMMERCIAL INVOICE … INDICATING CONTRACT NUMBER AMS2026164, NUMBER OF LETTER OF
+   * CREDIT». Mirar solo el 47A lo daba por no pedido, y además la fuente tiene que decir dónde
+   * está escrito: mandar al banco al 47A por algo que dice el 46A es mandarlo al lugar
+   * equivocado.
+   */
+  it("el 46A también cuenta: si lo pide ahí, la fuente lo dice", () => {
+    const enEl46A = {
+      ...sinLaCondicion,
+      documentosExigidos: [
+        "COMMERCIAL INVOICE ISSUED BY BENEFICIARY IN 3 ORIGINALS, INDICATING CONTRACT NUMBER AMS2026164, NUMBER OF LETTER OF CREDIT, AND SHIPMENT NUMBER.",
+      ],
+    };
+    const r = correr(enEl46A, "");
+    expect(r?.fuente, "lo pide el 46A, no el 47A").toBe("46A");
+  });
+
+  /*
+   * Y lo que pasa DESPUÉS, que es lo que el banco ve.
+   *
+   * El examen base marca la discrepancia; `ablandarPorISBP` la baja a ATENCION citando la
+   * consideración preliminar viii de la ISBP 821 (2023), que dice que ni la ausencia del número
+   * del crédito ni un error tipográfico en él justifican por sí solos un rechazo. Las dos cosas
+   * son correctas y van juntas: el motor DICE lo que encontró y después aplica la práctica
+   * bancaria que lo perdona, dejando el rastro de las dos.
+   *
+   * Importa fijarlo porque el banco de este caso SÍ lo devolvió por eso. Si mañana alguien sube
+   * el veredicto final a discrepancia, que sea una decisión y no un descuido.
+   */
+  it("en el examen completo la ISBP lo ablanda a atención, y deja dicho por qué", () => {
+    const base = precheckPresentacion({
+      lc,
+      docs: [{ tipo: "FACTURA" as const, campos: { ...FACTURA, numeroLC: campo("779101LC26000047") } }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas;
+    const antes = base.find((x) => x.id === "lc-num-FACTURA");
+    expect(antes?.estado, "el examen base lo marca").toBe("DISCREPANCIA");
+
+    const despues = ablandarPorISBP(base).find((x) => x.id === "lc-num-FACTURA");
+    expect(despues?.estado, "la ISBP 2023 no lo deja justificar un rechazo por sí solo").toBe("ATENCION");
+    expect(despues?.evidencia, "y la evidencia conserva los dos números").toMatch(/779101/);
+    expect(despues?.evidencia).toMatch(/no justifica rechazo/i);
+  });
+
+  it("pero omitirlo, cuando el crédito no lo pide, sigue sin ser discrepancia", () => {
+    const r = correr(sinLaCondicion, "");
     expect(r?.estado).toBe("ATENCION");
-    expect(r?.evidencia).toMatch(/no pide|verificar/i);
+    expect(r?.evidencia).toMatch(/no se leyó|verificar/i);
   });
 
   it("el crédito real sí lo pide, así que ahí sigue siendo el 47A", () => {
