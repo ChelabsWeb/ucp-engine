@@ -55,6 +55,43 @@ describe("swift-lc — helpers", () => {
     expect(montoSwift("USD 1,234,567.89")).toEqual({ moneda: "USD", monto: 1234567.89 });
     expect(montoSwift("USD 1,234,567")).toEqual({ moneda: "USD", monto: 1234567 });
   });
+  /*
+   * El 46A en UNA sola línea: cómo llega cuando el crédito viene de un PDF.
+   *
+   * El banco avisa el crédito por mail y adjunta el SWIFT como PDF. Al extraer ese texto, los
+   * saltos de línea no existen —lo que se ve como renglones es el renderizado— y el 46A entero
+   * llega pegado. Separando solo por línea, los once documentos exigidos entraban como UNO.
+   *
+   * Y la forma de fallar es la peor posible: el motor tomaba el primer documento como el único
+   * exigido y desestimaba el conocimiento de embarque y el packing list con «el crédito no lo
+   * pide, así que no se examina». Veredicto: cero discrepancias sobre un paquete del que no miró
+   * diez de los once papeles.
+   */
+  it("listaSwift: separa los ítems numerados aunque el campo venga en una sola línea", () => {
+    const enUnaLinea = [
+      "1. COMMERCIAL INVOICE ISSUED BY BENEFICIARY IN 3 ORIGINALS AND 3 COPIES. " +
+        "2. FULL SET OF CLEAN ON BOARD BILL OF LADING IN 3 ORIGINALS, MARKED FREIGHT PREPAID. " +
+        "3. PACKING LIST / WEIGHT MEMO ISSUED BY THE SHIPPER IN 3 ORIGINALS. " +
+        "11. SHIPMENT NOTICE IN 1 COPY.",
+    ];
+    const l = listaSwift(enUnaLinea);
+    expect(l.length, "once documentos en un solo ítem = el motor desestima diez").toBe(4);
+    expect(l[1]).toMatch(/^FULL SET OF CLEAN ON BOARD BILL OF LADING/);
+    expect(l[3]).toMatch(/^SHIPMENT NOTICE/);
+  });
+
+  it("listaSwift: pero no parte por un número que es parte del texto", () => {
+    /* «NO.12,HARBOUR ROAD» y «DTD 04.03.2025» tienen dígitos con punto y no abren un ítem: sin
+       esto, partir por numeración rompería direcciones y fechas. */
+    const l = listaSwift([
+      "1)PLEASE DESPATCH DOCUMENTS TO MERIDIAN BANK PLC, NO.12,HARBOUR ROAD, COLOMBO 03, SRI LANKA.",
+      "2)GOODS SHIPPED AS PER PROFORMA INVOICE NO. 2025099 DTD 04.03.2025",
+    ]);
+    expect(l.length).toBe(2);
+    expect(l[0]).toMatch(/NO\.12,HARBOUR ROAD/);
+    expect(l[1]).toMatch(/04\.03\.2025$/);
+  });
+
   it("listaSwift: pega las continuaciones al ítem anterior", () => {
     const l = listaSwift(["+1)SIGNED COMMERCIAL INVOICES IN 03 FOLD,", "II)GOODS AS PER PROFORMA", "+2)PACKING LIST"]);
     expect(l).toEqual(["SIGNED COMMERCIAL INVOICES IN 03 FOLD, II)GOODS AS PER PROFORMA", "PACKING LIST"]);

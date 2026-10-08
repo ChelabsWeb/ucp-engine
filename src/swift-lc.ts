@@ -157,11 +157,24 @@ export function montoSwift(v: string): { moneda: string | null; monto: number | 
   return { moneda, monto: Number.isFinite(n) ? n : null };
 }
 
-/** Lista "+1) … +2) …" (46A/47A) → ítems; las líneas de continuación se pegan al anterior. */
+/**
+ * Lista "+1) … +2) …" (46A/47A) → ítems; las líneas de continuación se pegan al anterior.
+ *
+ * Y también parte los ítems que vienen PEGADOS en un mismo renglón, porque así llega el campo
+ * cuando el crédito se extrae de un PDF: el banco lo avisa por mail con el SWIFT adjunto, y al
+ * sacar ese texto los saltos de línea no existen —lo que se ve como renglones es el renderizado—.
+ * Separando solo por línea, los once documentos del 46A entraban como uno, y el motor desestimaba
+ * los otros diez con «el crédito no lo pide, así que no se examina»: cero discrepancias sobre un
+ * paquete del que no miró casi nada, que es la peor forma de fallar que tiene este motor.
+ */
 export function listaSwift(lineas: string[] | null): string[] {
   if (!lineas) return [];
   const out: string[] = [];
-  for (const l of lineas) {
+  /* Un ítem nuevo adentro del renglón: número, punto o paréntesis, espacio y MAYÚSCULA. Las tres
+     condiciones juntas son las que dejan afuera «NO.12,HARBOUR ROAD» y «DTD 04.03.2025», que
+     también tienen dígitos con punto y no abren nada. */
+  const partidas = lineas.flatMap((l) => l.split(/(?<=[.\s])(?=\d{1,2}[.)]\s+[A-Z])/));
+  for (const l of partidas) {
     const m = /^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l);
     if (m) out.push((m[2] ?? m[1]).trim());
     else if (out.length) out[out.length - 1] = `${out[out.length - 1]} ${l}`.replace(/\s+/g, " ");
