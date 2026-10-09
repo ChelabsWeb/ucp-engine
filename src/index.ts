@@ -102,7 +102,7 @@ export { contextoDesdeSwift, examinarConEnmienda, examinarPresentacion } from ".
 export { diffDias, fmtFecha, fmtFechaEn, isoMontevideo, parseFecha } from "./fechas";
 /** El expediente de referencia con el que se validó el motor, para tests y demostraciones. */
 export { BL_REAL_CSU2025099, DOCUMENTOS_CSU2025099, SWIFT_CSU2025099, SWIFT_TRANSFERIBLE_DERIVADO } from "./fixtures";
-export { desvioEnIngles, manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
+export { cifrasEnIngles, desvioEnIngles, manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
 export type { EmisorAdmitido, VeredictoISBP } from "./isbp";
 /** Práctica bancaria estándar (ISBP 821): compara como compara un examinador. */
 export {
