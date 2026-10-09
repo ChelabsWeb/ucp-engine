@@ -145,6 +145,9 @@ export {
 } from "./lc";
 export type { FallaDeLectura } from "./lectura-fallida";
 export { motivoDeFallaDeLectura } from "./lectura-fallida";
+export type { ValorCorrido } from "./maqueta";
+/** Valores que no tienen la forma de su campo: la maqueta del documento se corrió. */
+export { reglasDeMaqueta, valoresQueNoParecenSuCampo } from "./maqueta";
 export type { DatosMT720, MensajeMT720 } from "./mt720";
 /** El crédito transferido, como mensaje SWIFT (UCP 600 art. 38). */
 export { mt720 } from "./mt720";

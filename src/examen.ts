@@ -9,6 +9,7 @@ import {
 } from "./enmienda-vigencia";
 import { aplicarEnmienda, type Enmienda } from "./enmiendas";
 import { ablandarPorISBP } from "./isbp";
+import { reglasDeMaqueta } from "./maqueta";
 import { prepararCampos } from "./numeros";
 import { type PapelDelBanco, papelDelBanco, reglasDelPapel } from "./papel";
 import type { DocAnalizado, ReglaPresentacion, ResultadoPresentacion } from "./presentacion";
@@ -234,7 +235,19 @@ export function examinarPresentacion(input: {
 
   // la práctica bancaria estándar no solo agrega exigencias: también quita las que dejaron
   // de considerarse discrepancia, como la falta del número del crédito en un documento
-  const sinElPapel = ablandarPorISBP([...base.reglas, ...extra, ...deCertificados, ...deGiro, ...reglas14g]);
+  /* Los valores que no tienen la forma de su campo: la única de las tres observaciones del banco
+     en AMS2026164 que el motor no podía ver. Va sobre los EXAMINABLES —de un documento que el
+     crédito no pide ya se dijo que se desestima— y en ATENCIÓN: puede ser la lectura. */
+  const deMaqueta = reglasDeMaqueta(examinables);
+
+  const sinElPapel = ablandarPorISBP([
+    ...base.reglas,
+    ...extra,
+    ...deCertificados,
+    ...deGiro,
+    ...reglas14g,
+    ...deMaqueta,
+  ]);
   const faltan = CUENTA(sinElPapel, "FALTA");
   const discrepancias = CUENTA(sinElPapel, "DISCREPANCIA");
 

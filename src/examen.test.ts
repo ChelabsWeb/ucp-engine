@@ -199,3 +199,33 @@ describe("un documento que el crédito no exige se desestima (UCP 600 art. 14 g)
     expect(r.reglas.find((x) => x.id.startsWith("ucp-14g"))).toBeUndefined();
   });
 });
+
+describe("los valores corridos llegan al examen, que es donde el operador los lee", () => {
+  /*
+   * La tercera observación del banco en AMS2026164 —«Caliset x 4: information … quedó corrida»—
+   * era la única que el motor no podía ver. El chequeo de forma vive en `maqueta.ts` y se prueba
+   * ahí; esto fija que esté ENCHUFADO al examen: una regla que no sale en el dictamen no la lee
+   * nadie.
+   */
+  const conPuertoCorrido: DocAnalizado[] = [
+    {
+      tipo: "BL",
+      nombreArchivo: "obl.pdf",
+      campos: { ...DOCUMENTOS_CSU2025099.BL!, puertoEmbarque: { valor: "04/07/2026", confianza: 0.95 } },
+    },
+  ];
+
+  it("sale como ATENCIÓN, nombrando el campo y el valor", () => {
+    const r = correr(conPuertoCorrido);
+    const x = r.reglas.find((y) => y.fuente === "Práctica bancaria" && /forma de su campo/i.test(y.regla));
+    expect(x, "la regla de maqueta tiene que estar en el dictamen").toBeTruthy();
+    expect(x?.estado).toBe("ATENCION");
+    expect(x?.evidencia).toContain("04/07/2026");
+    expect(x?.evidencia).toMatch(/Puerto de embarque/i);
+  });
+
+  it("y con los documentos sanos del expediente no aparece", () => {
+    const r = correr([{ tipo: "BL", campos: DOCUMENTOS_CSU2025099.BL! }]);
+    expect(r.reglas.filter((y) => /forma de su campo/i.test(y.regla))).toHaveLength(0);
+  });
+});

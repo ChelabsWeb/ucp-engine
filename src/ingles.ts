@@ -247,6 +247,27 @@ const REEMPLAZOS: [RegExp, string][] = [
     /: presentado pero no exigido por el crédito, se desestima$/g,
     ": presented but not required by the credit, it is disregarded",
   ],
+  // ── valores que no tienen la forma de su campo: la maqueta del documento se corrió ──
+  [/: hay valores que no tienen la forma de su campo$/g, ": some values do not have the shape of their field"],
+  [
+    /En un documento maquetado en columnas esto es la señal de que los valores quedaron corridos contra la etiqueta de al lado — hay que mirar la hoja\. Es lo que el banco observó de los certificados en AMS2026164\./g,
+    "In a document laid out in columns this is the sign that the values ended up shifted against the label next to them — the sheet itself has to be looked at. It is what the bank observed on the certificates in AMS2026164.",
+  ],
+  [/ dice «/g, " states «"],
+  [/» y no tiene una sola cifra: no es una fecha/g, "» and has not a single digit: it is not a date"],
+  [/» y no tiene una sola cifra: no es una cantidad/g, "» and has not a single digit: it is not a quantity"],
+  [/» y es una fecha/g, "» and is a date"],
+  [/» y es un número/g, "» and is a number"],
+  /* Y los motivos sueltos: el examen los usa pegados al valor —«… dice «X» y es una fecha»— pero
+     la cobertura de inglés los mira uno por uno, como están escritos en el módulo. */
+  [/^no tiene una sola cifra: no es una fecha$/g, "has not a single digit: it is not a date"],
+  [/^no tiene una sola cifra: no es una cantidad$/g, "has not a single digit: it is not a quantity"],
+  [/^es una fecha$/g, "is a date"],
+  [/^es un número$/g, "is a number"],
+  [/^Fecha del documento$/g, "Date of the document"],
+  [/^Fecha del seguro$/g, "Date of the insurance document"],
+  [/^Cobertura desde$/g, "Cover from"],
+  [/^Cobertura hasta$/g, "Cover to"],
   // ── lo que el crédito no exige y por lo tanto no se dictamina (UCP 600 art. 14 a) ──
   [/^A nombre de quién va el documento de transporte$/g, "Whom the transport document is made out to"],
   [/^Marca de flete del documento de transporte$/g, "Freight marking on the transport document"],
