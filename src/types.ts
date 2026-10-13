@@ -307,11 +307,19 @@ export interface OperationSummary {
   /** Severidad de la peor alerta abierta: el conteo hereda su tono en la UI,
    *  así una operación con una crítica no se ve igual que una con un aviso. */
   peorSeveridad?: Severity | null;
-  /** Familia de la mercadería (columna real `operations.tipo_mercaderia`). El
-   *  listado la traía solo en la ficha, así que no se podía cortar la cartera
-   *  por familia — y es el corte que el negocio usa: carne, granos y lana tienen
-   *  documentos, unidades y riesgos distintos. */
-  tipoMercaderia?: TipoMercaderia | null;
+  /**
+   * Familia de la mercadería (columna real `operations.tipo_mercaderia`): el corte de la cartera
+   * por tipo de producto, que cambia qué documentos exige el Estado.
+   *
+   * Es `string` y no `TipoMercaderia` a propósito. **Qué familias existen es del catálogo de
+   * quien usa el motor, no del motor**: un trader de carne las parte en cortes, menudencias,
+   * huesos y harinas de proteína animal; otro vendería granos; y a un banco que examina una
+   * presentación la familia no le dice nada. El motor no lee este campo — lo transporta.
+   *
+   * `TipoMercaderia` sigue existiendo para `ChecklistParams`, donde las reglas sí nombran
+   * familias concretas.
+   */
+  tipoMercaderia?: string | null;
   fechaEmbarque: string | null;
   /** Lo próximo que vence en esta operación y POR QUÉ: la alerta con fecha más
    *  cercana. El listado lo muestra al lado del «cuándo» para que la fila no
