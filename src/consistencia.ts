@@ -1439,6 +1439,11 @@ export const CAMPOS_SEGURO: (keyof CamposDoc)[] = [
  * casillas para el mismo dato.
  */
 export const CAMPOS_CERTIFICADO: (keyof CamposDoc)[] = [
+  /* Quién emite el certificado, que es lo que deciden la ISBP Q3 a Q5 y el 46A cuando el crédito
+     nombra al emisor. La regla pasó a leer `emisor` con `emisorSeguro` de respaldo y la lista se
+     quedó con el respaldo solo: sin esta entrada no hay casilla donde escribirlo ni campo que la
+     extracción pida, así que la regla salía en ATENCION para siempre. Lo agarró el guard de cotejo. */
+  "emisor",
   "emisorSeguro",
   /* El número del crédito que el papel cita: si cita otro, contradice al crédito (art. 14 d). Es
      donde un banco real encontró dos de las tres observaciones de una presentación. */
