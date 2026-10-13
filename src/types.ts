@@ -24,7 +24,10 @@ export type DocumentStatus = "BORRADOR" | "REVISADO" | "APROBADO" | "ENVIADO" | 
 
 export type ChecklistStatus = "COMPLETO" | "EN_PREPARACION" | "PENDIENTE" | "NO_APLICA";
 export type MedioPago = "LC" | "TRANSFERENCIA" | "COBRANZA";
-export type TipoMercaderia = "CARNE" | "GRANOS" | "LANA" | "OTRO";
+/** HARINAS (13-oct-2026): subproductos de rendering —harina de carne y hueso, de pluma, de pescado,
+ *  de sangre, sebo—; 700 de las 1.775 operaciones del histórico de romai. Sin familia propia caían
+ *  en GRANOS y llevaban un fitosanitario que no les corresponde. */
+export type TipoMercaderia = "CARNE" | "HARINAS" | "GRANOS" | "LANA" | "OTRO";
 export type MilestoneStatus = "CUMPLIDO" | "PENDIENTE" | "EN_RIESGO";
 export type Severity = "INFO" | "MEDIA" | "ALTA" | "CRITICA";
 
