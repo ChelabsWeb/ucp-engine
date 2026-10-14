@@ -854,6 +854,59 @@ describe("qué documento pide una línea del 46A", () => {
     expect(claveDoc("+3)CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD")).toBe("ORIGEN");
   });
 
+  /*
+   * Y los otros seis documentos de transporte, que no se apareaban con nada.
+   *
+   * `clavePorTexto` conocía «bill of lading» y ningún otro nombre, así que un crédito que pide un
+   * air waybill daba su línea del 46A por FALTA con el papel presentado, el documento presentado
+   * salía desestimado por el artículo 14 (g) como no exigido, y las reglas de los artículos 19, 21,
+   * 23, 24 y 25 —escritas, probadas y en verde— no corrían nunca. Con ellas se caía el 44C.
+   *
+   * Los tests del artículo 23 no lo podían agarrar porque le pasan el documento a mano, con el
+   * tipo ya resuelto: nunca pasan por el apareo del 46A, que era la parte que no funcionaba.
+   */
+  const TRANSPORTE = [
+    "FULL SET OF ORIGINAL AIR WAYBILLS CONSIGNED TO APPLICANT",
+    "AIR WAYBILL CONSIGNED TO ISSUING BANK MARKED FREIGHT PREPAID",
+    "ORIGINAL HOUSE AIR WAYBILL",
+    "AIR CONSIGNMENT NOTE",
+    "MULTIMODAL TRANSPORT DOCUMENT IN 3 ORIGINALS",
+    "COMBINED TRANSPORT DOCUMENT ISSUED TO ORDER AND BLANK ENDORSED",
+    "NON-NEGOTIABLE SEA WAYBILL",
+    "SEA WAYBILL CONSIGNED TO APPLICANT",
+    "CMR ROAD CONSIGNMENT NOTE",
+    "RAIL WAYBILL",
+    "TRUCK CONSIGNMENT NOTE",
+    "COURIER RECEIPT EVIDENCING DISPATCH OF DOCUMENTS",
+    "POST RECEIPT",
+  ];
+
+  it.each(TRANSPORTE)("«%s» es el documento de transporte", (linea) => {
+    expect(claveDoc(linea), "sin esto la línea del 46A no llega a ninguna regla de transporte").toBe("BL");
+  });
+
+  it("y el conocimiento marítimo sigue siendo el mismo documento que todos ellos", () => {
+    /* `BL` es el tipo genérico de transporte: de ahí `modoDelDocumento` decide el artículo. */
+    expect(claveDoc("FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING")).toBe("BL");
+  });
+
+  it("el courier no le roba la línea al certificado del beneficiario", () => {
+    /*
+     * Es la trampa de este arreglo y por eso la prueba va con la fórmula real.
+     *
+     * Cuando la cabeza es un certificado del beneficiario, `claveDoc` vuelve a clasificar sobre la
+     * línea **entera** —porque los dos del crédito real comparten cabeza—. Un `/courier/` puesto
+     * antes de esa prueba deja el crédito pidiendo dos documentos de transporte y ningún
+     * certificado, que es el mismo falso negativo que daba «INSURANCE … FOR 110 PCT OF INVOICE
+     * VALUE» saliendo FACTURA.
+     */
+    expect(
+      claveDoc(
+        "BENEFICIARY'S CERTIFICATE STATING THAT ONE SET OF NON-NEGOTIABLE DOCUMENTS HAS BEEN SENT TO THE APPLICANT BY COURIER",
+      ),
+    ).toMatch(/^BENEFICIARIO/);
+  });
+
   it("los dos certificados del beneficiario son documentos distintos", () => {
     /*
      * Lo rompí al clasificar por la cabeza: el crédito real pide dos —uno por los gastos bancarios
