@@ -66,6 +66,8 @@ const NO_LE_HABLAN_AL_EXAMINADOR: Record<string, string> = {
   "ingles.ts": "es el diccionario: sus cadenas en castellano son las claves",
   "fixtures.ts": "es el expediente de muestra, no texto de la aplicación",
   "mock.ts": "datos de prueba",
+  "propuestas.ts":
+    "es una herramienta de autoría, no del examen: sus reparos los lee quien escribe una regla, no un examinador en un banco. Si algún día una propuesta llegara a una pantalla, hay que sacarlo de esta lista",
   "index.ts": "solo re-exporta",
   "types.ts": "solo tipos",
   "fechas.ts": "formatea fechas; el texto que produce no es un hallazgo",
