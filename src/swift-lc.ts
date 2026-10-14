@@ -214,14 +214,28 @@ export function tokenizarSwift(texto: string): CampoSwift[] {
   let actual: CampoSwift | null = null;
   for (const cruda of texto.split(/\r?\n/)) {
     const m = RE_TAG.exec(cruda);
-    if (m && CONOCIDOS.has(m[1])) {
+    /*
+     * Una etiqueta que no conocemos TAMBIÉN abre campo, siempre que venga en forma raw.
+     *
+     * `CONOCIDOS` es una lista escrita a mano y el formato crece —SR2026 agrega el 45H (posición
+     * arancelaria) y el 44I (incoterm), y el 49G/49H ya existe—. Antes, la línea de un campo que no
+     * estuviera en la lista caía al `if (actual)` del final y se agregaba, con su etiqueta adentro,
+     * al campo que estuviera abierto. Por el orden de un MT700 ese campo suele ser el 45A, que es de
+     * donde salen la cantidad del embarque y la descripción de la mercadería de los artículos 18 (c)
+     * y 14 (e): el texto ajeno terminaba justo donde menos se tolera.
+     *
+     * El corte son los dos puntos del principio. En raw —`:49G:…`— la etiqueta es inequívoca. En la
+     * forma impresa no se puede arriesgar: una condición del 47A que diga «12:00 NOON» calza con el
+     * mismo patrón, y ahí la lista sigue mandando.
+     */
+    const raw = /^\s*:/.test(cruda);
+    if (m && (CONOCIDOS.has(m[1]) || raw)) {
       actual = { tag: m[1], lineas: [] };
       campos.push(actual);
       const resto = m[2].trim();
       // SOLO en la forma impresa (sin ':' inicial) lo que sigue al tag es el NOMBRE del campo; en la
       // forma raw ":59:CEREALSUR S.A" es el valor (revisión 8-sep: se descartaba "IRREVOCABLE", "SIGHT"…)
-      const impresa = !/^\s*:/.test(cruda);
-      if (resto && !(impresa && RE_ETIQUETA.test(resto))) actual.lineas.push(resto);
+      if (resto && !(!raw && RE_ETIQUETA.test(resto))) actual.lineas.push(resto);
       continue;
     }
     // fin del bloque de texto SWIFT (trailer) → no seguir capturando
