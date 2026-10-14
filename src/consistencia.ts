@@ -1224,6 +1224,28 @@ function clavePorTexto(s: string): string {
   if (/invoice|factura/.test(s)) return "INVOICE";
   if (/packing/.test(s)) return "PACKING";
   if (/bills? of lading|\bb l\b|\bbl\b|conocimiento de embarque/.test(s)) return "BL";
+  /*
+   * Los otros documentos de transporte, que también son `BL`.
+   *
+   * `BL` es el tipo genérico de transporte del motor y no solo el marítimo: `CAMPOS_POR_TIPO.BL`
+   * lleva `tipoTransporte`, `charterParty` y `onDeck`, y de ahí `modoDelDocumento` decide con qué
+   * artículo —del 19 al 25— se lo examina. Lo que faltaba era que la línea del 46A llegara hasta
+   * ahí: sin estos nombres, un crédito que pide un air waybill daba la línea por **FALTA** aunque
+   * el papel estuviera presentado, el documento presentado salía desestimado por el artículo 14
+   * (g) como no exigido, y **ninguna** regla de los artículos 19, 21, 23, 24 y 25 corría. Con ella
+   * se caía también el 44C, que es lo que cuesta plata: un aéreo emitido después del último
+   * embarque no se marcaba.
+   *
+   * Van con el nombre entero y no con `waybill` suelto porque la clasificación cae sobre la línea
+   * completa cuando la cabeza no alcanza, y ahí cualquier palabra ancha le roba la línea a otro
+   * documento. El courier va más abajo, después del certificado del beneficiario, por esa misma
+   * razón y está explicado allá.
+   */
+  if (/\bair ?way ?bills?\b|\bawbs?\b|\bair consignment notes?\b/.test(s)) return "BL";
+  if (/\bmultimodal\b|\bcombined transport\b|\bintermodal\b|\bthrough bill\b/.test(s)) return "BL";
+  if (/\bsea ?way ?bills?\b|\bnon.?negotiable sea\b/.test(s)) return "BL";
+  if (/\bcmr\b|\brail ?way ?bills?\b|\bconsignment notes?\b|\bcartas? de porte\b|\binland waterway\b/.test(s))
+    return "BL";
   // con límite de palabra: la «ORIGEN» salía de dentro de «ORIGINAL DOCUMENTS»
   if (/\borigin\b|\borigen\b/.test(s)) return "ORIGEN";
   if (/health|sanitary|sanitario|veterinar/.test(s)) return "SANITARIO";
@@ -1236,6 +1258,19 @@ function clavePorTexto(s: string): string {
   if (/analysis|analisis|calidad|quality/.test(s)) return "ANALISIS";
   // normTexto ya sacó el apóstrofo: "beneficiary s certificate"
   if (/beneficiary.{0,3}certificate|certificado del beneficiario/.test(s)) return `BENEFICIARIO:${s.slice(0, 40)}`;
+  /*
+   * El courier y el correo van acá, y el lugar no es un detalle.
+   *
+   * Cuando la cabeza de la línea es un certificado del beneficiario, `claveDoc` vuelve a
+   * clasificar sobre **la línea entera** —porque los dos certificados del crédito real comparten
+   * cabeza—. El crédito real pide un «BENEFICIARY'S CERTIFICATE STATING THAT DOCUMENTS WERE SENT
+   * BY COURIER», así que un `/courier/` puesto más arriba le roba la línea al certificado: el
+   * crédito quedaría pidiendo dos documentos de transporte y ningún certificado del beneficiario.
+   * Es la misma trampa que ya se pagó con «INSURANCE … FOR 110 PCT OF INVOICE VALUE», que salía
+   * FACTURA y dejaba al seguro sin exigir.
+   */
+  if (/\bcourier receipts?\b|\bpost receipts?\b|\bcertificates? of posting\b|\bexpress receipts?\b/.test(s))
+    return "BL";
   if (/\bdraft|bill of exchange|letra de cambio|giro/.test(s)) return "GIRO";
   /* El aviso de embarque al ordenante: el crédito lo pide como documento y hay que presentarlo.
      Sin esto caía en `TXT:` con el texto entero de la exigencia, que nunca coincide con el título
