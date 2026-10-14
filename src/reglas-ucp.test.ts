@@ -585,6 +585,57 @@ describe("cuando el crédito indica una zona y no un puerto", () => {
     expect(conDestino(enCredito, enDoc)?.estado).not.toBe("DISCREPANCIA");
   });
 
+  /*
+   * Las dos redacciones que la ICC ya resolvió, y que el motor marcaba como discrepancia.
+   *
+   * `\bANY\s+PORT\b` exigía las dos palabras pegadas, así que un `ANY` con el área en el medio no
+   * contaba como zona — y «AIRPORT» no estaba en el vocabulario. El motor terminaba afirmando que
+   * Amberes no está en el norte de Europa y que Amsterdam no es un aeropuerto europeo, cuando lo
+   * que pasa es que no sabe geografía.
+   *
+   * En TA 796rev el banco emisor defendió su rechazo citando un sitio web que clasifica a Bélgica
+   * como Europa occidental, y la ICC contestó que no le toca a un banco definir áreas geográficas:
+   * la redacción vaga del crédito corre contra el ordenante, y el documento no es discrepante. En
+   * TA 937, con «Any Europe Airport» y un air waybill que decía «Amsterdam», tampoco.
+   */
+  it.each([
+    ["ANY NORTH EUROPEAN PORT", "ANTWERP", "TA 796rev"],
+    ["ANY EUROPE AIRPORT", "AMSTERDAM", "TA 937"],
+    ["ANY PANAMA AIRPORT", "PANAMA CIUDAD DE", "TA 937"],
+    ["ANY SEAPORT IN EGYPT", "ALEXANDRIA", "TA 957rev"],
+  ])("«%s» con «%s» no es discrepancia (%s)", (enCredito, enDoc) => {
+    expect(conDestino(enCredito, enDoc)?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("un aeropuerto concreto sigue siendo un aeropuerto concreto, no una zona", () => {
+    /* Lo que marca la zona es `ANY`, no la palabra «airport»: sin este límite, cualquier crédito
+       aéreo dejaría de dictaminar sobre la ruta y el artículo 23 (a) (iv) quedaría decorativo. */
+    expect(conDestino("MONTEVIDEO AIRPORT", "SINGAPORE")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y dos lugares distintos no coinciden por la palabra «port» que los dos llevan", () => {
+    /*
+     * Encontrado escribiendo el test de arriba, que pasaba por el motivo equivocado: «MONTEVIDEO
+     * AIRPORT» contra «BUENOS AIRES AIRPORT» daba OK porque `coincideLugar` solo descarta las
+     * palabras de tres letras o menos, y «PORT», «AIRPORT» y «TERMINAL» son más largas. Con eso
+     * **cualquier** par de puertos escritos con su genérico coincidía, que es un falso negativo del
+     * lado que paga de más: el documento de transporte podía ir a otro puerto y la regla salía OK.
+     *
+     * Es el mismo defecto que las once contrapartes del ERP que coincidían con las listas de
+     * sanciones por la palabra «LLC»: una coincidencia apoyada en una palabra que está en todos los
+     * nombres del rubro no dice nada.
+     */
+    expect(conDestino("MONTEVIDEO AIRPORT", "BUENOS AIRES AIRPORT")?.estado).toBe("DISCREPANCIA");
+    expect(conDestino("MONTEVIDEO PORT", "SINGAPORE PORT")?.estado).toBe("DISCREPANCIA");
+    expect(conDestino("SHANGHAI CONTAINER TERMINAL", "BUSAN CONTAINER TERMINAL")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("pero el mismo puerto escrito con y sin su genérico sigue coincidiendo", () => {
+    /* Es la redacción del crédito real: «MONTEVIDEO PORT IN URUGUAY» contra «MONTEVIDEO, URUGUAY». */
+    expect(conDestino("MONTEVIDEO PORT IN URUGUAY", "MONTEVIDEO, URUGUAY")?.estado).toBe("OK");
+    expect(conDestino("COLOMBO PORT", "COLOMBO, SRI LANKA")?.estado).toBe("OK");
+  });
+
   it("pero un puerto concreto contra otro puerto concreto sigue siendo discrepancia", () => {
     // El aflojamiento vale para las zonas. Si el crédito nombra un puerto, sigue mandando.
     expect(conDestino("COLOMBO,SRI LANKA", "MUMBAI, INDIA")?.estado).toBe("DISCREPANCIA");
