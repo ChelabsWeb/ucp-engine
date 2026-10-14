@@ -38,6 +38,15 @@ export interface ContextoCredito {
    * necesitan datos del 45A que no son la descripción leen de acá.
    */
   mercaderiaCompleta?: string | null;
+  /**
+   * 53A: el banco reembolsador, cuando el crédito manda el reembolso por un tercero.
+   *
+   * Entra acá y no en `LcInfo` porque es lo que el crédito **dice**, no lo que el examen concluye.
+   * Y hace falta para screenearlo: Wolfsberg enumera entre las partes a revisar a todos los bancos
+   * de la cadena, y este es uno que el producto ya parseaba —lo usa el armador del MT740— y no
+   * screeneaba.
+   */
+  bancoReembolsador?: string | null;
   /** 50: el ordenante, a cuyo nombre se emite la factura (art. 18a-ii) */
   aplicante?: string | null;
   /** 59: el beneficiario, que es quien tiene que emitir la factura (art. 18a-i) */

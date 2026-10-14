@@ -314,3 +314,44 @@ describe("las palabras del rubro no identifican a nadie", () => {
     expect(screenear([parte("GLOBAL TRADING URUGUAY S.A.")], [lista("GLOBAL TRADING LIMITED")])).toHaveLength(0);
   });
 });
+
+/*
+ * Los cuatro roles que Wolfsberg enumera y el producto no screeneaba, teniendo el dato.
+ *
+ * El criterio para que uno entre acá es estrecho a propósito: que el campo **ya se extraiga**. Un
+ * rol nuevo que necesite un campo nuevo no es gratis —el esquema de extracción tiene un tope de
+ * campos medido contra la API— y conviene no confundir las dos cosas.
+ */
+describe("las partes que faltaban", () => {
+  const vacio = { valor: "", confianza: 0 };
+  const v = (valor: string) => ({ valor, confianza: 1 });
+  const papel = (d: Record<string, { valor: string; confianza: number }>) =>
+    new Proxy(d, { get: (t, k) => t[k as string] ?? vacio }) as never;
+  const lc = { bancoEmisor: null, bancoAvisador: null, librado: null } as never;
+
+  it("screenea el banco reembolsador del campo 53A", () => {
+    const p = partesAScreenear({ lc, credito: { bancoReembolsador: "TERCER BANCO S.A." }, docs: [] });
+    expect(p.find((x) => x.rol === "BANCO_REEMBOLSADOR")?.valor).toBe("TERCER BANCO S.A.");
+  });
+
+  it("no inventa un reembolsador cuando el crédito no lo nombra", () => {
+    const p = partesAScreenear({ lc, credito: {}, docs: [] });
+    expect(p.some((x) => x.rol === "BANCO_REEMBOLSADOR")).toBe(false);
+  });
+
+  it("screenea la aseguradora del documento de seguro", () => {
+    const p = partesAScreenear({
+      lc,
+      docs: [{ tipo: "SEGURO", campos: papel({ emisorSeguro: v("ASEGURADORA DEL SUR S.A.") }) }],
+    });
+    expect(p.find((x) => x.rol === "ASEGURADORA")?.valor).toBe("ASEGURADORA DEL SUR S.A.");
+  });
+
+  it("screenea a quien firma un certificado", () => {
+    const p = partesAScreenear({
+      lc,
+      docs: [{ tipo: "CERTIFICADO", campos: papel({ emisor: v("SGS URUGUAY LTDA") }) }],
+    });
+    expect(p.find((x) => x.rol === "EMISOR_CERTIFICADO")?.valor).toBe("SGS URUGUAY LTDA");
+  });
+});
