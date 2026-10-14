@@ -202,6 +202,8 @@ export type { Coincidencia, EntradaSancion, ListaSanciones, ParteScreenear, RolP
 export { describirCoincidencia, MOMENTOS_DE_SCREENING, partesAScreenear, screenear } from "./sanciones";
 /** Higiene: qué no se le manda nunca a un modelo. */
 export { scrubForLLM } from "./scrub";
+export type { LimiteStandby } from "./standby";
+export { esStandby, limitesDelStandby, noAplicaAStandby, reglamentoAjeno } from "./standby";
 export type { CampoSwift, LcSwift } from "./swift-lc";
 /** Intérprete determinista de mensajes SWIFT MT700 y MT710. */
 export {

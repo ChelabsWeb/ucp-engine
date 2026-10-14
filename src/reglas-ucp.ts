@@ -5,6 +5,7 @@ import { esFacturaComercial } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
+import { esStandby, noAplicaAStandby } from "./standby";
 import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
 import type { LcInfo } from "./types";
 
@@ -57,6 +58,8 @@ export interface ContextoCredito {
   transbordo?: string | null;
   /** 40E: a qué reglas se declara sujeto el crédito (art. 1) */
   reglasAplicables?: string | null;
+  /** 40A: la forma del crédito. De acá sale que es un standby, que no se examina igual. */
+  formaCredito?: string | null;
   /*
    * Los bancos que el crédito nombra, por BIC.
    *
@@ -1501,5 +1504,20 @@ export function reglasUCP(input: {
   out.push(...reglasQueDocumentoEs(input.docs));
   out.push(...reglasQuienEmite(ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
+
+  /*
+   * Un standby no mueve mercadería, así que las reglas de la carga no tienen a qué aplicarse.
+   *
+   * Se filtra acá, al final y en un solo lugar, en vez de poner una condición adentro de cada
+   * familia: así se puede leer de un vistazo qué queda desactivado y por qué, y un artículo nuevo
+   * no se olvida de preguntar.
+   *
+   * Reproducido antes de escribirlo: con un standby de garantía de cumplimiento el examen afirmaba
+   * «[OK] UCP 600 30b · Sin tolerancia en el crédito, la cantidad admite ±5 %». Decir «cumple»
+   * sobre una cantidad que no existe es peor que no decir nada.
+   */
+  if (esStandby({ formaCredito: ctx.formaCredito, reglasAplicables: ctx.reglasAplicables })) {
+    return out.filter((r) => !noAplicaAStandby(r.fuente));
+  }
   return out;
 }
