@@ -11,6 +11,8 @@
 
 /** Alertas por vencimiento, plazo de presentación y embarque. */
 export { generarAlertasDeOperacion } from "./alertas";
+export type { InsumoAML, SenalAML } from "./aml";
+export { contenedorCierra, senalesAML } from "./aml";
 export type { ContextoBackToBack, DescalceBackToBack, RiesgoBackToBack } from "./back-to-back";
 /** Los dos créditos de un back-to-back: dónde queda descubierto el banco que emite el segundo. */
 export { resumenBackToBack, revisarBackToBack } from "./back-to-back";

@@ -31,6 +31,34 @@ import type { VerificacionManual } from "./verificaciones-manuales";
  */
 const REEMPLAZOS: [RegExp, string][] = [
   // ── las frases enteras, antes que cualquier palabra suelta ──
+  // ── las señales del control de lavado (`aml.ts`), que no son hallazgos del examen ──
+  [
+    /^Un número de contenedor no cierra con su dígito verificador: está mal transcripto o no existe$/g,
+    "A container number fails its own check digit: it is either mistyped or does not exist",
+  ],
+  [/^Aritmética del propio documento$/g, "Arithmetic of the document itself"],
+  /* Las fuentes de las señales llevan media frase en castellano después del identificador, y esa
+     mitad quedaba sin traducir al lado de un texto ya traducido. Se vio mirando la pantalla. */
+  [/^Wolfsberg TFP · sobre y sub-facturación$/g, "Wolfsberg TFP · over and under-invoicing"],
+  [/^FinCEN FIN-2010-A001 · terceros no explicados$/g, "FinCEN FIN-2010-A001 · unexplained third parties"],
+  [/^FinCEN FIN-2010-A001 · enmiendas sin justificación$/g, "FinCEN FIN-2010-A001 · amendments without justification"],
+  [
+    /^El peso bruto declarado es menor que la carga, y el bruto incluye el envase$/g,
+    "The declared gross weight is less than the cargo, and gross weight includes the packing",
+  ],
+  [/^Los tres números de la factura no cierran entre sí$/g, "The invoice's three figures do not add up"],
+  [
+    /^FACTURA: ([\d.,]+) por ([\d.,]+) da ([\d.,]+), y la factura declara ([\d.,]+)$/g,
+    "INVOICE: $1 by $2 gives $3, and the invoice states $4",
+  ],
+  [/^Quien embarca no es el beneficiario del crédito$/g, "The shipper is not the beneficiary of the credit"],
+  [/^El crédito lleva varias enmiendas$/g, "The credit carries several amendments"],
+  [
+    /^El conocimiento embarca a nombre de «([^»]*)» y el crédito nombra beneficiario a «([^»]*)»$/g,
+    'The bill of lading ships in the name of "$1" and the credit names "$2" as beneficiary',
+  ],
+  [/^([\d]+) enmiendas$/g, "$1 amendments"],
+  [/^([A-Z]+): bruto ([\d.,]+) contra ([\d.,]+) de mercadería$/g, "$1: gross $2 against $3 of goods"],
   // ── valores que el parser escribe en castellano y se muestran tal cual ──
   [/^(\d+) días desde la fecha de embarque \(campo 48\)$/g, "$1 days from the date of shipment (field 48)"],
   [/^(\d+) originales$/g, "$1 originals"],
