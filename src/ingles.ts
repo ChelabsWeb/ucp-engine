@@ -37,6 +37,43 @@ const REEMPLAZOS: [RegExp, string][] = [
     "A container number fails its own check digit: it is either mistyped or does not exist",
   ],
   [/^Aritmética del propio documento$/g, "Arithmetic of the document itself"],
+  // ── los límites de un standby (`standby.ts`) ──
+  [
+    /^el campo 40E dice "([^"]*)" y este motor mide con las UCP 600, que son otro cuerpo de reglas$/g,
+    'field 40E says "$1" and this engine measures with UCP 600, which is a different body of rules',
+  ],
+  [
+    /^esa medida no la fija el reglamento sino quien examina, y este examen desactivó lo que no tiene a qué aplicarse$/g,
+    "that extent is set by whoever examines, not by the rules, and this examination switched off what has nothing to apply to",
+  ],
+  [
+    /^quedan afuera la cantidad del artículo 30, el transporte de los artículos 19 a 27, el seguro del 28 y la descripción de la mercadería del 18 \(c\)$/g,
+    "left out are the quantity of article 30, the transport of articles 19 to 27, the insurance of 28 and the description of the goods of 18 (c)",
+  ],
+  [
+    /^el 44C fija un último embarque y el 48 cuenta desde la fecha de embarque, y acá no hay embarque del que contar$/g,
+    "44C sets a latest shipment and 48 counts from the shipment date, and here there is no shipment to count from",
+  ],
+  [
+    /^El crédito se declara sujeto a la ISP98, que este examen no implementa$/g,
+    "The credit declares itself subject to ISP98, which this examination does not implement",
+  ],
+  [
+    /^El crédito se declara sujeto a las URDG, que este examen no implementa$/g,
+    "The credit declares itself subject to the URDG, which this examination does not implement",
+  ],
+  [
+    /^Las UCP rigen un standby solo «en la medida en que puedan ser aplicables»$/g,
+    'UCP govern a standby only "to the extent to which they may be applicable"',
+  ],
+  [
+    /^Un standby no mueve mercadería, así que las reglas de la carga quedan desactivadas$/g,
+    "A standby moves no goods, so the cargo rules are switched off",
+  ],
+  [
+    /^El crédito trae plazos atados a un embarque que un standby no tiene$/g,
+    "The credit carries deadlines tied to a shipment a standby does not have",
+  ],
   /* Las fuentes de las señales llevan media frase en castellano después del identificador, y esa
      mitad quedaba sin traducir al lado de un texto ya traducido. Se vio mirando la pantalla. */
   [/^Wolfsberg TFP · sobre y sub-facturación$/g, "Wolfsberg TFP · over and under-invoicing"],

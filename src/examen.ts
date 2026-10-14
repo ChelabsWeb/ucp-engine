@@ -77,6 +77,7 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     transbordo: p.extra.transbordo,
     // 40E: con qué reglas se declara el crédito (art. 1).
     reglasAplicables: p.extra.reglas,
+    formaCredito: p.extra.formaCredito,
     // los bancos que el crédito nombra: de acá sale el papel del que examina (arts. 7, 8, 9, 12)
     bicEmisor: p.extra.bicEmisor,
     bicAvisador: p.extra.bicAvisador,
