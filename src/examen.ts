@@ -190,6 +190,8 @@ export function examinarPresentacion(input: {
     ? reglasDeGiro({
         lc: input.lc,
         actual: input.presentacion,
+        /* el reloj del 16 (d) se calcula contra el día del examen */
+        hoy: input.hoy,
         anteriores: input.anteriores,
         parciales: input.credito?.parciales,
         feriados: input.feriados,
