@@ -156,6 +156,20 @@ export function precheckPresentacion(input: {
   /** dirección de la empresa en Ajustes (para cotejar con la de la LC, D3) */
   empresaDireccion?: string | null;
   hoy: Date;
+  /**
+   * El día en que el juego se presentó, cuando ya se presentó.
+   *
+   * Decide el plazo del campo 48, y la diferencia con `hoy` no es un detalle: **un banco examina
+   * una presentación que ya ocurrió.** Sin esto la regla comparaba el límite contra el día del
+   * examen, así que un juego recibido en plazo y examinado después del límite salía DISCREPANCIA por
+   * tardío — y eso pasa en cuanto el examen no es el mismo día, que es lo normal: el artículo 14 (b)
+   * le da al banco cinco días hábiles. El caso TA 956rev del banco de pruebas tiene exactamente esa
+   * forma, con una presentación en plazo y un examen diecisiete días después.
+   *
+   * En romai no se pasa y la regla sigue siendo la de siempre: ahí nadie presentó nada todavía y la
+   * pregunta es cuántos días quedan para hacerlo.
+   */
+  presentadaEl?: Date | null;
 }): ResultadoPresentacion {
   const { lc, op, hoy } = input;
   // un documento analizado por tipo: el primero (la ficha los pasa del más nuevo al más viejo)
@@ -534,13 +548,31 @@ export function precheckPresentacion(input: {
   const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque);
   let diasParaPresentar: number | null = null;
   if (lim && !lim.esEstimada) {
-    diasParaPresentar = diffDias(hoy, lim.limite);
+    /*
+     * Dos preguntas distintas con la misma cuenta, y confundirlas rechazaba lo conforme.
+     *
+     * Si el juego **ya se presentó**, lo que decide el artículo 14 (c) es si llegó dentro del plazo
+     * —se mide contra el día de la presentación— y el día del examen no entra. Si todavía no se
+     * presentó, la pregunta es cuántos días quedan, y ahí sí manda `hoy`. Antes se usaba `hoy`
+     * siempre: con un examen posterior al límite, una presentación en plazo salía DISCREPANCIA, y
+     * eso pasa en cuanto el examen no es el mismo día. El artículo 14 (b) le da al banco cinco días
+     * hábiles, así que era el caso corriente y no el raro.
+     *
+     * Y la banda de ATENCION tampoco se aplica a lo ya presentado: «quedan tres días» es un aviso
+     * para quien va a presentar, no un hallazgo sobre un juego que está en el escritorio.
+     */
+    const yaPresentada = input.presentadaEl ?? null;
+    diasParaPresentar = diffDias(yaPresentada ?? hoy, lim.limite);
     reglas.push({
       id: "plazo",
       fuente: lim.plazoPorDefectoUCP ? "UCP 600 14c" : "48",
-      regla: `Presentar dentro de ${lim.dias} días del BL y antes del vencimiento`,
-      estado: diasParaPresentar < 0 ? "DISCREPANCIA" : diasParaPresentar <= 3 ? "ATENCION" : "OK",
-      evidencia: `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
+      regla: yaPresentada
+        ? `Presentada dentro de ${lim.dias} días del BL y antes del vencimiento`
+        : `Presentar dentro de ${lim.dias} días del BL y antes del vencimiento`,
+      estado: diasParaPresentar < 0 ? "DISCREPANCIA" : yaPresentada ? "OK" : diasParaPresentar <= 3 ? "ATENCION" : "OK",
+      evidencia: yaPresentada
+        ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
+        : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
     });
   } else {
     reglas.push({

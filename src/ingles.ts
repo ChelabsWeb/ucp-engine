@@ -1380,6 +1380,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^Presentar dentro de (\d+) días del BL y antes del vencimiento$/g,
     "Present within $1 days of the bill of lading date and before expiry",
   ],
+  /* La misma regla sobre un juego que ya está en el escritorio: se mide contra el día que llegó. */
+  [
+    /^Presentada dentro de (\d+) días del BL y antes del vencimiento$/g,
+    "Presented within $1 days of the bill of lading date and before expiry",
+  ],
   [
     /^Presentada antes del vencimiento, corrido al primer día hábil /g,
     "Presented before expiry, rolled to the first banking day ",

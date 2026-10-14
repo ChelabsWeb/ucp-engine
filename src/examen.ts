@@ -202,6 +202,8 @@ export function examinarPresentacion(input: {
 
   const base = precheckPresentacion({
     lc: input.lc,
+    /* el plazo del 48 se mide contra el día de la presentación, no contra el del examen */
+    presentadaEl: input.presentacion?.fecha ?? null,
     docs: examinables,
     /*
      * Los certificados y el seguro también satisfacen su línea del 46A.

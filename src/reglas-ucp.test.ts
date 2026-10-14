@@ -1057,6 +1057,44 @@ describe("el documento limpio del artículo 27", () => {
     expect(conClausula("BAGS TORN AND STAINED")?.estado).toBe("DISCREPANCIA");
     expect(conClausula("3 CARTONS WET")?.estado).toBe("DISCREPANCIA");
   });
+
+  /*
+   * «Expresamente» es la palabra del artículo, y la regla la ignoraba.
+   *
+   * El 27 pide una cláusula que **declare expresamente** defectuosa la mercadería o su embalaje. La
+   * regla trataba cualquier texto que no fuera un «no hay nada» como una declaración de defecto, así
+   * que daba DISCREPANCIA sobre texto que no declara nada.
+   *
+   * La Opinión TA 941rev es ese caso: un conocimiento que decía «Cargo Conditions As Per Survey
+   * Report issued by [surveyor]», con el informe no exigido por el crédito. El banco emisor rechazó
+   * porque sin ese informe no podía determinar si el conocimiento estaba limpio, y la ICC contestó
+   * que «There was no wording on the bill of lading which suggested any defective condition of the
+   * goods or their packaging» — y que un documento no exigido se desestima, así que «this would have
+   * remained the case even if the survey report had been presented».
+   *
+   * Es el mismo error que la cláusula «the Carrier may carry the goods on deck» del primer
+   * expediente real: una condición general del transportista leída como una declaración sobre este
+   * embarque.
+   */
+  it.each([
+    "CARGO CONDITIONS AS PER SURVEY REPORT ISSUED BY SGS",
+    "SHIPPER'S LOAD, STOW AND COUNT",
+    "SAID TO CONTAIN",
+    "THE CARRIER MAY CARRY THE GOODS ON DECK",
+  ])("«%s» no declara un defecto, así que no se dictamina", (texto) => {
+    const r = conClausula(texto);
+    expect(r?.estado, "declarar discrepancia acá es rechazar un conocimiento impecable").not.toBe("DISCREPANCIA");
+    /* Y tampoco OK: el motor no puede afirmar que no haya defecto, solo que no lo encontró. */
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no declara expresamente/);
+  });
+
+  it("y la declaración de defecto se reconoce aunque venga como observación del buque", () => {
+    /* El positivo verdadero del que salió la lista: óxido declarado sobre toda la carga. */
+    expect(conClausula("SHIP'S REMARK: ALL CARGO ATMOSPHERIC RUSTY")?.estado).toBe("DISCREPANCIA");
+    expect(conClausula("INSUFFICIENT PACKING")?.estado).toBe("DISCREPANCIA");
+    expect(conClausula("2 BAGS SHORT")?.estado).toBe("DISCREPANCIA");
+  });
 });
 
 describe("la cantidad de la factura contra la que pide el crédito (art. 30)", () => {
