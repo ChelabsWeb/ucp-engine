@@ -245,6 +245,54 @@ describe("precheckPresentacion — el paquete real del caso CSU2025099", () => {
     });
     expect(cara.reglas.find((x) => x.id === "fac-monto")?.estado).toBe("DISCREPANCIA");
   });
+  /*
+   * Y el plazo del 48 sobre un juego **que ya se presentó**: se mide contra el día que llegó.
+   *
+   * Son dos preguntas distintas con la misma cuenta, y confundirlas rechazaba lo conforme. Antes se
+   * usaba `hoy` siempre, así que una presentación en plazo examinada después del límite salía
+   * DISCREPANCIA por tardía — y eso pasa en cuanto el examen no es el mismo día, que es lo normal:
+   * el artículo 14 (b) le da al banco cinco días hábiles. El caso TA 956rev tiene esa forma exacta,
+   * con una presentación en plazo y un examen diecisiete días después.
+   *
+   * El BL es del 08-abr-25 y el 48 son 21 días: el límite es el 29-abr.
+   */
+  describe("el plazo del 48 sobre una presentación que ya ocurrió", () => {
+    const conFechas = (presentadaEl: Date, hoy: Date) =>
+      precheckPresentacion({
+        lc,
+        docs,
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        presentadaEl,
+        hoy,
+      }).reglas.find((x) => x.id === "plazo");
+
+    it("presentada el 25-abr y examinada el 10-may: en plazo, aunque el examen sea posterior al límite", () => {
+      const r = conFechas(new Date(2025, 3, 25), new Date(2025, 4, 10));
+      expect(r?.estado, "el examen no es la presentación: el banco tiene cinco días hábiles").toBe("OK");
+      expect(r?.evidencia).toMatch(/presentada/);
+    });
+
+    it("presentada el 2-may: ahí sí llegó tarde", () => {
+      expect(conFechas(new Date(2025, 4, 2), new Date(2025, 4, 2))?.estado).toBe("DISCREPANCIA");
+      /* y sigue siendo tarde aunque se examine el mismo día del límite */
+      expect(conFechas(new Date(2025, 4, 2), new Date(2025, 3, 29))?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("sin la fecha de presentación la regla sigue siendo la cuenta de romai, que mira hoy", () => {
+      /* Allá nadie presentó nada todavía y la pregunta es cuántos días quedan. No se toca. */
+      const r = precheckPresentacion({
+        lc,
+        docs,
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((x) => x.id === "plazo");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toMatch(/quedan \d+ días/);
+    });
+  });
+
   it("sin 46A en la LC no puede decir 'listo' y lo dice", () => {
     const sin = precheckPresentacion({
       lc: { ...lc, documentosExigidos: null },

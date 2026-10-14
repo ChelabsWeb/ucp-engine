@@ -992,18 +992,61 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: stri
    * discrepantes porque solo reconocía cuatro palabras. Marcaba discrepancia sobre un conocimiento
    * impecable.
    */
+  /*
+   * Y la otra mitad: **«expresamente»** es la palabra del artículo, y el motor la ignoraba.
+   *
+   * El 27 define el documento limpio como el que no lleva cláusula o anotación que **declare
+   * expresamente** defectuosa la mercadería o su embalaje. La regla trataba cualquier cláusula que
+   * no fuera un «no hay nada» como una declaración de defecto, así que daba DISCREPANCIA sobre
+   * texto que no declara nada.
+   *
+   * La Opinión TA 941rev es exactamente eso: un conocimiento que decía *«Cargo Conditions As Per
+   * Survey Report issued by [surveyor]»*, con el survey report no exigido por el crédito. El banco
+   * emisor rechazó diciendo que sin ese informe no podía determinar si el conocimiento estaba
+   * limpio, y la ICC contestó: *«There was no wording on the bill of lading which suggested any
+   * defective condition of the goods or their packaging»*, y que un documento no exigido se
+   * desestima (14 g) — *«this would have remained the case even if the survey report had been
+   * presented»*.
+   *
+   * Es el mismo error que la cláusula «the Carrier may carry the goods on deck» del primer
+   * expediente real, que el artículo 26 (a) admite y la regla marcaba: **una condición general del
+   * transportista leída como una declaración sobre este embarque.**
+   *
+   * Lo que no se reconoce sale en ATENCION y no en OK: el silencio no se cuenta como conforme, y
+   * acá lo que el motor puede afirmar es que no encontró una declaración de defecto, no que no la
+   * haya. La lista es a mano, con el riesgo que eso tiene, y cubre lo que un transportista escribe
+   * de verdad — el positivo verdadero del que salió está en los tests: «Ship's remark: All cargo
+   * atmospheric rusty», que sí es discrepancia.
+   */
+  const DECLARA_DEFECTO =
+    /\b(rust\w*|oxidad\w*|wet|damp|humed\w*|moj\w*|stain\w*|manchad\w*|torn|tear|roto|rotos|rotas|broken|damag\w*|dañad\w*|avería|averiad\w*|leak\w*|derram\w*|short(?:age)?|faltante|insufficient\s+pack\w*|inadequate\s+pack\w*|embalaje\s+(?:insuficiente|inadecuado|deficiente)|soil\w*|sucio|dent\w*|abollad\w*|mould\w*|mold\w*|enmohecid\w*|contaminat\w*|contaminad\w*|defective|defectuos\w*|hole[ds]?|agujeread\w*|unprotected|second.?hand\s+pack\w*|re.?used\s+(?:bags|packing)|slack\s+barrels?)\b/i;
+
   const SIN_CLAUSULA =
     /^\s*(n\s*\/\s*a|nil|none|no|not\s+applicable|ninguna?|sin\s+(observaciones|clausulas?|novedad)|[-—–.]+)\s*$/i;
   const defecto = val(bl, "clausulaDefecto");
   out.push(
     defecto
-      ? regla(
-          "ucp-27",
-          "UCP 600 27",
-          "Documento de transporte limpio",
-          SIN_CLAUSULA.test(defecto) || /no clause|limpio|clean/i.test(defecto) ? "OK" : "DISCREPANCIA",
-          `cláusula leída: "${defecto}"`,
-        )
+      ? (() => {
+          const limpio = SIN_CLAUSULA.test(defecto) || /no clause|limpio|clean/i.test(defecto);
+          if (limpio)
+            return regla(
+              "ucp-27",
+              "UCP 600 27",
+              "Documento de transporte limpio",
+              "OK",
+              `cláusula leída: "${defecto}"`,
+            );
+          const declara = DECLARA_DEFECTO.test(defecto);
+          return regla(
+            "ucp-27",
+            "UCP 600 27",
+            "Documento de transporte limpio",
+            declara ? "DISCREPANCIA" : "ATENCION",
+            declara
+              ? `cláusula leída: "${defecto}"`
+              : `cláusula leída: "${defecto}" — no declara expresamente una mercadería o un embalaje defectuosos, así que no se dictamina: hay que leerla`,
+          );
+        })()
       : sinLeer("ucp-27", "UCP 600 27", "Documento de transporte limpio", "si hay cláusula de mercadería defectuosa"),
   );
 
