@@ -190,6 +190,8 @@ export type { Cuota, Presentacion, SaldoCredito, VencimientoEfectivo } from "./p
 export { operacionDesdeCredito, reglasDeGiro, saldoDelCredito, vencimientoEfectivo } from "./presentaciones";
 /** El prompt de lectura propio de Cotejo: neutro y con los campos de transporte y seguro. */
 export { PROMPT_EXAMEN } from "./prompt-extraccion";
+export type { EjemploDeRegla, PropuestaDeRegla, Reparo } from "./propuestas";
+export { revisarPropuesta } from "./propuestas";
 export type { Propuesta } from "./redaccion";
 export { describirPropuesta, proponerRedaccion, redaccionesPara } from "./redaccion";
 export type { ContextoCredito, DocSeguro } from "./reglas-ucp";
