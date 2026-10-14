@@ -69,6 +69,7 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     /* el 45A entero: hay créditos que ponen la cantidad después del incoterm, donde `mercaderia`
        ya está recortada. Lo usa la regla del art. 30. */
     mercaderiaCompleta: p.extra.bienes,
+    bancoReembolsador: p.extra.bancoReembolsador,
     aplicante: p.extra.aplicante[0] ?? null,
     // El 59: sin él, la regla del artículo 18 (a) (i) no puede decidir quién emitió la factura.
     beneficiario: p.extra.beneficiario[0] ?? null,

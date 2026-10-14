@@ -52,6 +52,9 @@ export type RolParte =
   | "BANCO_EMISOR"
   | "BANCO_AVISADOR"
   | "BANCO_LIBRADO"
+  | "BANCO_REEMBOLSADOR"
+  | "ASEGURADORA"
+  | "EMISOR_CERTIFICADO"
   | "EMBARCADOR"
   | "CONSIGNATARIO"
   | "NOTIFY"
@@ -84,6 +87,9 @@ const ETIQUETA: Record<RolParte, string> = {
   BANCO_EMISOR: "banco emisor",
   BANCO_AVISADOR: "banco avisador",
   BANCO_LIBRADO: "banco librado",
+  BANCO_REEMBOLSADOR: "banco reembolsador",
+  ASEGURADORA: "aseguradora",
+  EMISOR_CERTIFICADO: "emisor del certificado",
   EMBARCADOR: "embarcador",
   CONSIGNATARIO: "consignatario",
   NOTIFY: "notify party",
@@ -301,6 +307,11 @@ const TIPOS_PARA_ROL: Partial<Record<RolParte, ("PERSONA" | "ENTIDAD" | "BUQUE" 
   BANCO_EMISOR: ["ENTIDAD"],
   BANCO_AVISADOR: ["ENTIDAD"],
   BANCO_LIBRADO: ["ENTIDAD"],
+  BANCO_REEMBOLSADOR: ["ENTIDAD"],
+  /* Una aseguradora es una empresa; un organismo que firma un certificado puede ser una persona
+     (un veterinario oficial, un surveyor que firma a su nombre), así que ahí no se restringe. */
+  ASEGURADORA: ["ENTIDAD"],
+  EMISOR_CERTIFICADO: ["ENTIDAD", "PERSONA"],
   BENEFICIARIO: ["ENTIDAD", "PERSONA"],
   ORDENANTE: ["ENTIDAD", "PERSONA"],
   EMBARCADOR: ["ENTIDAD", "PERSONA"],
@@ -346,6 +357,8 @@ export function partesAScreenear(input: {
   agregar("BANCO_EMISOR", input.lc.bancoEmisor, "campo 52A del crédito");
   agregar("BANCO_AVISADOR", input.lc.bancoAvisador, "campo 57A del crédito");
   agregar("BANCO_LIBRADO", input.lc.librado, "campo 42D del crédito");
+  /* El 53A: solo existe cuando el crédito manda el reembolso por un tercer banco. */
+  agregar("BANCO_REEMBOLSADOR", input.credito?.bancoReembolsador, "campo 53A del crédito");
   agregar("PUERTO_CARGA", input.credito?.puertoEmbarque, "campo 44E del crédito");
   agregar("PUERTO_DESCARGA", input.credito?.puertoDestino, "campo 44F del crédito");
 
@@ -359,6 +372,18 @@ export function partesAScreenear(input: {
       agregar("NOTIFY", val(c.notify) ?? val(c.importador), nombre);
       agregar("BUQUE", val(c.buque), nombre);
     }
+    /*
+     * La aseguradora y quien firma un certificado también son partes.
+     *
+     * Wolfsberg enumera entre lo que hay que screenear a las aseguradoras y a los firmantes, y los
+     * dos datos ya los extraemos: `emisorSeguro` del documento de seguro y `emisor` de cada
+     * certificado. Estaban en el papel y no llegaban a la lista.
+     *
+     * `emisor` no se restringe por tipo de entrada: un certificado oficial lo puede firmar un
+     * organismo —una entidad— o una persona a su nombre, como un surveyor acreditado.
+     */
+    if (d.tipo === "SEGURO") agregar("ASEGURADORA", val(c.emisorSeguro), nombre);
+    agregar("EMISOR_CERTIFICADO", val(c.emisor), nombre);
   }
   return out;
 }
