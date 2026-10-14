@@ -110,13 +110,41 @@ function fechaEnTexto(t: string): Date | null {
  * puerto de descarga puede mostrarse como un rango de puertos o una zona geográfica— y en los
  * graneles aparece en cualquier crédito: «EUROPEAN MAIN PORTS», «ARAG RANGE» (Amsterdam-Rotterdam-
  * Amberes-Gante), «US GULF PORTS», «ANY PORT IN SRI LANKA».
+ *
+ * **`ANY` con palabras en el medio, y el aeropuerto, faltaban.** `\bANY\s+PORT\b` exige que las dos
+ * palabras estén pegadas, así que «ANY NORTH EUROPEAN PORT» y «ANY EUROPE AIRPORT» no se
+ * reconocían como zona y el documento salía DISCREPANCIA: el motor afirmaba que Amberes no está en
+ * el norte de Europa y que Amsterdam no es un aeropuerto europeo, cuando lo que pasa es que no
+ * tiene geografía. Las dos redacciones son las de sendas Opiniones de la ICC, y en las dos la
+ * discrepancia **no era válida**:
+ *
+ * - TA 796rev, con «Any North European Port» y un embarque en Amberes, donde el banco emisor
+ *   defendió su rechazo citando un sitio web que clasifica a Bélgica como Europa occidental:
+ *   *«it is not for them to define or determine geographical areas or ranges […] the LC
+ *   requirement clearly is vague and clearly is ambiguous – and such do in fact fall back on the
+ *   applicant. For that reason the document is not discrepant»*.
+ * - TA 937, con «Any Europe Airport» / «Any Panama Airport» y un air waybill que nombraba las
+ *   ciudades: *«as long as a credit did not require a specific port/airport to be named, then the
+ *   port/airport fields […] reflecting a city in a stated geographical area are sufficient for
+ *   examination purposes»*.
+ *
+ * El veredicto queda en ATENCION y no en OK a propósito. La ICC concluye que el documento no es
+ * discrepante; el motor no puede concluir eso, porque para distinguir «Amsterdam está en Europa»
+ * de «Amsterdam está en Panamá» hace falta una geografía que este motor no tiene y que no conviene
+ * que tenga —es la misma razón por la que «ANY BANK IN URUGUAY» sale a verificar en vez de
+ * resolverse—. Lo que sí puede hacer es no afirmar una discrepancia que no sostiene.
+ *
+ * `ANY` es lo que marca la zona, no el aeropuerto: «MONTEVIDEO AIRPORT» es un aeropuerto concreto y
+ * tiene que seguir comparándose como tal.
  */
 function esZonaDeLugares(texto: string): boolean {
   const t = texto.toUpperCase();
   return (
-    /\bRANGE\b|\bANY\s+PORT\b|\bMAIN\s+PORTS?\b|\bPORTS\b|\bAREA\b|\bCOAST\b|\bSEABOARD\b|CUALQUIER PUERTO|PUERTOS\b/.test(
+    /\bRANGE\b|\bMAIN\s+(?:AIR)?PORTS?\b|\b(?:AIR)?PORTS\b|\bAREA\b|\bCOAST\b|\bSEABOARD\b|CUALQUIER PUERTO|PUERTOS\b/.test(
       t,
-    ) || /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/.test(t)
+    ) ||
+    /\bANY\s+(?:[A-Z]+\s+){0,3}(?:SEA)?(?:AIR)?PORTS?\b/.test(t) ||
+    /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/.test(t)
   );
 }
 
@@ -132,13 +160,46 @@ function esZonaDeLugares(texto: string): boolean {
  * Era el falso positivo más barato de disparar del motor —no hacía falta ningún error en los
  * documentos, solo que alguien se llamara con tres letras— y tocaba siete reglas. Cuando no quedan
  * palabras largas se comparan los textos completos, que es lo único sensato con un nombre corto.
+ *
+ * **Y el filtro por largo no alcanzaba.** «PORT», «AIRPORT» y «TERMINAL» tienen más de tres letras,
+ * así que **cualquier** par de lugares escritos con su genérico coincidía: «MONTEVIDEO AIRPORT»
+ * contra «BUENOS AIRES AIRPORT» daba OK, y eso es un falso negativo del lado que paga de más —el
+ * documento de transporte iba a otro puerto y la regla salía conforme—. Es el mismo defecto que las
+ * once contrapartes del ERP que coincidían con las listas de sanciones por la palabra «LLC»: una
+ * coincidencia apoyada en una palabra que está en todos los nombres del rubro no dice nada.
+ *
+ * El mismo puerto escrito de las dos formas sigue coincidiendo, porque lo que queda es el nombre
+ * propio: «MONTEVIDEO PORT IN URUGUAY» contra «MONTEVIDEO, URUGUAY» comparten MONTEVIDEO.
  */
+const GENERICAS_DE_LUGAR = new Set([
+  "PORT",
+  "PORTS",
+  "AIRPORT",
+  "AIRPORTS",
+  "SEAPORT",
+  "SEAPORTS",
+  "TERMINAL",
+  "TERMINALS",
+  /* «SHANGHAI CONTAINER TERMINAL» contra «BUSAN CONTAINER TERMINAL»: sacado el genérico de atrás,
+     quedaba coincidiendo por el de adelante. */
+  "CONTAINER",
+  "CONTAINERS",
+  "HARBOUR",
+  "HARBOR",
+  "CITY",
+  "PUERTO",
+  "PUERTOS",
+  "AEROPUERTO",
+  "CIUDAD",
+]);
+
 function coincideLugar(a: string, b: string): boolean {
   const na = norm(a).trim();
   const nb = norm(b).trim();
   if (!na || !nb) return false;
-  const pa = na.split(" ").filter((w) => w.length > 3);
-  const pb = nb.split(" ").filter((w) => w.length > 3);
+  const distintiva = (w: string) => w.length > 3 && !GENERICAS_DE_LUGAR.has(w.toUpperCase());
+  const pa = na.split(" ").filter(distintiva);
+  const pb = nb.split(" ").filter(distintiva);
   if (pa.length === 0 || pb.length === 0) {
     // Al menos uno es un nombre corto: se compara entero, y vale que uno esté dentro del otro
     // («IBM» contra «IBM WORLD TRADE CORPORATION»), por palabra para no casar fragmentos.
