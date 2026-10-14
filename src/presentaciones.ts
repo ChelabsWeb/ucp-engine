@@ -1,3 +1,4 @@
+import { plazoDeAviso } from "./checking-list";
 import { diffDias, fmtFecha, parseFecha } from "./fechas";
 import { toleranciaDeImporte } from "./lc";
 import type { EstadoRegla, ReglaPresentacion } from "./presentacion";
@@ -257,9 +258,46 @@ export function reglasDeGiro(input: {
    * avisa para que alguien las mire.
    */
   cuotas?: Cuota[];
+  /** el día en que se corre el examen: sin él no hay reloj del artículo 16 (d) */
+  hoy?: Date;
 }): ReglaPresentacion[] {
   const anteriores = input.anteriores ?? [];
   const out: ReglaPresentacion[] = [];
+
+  /*
+   * El reloj del artículo 16 (d), y va primero porque decide si lo demás todavía sirve.
+   *
+   * El banco tiene cinco días hábiles desde el siguiente al de la presentación para cursar el aviso
+   * de rechazo. Al cierre del quinto, el 16 (f) le hace **perder el derecho a alegar** que los
+   * documentos no cumplen: tiene que honrar, por buenas que fueran las discrepancias.
+   *
+   * El motor ya usaba este plazo al redactar el aviso, pero eso es un paso después y solo si alguien
+   * va a redactarlo. Acá es donde el examinador mira, y antes de esto un examen corrido tarde
+   * devolvía discrepancias sin decir que ya no valían nada.
+   *
+   * En *Fortis Bank v Indian Overseas Bank* el emisor pagó USD 8,06 millones por eso.
+   */
+  if (input.hoy && input.actual.fecha instanceof Date && !Number.isNaN(input.actual.fecha.getTime())) {
+    const { habilesRestantes, vencido } = plazoDeAviso(input.actual.fecha, input.hoy);
+    const dias = Math.abs(habilesRestantes);
+    out.push(
+      regla(
+        "aviso-16d",
+        vencido ? "UCP 600 16d y 16f" : "UCP 600 16d",
+        vencido
+          ? "El plazo para cursar el aviso venció: el banco quedó precluido de alegar discrepancias"
+          : habilesRestantes === 0
+            ? "Hoy es el último día hábil para cursar el aviso de rechazo"
+            : "Queda plazo para cursar el aviso de rechazo",
+        vencido ? "DISCREPANCIA" : habilesRestantes === 0 ? "ATENCION" : "OK",
+        vencido
+          ? `pasaron ${dias} día${dias === 1 ? "" : "s"} hábil${dias === 1 ? "" : "es"} del cierre del quinto: por el artículo 16 (f) hay que honrar`
+          : habilesRestantes === 0
+            ? "al cierre de hoy se pierde el derecho a rechazar (art. 16 f)"
+            : `quedan ${habilesRestantes} días hábiles contando hoy`,
+      ),
+    );
+  }
   const saldo = saldoDelCredito(input.lc, anteriores);
   const moneda = input.lc.moneda;
 

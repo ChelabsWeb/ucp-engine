@@ -37,6 +37,25 @@ const REEMPLAZOS: [RegExp, string][] = [
     "A container number fails its own check digit: it is either mistyped or does not exist",
   ],
   [/^Aritmética del propio documento$/g, "Arithmetic of the document itself"],
+  // ── el reloj del artículo 16 (d), dentro del examen ──
+  [
+    /^El plazo para cursar el aviso venció: el banco quedó precluido de alegar discrepancias$/g,
+    "The deadline to give notice has passed: the bank is precluded from claiming discrepancies",
+  ],
+  [
+    /^Hoy es el último día hábil para cursar el aviso de rechazo$/g,
+    "Today is the last banking day to give the refusal notice",
+  ],
+  [/^Queda plazo para cursar el aviso de rechazo$/g, "There is still time to give the refusal notice"],
+  [
+    /^pasaron (\d+) d[ií]as? h[áa]bil(?:es)? del cierre del quinto: por el art[ií]culo 16 \(f\) hay que honrar$/g,
+    "$1 banking days have passed since the close of the fifth: under article 16 (f) the bank must honour",
+  ],
+  [
+    /^al cierre de hoy se pierde el derecho a rechazar \(art\. 16 f\)$/g,
+    "the right to refuse is lost at today's close (art. 16 f)",
+  ],
+  [/^quedan (\d+) d[ií]as h[áa]biles contando hoy$/g, "$1 banking days left, counting today"],
   // ── los límites de un standby (`standby.ts`) ──
   [
     /^el campo 40E dice "([^"]*)" y este motor mide con las UCP 600, que son otro cuerpo de reglas$/g,
