@@ -673,9 +673,7 @@ describe("el esquema que se le manda al modelo", () => {
    * afuera a propósito, porque describirle al modelo un campo que el esquema no le pide es ruido.
    */
   it("`firmaTransporte` está en el esquema y todavía no se le pide a ningún documento", () => {
-    expect(Object.keys(SCHEMA_DOC.properties), "la regla del inciso (a) (i) lo necesita").toContain(
-      "firmaTransporte",
-    );
+    expect(Object.keys(SCHEMA_DOC.properties), "la regla del inciso (a) (i) lo necesita").toContain("firmaTransporte");
     for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
       expect(
         campos,
@@ -916,6 +914,18 @@ describe("qué documento pide una línea del 46A", () => {
   it.each(TRANSPORTE)("«%s» es el documento de transporte", (linea) => {
     expect(claveDoc(linea), "sin esto la línea del 46A no llega a ninguna regla de transporte").toBe("BL");
   });
+
+  it.each(["3/3 ORIGINAL B/LS.", "FULL SET B/LS", "ORIGINAL BLS", "3/3 ORIGINAL B/L", "FULL SET OF B/L"])(
+    "«%s» es el documento de transporte, en singular y en plural",
+    (linea) => {
+      /*
+       * `\bbl\b` reconocía «B/L» y no «B/LS». Con la abreviatura en plural —que es como muchos
+       * créditos la escriben— la línea del 46A no se apareaba y el capítulo del transporte no corría.
+       * Lo encontró el caso TA 869rev mirando el número de reglas: 17 contra las 28 de los vecinos.
+       */
+      expect(claveDoc(linea)).toBe("BL");
+    },
+  );
 
   it("y el conocimiento marítimo sigue siendo el mismo documento que todos ellos", () => {
     /* `BL` es el tipo genérico de transporte: de ahí `modoDelDocumento` decide el artículo. */
