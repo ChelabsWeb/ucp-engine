@@ -391,6 +391,70 @@ describe("lo que el crédito NO exige, no se dictamina", () => {
     );
     expect(x?.estado).toBe("DISCREPANCIA");
   });
+
+  /*
+   * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
+   *
+   * Un crédito que exige el conocimiento endosado en blanco está exigiendo que vaya **a la orden**:
+   * un documento consignado derecho a una parte nominada no se puede endosar. Lo dice la Opinión
+   * TA 814rev4 —*«A bill of lading that is straight consigned to the applicant cannot be
+   * endorsed»*— y el rechazo que el banco cursó, «CONSIGNED TO (applicant) INSTEAD OF 'TO THE
+   * ORDER', NOT ENDORSED», era válido.
+   *
+   * Sin esto el motor leía «el crédito no dice a nombre de quién» y salía a verificar: perdía una
+   * discrepancia que el crédito sí sostiene, y de las que dejan al emisor sin control sobre la
+   * mercadería.
+   */
+  describe("el endoso en blanco que el crédito exige", () => {
+    const conExigencia = (exigencia: string, consignatario?: string) =>
+      precheckPresentacion({
+        lc: { ...lc, documentosExigidos: [exigencia] },
+        docs: [
+          {
+            tipo: "BL" as const,
+            campos: { ...BL, ...(consignatario === undefined ? {} : { consignatario: campo(consignatario) }) },
+          },
+        ],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((x) => x.id === "bl-consignee");
+
+    const PIDE_ENDOSO = "FULL SET 3/3 ORIGINAL NEGOTIABLE CLEAN ON BOARD OCEAN BILL OF LADING, BLANK ENDORSED";
+
+    it("un conocimiento consignado derecho al ordenante es discrepancia", () => {
+      const x = conExigencia(PIDE_ENDOSO, "ORIENT FEED (PVT) LTD");
+      expect(x?.estado).toBe("DISCREPANCIA");
+      expect(x?.evidencia).toMatch(/no se puede endosar/);
+    });
+
+    it("y uno a la orden cumple", () => {
+      expect(conExigencia(PIDE_ENDOSO, "TO ORDER")?.estado).toBe("OK");
+      expect(conExigencia(PIDE_ENDOSO, "TO THE ORDER OF SHIPPER")?.estado).toBe("OK");
+    });
+
+    it("sin consignatario leído se sale a verificar: el silencio no gana una discrepancia", () => {
+      const x = conExigencia(PIDE_ENDOSO, "");
+      expect(x?.estado).toBe("ATENCION");
+      expect(x?.evidencia).toMatch(/no se leyó el consignatario/);
+    });
+
+    it("si el crédito además nombra a quién consignar, manda lo que nombra", () => {
+      /*
+       * «CONSIGNED TO APPLICANT, BLANK ENDORSED» es un crédito mal redactado —son dos cosas que no
+       * se pueden cumplir a la vez— y el documento que obedece al crédito no puede salir discrepante
+       * por eso. Esta rama no opina ahí.
+       */
+      const x = conExigencia("FULL SET BILL OF LADING CONSIGNED TO APPLICANT, BLANK ENDORSED", "ORIENT FEED (PVT) LTD");
+      expect(x?.estado).not.toBe("DISCREPANCIA");
+    });
+
+    it("y un crédito que no pide endoso ni nombra destinatario sigue saliendo a verificar", () => {
+      const x = conExigencia("FULL SET OF CLEAN ON BOARD BILLS OF LADING", "ORIENT FEED (PVT) LTD");
+      expect(x?.estado).toBe("ATENCION");
+      expect(x?.evidencia).toMatch(/no dice a nombre de quién/);
+    });
+  });
 });
 
 describe("la dirección del beneficiario (UCP 600 art. 14 j)", () => {

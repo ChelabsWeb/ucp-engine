@@ -354,6 +354,19 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Cobertura hasta$/g, "Cover to"],
   // ── lo que el crédito no exige y por lo tanto no se dictamina (UCP 600 art. 14 a) ──
   [/^A nombre de quién va el documento de transporte$/g, "Whom the transport document is made out to"],
+  /* ── el endoso en blanco implica «a la orden» (TA 814rev4) ── */
+  [
+    /^El documento de transporte va a la orden, que es lo que exige el endoso en blanco$/g,
+    "The transport document is made out to order, which is what blank endorsement requires",
+  ],
+  [
+    /^el crédito pide el conocimiento endosado en blanco y no se leyó el consignatario: verificar a mano$/g,
+    "the credit requires the bill of lading blank endorsed and the consignee was not read: check by hand",
+  ],
+  [
+    /, consignado derecho a una parte nominada: así no se puede endosar, y el crédito pide el endoso en blanco$/g,
+    ", straight consigned to a named party: such a document cannot be endorsed, and the credit requires blank endorsement",
+  ],
   [/^Marca de flete del documento de transporte$/g, "Freight marking on the transport document"],
   [
     /^el crédito no dice a nombre de quién y el documento dice /g,
