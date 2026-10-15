@@ -624,6 +624,27 @@ describe("cantidades que no se miden en kilos", () => {
     expect(hayCantidadDistinta(doc("FACTURA", "120", "CABEZAS"), doc("PACKING", "53960", "KGS"))).toBe(false);
   });
 
+  /*
+   * La unidad que la tabla no conoce se compara por su texto, en vez de no compararse.
+   *
+   * Antes se descartaba la entrada y dos documentos con la misma unidad desconocida **no se
+   * comparaban y nadie lo decía**: «1000 ADMT» contra «900 ADMT» salía sin cruce, mientras «1000
+   * MTS» contra «900 MTS» sí lo daba. ADMT —air dry metric tonne— es la unidad corriente de la pulpa
+   * de celulosa, así que era un crédito entero sin cotejo de cantidad entre documentos, en silencio.
+   *
+   * Lo encontró un caso del banco de pruebas que pasaba por el motivo equivocado: el mutante que
+   * debía ponerlo rojo no lo movía, porque la unidad del papel era ADMT.
+   */
+  it("una unidad que la tabla no conoce igual se compara, si los dos documentos la escriben igual", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "1000", "ADMT"), doc("PACKING", "900", "ADMT"))).toBe(true);
+    expect(hayCantidadDistinta(doc("FACTURA", "994.781", "ADMT"), doc("PACKING", "994.781", "ADMT"))).toBe(false);
+  });
+
+  it("pero dos unidades desconocidas distintas siguen sin compararse", () => {
+    /* No se sabe si son la misma magnitud, así que inventar la comparación sería peor que callarse. */
+    expect(hayCantidadDistinta(doc("FACTURA", "1000", "ADMT"), doc("PACKING", "900", "BDMT"))).toBe(false);
+  });
+
   it("lo de siempre sigue igual: kilos contra toneladas se compara convertido", () => {
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "53,96", "TON"))).toBe(false);
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "48", "TON"))).toBe(true);
