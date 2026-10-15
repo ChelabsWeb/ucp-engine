@@ -1239,7 +1239,19 @@ export function claveDoc(nombre: string): string {
 function clavePorTexto(s: string): string {
   if (/invoice|factura/.test(s)) return "INVOICE";
   if (/packing/.test(s)) return "PACKING";
-  if (/bills? of lading|\bb l\b|\bbl\b|conocimiento de embarque/.test(s)) return "BL";
+  /*
+   * La abreviatura también va en plural, y faltaba.
+   *
+   * `\bbl\b` reconocía «B/L» y no «B/LS», que es como un montón de créditos escriben la exigencia:
+   * «3/3 ORIGINAL B/LS». Con eso la línea del 46A no se apareaba, el conocimiento presentado salía
+   * desestimado por el artículo 14 (g) y **el capítulo del transporte entero no corría** — el mismo
+   * defecto que los nombres de documento que no son «bill of lading», en la rama de al lado.
+   *
+   * Lo encontró el caso TA 869rev del banco de pruebas, mirando el **número de reglas corridas**: 17
+   * contra las 28 de los casos vecinos. Es el único síntoma que tiene, porque desde afuera un
+   * capítulo que no corre se ve igual que un documento que no se pidió.
+   */
+  if (/bills? of lading|\bb ls?\b|\bbls?\b|conocimiento de embarque/.test(s)) return "BL";
   /*
    * Los otros documentos de transporte, que también son `BL`.
    *
