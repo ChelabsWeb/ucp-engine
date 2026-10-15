@@ -391,6 +391,56 @@ export function revisarCredito(p: LcSwift): Observacion[] {
     );
   }
 
+  /*
+   * ── La política interna que el crédito se reserva aplicar «a su sola discreción» ──
+   *
+   * Hay créditos que escriben una cláusula como ésta en sus condiciones adicionales:
+   *
+   * > OUR BANK PROCESS TRANSACTIONS IN ACCORDANCE WITH LOCAL AND INTERNATIONAL LAWS AND REGULATIONS,
+   * > AND RESERVE THE RIGHT TO COMPLY WITH FOREIGN SANCTIONS AS WELL. CONSEQUENTLY DOCUMENTS […]
+   * > MIGHT NOT BE PROCESSED BY OUR BANK AT OUR SOLE DISCRETION AND WITHOUT ANY LIABILITY ON OUR PART.
+   *
+   * No es una condición documentaria —no pide ningún papel— así que `verificaciones-manuales.ts` la
+   * filtra, con razón: no hay nada que verificar contra un documento. Pero entonces **no la miraba
+   * nadie**, y es justo lo que un banco necesita ver antes de aceptar una designación. Lo encontró la
+   * auditoría de los guardianes del banco de pruebas: el caso TA 884rev afirmaba que el motor la leía
+   * y era falso — no aparecía en ninguna regla, en ninguna verificación manual ni en esta revisión.
+   *
+   * Va como AVISO y no como IMPIDE, y la gravedad es la decisión: el crédito **sigue siendo
+   * operable**, y la Banking Commission de la ICC ya resolvió dos veces qué vale esa cláusula. En
+   * TA 884rev dijo que el emisor *«is obligated to honour a complying presentation»* y que una
+   * objeción fundada en una regulación de sanciones *«should not be construed as a refusal notice
+   * under UCP 600 article 16»*. En TA 956rev agregó que invocar el riesgo de compliance interno *«would
+   * not constitute a valid reason to refuse the presentation»* y que **nombrar políticas internas en
+   * un crédito no es práctica bancaria prudente**. O sea: el que acepta este crédito tiene que saber
+   * que la cláusula no le da al emisor el derecho que parece darle.
+   *
+   * Lo que se busca es la **discrecionalidad**, no la palabra «sanciones»: un crédito puede nombrar
+   * las sanciones por obligación regulatoria sin reservarse nada, y marcar eso sería ruido en la
+   * mitad de los créditos del mundo. Lo que no corresponde es reservarse no procesar «a sola
+   * discreción» y sin responsabilidad.
+   */
+  {
+    const texto = (p.lc.condicionesAdicionales ?? []).join(" \n ");
+    const seReserva = /\b(?:SOLE|OWN|ABSOLUTE)\s+DISCRETION\b|\bAT\s+(?:OUR|ITS)\s+DISCRETION\b/i.test(texto);
+    const puedeNoProcesar =
+      /\bMIGHT\s+NOT\s+BE\s+PROCESSED\b|\bMAY\s+(?:NOT\s+BE\s+PROCESSED|REFUSE|DECLINE)\b|\bRESERVE\s+THE\s+RIGHT\s+(?:TO|NOT)\b/i.test(
+        texto,
+      );
+    if (seReserva && puedeNoProcesar) {
+      out.push(
+        obs(
+          "emision-politica-interna",
+          "AVISO",
+          "UCP 600 16 · Opiniones ICC TA 884rev y TA 956rev",
+          "El crédito se reserva no procesar los documentos a su sola discreción: esa cláusula no releva al emisor de honrar una presentación conforme",
+          "campo 47A",
+          "la ICC resolvió que el emisor está obligado a honrar y que una objeción por política interna no es un aviso de rechazo del artículo 16; conviene pedir que se saque antes de aceptar la designación",
+        ),
+      );
+    }
+  }
+
   /* ── «about» en el importe (artículo 30a) ── */
   if (/\b(about|approximately|circa)\b/i.test(`${extra.formaCredito ?? ""} ${campos.montoTotal.valor}`)) {
     out.push(
