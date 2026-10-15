@@ -367,7 +367,44 @@ export function precheckPresentacion(input: {
      */
     const ordenDe =
       /TO THE ORDER OF\s+([A-Z0-9 .,'&()-]+?)(?:,\s*MARKED|\s+MARKED|\s+NOTIFY|$)/i.exec(reglaBL)?.[1]?.trim() ?? null;
-    if (!ordenDe) {
+    /*
+     * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
+     *
+     * Un crédito que exige el conocimiento endosado en blanco **está exigiendo que vaya a la orden**:
+     * un documento consignado derecho a una parte nominada no se puede endosar. Lo dice la Opinión
+     * TA 814rev4 con todas las letras —*«Such a requirement means that the bill of lading be issued
+     * 'to order' or 'to order of the shipper' and blank endorsed by the shipper. A bill of lading that
+     * is straight consigned to the applicant cannot be endorsed»*— y la discrepancia que el banco
+     * levantó, «CONSIGNED TO (applicant) INSTEAD OF 'TO THE ORDER', NOT ENDORSED», **era válida**.
+     *
+     * Sin esto el motor leía «el crédito no dice a nombre de quién» y salía a verificar, así que
+     * perdía una discrepancia que el crédito sí sostiene. Es un falso negativo del lado que paga de
+     * más: el banco emisor queda sin control sobre la mercadería.
+     *
+     * Dos límites para no inventar nada:
+     *
+     * - si el crédito **sí** nombra a quién consignar además de pedir el endoso en blanco, manda lo
+     *   que nombra y esta rama no opina: un «CONSIGNED TO APPLICANT, BLANK ENDORSED» está mal
+     *   redactado y el documento que obedece al crédito no puede salir discrepante por eso;
+     * - si no se leyó el consignatario, se sale a verificar. El silencio no gana una discrepancia.
+     */
+    const exigeEndosoEnBlanco = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BLANK\b/i.test(reglaBL);
+    const nombraConsignatario = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\b/i.test(reglaBL);
+    if (!ordenDe && exigeEndosoEnBlanco && !nombraConsignatario) {
+      const aLaOrden = consig ? /\bORDER\b|\bORDEN\b/i.test(consig) : null;
+      reglas.push({
+        id: "bl-consignee",
+        fuente: "46A",
+        regla: "El documento de transporte va a la orden, que es lo que exige el endoso en blanco",
+        estado: aLaOrden === null ? "ATENCION" : aLaOrden ? "OK" : "DISCREPANCIA",
+        evidencia:
+          aLaOrden === null
+            ? "el crédito pide el conocimiento endosado en blanco y no se leyó el consignatario: verificar a mano"
+            : aLaOrden
+              ? `el documento dice "${consig}"`
+              : `el documento dice "${consig}", consignado derecho a una parte nominada: así no se puede endosar, y el crédito pide el endoso en blanco`,
+      });
+    } else if (!ordenDe) {
       reglas.push({
         id: "bl-consignee",
         fuente: "46A",
