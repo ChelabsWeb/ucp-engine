@@ -652,6 +652,38 @@ describe("el esquema que se le manda al modelo", () => {
     expect(CAMPOS_SEGURO.length).toBeLessThanOrEqual(23);
   });
 
+  /*
+   * `firmaTransporte` existe y **no se le pide al modelo todavía**, a propósito y con un costo.
+   *
+   * La regla del inciso (a) (i) —con qué capacidad se firmó el documento de transporte— necesita ese
+   * campo, y agregarlo a `CAMPOS_POR_TIPO.BL` lo dejaría en veinticuatro: uno más que el único número
+   * medido contra la API. El test de arriba existe exactamente para frenar eso, y su comentario lo
+   * dice con todas las letras —«avisa si alguien agrega un campo de más sin tener la clave de API a
+   * mano para probarlo»—, así que no se pasa por encima.
+   *
+   * La consecuencia hay que decirla, porque es el defecto que este repositorio persigue: **la regla
+   * funciona con el campo cargado a mano y no se puede alcanzar desde la pantalla**, que deriva sus
+   * casillas de `CAMPOS_POR_TIPO`. Ese es el estado real hasta que se decida una de tres cosas:
+   * medir veinticuatro campos contra la API cuando haya crédito, sacar de `BL` un campo que valga
+   * menos que la firma, o dejar la firma como verificación manual.
+   *
+   * Este test está para que esa decisión no se tome por olvido. Si alguien agrega el campo a `BL`,
+   * se pone rojo y hay que venir a leer esto; si alguien saca el campo del esquema, también. Y al
+   * agregarlo hay que escribir además su línea en el prompt de extracción: la de este campo se dejó
+   * afuera a propósito, porque describirle al modelo un campo que el esquema no le pide es ruido.
+   */
+  it("`firmaTransporte` está en el esquema y todavía no se le pide a ningún documento", () => {
+    expect(Object.keys(SCHEMA_DOC.properties), "la regla del inciso (a) (i) lo necesita").toContain(
+      "firmaTransporte",
+    );
+    for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
+      expect(
+        campos,
+        `${tipo} pide firmaTransporte: serían 24 campos y el tope medido es 23 — leer el comentario de arriba`,
+      ).not.toContain("firmaTransporte");
+    }
+  });
+
   it("a cada documento se le piden los campos que ese documento puede tener", () => {
     // Preguntarle a un conocimiento de embarque por el monto asegurado no solo agranda la gramática:
     // lo invita a inventar.

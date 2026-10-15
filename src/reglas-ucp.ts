@@ -6,7 +6,15 @@ import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
 import { esStandby, noAplicaAStandby } from "./standby";
-import { articuloDelModo, modoDelDocumento, NOMBRE_MODO } from "./transporte";
+import {
+  articuloDelModo,
+  capacidadesAdmitidas,
+  leerFirma,
+  type ModoTransporte,
+  modoDelDocumento,
+  NOMBRE_CAPACIDAD,
+  NOMBRE_MODO,
+} from "./transporte";
 import type { LcInfo } from "./types";
 
 /**
@@ -853,6 +861,93 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
   return out;
 }
 
+/**
+ * Con qué capacidad se firmó el documento de transporte — el inciso (a) (i) de los siete artículos.
+ *
+ * Es de lo primero que mira un examinador y el motor no lo miraba: no existía ninguna regla del
+ * inciso (a) (i) en ningún artículo del 19 al 25. Se miraban puertos, anotación de a bordo,
+ * originales, transbordo y cláusulas, y no quién firma.
+ *
+ * **Lo que decide es la capacidad declarada contra la clase del documento**, porque las capacidades
+ * admitidas no son las mismas: el artículo 22 admite capitán, armador o fletador y **no** al
+ * transportista, al revés que el 20. Un conocimiento de fletamento firmado «as agent for the
+ * carrier» es discrepante (Opinión R834 / TA 793rev) y el mismo bloque de firma en un conocimiento
+ * marítimo está perfecto.
+ *
+ * Tres decisiones, y las tres son para no rechazar lo conforme:
+ *
+ * 1. **Una capacidad que no se reconoce nunca da discrepancia.** Sale a verificar citando el texto.
+ *    Los bloques de firma se redactan de mil formas y el repositorio ya pagó el precio de concluir
+ *    sobre prosa; acá, además, la dirección del error sería la cara — rechazar un documento bien
+ *    firmado por no haber entendido cómo lo escribieron.
+ * 2. **No se comparan nombres.** La Opinión R754 / TA 750rev resuelve justamente eso: un
+ *    conocimiento firmado por una **sucursal** del transportista, con un nombre distinto del de la
+ *    casa matriz, cumple — *«Neither is the fact that the name of the branch differs from the name
+ *    of the carrier»*. Una regla que exigiera que el firmante se llame como el transportista
+ *    rechazaría a media línea marítima.
+ * 3. **Con la clase sin determinar no se dictamina.** Las capacidades dependen del artículo, y el
+ *    artículo de la clase que no se pudo determinar es una suposición.
+ *
+ * Lo que esta regla **no** mira, y conviene que esté dicho: la otra mitad del inciso, que el
+ * documento **nombre** al transportista. El nombre suele venir en el mismo bloque o en el membrete,
+ * y afirmar que falta leyendo este campo sería afirmar sobre lo que no se extrajo.
+ */
+function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPresentacion[] {
+  const fuente = `${articuloDelModo(modo)}a-i`;
+  const texto = val(bl, "firmaTransporte");
+  if (!texto) {
+    return [
+      sinLeer(
+        "ucp-firma-transporte",
+        fuente,
+        "Con qué capacidad se firmó el documento de transporte",
+        "el bloque de firma",
+      ),
+    ];
+  }
+
+  const { capacidad, porAgente } = leerFirma(texto);
+  const admitidas = capacidadesAdmitidas(modo);
+  const comoLasLlama = admitidas.map((c) => NOMBRE_CAPACIDAD[c]).join(", ");
+
+  if (!capacidad) {
+    return [
+      regla(
+        "ucp-firma-transporte",
+        fuente,
+        "Con qué capacidad se firmó el documento de transporte",
+        "ATENCION",
+        `dice "${texto}" y no se reconoció una capacidad: verificar a mano que firme ${comoLasLlama}, o un agente nombrado por cuenta de alguno de ellos`,
+      ),
+    ];
+  }
+
+  if (modo === "SIN_DETERMINAR") {
+    return [
+      regla(
+        "ucp-firma-transporte",
+        fuente,
+        "Con qué capacidad se firmó el documento de transporte",
+        "ATENCION",
+        `dice "${texto}", o sea ${NOMBRE_CAPACIDAD[capacidad]}${porAgente ? " por medio de un agente" : ""} — pero no se pudo determinar la clase del documento, y qué capacidad se admite depende del artículo que corresponda`,
+      ),
+    ];
+  }
+
+  const admitida = admitidas.includes(capacidad);
+  return [
+    regla(
+      "ucp-firma-transporte",
+      fuente,
+      "Con qué capacidad se firmó el documento de transporte",
+      admitida ? "OK" : "DISCREPANCIA",
+      admitida
+        ? `firma ${NOMBRE_CAPACIDAD[capacidad]}${porAgente ? " por medio de un agente nombrado, que el artículo admite" : ""}: "${texto}"`
+        : `firma ${NOMBRE_CAPACIDAD[capacidad]} y este documento solo lo puede firmar ${comoLasLlama}: "${texto}"`,
+    ),
+  ];
+}
+
 /* ──────────────────── documento de transporte (arts. 20, 26, 27) ──────────────────── */
 
 function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
@@ -1557,6 +1652,8 @@ export function reglasUCP(input: {
           : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
       ),
     );
+    out.push(...reglaFirmaTransporte(bl, clase.modo));
+
     /*
      * 22 (b): el banco no examina los contratos de fletamento, aunque el crédito exija presentarlos.
      *

@@ -128,3 +128,80 @@ export function modoDelDocumento(campos: CamposDoc): ClaseDeTransporte {
     porQue: "no se pudo determinar de qué clase es: no se leyó cómo se titula, ni un buque, ni los lugares",
   };
 }
+
+/* ──────────────── quién puede firmar, que depende de la clase (inciso (a) (i)) ──────────────── */
+
+/**
+ * Las capacidades con las que se puede firmar un documento de transporte.
+ *
+ * No son intercambiables y ahí está todo el asunto: **el artículo 22 admite capitán, armador o
+ * fletador y no admite al transportista**, mientras el 20 admite transportista o capitán y no admite
+ * al armador ni al fletador. Un examinador acostumbrado al marítimo firma el error en la misma
+ * dirección de siempre.
+ */
+export type CapacidadFirma = "TRANSPORTISTA" | "CAPITAN" | "ARMADOR" | "FLETADOR" | "COURIER";
+
+export const NOMBRE_CAPACIDAD: Record<CapacidadFirma, string> = {
+  TRANSPORTISTA: "el transportista",
+  CAPITAN: "el capitán",
+  ARMADOR: "el armador",
+  FLETADOR: "el fletador",
+  COURIER: "el servicio de courier",
+};
+
+/** Qué capacidades admite el inciso (a) (i) del artículo de cada clase. */
+export function capacidadesAdmitidas(modo: ModoTransporte): CapacidadFirma[] {
+  switch (modo) {
+    /* 22 (a) (i): capitán, armador o fletador — y NO el transportista. */
+    case "FLETAMENTO":
+      return ["CAPITAN", "ARMADOR", "FLETADOR"];
+    /* 25 (a) (i): firmado o sellado por el servicio de courier. */
+    case "COURIER":
+      return ["COURIER"];
+    /* 19, 20, 21, 23 y 24 (a) (i): el transportista o el capitán. */
+    default:
+      return ["TRANSPORTISTA", "CAPITAN"];
+  }
+}
+
+/**
+ * Qué dice el bloque de firma sobre con qué capacidad se firmó.
+ *
+ * **Se ancla en la frase de la firma y no en cualquier mención.** Es la trampa del caso que dio
+ * origen a esto: un conocimiento de fletamento firmado *«xxx as agent for and on behalf of the
+ * carrier Dampskibsselskabet Norden A/S Captain: Capt Mabe T. Benagua»* nombra un capitán, y la
+ * capacidad declarada igual es «agente del transportista» — que el artículo 22 no admite. Buscar
+ * «captain» en todo el texto lo habría dado por bueno, y es exactamente el error que la Opinión
+ * R834 corrige: el nombre de un capitán no salva la firma.
+ *
+ * Por eso la capacidad tiene que venir detrás de «as», de «for» o de «on behalf of», que es cómo se
+ * declara una capacidad en un documento de transporte.
+ */
+export interface FirmaDeTransporte {
+  /** La capacidad que el papel declara, o `null` si no se reconoce ninguna. */
+  capacidad: CapacidadFirma | null;
+  /** Firma un agente por cuenta de otro. No cambia el veredicto: el artículo admite al agente nombrado. */
+  porAgente: boolean;
+}
+
+export function leerFirma(texto: string): FirmaDeTransporte {
+  const t = texto.toUpperCase();
+  const porAgente = /\bAGENTS?\b|\bON BEHALF OF\b|\bAS AGENT\b/.test(t);
+  /*
+   * El orden de las alternativas no decide nada —cada una busca una palabra distinta— pero el
+   * anclaje sí: `AS`, `FOR` y `ON BEHALF OF` delante, con lo que puede haber en el medio acotado a
+   * las palabras de relleno que estas frases usan («as agent for the carrier», «for and on behalf
+   * of the master»). Sin ese tope, un `.*` llegaría hasta cualquier mención suelta del otro lado
+   * del texto y volvería a dar por buena la firma de R834.
+   */
+  const RELLENO = "(?:THE|A|AN|AND|OR|ITS|AGENTS?|AS|FOR|ON|BEHALF|OF|DULY|AUTHORI[SZ]ED|SIGNATORY)";
+  const cap = (palabras: string) =>
+    new RegExp(`\\b(?:AS|FOR|ON BEHALF OF)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`).test(t);
+
+  if (cap("CARRIER|CARRIERS")) return { capacidad: "TRANSPORTISTA", porAgente };
+  if (cap("MASTER|MASTERS|CAPTAIN")) return { capacidad: "CAPITAN", porAgente };
+  if (cap("OWNER|OWNERS|SHIPOWNER|SHIPOWNERS")) return { capacidad: "ARMADOR", porAgente };
+  if (cap("CHARTERER|CHARTERERS")) return { capacidad: "FLETADOR", porAgente };
+  if (cap("COURIER|COURIER SERVICE")) return { capacidad: "COURIER", porAgente };
+  return { capacidad: null, porAgente };
+}
