@@ -150,6 +150,21 @@ export interface CamposDoc {
   tipoDocumento?: CampoDoc;
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
+  /**
+   * El bloque de firma del documento de transporte, copiado tal cual.
+   *
+   * Es lo que decide el inciso (a) (i) de los siete artículos del transporte, y la capacidad
+   * admitida **depende de la clase del documento**: el artículo 20 admite transportista, capitán o
+   * un agente nombrado de cualquiera de los dos; el 22, en cambio, admite capitán, armador o
+   * fletador y **no** al transportista.
+   *
+   * Va como un texto y no como campos separados a propósito. Lo que un conocimiento imprime al pie
+   * es una sola cosa —«AS AGENT FOR THE CARRIER: XYZ SHIPPING for and on behalf of ABC LTD»— y
+   * partirla en «quién firma» y «para quién» obligaría al modelo a interpretar en vez de copiar,
+   * que es la regla que manda sobre todas en este repositorio. La regla lee la capacidad de este
+   * texto; el nombre del transportista suele venir en el mismo bloque o en el membrete.
+   */
+  firmaTransporte?: CampoDoc;
   precioUnitario?: CampoDoc; // "USD 800,00" — con él y el total se desambigua una cantidad
   /**
    * Quién EMITE y firma el documento, cuando no es quien lo exporta.
@@ -717,6 +732,7 @@ export const SCHEMA_DOC = {
     tipoDocumento: campoSchema,
     clausulaDefecto: campoSchema,
     juegoOriginales: campoSchema,
+    firmaTransporte: campoSchema,
     precioUnitario: campoSchema,
     tipoSeguro: campoSchema,
     emisor: campoSchema,

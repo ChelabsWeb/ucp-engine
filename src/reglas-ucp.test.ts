@@ -1407,3 +1407,144 @@ describe("la cantidad, con lo que la auditoría encontró", () => {
     expect(r?.fuente).toMatch(/30a/);
   });
 });
+
+describe("con qué capacidad se firmó el documento de transporte (inciso (a) (i))", () => {
+  /*
+   * No existía ninguna regla del inciso (a) (i) en ningún artículo del 19 al 25: se miraban puertos,
+   * anotación de a bordo, originales, transbordo y cláusulas, y **quién firma no se examinaba**. Es de
+   * lo primero que mira un examinador.
+   *
+   * Lo que decide es la capacidad declarada contra la clase del documento, porque las capacidades
+   * admitidas no son las mismas: el artículo 22 admite capitán, armador o fletador y **no** al
+   * transportista, al revés que el 20.
+   */
+  const conFirma = (firma: string, extra: Partial<Record<string, ReturnType<typeof campo>>> = {}) =>
+    buscar(
+      [
+        {
+          tipo: "BL",
+          campos: doc({
+            tipoTransporte: campo("BILL OF LADING"),
+            buque: campo("STELLA AUSTRAL"),
+            firmaTransporte: campo(firma),
+            ...extra,
+          } as Partial<CamposDoc>),
+        },
+      ],
+      "ucp-firma-transporte",
+    );
+
+  /** El mismo bloque de firma sobre un conocimiento sujeto a contrato de fletamento (art. 22). */
+  const enFletamento = (firma: string) =>
+    conFirma(firma, { charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-2025") });
+
+  it("TA 923rev: un agente nombrado del transportista nombrado está bien", () => {
+    const r = conFirma("AS AGENT FOR THE CARRIER: XYZ SHIPPING COMPANY FOR AND ON BEHALF OF ABC LTD");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toMatch(/agente/);
+  });
+
+  it("R754 / TA 750rev: una sucursal del transportista, con otro nombre, también", () => {
+    /*
+     * Es el falso positivo que una regla nueva cometería, y la Opinión lo cierra: «Neither is the
+     * fact that the name of the branch differs from the name of the carrier». Una regla que exigiera
+     * que el firmante se llame como el transportista rechazaría a media línea marítima — por eso esta
+     * no compara nombres, solo capacidades.
+     */
+    const r = conFirma("SIGNED AS THE CARRIER APM-M TRADING AS M LINE AS CARRIER / M LINE COUNTRY U BRANCH (BRANCH)");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("R834 / TA 793rev: un fletamento firmado por el transportista es discrepancia", () => {
+    const r = enFletamento(
+      "XXX AS AGENT FOR AND ON BEHALF OF THE CARRIER DAMPSKIBSSELSKABET NORDEN A/S CAPTAIN: CAPT MABE T. BENAGUA",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.fuente, "y se dice con qué artículo").toMatch(/22/);
+  });
+
+  it("y el nombre de un capitán en el texto no salva esa firma", () => {
+    /*
+     * La trampa del caso anterior, aislada: el bloque **nombra** un capitán y la capacidad declarada
+     * sigue siendo «agente del transportista». Buscar «captain» en todo el texto lo habría dado por
+     * bueno, que es justo lo que la Opinión corrige.
+     */
+    const conCapitan = enFletamento("AS AGENT FOR THE CARRIER XYZ LINE. CAPTAIN: CAPT J. PEREYRA");
+    expect(conCapitan?.estado).toBe("DISCREPANCIA");
+    /* Firmado DE VERDAD por el capitán, en cambio, cumple. */
+    expect(enFletamento("SIGNED AS MASTER OF THE VESSEL STELLA AUSTRAL")?.estado).toBe("OK");
+  });
+
+  it("el artículo 22 admite armador y fletador, que el 20 no", () => {
+    expect(enFletamento("FOR AND ON BEHALF OF THE OWNERS")?.estado).toBe("OK");
+    expect(enFletamento("AS AGENT FOR THE CHARTERERS")?.estado).toBe("OK");
+    /* Y al revés: un marítimo firmado por el fletador no cumple el artículo 20. */
+    const maritimo = conFirma("FOR AND ON BEHALF OF THE CHARTERERS");
+    expect(maritimo?.estado).toBe("DISCREPANCIA");
+    expect(maritimo?.fuente).toMatch(/20/);
+  });
+
+  it("una capacidad que no se reconoce sale a verificar y NUNCA a discrepancia", () => {
+    /*
+     * La dirección del error importa: los bloques de firma se redactan de mil formas, y rechazar un
+     * documento bien firmado por no haber entendido cómo lo escribieron es el error que mata la
+     * adopción. Acá el motor dice qué leyó y pide que alguien lo mire.
+     */
+    for (const raro of ["FIRMADO", "AUTHORISED SIGNATORY", "SELLO Y FIRMA", "P.P. XYZ LINE"]) {
+      const r = conFirma(raro);
+      expect(r?.estado, `«${raro}» no puede dar discrepancia`).toBe("ATENCION");
+      expect(r?.evidencia).toContain(raro);
+    }
+  });
+
+  it("sin el bloque de firma no se concluye nada, y se dice qué falta", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ tipoTransporte: campo("BILL OF LADING"), buque: campo("STELLA AUSTRAL") }) }],
+      "ucp-firma-transporte",
+    );
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/firma/i);
+  });
+
+  it("con la clase sin determinar no se dictamina, porque el artículo sería una suposición", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ firmaTransporte: campo("FOR AND ON BEHALF OF THE CHARTERERS") }) }],
+      "ucp-firma-transporte",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toMatch(/no se pudo determinar la clase/);
+  });
+
+  it("y la regla corre en las demás clases, con su artículo", () => {
+    const aereo = buscar(
+      [
+        {
+          tipo: "BL",
+          campos: doc({
+            tipoTransporte: campo("AIR WAYBILL"),
+            numeroDoc: campo("020-12345678"),
+            firmaTransporte: campo("AS AGENT FOR THE CARRIER IBERIA CARGO"),
+          }),
+        },
+      ],
+      "ucp-firma-transporte",
+    );
+    expect(aereo?.estado).toBe("OK");
+    expect(aereo?.fuente).toMatch(/23/);
+
+    const courier = buscar(
+      [
+        {
+          tipo: "BL",
+          campos: doc({
+            tipoTransporte: campo("COURIER RECEIPT"),
+            firmaTransporte: campo("STAMPED AS COURIER SERVICE DHL EXPRESS"),
+          }),
+        },
+      ],
+      "ucp-firma-transporte",
+    );
+    expect(courier?.estado).toBe("OK");
+    expect(courier?.fuente).toMatch(/25/);
+  });
+});
