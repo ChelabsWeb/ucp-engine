@@ -1010,11 +1010,29 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
         if (!c || !c.valor.trim() || c.confianza < 0.4) return null;
         const n = parseNumero(c.valor);
         if (n == null) return null;
-        const texto = (u && u.confianza >= 0.4 && u.valor) || c.valor;
+        const leyoUnidad = Boolean(u && u.confianza >= 0.4 && u.valor.trim());
+        const texto = (leyoUnidad && u?.valor) || c.valor;
         const kg = aKg(n, texto);
-        // En kilos cuando se puede; si no, en su propia unidad, y solo se comparan entre sí las que
-        // están en la misma. Sin esto, todo lo que no fuera peso quedaba sin comparar.
-        const unidad = kg == null ? unidadNormal(texto) : "kg";
+        /*
+         * En kilos cuando se puede; si no, en su propia unidad, y solo se comparan entre sí las que
+         * están en la misma. Sin esto, todo lo que no fuera peso quedaba sin comparar.
+         *
+         * **Y la unidad que la tabla no conoce se compara por su texto.** Antes se descartaba, así
+         * que dos documentos con la misma unidad desconocida no se comparaban **y nadie lo decía**:
+         * «1000 ADMT» contra «900 ADMT» salía sin cruce, mientras «1000 MTS» contra «900 MTS» sí lo
+         * daba. ADMT —air dry metric tonne— es la unidad corriente de la pulpa de celulosa, así que
+         * no es un caso raro: era un crédito entero sin cotejo de cantidad entre documentos, en
+         * silencio, y acá el silencio no se cuenta como conforme.
+         *
+         * Lo encontró un caso del banco de pruebas que pasaba por el motivo equivocado: el mutante
+         * que debía ponerlo rojo —cambiar 994.781 por 894— no lo movía, porque la unidad del papel
+         * era ADMT y el cruce nunca corría.
+         *
+         * El texto se usa **solo cuando el documento declaró una unidad**. Dos cantidades sin unidad
+         * siguen sin compararse: ahí el respaldo sería el número mismo y dos números distintos darían
+         * «unidades» distintas, que es una comparación que no quiere decir nada.
+         */
+        const unidad = kg == null ? (unidadNormal(texto) ?? (leyoUnidad ? `texto:${normTexto(texto)}` : null)) : "kg";
         if (unidad == null) return null;
         return {
           tipo: d.tipo,
