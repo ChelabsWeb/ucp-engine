@@ -127,3 +127,54 @@ describe("el que no es el crédito operativo (UCP 600 art. 11)", () => {
     expect(revisar(SWIFT_CSU2025099).find((x) => x.id === "ucp-11b")).toBeUndefined();
   });
 });
+
+describe("la política interna que el crédito se reserva aplicar «a su sola discreción»", () => {
+  /*
+   * Lo encontró la auditoría de los guardianes del banco de pruebas: el caso TA 884rev afirmaba que
+   * el motor leía esta cláusula y **era falso**. No aparecía en ninguna regla del examen, en ninguna
+   * verificación manual ni en esta revisión — `verificaciones-manuales.ts` la filtra con razón,
+   * porque no es una condición documentaria y no hay papel contra el que verificarla, pero entonces
+   * no la miraba nadie.
+   *
+   * Y es justo lo que un banco necesita ver antes de aceptar una designación, porque la Banking
+   * Commission ya resolvió dos veces que la cláusula no vale lo que parece valer: en TA 884rev, que
+   * el emisor «is obligated to honour a complying presentation»; en TA 956rev, que invocar el riesgo
+   * de compliance interno «would not constitute a valid reason to refuse the presentation» y que
+   * nombrar políticas internas en un crédito no es práctica bancaria prudente.
+   */
+  const politica = (p: ReturnType<typeof conCondiciones>) =>
+    revisarCredito(p).filter((o) => o.id === "emision-politica-interna");
+
+  it("la cláusula del caso TA 884rev sale como aviso", () => {
+    const o = politica(
+      conCondiciones(
+        "OUR BANK PROCESS TRANSACTIONS IN ACCORDANCE WITH LOCAL AND INTERNATIONAL LAWS AND REGULATIONS, AND RESERVE THE RIGHT TO COMPLY WITH FOREIGN SANCTIONS AS WELL. CONSEQUENTLY DOCUMENTS ISSUED BY OR SHOWING ANY INVOLVEMENT OF PARTIES SANCTIONED BY ANY COMPETENT AUTHORITY OR CONTAINED ANY INFORMATION THEREON MIGHT NOT BE PROCESSED BY OUR BANK AT OUR SOLE DISCRETION AND WITHOUT ANY LIABILITY ON OUR PART.",
+      ),
+    );
+    expect(o).toHaveLength(1);
+    expect(o[0]?.gravedad, "el crédito sigue siendo operable: no impide, avisa").toBe("AVISO");
+    expect(o[0]?.fuente).toMatch(/TA 884rev/);
+  });
+
+  it("lo que se busca es la discrecionalidad, no la palabra «sanciones»", () => {
+    /*
+     * Un crédito puede nombrar las sanciones por obligación regulatoria sin reservarse nada, y
+     * marcar eso sería ruido en la mitad de los créditos del mundo. Lo que no corresponde es
+     * reservarse no procesar «a sola discreción» y sin responsabilidad.
+     */
+    for (const sinReserva of [
+      "THIS CREDIT IS SUBJECT TO APPLICABLE SANCTIONS LAWS AND REGULATIONS.",
+      "ALL PARTIES ARE SCREENED AGAINST INTERNATIONAL SANCTIONS LISTS.",
+      "OUR BANK COMPLIES WITH AML AND CTF REGULATIONS.",
+    ]) {
+      expect(politica(conCondiciones(sinReserva)), sinReserva).toEqual([]);
+    }
+  });
+
+  it("y hacen falta las dos mitades: reservarse el derecho y poder no procesar", () => {
+    /* Solo la discrecionalidad, sin decir que podría no procesar: no alcanza. */
+    expect(politica(conCondiciones("CHARGES ARE APPLIED AT OUR SOLE DISCRETION."))).toEqual([]);
+    /* Y solo la reserva, sin discrecionalidad, tampoco. */
+    expect(politica(conCondiciones("DOCUMENTS MIGHT NOT BE PROCESSED IF A COURT ORDER SO REQUIRES."))).toEqual([]);
+  });
+});

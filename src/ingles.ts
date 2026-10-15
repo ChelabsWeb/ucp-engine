@@ -248,6 +248,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^Se prohíbe el transbordo: el artículo 20\(c\) admite igual algunos casos$/g,
     "Transhipment is prohibited: article 20 (c) admits some cases all the same",
   ],
+  /* ── la política interna que el crédito se reserva aplicar «a su sola discreción» ── */
+  [
+    /^El crédito se reserva no procesar los documentos a su sola discreción: esa cláusula no releva al emisor de honrar una presentación conforme$/g,
+    "The credit reserves the right not to process the documents at its sole discretion: that clause does not release the issuing bank from honouring a complying presentation",
+  ],
+  [
+    /^la ICC resolvió que el emisor está obligado a honrar y que una objeción por política interna no es un aviso de rechazo del artículo 16; conviene pedir que se saque antes de aceptar la designación$/g,
+    "the ICC held that the issuing bank is obligated to honour and that an objection based on internal policy is not a refusal notice under article 16; it is worth asking for it to be removed before accepting the nomination",
+  ],
   [/^Una condición depende de un acto del ordenante$/g, "A condition depends on an act of the applicant"],
   [/^acordarla fuera del crédito$/g, "agree it outside the credit"],
   [/^decir con qué documento se comprueba, o sacarla$/g, "state which document evidences it, or remove it"],
