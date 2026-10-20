@@ -712,6 +712,70 @@ function reglasMultimodal(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresent
 }
 
 /**
+ * Lo que el crédito pidió «on board» y el artículo 19 no exige.
+ *
+ * El artículo 19 admite que la mercadería conste **despachada, tomada a cargo o embarcada**: a un
+ * documento multimodal no se le pide la anotación de a bordo. Pero un crédito puede pedirla, y
+ * entonces la pide: *«the credit expressly requires presentation of a "full set clean on board bill
+ * of lading." Consequently, the document must be examined under UCP 600 article 20 […] the
+ * discrepancy raised by the issuing bank is valid.»*
+ *
+ * El caso de la fuente es exactamente ese: un «Multimodal Transport Bill of Lading» con la leyenda
+ * «Received for Shipment» y sin anotación de a bordo, contra un 46A que pedía «Full set clean on
+ * board bill of lading». El motor clasificaba el papel como multimodal por su título, lo examinaba
+ * con el artículo 19 —que no pide «on board»— y la exigencia del crédito **no la miraba nadie**.
+ *
+ * El fundamento no es el artículo 19 ni el 20: es el **14 (a)**, que es lo que hace que esto se
+ * pueda afirmar sin el texto de la ISBP. Los documentos se examinan contra los términos del crédito,
+ * y acá el crédito escribió «on board».
+ *
+ * **El alcance es angosto a propósito, y es la mitad de la decisión.** Corre solo sobre un documento
+ * **multimodal**:
+ *
+ * - sobre un marítimo, un sea waybill o un fletamento la anotación ya la exige el propio artículo
+ *   (`ucp-20a-ii`), así que esto sería una segunda línea diciendo lo mismo;
+ * - sobre un **aéreo, terrestre o courier no corre nunca**, aunque el crédito escriba «on board».
+ *   Un air waybill no dice «on board» jamás, y rechazarlo por no parecerse a un marítimo es el error
+ *   que las tres reglas del artículo 23 existen para evitar. Si un crédito pide «on board air
+ *   waybill» el problema está en el crédito, y eso lo mira `emision.ts`.
+ *
+ * Y la otra mitad del par dice qué **no** hay que hacer con esto: un conocimiento titulado
+ * «port-to-port» con un lugar de recepción interior y pre-acarreo por camino **no** es un documento
+ * multimodal —*«a bill of lading showing either an inland point or other port would be acceptable
+ * provided that a valid on board notation was included»* (R 280)— así que la clase sigue saliendo de
+ * lo que el papel dice de sí mismo y no de que tenga pre-acarreo.
+ */
+function reglaOnBoardQuePideElCredito(doc: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
+  const lineaDeTransporte = exigidos.find((d) => /bill of lading|transport document|conocimiento/i.test(d));
+  if (!lineaDeTransporte || !/\bon\s*board\b|\bshipped\s+on\s+board\b|a\s+bordo/i.test(lineaDeTransporte)) {
+    return [];
+  }
+  const constancia = val(doc, "onBoard");
+  if (!constancia) {
+    return [
+      sinLeer(
+        "ucp-14a-on-board",
+        "UCP 600 14a",
+        "El crédito pide el documento «on board» y el documento lo evidencia",
+        "la anotación de a bordo",
+      ),
+    ];
+  }
+  const estaABordo = /\bon\s*board\b|\bshipped\b|a\s+bordo|embarcad/i.test(constancia);
+  return [
+    regla(
+      "ucp-14a-on-board",
+      "UCP 600 14a",
+      "El crédito pide el documento «on board» y el documento lo evidencia",
+      estaABordo ? "OK" : "DISCREPANCIA",
+      estaABordo
+        ? `el 46A pide "on board" y el documento dice "${constancia}"`
+        : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo`,
+    ),
+  ];
+}
+
+/**
  * Carretera, ferrocarril o vía navegable (art. 24).
  *
  * Lo propio de este artículo son los originales: un documento de carretera tiene que ser el
@@ -1831,6 +1895,7 @@ export function reglasUCP(input: {
       out.push(...reglasAereo(ctx, bl));
     } else if (clase.modo === "MULTIMODAL") {
       out.push(...reglasMultimodal(ctx, bl));
+      out.push(...reglaOnBoardQuePideElCredito(bl, exigidos));
     } else if (clase.modo === "TERRESTRE") {
       out.push(...reglasTerrestre(ctx, bl));
     } else if (clase.modo === "COURIER") {
