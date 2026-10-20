@@ -1199,6 +1199,16 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The on board notation names the vessel that left the port of loading",
   ],
   [/\bla anotación dice\b/g, "the on board notation reads"],
+  /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
+  [
+    /^El crédito pide el documento «on board» y el documento lo evidencia$/g,
+    "The credit requires the document to be «on board» and the document evidences it",
+  ],
+  [/\bel 46A pide "on board" y el documento dice\b/g, 'field 46A requires "on board" and the document reads'],
+  [
+    /\bel artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo\b/g,
+    "article 19 allows the goods to be shown as taken in charge, but this credit required them on board",
+  ],
   [/\by nombra al buque\b/g, "and names the vessel"],
   /* el orden importa: «al buque» de arriba es más específico que estos dos */
   [/\ben vez del buque\b/g, "instead of the vessel"],

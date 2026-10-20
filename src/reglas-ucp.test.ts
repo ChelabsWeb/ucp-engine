@@ -1761,3 +1761,78 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
     ).toBeUndefined();
   });
 });
+
+/**
+ * Lo que el crédito pidió «on board» y el artículo 19 no exige.
+ *
+ * El artículo 19 admite que la mercadería conste despachada, tomada a cargo o embarcada, así que a un
+ * documento multimodal no se le pide la anotación de a bordo. Pero un crédito puede pedirla, y
+ * entonces la pide — y esa exigencia no la miraba nadie: el motor clasificaba el papel por su título,
+ * lo examinaba con el artículo 19 y la línea del 46A quedaba sin verificar.
+ *
+ * El fundamento es el **14 (a)** y no el 19 ni el 20, que es lo que permite afirmarlo sin el texto de
+ * la ISBP: los documentos se examinan contra los términos del crédito.
+ */
+describe("el «on board» que pide el crédito sobre un documento multimodal", () => {
+  const PIDE_ON_BOARD = ["1. SIGNED COMMERCIAL INVOICE.", "2. FULL SET CLEAN ON BOARD BILL OF LADING."];
+  const NO_LO_PIDE = ["1. SIGNED COMMERCIAL INVOICE.", "2. MULTIMODAL TRANSPORT DOCUMENT IN 3 ORIGINALS."];
+
+  const multimodal = (constancia: string) =>
+    [
+      {
+        tipo: "BL" as const,
+        campos: doc({
+          tipoTransporte: campo("MULTIMODAL TRANSPORT BILL OF LADING"),
+          puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+          puertoDestino: campo("COLOMBO, SRI LANKA"),
+          ...(constancia ? { onBoard: campo(constancia) } : {}),
+        }),
+      },
+    ] satisfies DocAnalizado[];
+
+  const con = (docs: DocAnalizado[], exigidos: string[]) =>
+    reglasUCP({ lc: { ...LC, documentosExigidos: exigidos }, credito: CTX, docs, hoy: HOY }).find(
+      (r) => r.id === "ucp-14a-on-board",
+    );
+
+  it("«Received for Shipment» contra un 46A que pide «on board» es discrepancia", () => {
+    const r = con(multimodal("Received for Shipment"), PIDE_ON_BOARD);
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("Received for Shipment");
+  });
+
+  it("y con la anotación de a bordo cumple", () => {
+    expect(con(multimodal("SHIPPED ON BOARD 20-AUG-2026"), PIDE_ON_BOARD)?.estado).toBe("OK");
+  });
+
+  it("sin leer la constancia no se dictamina", () => {
+    expect(con(multimodal(""), PIDE_ON_BOARD)?.estado).toBe("ATENCION");
+  });
+
+  /*
+   * Y los dos frenos, que son la mitad de la decisión.
+   *
+   * Si el crédito no pidió «on board», el artículo 19 manda y «Received for Shipment» cumple: la
+   * regla no se emite. Y sobre un aéreo no corre nunca, aunque el crédito lo escriba — un air waybill
+   * no dice «on board» jamás, y rechazarlo por no parecerse a un marítimo es el error que las tres
+   * reglas del artículo 23 existen para evitar.
+   */
+  it("si el crédito no lo pide, la regla no se emite", () => {
+    expect(con(multimodal("Received for Shipment"), NO_LO_PIDE)).toBeUndefined();
+  });
+
+  it("y sobre un documento aéreo no corre, aunque el crédito escriba «on board»", () => {
+    const aereo = [
+      {
+        tipo: "BL" as const,
+        campos: doc({
+          tipoTransporte: campo("AIR WAYBILL"),
+          puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+          puertoDestino: campo("COLOMBO, SRI LANKA"),
+          onBoard: campo("Received for carriage"),
+        }),
+      },
+    ] satisfies DocAnalizado[];
+    expect(con(aereo, ["1. FULL SET CLEAN ON BOARD BILL OF LADING."])).toBeUndefined();
+  });
+});
