@@ -1193,6 +1193,20 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Con qué capacidad se firmó el documento de transporte$/g, "In what capacity the transport document was signed"],
   [/^el bloque de firma$/g, "the signature block"],
   [/^el término de entrega de la factura$/g, "the trade term in the invoice"],
+  /* UCP 600 20a-ii — qué buque nombra la anotación de a bordo (R 350 contra TA 743rev) */
+  [
+    /^La anotación de a bordo nombra el buque que salió del puerto de carga$/g,
+    "The on board notation names the vessel that left the port of loading",
+  ],
+  [/\bla anotación dice\b/g, "the on board notation reads"],
+  [/\by nombra al buque\b/g, "and names the vessel"],
+  /* el orden importa: «al buque» de arriba es más específico que estos dos */
+  [/\ben vez del buque\b/g, "instead of the vessel"],
+  [/\by nombra\b/g, "and names"],
+  [
+    /\bverificar si es el buque que salió del puerto de carga o uno de pre-acarreo — la Opinión R 350 dice que nombrar el de pre-acarreo es discrepancia y la TA 743rev que no lo es cuando la anotación da cuenta del oceánico\b/g,
+    "check whether this is the vessel that left the port of loading or a pre-carriage one — ICC Opinion R 350 holds that naming the pre-carriage vessel is a discrepancy, and TA 743rev that it is not where the notation accounts for the ocean vessel",
+  ],
   /* UCP 600 30b — el crédito pide una cantidad y la factura no declara ninguna */
   [/\bel crédito pide\b/g, "the credit requires"],
   [

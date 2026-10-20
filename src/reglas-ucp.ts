@@ -8,6 +8,7 @@ import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacio
 import { esStandby, noAplicaAStandby } from "./standby";
 import {
   articuloDelModo,
+  buqueDeLaAnotacion,
   capacidadesAdmitidas,
   fuenteDelInciso,
   leerFirma,
@@ -1081,6 +1082,44 @@ function reglasTransporte(
           )
         : sinLeer("ucp-20a-ii", "UCP 600 20a-ii", "Anotación de a bordo con fecha", "la anotación de a bordo"),
   );
+
+  /*
+   * Y qué buque nombra esa anotación, que es otra cosa que la fecha.
+   *
+   * El motor verificaba que la anotación existiera y tuviera fecha, y nada más. Lo que el par de
+   * Opiniones R 350 y TA 743rev decide es **cuál** buque nombra: *«the named vessel is the vessel
+   * that leaves the port of loading and not any vessel which may appear in the pre-carriage box»*.
+   * Con un conocimiento con pre-acarreo, una anotación que nombra el buque de pre-acarreo es
+   * discrepancia válida (R 350) y una que da cuenta del oceánico no lo es (TA 743rev).
+   *
+   * De eso se automatiza una parte y se dice la otra:
+   *
+   * - **la anotación nombra al buque oceánico → OK.** Es la afirmación que faltaba.
+   * - **nombra algo que no es el buque ni el puerto de carga → ATENCION**, con las dos Opiniones y
+   *   el texto a la vista. No DISCREPANCIA: lo que sobra podría ser un puerto de trasbordo o una
+   *   terminal, y lo que separa a las dos Opiniones es la redacción de la anotación. Rechazar sobre
+   *   una palabra que no se entendió es el error que mata la adopción.
+   * - **no nombra nada más → no se emite nada.** «SHIPPED ON BOARD 20-AUG-2026» es la anotación
+   *   corriente y no tiene por qué repetir el buque: el documento ya lo trae en su casillero.
+   *   Emitir algo acá sería ruido en casi todos los conocimientos, y un aviso sobre casos buenos
+   *   enseña a ignorar los avisos.
+   */
+  if (onBoard && buque && !intended) {
+    const { nombraAlBuque, sobra } = buqueDeLaAnotacion(onBoard, buque, val(bl, "puertoEmbarque"));
+    if (nombraAlBuque || sobra.length > 0) {
+      out.push(
+        regla(
+          "ucp-20a-ii-buque",
+          "UCP 600 20a-ii",
+          "La anotación de a bordo nombra el buque que salió del puerto de carga",
+          nombraAlBuque ? "OK" : "ATENCION",
+          nombraAlBuque
+            ? `la anotación dice "${onBoard}" y nombra al buque "${buque}"`
+            : `la anotación dice "${onBoard}" y nombra ${sobra.join(", ")} en vez del buque "${buque}": verificar si es el buque que salió del puerto de carga o uno de pre-acarreo — la Opinión R 350 dice que nombrar el de pre-acarreo es discrepancia y la TA 743rev que no lo es cuando la anotación da cuenta del oceánico`,
+        ),
+      );
+    }
+  }
 
   /*
    * 20a-vi: el conocimiento no puede estar sujeto a un contrato de fletamento.
