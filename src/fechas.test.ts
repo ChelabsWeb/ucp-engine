@@ -169,3 +169,40 @@ describe("una fecha con texto alrededor", () => {
     }
   });
 });
+
+/**
+ * El punto de un mes abreviado, que se comía la fecha entera.
+ *
+ * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —así lo
+ * transcribe la Opinión R 350— y daba **null**, mientras «JUL 16, 2026» sí se leía. Es la misma
+ * forma que el emisor que se cortaba en «GOVT.», y pega donde más cuesta: esa fecha es la del
+ * embarque, que decide el último embarque del 44C y el plazo de presentación del 48.
+ */
+describe("el mes abreviado con punto", () => {
+  it.each([
+    ["JUL.16, 2026", 2026, 6, 16],
+    ["JUL.16 2026", 2026, 6, 16],
+    ["NOV.3, 2026", 2026, 10, 3],
+    ["SEPT.1, 2026", 2026, 8, 1],
+  ])("lee «%s»", (texto, y, m, d) => {
+    const f = parseFecha(texto);
+    expect(f).not.toBeNull();
+    expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([y, m, d]);
+  });
+
+  /* Dentro del texto de una anotación de a bordo, que es de donde salió esto. */
+  it("y la lee dentro de la casilla preimpresa de la Opinión R 350", () => {
+    const f = parseFecha("JUL.16, 2026 UNI-PROMOTE 198B HOCHIMINH CITY, VIETNAM");
+    expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([2026, 6, 16]);
+  });
+
+  /*
+   * Y lo que el arreglo NO toca, que es por qué es angosto: el punto entre dígitos sigue siendo un
+   * separador de fecha, y un número de documento pegado a un punto no se vuelve una fecha.
+   */
+  it("sin tocar las fechas numéricas ni el número de un documento", () => {
+    expect(parseFecha("16.11.2026")?.getMonth()).toBe(10);
+    const f = parseFecha("CERTIFICATE NO.4471 DATED 10-APR-2025");
+    expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([2025, 3, 10]);
+  });
+});
