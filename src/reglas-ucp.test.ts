@@ -1699,3 +1699,65 @@ describe("el artículo que se cita sobre los puertos depende de la clase del doc
     expect(r?.fuente).toBe("UCP 600 19 a 25");
   });
 });
+
+/**
+ * Qué buque nombra la anotación de a bordo, al nivel de la regla.
+ *
+ * El helper ya está probado contra los textos literales de las dos Opiniones; esto comprueba las
+ * tres salidas de la regla, y sobre todo **la tercera**: que la anotación corriente no emita nada.
+ * Si emitiera, el motor diría algo en casi todos los conocimientos y nadie lo leería.
+ */
+describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => {
+  const conAnotacion = (onBoard: string, buque: string) =>
+    [
+      {
+        tipo: "BL" as const,
+        campos: doc({
+          tipoTransporte: campo("BILL OF LADING"),
+          puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+          puertoDestino: campo("COLOMBO, SRI LANKA"),
+          onBoard: campo(onBoard),
+          buque: campo(buque),
+        }),
+      },
+    ] satisfies DocAnalizado[];
+
+  it("la anotación que nombra al buque oceánico cumple", () => {
+    const r = buscar(
+      conAnotacion(
+        "SHIPPED ON BOARD VESSEL N AT SIBU, MALAYSIA ON 18.11.2010 FOR TRANSHIPMENT VIA BINTULU ON VESSEL L",
+        "Vessel L",
+      ),
+      "ucp-20a-ii-buque",
+    );
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("la que nombra otro buque sale a verificar, con las dos Opiniones a la vista", () => {
+    const r = buscar(conAnotacion("JUL.16, 2013 UNI-PROMOTE 198B", "EVER DELUXE 0689-106E"), "ucp-20a-ii-buque");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("UNI-PROMOTE");
+    expect(r?.evidencia).toContain("R 350");
+    expect(r?.evidencia).toContain("TA 743rev");
+  });
+
+  /*
+   * Y nunca DISCREPANCIA, por más que la Opinión R 350 diga que el rechazo valía: lo que sobra en la
+   * anotación podría ser un puerto de trasbordo o una terminal, y lo que separa a las dos Opiniones
+   * es la redacción. Rechazar sobre una palabra que no se entendió es el error que mata la adopción.
+   */
+  it("y nunca rechaza", () => {
+    const r = buscar(conAnotacion("JUL.16, 2013 UNI-PROMOTE 198B", "EVER DELUXE 0689-106E"), "ucp-20a-ii-buque");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("la anotación corriente no emite nada", () => {
+    expect(buscar(conAnotacion("SHIPPED ON BOARD 20-AUG-2026", "STELLA AUSTRAL"), "ucp-20a-ii-buque")).toBeUndefined();
+  });
+
+  it("y con «intended vessel» tampoco: ahí manda la otra rama del inciso", () => {
+    expect(
+      buscar(conAnotacion("SHIPPED ON BOARD UNI-PROMOTE ON 20-AUG-2026", "INTENDED VESSEL STELLA"), "ucp-20a-ii-buque"),
+    ).toBeUndefined();
+  });
+});

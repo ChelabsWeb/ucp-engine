@@ -145,6 +145,122 @@ export function modoDelDocumento(campos: CamposDoc): ClaseDeTransporte {
   };
 }
 
+/* ──────── qué buque nombra la anotación de a bordo (inciso (a) (ii)) ──────── */
+
+/**
+ * Si la anotación de a bordo nombra al buque que salió del puerto de carga, o a otro.
+ *
+ * **El par de Opiniones que obliga a mirar esto es de los más finos que hay.** Las dos tienen la
+ * misma forma en la superficie —un conocimiento con pre-acarreo, y una anotación que nombra un
+ * buque— y veredictos opuestos:
+ *
+ * - **R 350 / R 457 / Doc. 470/1128 rev final: la discrepancia ES válida.** Con el buque oceánico
+ *   «EVER DELUXE» y la casilla preimpresa «Laden on board» diciendo «JUL.16, 2013 UNI-PROMOTE 198B
+ *   HOCHIMINH CITY, VIETNAM», el rechazo del emisor valía: *«It should be understood that the named
+ *   vessel is the vessel that leaves the port of loading and not any vessel which may appear in the
+ *   pre-carriage box.»*
+ * - **TA 743rev: NO es discrepancia.** Con el buque oceánico «Vessel L» y la anotación «SHIPPED ON
+ *   BOARD VESSEL N AT SIBU, MALAYSIA ON 18.11.2010 FOR TRANSHIPMENT VIA BINTULU ON VESSEL L», el
+ *   rechazo no valía: *«the wording of the notation provides the applicable interpretation of the
+ *   data appearing in the respective bill of lading fields.»*
+ *
+ * Lo que separa a las dos es **si la anotación da cuenta del buque oceánico**. En TA 743rev lo
+ * nombra —explica el trasbordo y termina en Vessel L—; en R 350 la casilla nombra solo el buque de
+ * pre-acarreo. Eso sí es mecánico, y es lo único de las dos que se puede automatizar.
+ *
+ * Tres decisiones, y las tres son para no rechazar lo conforme:
+ *
+ * - **Si la anotación nombra al buque oceánico, cumple.** Es la afirmación que el motor no hacía.
+ * - **Si no lo nombra pero tampoco nombra nada más, no se dice nada.** «SHIPPED ON BOARD
+ *   20-AUG-2026» es la anotación corriente y no tiene por qué repetir el buque: el documento ya lo
+ *   trae en su casillero. Emitir algo acá sería ruido en casi todos los conocimientos.
+ * - **Si nombra algo que no es el buque oceánico ni el puerto de carga, se dice y no se concluye.**
+ *   Ahí está la frontera entre las dos Opiniones, y lo que sobra podría ser un puerto de trasbordo,
+ *   una terminal o un muelle en vez de otro buque. Afirmar que es un buque de pre-acarreo sería
+ *   afirmar más de lo que el dato sostiene.
+ */
+export interface BuqueDeLaAnotacion {
+  /** la anotación nombra al buque que el documento declara como oceánico */
+  nombraAlBuque: boolean;
+  /** lo que la anotación nombra y no es el buque ni el puerto de carga ni su fecha */
+  sobra: string[];
+}
+
+/* Las palabras con las que se redacta una anotación de a bordo, que no nombran nada. */
+const PALABRAS_DE_LA_ANOTACION = new Set([
+  "SHIPPED",
+  "LADEN",
+  "LOADED",
+  "CLEAN",
+  "ON",
+  "BOARD",
+  "THE",
+  "VESSEL",
+  "SHIP",
+  "AT",
+  "IN",
+  "OF",
+  "AND",
+  "FOR",
+  "VIA",
+  "TO",
+  "FROM",
+  "DATE",
+  "DATED",
+  "PORT",
+  "CITY",
+  "TRANSHIPMENT",
+  "TRANSSHIPMENT",
+  "EMBARCADO",
+  "BORDO",
+  "BUQUE",
+  "PUERTO",
+  "FECHA",
+  "MV",
+  "SS",
+  "MS",
+]);
+
+/* Los meses, que son parte de la fecha y no nombran nada. */
+const MESES_DE_LA_ANOTACION =
+  /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|SEPT|OCT|NOV|DEC|ENE|ABR|AGO|DIC|ENERO|FEBRERO|MARZO|ABRIL|MAYO|JUNIO|JULIO|AGOSTO|SEPTIEMBRE|OCTUBRE|NOVIEMBRE|DICIEMBRE)$/;
+
+const palabras = (texto: string): string[] =>
+  texto
+    .toUpperCase()
+    .split(/[^A-Z0-9/-]+/)
+    .map((x) => x.replace(/^[-/]+|[-/]+$/g, ""))
+    .filter(Boolean);
+
+export function buqueDeLaAnotacion(
+  anotacion: string,
+  buque: string,
+  puertoDeCarga: string | null | undefined,
+): BuqueDeLaAnotacion {
+  const texto = anotacion.toUpperCase();
+  const nombre = buque.toUpperCase().trim();
+  /*
+   * Nombrarlo entero o nombrar todas sus palabras distintivas vale igual: una anotación puede
+   * escribir «M/V EVER DELUXE» donde el casillero dice «EVER DELUXE 0689-106E».
+   */
+  const distintivasDelBuque = palabras(nombre).filter((w) => w.length > 3 && !/\d/.test(w));
+  const nombraAlBuque =
+    (nombre.length > 1 && texto.includes(nombre)) ||
+    (distintivasDelBuque.length > 0 && distintivasDelBuque.every((w) => texto.includes(w)));
+
+  const delPuerto = new Set(palabras(puertoDeCarga ?? ""));
+  const sobra = palabras(texto).filter(
+    (w) =>
+      w.length > 3 &&
+      !/\d/.test(w) &&
+      !PALABRAS_DE_LA_ANOTACION.has(w) &&
+      !MESES_DE_LA_ANOTACION.test(w) &&
+      !delPuerto.has(w) &&
+      !distintivasDelBuque.includes(w),
+  );
+  return { nombraAlBuque, sobra: [...new Set(sobra)] };
+}
+
 /* ──────────────── quién puede firmar, que depende de la clase (inciso (a) (i)) ──────────────── */
 
 /**

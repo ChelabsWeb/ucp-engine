@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { articuloDelModo, type ModoTransporte, modoDelDocumento } from "./transporte";
+import { articuloDelModo, buqueDeLaAnotacion, type ModoTransporte, modoDelDocumento } from "./transporte";
 
 /**
  * Qué clase de documento de transporte se presentó.
@@ -69,5 +69,52 @@ describe("qué artículo gobierna cada uno", () => {
     ["COURIER", "25"],
   ])("%s → artículo %s", (modo, articulo) => {
     expect(articuloDelModo(modo)).toContain(articulo);
+  });
+});
+
+/**
+ * Qué buque nombra la anotación de a bordo, que es la frontera entre dos Opiniones opuestas.
+ *
+ * Los textos de los dos casos van **literales** de las fuentes: son lo único que separa un rechazo
+ * válido de uno inválido, así que parafrasearlos haría que el test no probara nada.
+ */
+describe("el buque que nombra la anotación de a bordo", () => {
+  it("TA 743rev: la anotación da cuenta del buque oceánico, así que lo nombra", () => {
+    const r = buqueDeLaAnotacion(
+      "SHIPPED ON BOARD VESSEL N AT SIBU, MALAYSIA ON 18.11.2010 FOR TRANSHIPMENT VIA BINTULU ON VESSEL L",
+      "Vessel L",
+      "Sibu, Malaysia",
+    );
+    expect(r.nombraAlBuque).toBe(true);
+  });
+
+  it("R 350: la casilla nombra el buque de pre-acarreo y no el oceánico", () => {
+    const r = buqueDeLaAnotacion(
+      "JUL.16, 2013 UNI-PROMOTE 198B HOCHIMINH CITY, VIETNAM",
+      "EVER DELUXE 0689-106E",
+      "HOCHIMINH CITY, VIETNAM",
+    );
+    expect(r.nombraAlBuque).toBe(false);
+    /* Y lo que sobra es justamente el nombre del buque de pre-acarreo. */
+    expect(r.sobra).toContain("UNI-PROMOTE");
+  });
+
+  /*
+   * El caso corriente, que es el que decide si esto se puede usar: una anotación que es una fecha y
+   * la frase hecha no nombra nada, así que la regla no tiene nada que decir. Si acá sobrara algo, el
+   * motor gritaría en casi todos los conocimientos y nadie lo leería.
+   */
+  it.each([
+    ["SHIPPED ON BOARD 20-AUG-2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
+    ["CLEAN ON BOARD AT MONTEVIDEO, URUGUAY ON 20-AUG-2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
+    ["LADEN ON BOARD THE VESSEL ON 20/08/2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
+  ])("«%s» no nombra nada que no sepamos", (anotacion, buque, puerto) => {
+    expect(buqueDeLaAnotacion(anotacion, buque, puerto).sobra).toEqual([]);
+  });
+
+  it("y la anotación que nombra al buque con su prefijo también cuenta", () => {
+    const r = buqueDeLaAnotacion("SHIPPED ON BOARD M/V EVER DELUXE ON 16-JUL-2013", "EVER DELUXE 0689-106E", null);
+    expect(r.nombraAlBuque).toBe(true);
+    expect(r.sobra).toEqual([]);
   });
 });
