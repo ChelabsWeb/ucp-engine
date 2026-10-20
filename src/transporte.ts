@@ -53,6 +53,22 @@ export function articuloDelModo(modo: ModoTransporte): string {
   return art[modo];
 }
 
+/**
+ * El artículo con su inciso, para la fuente de un hallazgo.
+ *
+ * Existe para el caso de la clase sin determinar: ahí `articuloDelModo` devuelve un **rango** —«UCP
+ * 600 19 a 25»— y pegarle el inciso daba «UCP 600 19 a 25a-iii», que no se lee. Un hallazgo que cita
+ * su artículo mal escrito es un hallazgo que alguien tiene que ir a buscar a mano, y esa cadena
+ * viaja en el aviso de rechazo del artículo 16 a otro banco.
+ *
+ * Con la clase sin determinar se devuelve el rango a secas: el inciso es el mismo en los siete
+ * artículos, así que nombrarlo no agrega nada y decir «19 a 25» ya dice todo lo que se sabe.
+ */
+export function fuenteDelInciso(modo: ModoTransporte, inciso: string): string {
+  const art = articuloDelModo(modo);
+  return modo === "SIN_DETERMINAR" ? art : `${art}${inciso}`;
+}
+
 /** Cómo se llama cada clase, para decirlo en un hallazgo. */
 export const NOMBRE_MODO: Record<ModoTransporte, string> = {
   MULTIMODAL: "documento de transporte multimodal",

@@ -9,6 +9,7 @@ import { esStandby, noAplicaAStandby } from "./standby";
 import {
   articuloDelModo,
   capacidadesAdmitidas,
+  fuenteDelInciso,
   leerFirma,
   type ModoTransporte,
   modoDelDocumento,
@@ -951,7 +952,7 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
  * y afirmar que falta leyendo este campo sería afirmar sobre lo que no se extrajo.
  */
 function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPresentacion[] {
-  const fuente = `${articuloDelModo(modo)}a-i`;
+  const fuente = fuenteDelInciso(modo, "a-i");
   const texto = val(bl, "firmaTransporte");
   if (!texto) {
     return [
@@ -1008,10 +1009,33 @@ function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPres
 
 /* ──────────────────── documento de transporte (arts. 20, 26, 27) ──────────────────── */
 
-function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
+function reglasTransporte(
+  ctx: ContextoCredito,
+  bl: DocAnalizado,
+  exigidos: string[],
+  modo: ModoTransporte = "MARITIMO",
+): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
-  // 20a-iii: embarque del puerto de carga al de descarga que fija el crédito
+  /*
+   * El inciso (a) (iii) de los artículos 20, 21 y 22: embarque del puerto de carga al de descarga
+   * que fija el crédito.
+   *
+   * Las tres clases comparten la comprobación y **no comparten el artículo.** Un sea waybill se
+   * examina con el 21 y un conocimiento de fletamento con el 22, y la fuente del hallazgo iba fija
+   * en «UCP 600 20a-iii» para los tres: sobre un conocimiento de fletamento el motor citaba un
+   * artículo que no es el que rige.
+   *
+   * No es cosmético. La fuente es lo que el banco lee y lo que viaja en el aviso de rechazo del
+   * artículo 16 a otro banco, y un aviso que invoca el artículo equivocado es un aviso que el
+   * presentador puede discutir. Es el mismo borde que ya estaba anotado para los nombres del
+   * artículo 14 —«Conocimiento de embarque» sobre un aéreo— resuelto en esta familia.
+   *
+   * **El id de la regla no cambia** (`ucp-20a-iii-*`). Es la clave interna con la que los casos del
+   * banco de pruebas y los tests nombran la regla, y renombrarla por clase obligaría a cambiarlos
+   * todos sin mejorar nada de lo que alguien lee.
+   */
+  const fuentePuertos = fuenteDelInciso(modo, "a-iii");
   for (const [k, puertoLC, cual] of [
     ["puertoEmbarque", ctx.puertoEmbarque, "de carga"],
     ["puertoDestino", ctx.puertoDestino, "de descarga"],
@@ -1024,18 +1048,13 @@ function reglasTransporte(ctx: ContextoCredito, bl: DocAnalizado, exigidos: stri
             const v = veredictoLugar(enDoc, puertoLC);
             return regla(
               `ucp-20a-iii-${k}`,
-              "UCP 600 20a-iii",
+              fuentePuertos,
               `Puerto ${cual} el que indica el crédito (${puertoLC})`,
               v.estado,
               `el documento dice "${enDoc}"${v.nota}`,
             );
           })()
-        : sinLeer(
-            `ucp-20a-iii-${k}`,
-            "UCP 600 20a-iii",
-            `Puerto ${cual} el que indica el crédito`,
-            `el puerto ${cual}`,
-          ),
+        : sinLeer(`ucp-20a-iii-${k}`, fuentePuertos, `Puerto ${cual} el que indica el crédito`, `el puerto ${cual}`),
     );
   }
 
@@ -1768,7 +1787,7 @@ export function reglasUCP(input: {
      * que un aéreo no pasa dan ATENCION —«verificar a mano»— y no discrepancia.
      */
     if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
-      out.push(...reglasTransporte(ctx, bl, exigidos));
+      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
     } else if (clase.modo === "AEREO") {
       out.push(...reglasAereo(ctx, bl));
     } else if (clase.modo === "MULTIMODAL") {
@@ -1778,7 +1797,7 @@ export function reglasUCP(input: {
     } else if (clase.modo === "COURIER") {
       out.push(...reglasCourier(bl));
     } else if (clase.modo === "SIN_DETERMINAR") {
-      out.push(...reglasTransporte(ctx, bl, exigidos));
+      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
     }
   }
 
