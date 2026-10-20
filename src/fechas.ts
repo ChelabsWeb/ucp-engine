@@ -94,6 +94,22 @@ function fechaExacta(s: string): Date | null {
     .toLowerCase()
     .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
     .replace(/,/g, " ")
+    /*
+     * El punto de un mes abreviado, que se comía la fecha entera.
+     *
+     * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —lo
+     * transcribe así la Opinión R 350— y daba **null**: con el punto pegado al día no hay espacio
+     * entre el mes y el número, y el patrón de «mes día año» pide uno. «JUL 16, 2026» sí se leía.
+     *
+     * Es la misma forma que el emisor que se cortaba en «GOVT.» —el punto de una abreviatura tomado
+     * por otra cosa— y pega donde más cuesta: esa fecha es la del embarque, que decide el último
+     * embarque del 44C y el plazo de presentación del 48. Sin ella el examen sale diciendo «no se le
+     * leyó una fecha» sobre una anotación que la tiene.
+     *
+     * El reemplazo es angosto a propósito: **letra, punto, dígito**. No toca «16.11.2026» —ahí el
+     * punto va entre dígitos— ni ninguna fecha numérica.
+     */
+    .replace(/([a-z])\.(?=\d)/g, "$1 ")
     .replace(/\s+/g, " ");
   let m: RegExpExecArray | null;
   // dd-mmm-yy · dd-mmm-yyyy · dd mmm yyyy · dd/mmm/yyyy (ES o EN)
@@ -168,6 +184,22 @@ export function parseFecha(s: string): Date | null {
     .toLowerCase()
     .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
     .replace(/,/g, " ")
+    /*
+     * El punto de un mes abreviado, que se comía la fecha entera.
+     *
+     * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —lo
+     * transcribe así la Opinión R 350— y daba **null**: con el punto pegado al día no hay espacio
+     * entre el mes y el número, y el patrón de «mes día año» pide uno. «JUL 16, 2026» sí se leía.
+     *
+     * Es la misma forma que el emisor que se cortaba en «GOVT.» —el punto de una abreviatura tomado
+     * por otra cosa— y pega donde más cuesta: esa fecha es la del embarque, que decide el último
+     * embarque del 44C y el plazo de presentación del 48. Sin ella el examen sale diciendo «no se le
+     * leyó una fecha» sobre una anotación que la tiene.
+     *
+     * El reemplazo es angosto a propósito: **letra, punto, dígito**. No toca «16.11.2026» —ahí el
+     * punto va entre dígitos— ni ninguna fecha numérica.
+     */
+    .replace(/([a-z])\.(?=\d)/g, "$1 ")
     .replace(/\s+/g, " ");
   for (const c of candidatos(t)) {
     const f = fechaExacta(c);
