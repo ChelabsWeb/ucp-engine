@@ -1168,3 +1168,48 @@ describe("el prompt no pide campos que no explica", () => {
     ).toEqual([]);
   });
 });
+
+/**
+ * El certificado del beneficiario que nombra los documentos que certifica haber mandado.
+ *
+ * `claveDoc` prueba la cabeza de la línea y, cuando la cabeza es un certificado del beneficiario,
+ * vuelve a clasificar sobre la **línea entera** para poder separar dos certificados que se llaman
+ * igual. Eso está bien y hace falta; lo que faltaba era que esa segunda pasada **se quede dentro de
+ * la familia**.
+ *
+ * Porque la línea entera de un certificado del beneficiario nombra, por definición, los documentos
+ * que certifica haber enviado — y con eso se la robaba el primer tipo que apareciera en el texto. El
+ * peor es la factura, que es la primera de la lista.
+ *
+ * El daño es el de siempre y por los dos lados a la vez: el crédito quedaba pidiendo **dos** facturas
+ * o dos conocimientos —así que un solo papel daba por cumplidas las dos líneas— y el certificado
+ * presentado salía desestimado por el artículo 14 (g) como documento no exigido.
+ */
+describe("la línea del 46A de un certificado del beneficiario", () => {
+  it.each([
+    [
+      "el que nombra el conocimiento que mandó por courier",
+      "BENEFICIARY'S CERTIFICATE ALONG WITH RELEVANT COURIER RECEIPT CERTIFYING THAT ONE SET OF PHOTOCOPIED SHIPPING DOCUMENTS PLUS 1/3 ORIGINAL BILL OF LADING HAS BEEN SENT TO THE APPLICANT WITHIN 5 DAYS AFTER SHIPMENT DATE",
+    ],
+    [
+      "el que nombra la factura que mandó",
+      "BENEFICIARY CERTIFICATE STATING THAT ONE COPY OF INVOICE WAS SENT TO APPLICANT",
+    ],
+  ])("%s sigue siendo un certificado del beneficiario", (_que, linea) => {
+    expect(claveDoc(linea)).toMatch(/^BENEFICIARIO:/);
+  });
+
+  /* Y lo que la segunda pasada existe para hacer sigue funcionando: dos certificados, dos claves. */
+  it("dos certificados del beneficiario que se llaman igual no colapsan en uno", () => {
+    const a = claveDoc("BENEFICIARY'S CERTIFICATE CONFIRMING ALL ADVISING BANK CHARGES HAVE BEEN SETTLED");
+    const b = claveDoc("BENEFICIARY'S CERTIFICATE CONFIRMING THAT A FULL SET OF COPY DOCUMENTS HAVE BEEN EMAILED");
+    expect(a).toMatch(/^BENEFICIARIO:/);
+    expect(b).toMatch(/^BENEFICIARIO:/);
+    expect(a).not.toBe(b);
+  });
+
+  /* Y un recibo de courier pedido por su cuenta sigue siendo un documento de transporte (art. 25). */
+  it("pero un recibo de courier exigido aparte sigue siendo de transporte", () => {
+    expect(claveDoc("COURIER RECEIPT EVIDENCING DISPATCH")).toBe("BL");
+  });
+});

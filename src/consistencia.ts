@@ -1250,8 +1250,26 @@ export function claveDoc(nombre: string): string {
    * El crédito real pide dos —uno por los gastos bancarios y otro por los documentos enviados por
    * correo— y los dos se llaman «BENEFICIARY'S CERTIFICATE». Si la clave saliera de la cabeza, los
    * dos serían el mismo documento y presentar uno daría por cumplidos los dos.
+   *
+   * **Pero esa segunda pasada tiene que quedarse dentro de la familia.** Mira la línea entera para
+   * separar un certificado del otro, y la línea entera de un certificado del beneficiario **nombra
+   * los documentos que certifica haber mandado**: «BENEFICIARY'S CERTIFICATE ALONG WITH RELEVANT
+   * COURIER RECEIPT CERTIFYING THAT ONE SET OF PHOTOCOPIED SHIPPING DOCUMENTS PLUS 1/3 ORIGINAL
+   * BILL OF LADING HAS BEEN SENT TO THE APPLICANT» es redacción corriente, y salía clasificada como
+   * **documento de transporte** por el «bill of lading» que menciona su propio texto.
+   *
+   * El daño es el de siempre, por los dos lados a la vez: el crédito quedaba pidiendo dos documentos
+   * de transporte —así que un conocimiento daba por cumplidas las dos líneas— y el certificado
+   * presentado salía desestimado por el artículo 14 (g) como no exigido. Lo encontró la ficha del
+   * recibo de courier del barrido de Opiniones, mirando con qué clave apareaba su línea del 46A.
+   *
+   * Así que si la línea entera no vuelve a dar un certificado del beneficiario, se arma la clave con
+   * el texto completo en la familia que corresponde. Lo que la segunda pasada puede decidir es
+   * **cuál** certificado del beneficiario es, no que no lo sea.
    */
-  return k.startsWith("BENEFICIARIO") ? clavePorTexto(completo) : k;
+  if (!k.startsWith("BENEFICIARIO")) return k;
+  const porLaLinea = clavePorTexto(completo);
+  return porLaLinea.startsWith("BENEFICIARIO") ? porLaLinea : `BENEFICIARIO:${completo.slice(0, 40)}`;
 }
 
 function clavePorTexto(s: string): string {
