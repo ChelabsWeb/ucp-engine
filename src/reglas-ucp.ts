@@ -1,7 +1,7 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
 import { aKg, cantidadDelCredito, cantidadesDelCredito, parseNumero, unidadNormal } from "./consistencia";
 import { parseFecha } from "./fechas";
-import { esFacturaComercial } from "./isbp";
+import { cotejarIncotermISBP, esFacturaComercial, versionIncoterm } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
@@ -341,6 +341,64 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
             `factura en ${moneda}`,
           )
         : sinLeer("ucp-18a-iii", "UCP 600 18a-iii", "Factura en la moneda del crédito", "la moneda"),
+    );
+  }
+
+  /*
+   * ISBP 821 C8: la versión del término de entrega, que estaba escrita y no se ejecutaba.
+   *
+   * `cotejarIncotermISBP` vivía en `isbp.ts` exportada desde `index.ts`, con sus cuatro tests en
+   * verde, y **ninguna regla la llamaba**: el párrafo C8 no se examinaba nunca. Es el defecto que
+   * este repositorio persigue —lo escrito y no ejecutado— y se encontró buscando contra qué regla
+   * apareaba la Opinión TA 936rev, igual que la firma del documento de transporte.
+   *
+   * Dos decisiones para no convertir un hueco en ruido:
+   *
+   * - **Corre solo si el crédito nombra la versión.** Cuando el 45A dice «CFR XINGANG,CHINA» a secas
+   *   —como el crédito del expediente real— no hay nada que cotejar: la factura puede agregar la
+   *   versión y eso está admitido. Emitir un OK en todos esos créditos sería una regla más en el
+   *   tablero que no dictamina nada, y es el mismo criterio por el que las reglas del artículo 13
+   *   corren solo si hay 53A.
+   * - **Se mira el 45A entero** (`mercaderiaCompleta`) y no `mercaderia`, que viene recortada justo
+   *   en el primer incoterm: con el recorte, el crédito nunca nombraría una versión y la regla sería
+   *   inalcanzable por construcción. Es la misma trampa que la excepción del artículo 28 (e)
+   *   buscándose dentro de `coberturaDesde`.
+   *
+   * Y lo que **no** hace, que es lo que la Opinión TA 936rev vino a fijar: no compara el término en
+   * sí. «C&F» contra «CFR» no es discrepancia, y acá no se mira el término sino el año de la versión.
+   */
+  const inco45a = ctx.mercaderiaCompleta ?? ctx.mercaderia ?? "";
+  const versionDelCredito = versionIncoterm(inco45a);
+  if (versionDelCredito) {
+    const enFactura = [val(fac, "incoterm"), val(fac, "mercaderia")].filter(Boolean).join(" ");
+    const versionDeLaFactura = versionIncoterm(enFactura);
+    const { evidencia } = cotejarIncotermISBP(inco45a, enFactura);
+    out.push(
+      !enFactura
+        ? sinLeer(
+            "isbp-c8",
+            "ISBP 821 C8",
+            "La factura indica la misma versión del término de entrega que el crédito",
+            "el término de entrega de la factura",
+          )
+        : regla(
+            "isbp-c8",
+            "ISBP 821 C8",
+            "La factura indica la misma versión del término de entrega que el crédito",
+            /*
+             * Dos versiones distintas es una contradicción entre papeles y no necesita ningún
+             * párrafo de la ISBP para sostenerse: la decide el artículo 14 (d). La **omisión**, en
+             * cambio, depende de cómo esté redactado C8 exactamente, y el texto de la ISBP 821 no
+             * está comprado — así que sale a verificar con los dos textos a la vista en vez de
+             * rechazar. Es la misma decisión que se tomó con el certificado que no dice cuándo
+             * ocurrió lo que acredita: afinarla necesita la publicación, y acá inventar la práctica
+             * bancaria que falta es peor que dejar el veredicto donde está.
+             */
+            versionDeLaFactura ? (versionDeLaFactura === versionDelCredito ? "OK" : "DISCREPANCIA") : "ATENCION",
+            versionDeLaFactura
+              ? evidencia
+              : `el crédito dice Incoterms ${versionDelCredito} y la factura dice "${enFactura.slice(0, 60)}" sin indicar la versión: verificar si el crédito la exige repetida`,
+          ),
     );
   }
 

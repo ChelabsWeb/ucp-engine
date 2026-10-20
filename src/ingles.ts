@@ -1192,6 +1192,7 @@ const REEMPLAZOS: [RegExp, string][] = [
   /* ── el inciso (a) (i): con qué capacidad se firmó, que depende de la clase ── */
   [/^Con qué capacidad se firmó el documento de transporte$/g, "In what capacity the transport document was signed"],
   [/^el bloque de firma$/g, "the signature block"],
+  [/^el término de entrega de la factura$/g, "the trade term in the invoice"],
   [
     /^no se leyó el bloque de firma en el documento: verificar a mano$/g,
     "the signature block was not read on the document: check by hand",
@@ -1325,6 +1326,26 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^La descripción de la mercadería en la factura se corresponde con la del crédito$/g,
     "The goods description in the invoice corresponds to the one in the credit",
   ],
+  /* ISBP 821 C8 — la versión del término de entrega */
+  [
+    /^La factura indica la misma versión del término de entrega que el crédito$/g,
+    "The invoice indicates the same version of the trade term as the credit",
+  ],
+  [
+    /\bel crédito no fija versión y la factura agrega Incoterms\b/g,
+    "the credit sets no version and the invoice adds Incoterms",
+  ],
+  [/\bel crédito no fija versión del término de entrega\b/g, "the credit sets no version for the trade term"],
+  [/\bel crédito dice Incoterms\b/g, "the credit says Incoterms"],
+  /* va antes del «dice» genérico de más abajo, que dejaría «y la factura says» */
+  [/\by la factura dice\b/g, "and the invoice says"],
+  [/\by la factura, /g, "and the invoice, "],
+  [/\by la factura no indica la versión\b/g, "and the invoice does not indicate the version"],
+  [
+    /\bsin indicar la versión: verificar si el crédito la exige repetida\b/g,
+    "without indicating the version: check whether the credit requires it repeated",
+  ],
+  [/\bambos indican Incoterms\b/g, "both indicate Incoterms"],
   [
     /^Se presenta el juego completo de originales, no una copia$/g,
     "The full set of originals is presented, not a copy",

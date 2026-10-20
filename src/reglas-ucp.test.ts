@@ -1548,3 +1548,73 @@ describe("con qué capacidad se firmó el documento de transporte (inciso (a) (i
     expect(courier?.fuente).toMatch(/25/);
   });
 });
+
+/**
+ * ISBP 821 C8 — la versión del término de entrega, que estaba escrita y no corría.
+ *
+ * `cotejarIncotermISBP` vivía en `isbp.ts`, exportada desde `index.ts` y con sus cuatro tests en
+ * verde, y **ninguna regla la llamaba**: el párrafo C8 no se examinaba. Es el defecto que este
+ * repositorio persigue —lo escrito y no ejecutado— y lo que faltaba era el nivel de la regla, que es
+ * donde se decide la severidad y donde se lee el 45A entero.
+ *
+ * Estos tests corren contra el crédito real, que dice «CFR COLOMBO,SRI LANKA INCOTERMS 2020», así
+ * que la rama se alcanza sin armar un crédito a medida.
+ */
+describe("la versión del término de entrega (ISBP 821 C8)", () => {
+  const facturaCon = (incoterm: string) =>
+    [{ tipo: "FACTURA" as const, campos: doc({ incoterm: campo(incoterm) }) }] satisfies DocAnalizado[];
+
+  it("la misma versión cumple", () => {
+    expect(buscar(facturaCon("CFR COLOMBO, SRI LANKA INCOTERMS 2020"), "isbp-c8")).toMatchObject({
+      estado: "OK",
+    });
+  });
+
+  it("dos versiones distintas son discrepancia: es una contradicción entre papeles (art. 14 d)", () => {
+    const r = buscar(facturaCon("CFR COLOMBO, SRI LANKA INCOTERMS 2010"), "isbp-c8");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("2010");
+  });
+
+  /*
+   * La omisión sale a verificar y no a discrepancia, y es deliberado: cuánto exige C8 cuando el
+   * crédito nombra la versión y la factura no depende de su redacción exacta, y el texto de la
+   * ISBP 821 no está comprado. Rechazar un documento apoyándose en un párrafo que no se pudo leer
+   * es lo que este repositorio decidió no hacer — la misma decisión que con el certificado que no
+   * dice cuándo ocurrió lo que acredita.
+   */
+  it("la factura que no indica la versión sale a verificar, con los dos textos a la vista", () => {
+    const r = buscar(facturaCon("CFR COLOMBO, SRI LANKA"), "isbp-c8");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("Incoterms 2020");
+    expect(r?.evidencia).toContain("CFR COLOMBO");
+  });
+
+  it("sin término de entrega leído no se dictamina: queda como verificación pendiente", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({}) }], "isbp-c8");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("no se leyó");
+  });
+
+  /*
+   * Y el freno que importa: cuando el crédito **no** nombra la versión, la regla no se emite.
+   *
+   * Emitir un OK en todos esos créditos —que son la mayoría— pondría en el tablero una regla que no
+   * dictamina nada, y es el mismo criterio por el que las reglas del artículo 13 corren solo si el
+   * crédito tiene 53A. Se comprueba sobre un contexto con el 45A sin versión.
+   */
+  it("no se emite cuando el crédito no nombra la versión", () => {
+    const sinVersion: ContextoCredito = {
+      ...CTX,
+      mercaderia: "57 MTS OF FISH MEAL 54PCT MIN",
+      mercaderiaCompleta: "57 MTS OF FISH MEAL 54PCT MIN CFR COLOMBO,SRI LANKA",
+    };
+    const reglas = reglasUCP({
+      lc: LC,
+      credito: sinVersion,
+      docs: facturaCon("CFR COLOMBO, SRI LANKA INCOTERMS 2020"),
+      hoy: HOY,
+    });
+    expect(reglas.find((r) => r.id === "isbp-c8")).toBeUndefined();
+  });
+});
