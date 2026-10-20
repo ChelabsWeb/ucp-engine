@@ -1647,3 +1647,55 @@ describe("la cantidad que el crédito pide y la factura no declara", () => {
     expect(r?.evidencia).toContain("TA 962rev");
   });
 });
+
+/**
+ * La fuente del hallazgo es el artículo que rige, no el 20 para todos.
+ *
+ * Los artículos 20, 21 y 22 comparten la comprobación del inciso (a) (iii) —los puertos que el
+ * crédito fija— y **no comparten el artículo**. La fuente iba fija en «UCP 600 20a-iii» para los
+ * tres, así que sobre un sea waybill o un conocimiento de fletamento el motor citaba un artículo que
+ * no es el que lo gobierna.
+ *
+ * No es cosmético: la fuente es lo que viaja en el aviso de rechazo del artículo 16 a otro banco, y
+ * un aviso que invoca el artículo equivocado es un aviso que el presentador puede discutir.
+ *
+ * El **id** no cambia a propósito: es la clave con la que los casos del banco de pruebas nombran la
+ * regla.
+ */
+describe("el artículo que se cita sobre los puertos depende de la clase del documento", () => {
+  const conTipo = (
+    tipoTransporte: string,
+    extra: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>> = {},
+  ) =>
+    [
+      {
+        tipo: "BL" as const,
+        campos: doc({
+          tipoTransporte: campo(tipoTransporte),
+          puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+          puertoDestino: campo("COLOMBO, SRI LANKA"),
+          ...extra,
+        }),
+      },
+    ] satisfies DocAnalizado[];
+
+  it.each([
+    ["BILL OF LADING", "UCP 600 20a-iii", {}],
+    ["NON-NEGOTIABLE SEA WAYBILL", "UCP 600 21a-iii", {}],
+    ["CHARTER PARTY BILL OF LADING", "UCP 600 22a-iii", { charterParty: campo("CHARTER PARTY DATED 01-APR-2025") }],
+  ])("un %s cita %s", (tipo, fuente, extra) => {
+    const r = buscar(conTipo(tipo, extra as never), "ucp-20a-iii-puertoDestino");
+    expect(r?.fuente).toBe(fuente);
+  });
+
+  /*
+   * Sin clase determinada se examina con el 20 igual, pero la fuente lo dice: «UCP 600 19 a 25».
+   *
+   * Y va sin el inciso pegado, que es por lo que existe `fuenteDelInciso`: «UCP 600 19 a 25a-iii» no
+   * se lee, y esa cadena viaja en el aviso de rechazo a otro banco.
+   */
+  it("sin clase determinada la fuente no finge saber cuál es, y se puede leer", () => {
+    const r = buscar(conTipo("TRANSPORT DOCUMENT"), "ucp-20a-iii-puertoDestino");
+    expect(r?.fuente).toBe("UCP 600 19 a 25");
+  });
+});
