@@ -1213,3 +1213,29 @@ describe("la línea del 46A de un certificado del beneficiario", () => {
     expect(claveDoc("COURIER RECEIPT EVIDENCING DISPATCH")).toBe("BL");
   });
 });
+
+/**
+ * La numeración del 46A no es parte del nombre del documento.
+ *
+ * La misma línea llega de dos lados: del crédito ya parseado —donde el intérprete de SWIFT saca el
+ * número— y de la `exigencia` que acompaña a un certificado presentado. Si una de las dos trae el
+ * número, las dos claves difieren, y la línea del 46A sale **FALTA** con el papel presentado arriba
+ * de la mesa.
+ *
+ * Para un tipo que se reconoce por una palabra el número no estorba. Para un certificado del
+ * beneficiario sí, porque su clave lleva el texto adentro — es lo único que distingue dos
+ * certificados que se llaman igual.
+ */
+describe("la numeración de la exigencia", () => {
+  const LINEA =
+    "BENEFICIARY'S CERTIFICATE ALONG WITH RELEVANT COURIER RECEIPT CERTIFYING THAT 1/3 ORIGINAL BILL OF LADING HAS BEEN SENT TO THE APPLICANT";
+
+  it.each([["3. "], ["+3)"], ["3) "], [""]])("«%s» delante da la misma clave", (prefijo) => {
+    expect(claveDoc(`${prefijo}${LINEA}`)).toBe(claveDoc(LINEA));
+  });
+
+  /* Y no se come un número que sea parte del nombre del documento. */
+  it("sin tocar un nombre que empieza con un número", () => {
+    expect(claveDoc("3/3 ORIGINAL BILLS OF LADING")).toBe("BL");
+  });
+});

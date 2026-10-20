@@ -1240,7 +1240,23 @@ export function cabezaDeExigencia(s: string): string {
 
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
 export function claveDoc(nombre: string): string {
-  const completo = normTexto(nombre);
+  /*
+   * La numeración del 46A no es parte del nombre del documento.
+   *
+   * Un crédito numera sus exigencias —«3.», «+3)», «3)»— y el intérprete de SWIFT las saca al armar
+   * la lista. Pero la misma línea llega de dos lados: del crédito ya parseado y de la `exigencia`
+   * que acompaña a un certificado presentado, que la pantalla llena con el texto de esa línea. Si
+   * una de las dos trae el número, las dos claves difieren.
+   *
+   * Para los tipos que se reconocen por una palabra —factura, seguro, origen— no cambia nada: el
+   * número no estorba. Pero la clave de un certificado del beneficiario **lleva su texto adentro**,
+   * porque es lo único que distingue dos certificados que se llaman igual, y ahí un «3 » de más hace
+   * que la línea del 46A salga **FALTA** con el papel presentado arriba de la mesa.
+   *
+   * Lo encontró un caso del banco de pruebas que escribió la exigencia con su número, que es como la
+   * lee una persona del mensaje SWIFT.
+   */
+  const completo = normTexto(nombre.replace(/^\s*\+?\d{1,2}\s*[.)]\s*/, ""));
   const cabeza = cabezaDeExigencia(completo);
   const k = cabeza === completo ? null : clavePorTexto(cabeza);
   if (!k || k.startsWith("TXT:")) return clavePorTexto(completo);
