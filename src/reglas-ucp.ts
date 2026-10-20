@@ -1552,6 +1552,31 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
     );
     return out;
   }
+  /*
+   * Y el espejo del caso de arriba, que faltaba: **el crédito nombra una cantidad y la factura no.**
+   *
+   * El comentario de arriba dice la razón entera —«una regla ausente no se lee como "no pude": se
+   * lee como "no aplica"»— y estaba resuelta en una sola dirección. Con el crédito pidiendo «1200
+   * KGS» y una factura que declara los renglones sin total, el examen no producía **ninguna** línea
+   * de cantidad: ni la comparación, ni el aviso. Desde el tablero eso es indistinguible de un
+   * crédito que no fija cantidad, y acá el silencio no se cuenta como conforme.
+   *
+   * Lo encontró la Opinión TA 962rev, que es justamente la que dice que la ausencia de un total
+   * agregado **no es discrepancia**. Por eso esto sale en ATENCION y nunca en DISCREPANCIA: lo que
+   * el motor puede afirmar es que no tiene con qué comparar, no que el documento esté mal.
+   */
+  if (pedido && !cantFac) {
+    out.push(
+      regla(
+        "ucp-30b-cantidad",
+        "UCP 600 30b",
+        "Cantidad de la factura dentro de lo que pide el crédito",
+        "ATENCION",
+        `el crédito pide ${pedido.valor} ${pedido.unidad} y la factura no declara una cantidad total: verificar a mano. La ausencia de un total no es discrepancia por sí misma (Opinión TA 962rev), pero sin él no hay con qué comparar`,
+      ),
+    );
+    return out;
+  }
   if (pedido && cantFac) {
     const n = parseNumero(cantFac);
     const enKgPedido = aKg(pedido.valor, pedido.unidad);

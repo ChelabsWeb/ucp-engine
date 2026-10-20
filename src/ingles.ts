@@ -1193,6 +1193,12 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Con qué capacidad se firmó el documento de transporte$/g, "In what capacity the transport document was signed"],
   [/^el bloque de firma$/g, "the signature block"],
   [/^el término de entrega de la factura$/g, "the trade term in the invoice"],
+  /* UCP 600 30b — el crédito pide una cantidad y la factura no declara ninguna */
+  [/\bel crédito pide\b/g, "the credit requires"],
+  [
+    /\by la factura no declara una cantidad total: verificar a mano\. La ausencia de un total no es discrepancia por sí misma \(Opinión TA 962rev\), pero sin él no hay con qué comparar\b/g,
+    "and the invoice states no total quantity: check by hand. The absence of a total is not in itself a discrepancy (ICC Opinion TA 962rev), but without it there is nothing to compare against",
+  ],
   [
     /^no se leyó el bloque de firma en el documento: verificar a mano$/g,
     "the signature block was not read on the document: check by hand",

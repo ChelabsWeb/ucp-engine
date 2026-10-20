@@ -1618,3 +1618,32 @@ describe("la versión del término de entrega (ISBP 821 C8)", () => {
     expect(reglas.find((r) => r.id === "isbp-c8")).toBeUndefined();
   });
 });
+
+/**
+ * El espejo que faltaba: el crédito nombra una cantidad y la factura no declara ninguna.
+ *
+ * La regla resolvía una sola dirección —factura con cantidad y crédito ambiguo— y en la otra no
+ * emitía nada: con el crédito pidiendo «57 MTS» y una factura que declara los renglones sin total, el
+ * examen no producía **ninguna** línea de cantidad. Desde el tablero eso es indistinguible de un
+ * crédito que no fija cantidad, y acá el silencio no se cuenta como conforme.
+ *
+ * Lo encontró la Opinión TA 962rev, que es la que dice que la ausencia de un total agregado **no es
+ * discrepancia**. De ahí la severidad: ATENCION y nunca DISCREPANCIA.
+ */
+describe("la cantidad que el crédito pide y la factura no declara", () => {
+  it("avisa en vez de callarse, y no la convierte en discrepancia", () => {
+    const r = buscar(
+      [{ tipo: "FACTURA", campos: doc({ mercaderia: campo("FISH MEAL IN THREE LOTS") }) }],
+      "ucp-30b-cantidad",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("no declara una cantidad total");
+    /* Que el aviso diga contra qué no se pudo comparar, no solo que no pudo. */
+    expect(r?.evidencia).toContain("57");
+  });
+
+  it("y nombra la Opinión, para que nadie la endurezca sin leerla", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({}) }], "ucp-30b-cantidad");
+    expect(r?.evidencia).toContain("TA 962rev");
+  });
+});
