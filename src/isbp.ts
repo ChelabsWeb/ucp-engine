@@ -292,6 +292,36 @@ export function exigePrevioAlEmbarque(textoExigencia: string): boolean {
   return /\bpre shipment\b|\bpreshipment\b|\bprior to shipment\b|\bbefore shipment\b/.test(t);
 }
 
+/**
+ * El espejo: un certificado que solo puede existir **después de que la mercadería llegue**.
+ *
+ * Salió del laudo **DOCDEX 318** —<https://library.iccwbo.org/content/tfb/DOCDEX/318.htm>, USD
+ * 4.920.000—. El crédito pedía un certificado de aceptación en sitio y uno de fin de capacitación, y
+ * los dos venían fechados **el mismo día que el a bordo**. El panel resolvió que era discrepancia por
+ * el artículo 14 (d), y lo resolvió **sin salir de los papeles**:
+ *
+ *   «it was materially impossible for the SAT to have been completed on or prior to 3 February 2012,
+ *   as stated in the SAT Certificate presented, given that the bill of lading showed that the commodity
+ *   was shipped on board the carrying vessel on that very same date […] the commodity would
+ *   necessarily have to arrive in the country of destination for the SAT to be completed, and the
+ *   commodity could not have arrived on the date it was stated to have been shipped.»
+ *
+ * El motor tenía `exigePrevioAlEmbarque` —el certificado que el crédito pide anterior al embarque— y no
+ * tenía esto, que es el caso opuesto y el que vale dinero: una aceptación en sitio fechada antes de que
+ * la mercadería salga es la forma que tiene un papel falso de delatarse.
+ *
+ * **La lista es corta a propósito**, porque lo que la sostiene es el nombre del documento y no una
+ * interpretación: una prueba de aceptación *en sitio*, una instalación, una puesta en marcha o el fin
+ * de una capacitación ocurren donde está la mercadería. No entra «acceptance» sola —un inspector puede
+ * aceptar la mercadería en origen— ni «inspection», que es justamente lo que se hace antes de embarcar.
+ */
+export function acreditaAlgoEnDestino(textoExigencia: string): boolean {
+  const t = normISBP(textoExigencia);
+  return /\bsite acceptance test\b|\bacceptance test\b|\bsat\b|\binstallation\b|\bcommissioning\b|\bcompletion of training\b/.test(
+    t,
+  );
+}
+
 /* ─────────── Q3 a Q5 y L3 — quién puede emitir un certificado ─────────── */
 
 export type EmisorAdmitido = "CUALQUIERA" | "CUALQUIERA_MENOS_BENEFICIARIO" | "EL_QUE_NOMBRA_EL_CREDITO";

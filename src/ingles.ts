@@ -1267,6 +1267,75 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The credit requires the document to be «on board» and the document evidences it",
   ],
   [/^el 46A pide /g, "field 46A requires "],
+  /*
+   * ── Los once hallazgos que el banco de pruebas encontró a medio traducir ──
+   *
+   * El control de literales del motor deja afuera las plantillas y la compensación eran los escenarios
+   * del expediente de referencia; una regla que ese expediente no dispara no la revisaba nadie. El
+   * control nuevo —`apps/web/src/casos/hallazgos-en-ingles.test.ts`— corre los cincuenta y ocho casos
+   * del banco de pruebas y mira el texto **armado** de cada hallazgo. Encontró once.
+   *
+   * Y el frente de `sinLeer` va con una **plantilla general** y no una entrada por variante: las
+   * anteriores se escribieron una por una, que es exactamente por qué las tres nuevas no estaban.
+   */
+  [
+    /^no se leyó (.+) en el documento: verificar a mano$/g,
+    "$1 was not read on the document: check by hand",
+  ],
+  [/\bel tramo cubierto\b/g, "the leg covered"],
+  [/\besa indicación\b/g, "that indication"],
+  [/\bla fecha del seguro\b/g, "the insurance date"],
+  [/: verificar a mano$/g, ": check by hand"],
+  [/^se aplica ±(\d+) % a la cantidad$/g, "a ±$1 % tolerance applies to the quantity"],
+  [
+    /^52A: el crédito lo emite este banco — la presentación tiene discrepancias o documentos faltantes, así que no hay obligación de honrar: lo que sigue es el aviso del artículo 16$/g,
+    "52A: this bank is the issuer of the credit — the presentation has discrepancies or missing documents, so there is no obligation to honour: what follows is the article 16 notice",
+  ],
+  [
+    / — es el (\d+) % del crédito, y el 43P admite embarques parciales: no se mide contra el total\. Queda por verificar que la SUMA de los giros no lo exceda\.$/g,
+    " — that is $1 % of the credit, and field 43P allows partial shipments, so it is not measured against the total. It remains to be checked that the SUM of the drawings does not exceed it.",
+  ],
+  [
+    /^el crédito vence el (.+) \(día no hábil\) y rige el (.+); el último embarque sigue siendo el (.+)$/g,
+    "the credit expires on $1 (not a banking day) and $2 governs; the latest shipment date remains $3",
+  ],
+  [
+    /^cláusula leída: (.+) — no declara expresamente una mercadería o un embalaje defectuosos, así que no se dictamina: hay que leerla$/g,
+    "clause read: $1 — it does not expressly state that the goods or the packaging are defective, so no verdict is given: it has to be read",
+  ],
+  [/ supera el tope /g, " exceeds the cap of "],
+  [
+    /^la copia dice (.+), y la fecha de una copia no determina si el embarque fue tardío \(Opinión TA 767rev\): verificar a mano$/g,
+    "the copy is dated $1, and the date of a copy does not determine whether shipment was late (ICC Opinion TA 767rev): check by hand",
+  ],
+  [
+    /^57A: el crédito se avisa a través de este banco — al avisarlo afirmó que el crédito le parece auténtico y que el aviso refleja fielmente sus términos; examinar para honrar le corresponde al emisor o a un banco designado$/g,
+    "57A: the credit is advised through this bank — in advising it, the bank stated that it is satisfied as to the apparent authenticity of the credit and that the advice accurately reflects its terms; examining in order to honour is for the issuing bank or a nominated bank",
+  ],
+  [
+    /^41A: el crédito está disponible con este banco — una autorización para honrar o negociar no le impone obligación de hacerlo; si honra, el emisor tiene que reembolsarle \(7 c\)$/g,
+    "41A: the credit is available with this bank — an authorisation to honour or negotiate imposes no obligation on it to do so; if it honours, the issuing bank must reimburse it (7 (c))",
+  ],
+  /* La nota del nombre que difiere en un tipeo, con las dos sentencias (ver `NOTA_TIPEO_DE_NOMBRE`) */
+  [
+    /\bdifieren en lo que parece un error de tipeo, y si eso es discrepancia lo deciden los tribunales caso por caso — en Beyene v Irving Trust «Soran» por «Sofan» sí lo fue, en Hing Yip v Daiwa «Industrial» por «Industries» no: verificar a mano$/g,
+    "they differ in what looks like a typing error, and whether that is a discrepancy is decided by the courts case by case — in Beyene v Irving Trust «Soran» for «Sofan» it was, in Hing Yip v Daiwa «Industrial» for «Industries» it was not: check by hand",
+  ],
+  [/\by el ordenante es\b/g, "and the applicant is"],
+  [
+    / y eso no se puede resolver desde el papel; si está incluido, este banco también está designado y entonces lo rige el artículo 12 \(a\)$/g,
+    " and that cannot be settled from the documents; if it is included, this bank is also nominated and article 12 (a) then governs",
+  ],
+  /* DOCDEX 318: el certificado de algo que ocurre en destino */
+  [/: acredita algo que ocurre en destino$/g, ": certifies something that happens at destination"],
+  [
+    /\bacredita algo que ocurre donde llega la mercadería y está fechado el día del embarque o antes: el laudo DOCDEX 318 lo tomó por discrepancia del 14 \(d\) porque /g,
+    "it certifies something that happens where the goods arrive and is dated on or before the date of shipment: DOCDEX Decision 318 took this to be a discrepancy under article 14 (d) because ",
+  ],
+  [
+    /\. Verificar a mano, y mirar si hubo embarques anteriores que lo expliquen$/g,
+    ". Check by hand, and look for earlier shipments that would explain it",
+  ],
   /* R 638 / TA 629: el lugar de carga de un multimodal */
   [
     /\bes un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 \/ TA 629 declara inválido el rechazo por esto\. Verificar en el papel el lugar de recepción\b/g,

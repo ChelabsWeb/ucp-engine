@@ -1,7 +1,13 @@
 import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero } from "./consistencia";
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { fmtFecha, parseFecha } from "./fechas";
-import { comparaISBP, emisorAdmitido, esCertificadoDeOrigen, exigePrevioAlEmbarque } from "./isbp";
+import {
+  acreditaAlgoEnDestino,
+  comparaISBP,
+  emisorAdmitido,
+  esCertificadoDeOrigen,
+  exigePrevioAlEmbarque,
+} from "./isbp";
 import { type DocAnalizado, dondeSePideElNumeroLC, type EstadoRegla, type ReglaPresentacion } from "./presentacion";
 import type { LcInfo } from "./types";
 
@@ -412,6 +418,31 @@ export function reglasCertificados(input: {
               "falta la fecha del certificado o la del embarque para compararlas",
             ),
       );
+    } else if (acreditaAlgoEnDestino(c.exigencia) && fd && fechaEmbarque) {
+      /*
+       * El espejo de la rama de arriba: un certificado que solo puede existir **después de que la
+       * mercadería llegue**, fechado el día del embarque o antes. Es el laudo DOCDEX 318.
+       *
+       * **Sale ATENCION y no DISCREPANCIA**, aunque el panel haya rechazado, y el motivo es el
+       * embarque parcial: con varias partidas, una aceptación en sitio puede ser anterior al embarque
+       * de otra. En el laudo los parciales estaban prohibidos y la contradicción era total, pero la
+       * regla no puede afirmar eso en general. Lo que hace es poner las dos fechas delante de una
+       * persona con el laudo nombrado, que es lo único defendible — y es exactamente el aviso que vale
+       * la pena dar: una aceptación en sitio fechada antes de que la mercadería salga es la forma que
+       * tiene un papel falso de delatarse, y acá eran USD 4,92 millones.
+       */
+      const fe = parseFecha(fechaEmbarque);
+      if (fe && fd <= fe) {
+        out.push(
+          regla(
+            `cert-en-destino-${sufijo}`,
+            "UCP 600 14d",
+            `${nombre}: acredita algo que ocurre en destino`,
+            "ATENCION",
+            `documento ${f} · embarque ${fechaEmbarque} — acredita algo que ocurre donde llega la mercadería y está fechado el día del embarque o antes: el laudo DOCDEX 318 lo tomó por discrepancia del 14 (d) porque «the commodity could not have arrived on the date it was stated to have been shipped». Verificar a mano, y mirar si hubo embarques anteriores que lo expliquen`,
+          ),
+        );
+      }
     } else if (fd && fechaEmbarque) {
       // A12a: que sea posterior al embarque NO es discrepancia; se deja dicho para que
       // nadie lo marque por las suyas

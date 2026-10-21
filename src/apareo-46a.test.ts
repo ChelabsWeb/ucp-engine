@@ -107,6 +107,11 @@ const BATERIA: [linea: string, clave: string][] = [
   ["SHIPMENT ADVICE QUOTING THE BILL OF LADING NUMBER AND THE INVOICE VALUE", "AVISO_EMBARQUE"],
   ["ADVICE OF SHIPMENT SENT BY FAX TO THE APPLICANT", "AVISO_EMBARQUE"],
   ["SHIPMENT NOTICE IN 2 COPIES", "AVISO_EMBARQUE"],
+  /* La aceptación en sitio y la capacitación: laudo DOCDEX 318 */
+  ["ONE (1) ORIGINAL AND FOUR (4) COPIES OF BENEFICIARY'S SIGNED CERTIFICATE OF SITE ACCEPTANCE TEST (SAT)", "ACEPTACION"],
+  ["ONE (1) ORIGINAL AND FOUR (4) COPIES OF BENEFICIARY'S SIGNED CERTIFICATE OF COMPLETION OF TRAINING", "CAPACITACION"],
+  /* Y el freno: una inspección no es una aceptación en sitio, aunque las dos las firme un surveyor. */
+  ["SITE ACCEPTANCE TEST REPORT ISSUED BY AN INDEPENDENT SURVEYOR", "ACEPTACION"],
   /* Y el mismo plural sobre las otras familias, que es lo que hace general al arreglo. */
   ["SIGNED COMMERCIAL INVOICE(S) IN TRIPLICATE", "INVOICE"],
   ["CERTIFICATE(S) OF ORIGIN ISSUED BY CHAMBER OF COMMERCE", "ORIGEN"],
@@ -160,6 +165,8 @@ describe("el apareo de la línea del 46A", () => {
       "ANALISIS",
       "GIRO",
       "AVISO_EMBARQUE",
+      "ACEPTACION",
+      "CAPACITACION",
     ];
     expect(TODAS.filter((k) => !cubiertas.has(k))).toEqual([]);
   });

@@ -1511,6 +1511,17 @@ function clavePorTexto(s: string): string {
   if (/halal/.test(s)) return "HALAL";
   if (/insurance|seguro/.test(s)) return "SEGURO";
   if (/weight|peso/.test(s)) return "PESO";
+  /*
+   * La aceptación en sitio y la capacitación, que salieron del laudo DOCDEX 318.
+   *
+   * Van **antes** de la inspección a propósito: una línea como «SITE ACCEPTANCE TEST REPORT ISSUED BY
+   * SURVEYOR» se la robaría `survey`, y lo propio de este papel es que acredita algo que ocurre **en
+   * destino** —de eso depende la regla `cert-en-destino`— mientras una inspección es justamente lo que
+   * se hace antes de embarcar. Sin estas dos claves las dos líneas caían en `TXT:<la línea entera>`, y
+   * con eso el id de la regla llevaba el texto del 46A adentro: inestable y feo en la pantalla.
+   */
+  if (/site acceptance|acceptance test/.test(s)) return "ACEPTACION";
+  if (/training|capacitacion/.test(s)) return "CAPACITACION";
   if (/inspection|inspeccion|survey/.test(s)) return "INSPECCION";
   // caso CSU2025099 (46A real): fumigación, análisis, certificados del beneficiario, giro
   if (/fumiga/.test(s)) return "FUMIGACION"; // "fumigation" y "fumigación"
