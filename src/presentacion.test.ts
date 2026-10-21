@@ -708,3 +708,58 @@ describe("la copia del documento de transporte y los plazos", () => {
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
   });
 });
+
+/**
+ * El nombre del notify, y la línea que los tribunales no trazan igual.
+ *
+ * Antes alcanzaba con que el notify **contuviera la primera palabra** del ordenante. Con eso el caso
+ * *Beyene v Irving Trust* (2d Cir. 1985) salía **OK**: el conocimiento decía «Mohammed Soran» donde el
+ * crédito decía «Mohammed Sofan», y el tribunal resolvió que la discrepancia **era válida**, porque
+ * Sofan era la persona a la que había que avisarle que llegó la mercadería.
+ *
+ * Es el mismo defecto que las once contrapartes del ERP que coincidían con las listas de sanciones por
+ * la palabra «LLC»: una palabra compartida no identifica a nadie.
+ *
+ * Pero el otro lado también tiene sentencia —*Hing Yip Hing Fat v Daiwa*, Hong Kong 1991: «Cheergoal
+ * Industrial» por «Cheergoal Industries» no era discrepancia, «an obvious typographical error»— y el
+ * propio tribunal de Beyene da el contraejemplo del «Smith» escrito «Smithh». Así que el motor usa
+ * **tres bandas**: igual u contenido → OK, error de tipeo → ATENCION con las dos sentencias nombradas,
+ * nombres distintos → DISCREPANCIA.
+ */
+describe("el nombre del notify contra el del ordenante", () => {
+  /** El mismo paquete real, variando el notify del conocimiento y el ordenante de la venta. */
+  const notify = (enElBL: string, ordenante: string) =>
+    precheckPresentacion({
+      lc,
+      docs: [
+        { tipo: "FACTURA" as const, campos: FACTURA },
+        { tipo: "BL" as const, campos: { ...BL, notify: { valor: enElBL, confianza: 1 } } },
+      ],
+      op: { ...OP, legs: OP.legs.map((l) => (l.tipo === "VENTA" ? { ...l, contraparte: ordenante } : l)) },
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "bl-notify");
+
+  it("el mismo nombre cumple", () => {
+    expect(notify("ORIENT FEED (PVT) LTD", "ORIENT FEED (PVT) LTD")?.estado).toBe("OK");
+  });
+
+  it("Beyene: «Soran» por «Sofan» ya no pasa en silencio", () => {
+    const r = notify("MOHAMMED SORAN", "MOHAMMED SOFAN");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("Beyene");
+    expect(r?.evidencia).toContain("Hing Yip");
+  });
+
+  it("y un nombre que no se parece sigue siendo discrepancia", () => {
+    expect(notify("OTRA EMPRESA S.A.", "ORIENT FEED (PVT) LTD")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y el freno que ya estaba: sin el ordenante del crédito no se puede decir que el notify esté mal.
+   * Es el invariante de `saber-menos` — saber menos no puede hacer que el motor concluya más.
+   */
+  it("sin el ordenante leído no se dictamina", () => {
+    expect(notify("MOHAMMED SORAN", "")?.estado).toBe("ATENCION");
+  });
+});
