@@ -1253,6 +1253,29 @@ export function cabezaDeExigencia(s: string): string {
   return s.slice(0, m.index).trim();
 }
 
+/**
+ * El plural entre paréntesis del 46A: «BILL(S) OF LADING», «DOCUMENT(S)», «INVOICE(S)».
+ *
+ * Es redacción corriente de un mensaje SWIFT —el emisor no sabe cuántos originales va a haber— y
+ * **rompía el apareo entero**. `normTexto` cambia todo lo que no es letra ni número por un espacio,
+ * así que «BILL(S) OF LADING» llegaba a los patrones como `bill s of lading` y ninguno lo reconocía:
+ * la línea del 46A quedaba sin aparear, el conocimiento presentado salía desestimado por el artículo
+ * 14 (g) como documento no exigido y **el capítulo del transporte entero no corría**.
+ *
+ * Lo encontró la Opinión R 638 / TA 629, cuyo crédito dice textualmente «Full set of at least 3/3
+ * original clean on board marine bill(s) of lading»: el examen del caso salía con 18 reglas contra
+ * las 31 de su vecino. Es la tercera vez que entra el mismo defecto por la misma puerta —antes fue
+ * «B/LS» y antes la numeración «3.»— y las tres veces el síntoma fue el número de reglas corridas,
+ * porque desde afuera un capítulo que no corre se ve igual que un documento que no se pidió.
+ *
+ * Se arregla acá y no en `normTexto` a propósito: ahí lo usan todas las comparaciones de texto del
+ * motor, y lo que falla es el **apareo del nombre**. Y cubre `(s)` y `(es)` —el plural inglés— y no
+ * `(ies)`, que necesitaría tocar la raíz: «copy(ies)» daría «copyies» y no «copies».
+ */
+function sinPluralEntreParentesis(s: string): string {
+  return s.replace(/\((e?s)\)/gi, "$1");
+}
+
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
 export function claveDoc(nombre: string): string {
   /*
@@ -1271,7 +1294,7 @@ export function claveDoc(nombre: string): string {
    * Lo encontró un caso del banco de pruebas que escribió la exigencia con su número, que es como la
    * lee una persona del mensaje SWIFT.
    */
-  const completo = normTexto(nombre.replace(/^\s*\+?\d{1,2}\s*[.)]\s*/, ""));
+  const completo = normTexto(sinPluralEntreParentesis(nombre.replace(/^\s*\+?\d{1,2}\s*[.)]\s*/, "")));
   const cabeza = cabezaDeExigencia(completo);
   const k = cabeza === completo ? null : clavePorTexto(cabeza);
   if (!k || k.startsWith("TXT:")) return clavePorTexto(completo);
