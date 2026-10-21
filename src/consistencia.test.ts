@@ -1303,3 +1303,59 @@ describe("el aviso de embarque y sus sinónimos", () => {
     expect(claveDoc(linea)).toBe(clave);
   });
 });
+/**
+ * El cruce de la ruta entre documentos, que es el laudo **DOCDEX 290**.
+ *
+ * El motor comparaba los puertos del conocimiento contra el crédito y nada más: un papel que no es de
+ * transporte y que trae la ruta mal pasaba en silencio. En el laudo eran tres papeles —factura, packing
+ * y certificado de calidad— con los dos casilleros invertidos, y el panel declaró la discrepancia
+ * válida por unanimidad.
+ */
+describe("la ruta de embarque entre documentos (DOCDEX 290)", () => {
+  const con = (fac: Partial<CamposDoc>, bl: Partial<CamposDoc>) =>
+    compararEntreDocumentos([
+      { tipo: "FACTURA", campos: { ...DOC_DEMO, ...fac } as CamposDoc },
+      { tipo: "BL", campos: { ...DOC_DEMO, ...bl } as CamposDoc },
+    ]);
+  const c = (valor: string) => ({ valor, confianza: 1 });
+
+  it("la ruta invertida es discrepancia y nombra el laudo", () => {
+    const r = con(
+      { puertoEmbarque: c("QINGDAO, CHINA"), puertoDestino: c("BUSAN, KOREA") },
+      { puertoEmbarque: c("BUSAN, KOREA"), puertoDestino: c("QINGDAO, CHINA") },
+    ).find((x) => x.campo === "Ruta de embarque");
+    expect(r?.severidad).toBe("ALTA");
+    expect(r?.detalle).toContain("DOCDEX 290");
+    expect(r?.titulo).toContain("invertida");
+  });
+
+  /*
+   * Y dos puertos simplemente distintos van a verificar, no a rechazar: el casillero de destino de una
+   * factura puede traer el lugar de entrega final tierra adentro.
+   */
+  it("un puerto distinto sin inversión va a verificar", () => {
+    const r = con({ puertoEmbarque: c("SANTOS") }, { puertoEmbarque: c("PARANAGUA") }).find(
+      (x) => x.campo === "Puerto de carga",
+    );
+    expect(r?.severidad).toBe("MEDIA");
+  });
+
+  /*
+   * Y el mismo puerto escrito de dos maneras no emite nada. Esto lo encontró el expediente real al
+   * agregar el cruce con un comparador propio por substring: el conocimiento dice «MONTEVIDEO,
+   * URUGUAY» y el packing «Montevideo Port, Uruguay».
+   */
+  it("el mismo puerto con su genérico no emite nada", () => {
+    expect(
+      con({ puertoEmbarque: c("Montevideo Port, Uruguay") }, { puertoEmbarque: c("MONTEVIDEO, URUGUAY") }).map(
+        (x) => x.campo,
+      ),
+    ).not.toContain("Puerto de carga");
+  });
+
+  it("y un solo documento con la ruta tampoco", () => {
+    expect(
+      con({ puertoEmbarque: c("BUSAN, KOREA"), puertoDestino: c("QINGDAO, CHINA") }, {}).map((x) => x.campo),
+    ).not.toContain("Ruta de embarque");
+  });
+});

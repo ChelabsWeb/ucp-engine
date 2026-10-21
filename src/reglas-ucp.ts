@@ -1,5 +1,13 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
-import { aKg, cantidadDelCredito, cantidadesDelCredito, claveDoc, parseNumero, unidadNormal } from "./consistencia";
+import {
+  aKg,
+  cantidadDelCredito,
+  cantidadesDelCredito,
+  claveDoc,
+  coincideLugar,
+  parseNumero,
+  unidadNormal,
+} from "./consistencia";
 import { parseFecha } from "./fechas";
 import { NOTA_TIPEO_DE_NOMBRE, cotejarIncotermISBP, esFacturaComercial, veredictoDeNombre, versionIncoterm } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
@@ -158,68 +166,6 @@ function esZonaDeLugares(texto: string): boolean {
   );
 }
 
-/**
- * Si dos nombres o lugares se refieren a lo mismo.
- *
- * Se descartan las palabras de tres letras o menos —«S.A.», «de», «and»— porque hacen coincidir a
- * cualquiera. Pero cuando a un lado NO le queda ninguna palabra después de ese filtro, el nombre
- * entero es corto, y ahí descartarlo todo devolvía false: un ordenante llamado IBM, DHL o ABB,
- * escrito idéntico en el crédito y en la factura, salía como discrepancia. Lo mismo un puerto como
- * GOA o RIO.
- *
- * Era el falso positivo más barato de disparar del motor —no hacía falta ningún error en los
- * documentos, solo que alguien se llamara con tres letras— y tocaba siete reglas. Cuando no quedan
- * palabras largas se comparan los textos completos, que es lo único sensato con un nombre corto.
- *
- * **Y el filtro por largo no alcanzaba.** «PORT», «AIRPORT» y «TERMINAL» tienen más de tres letras,
- * así que **cualquier** par de lugares escritos con su genérico coincidía: «MONTEVIDEO AIRPORT»
- * contra «BUENOS AIRES AIRPORT» daba OK, y eso es un falso negativo del lado que paga de más —el
- * documento de transporte iba a otro puerto y la regla salía conforme—. Es el mismo defecto que las
- * once contrapartes del ERP que coincidían con las listas de sanciones por la palabra «LLC»: una
- * coincidencia apoyada en una palabra que está en todos los nombres del rubro no dice nada.
- *
- * El mismo puerto escrito de las dos formas sigue coincidiendo, porque lo que queda es el nombre
- * propio: «MONTEVIDEO PORT IN URUGUAY» contra «MONTEVIDEO, URUGUAY» comparten MONTEVIDEO.
- */
-const GENERICAS_DE_LUGAR = new Set([
-  "PORT",
-  "PORTS",
-  "AIRPORT",
-  "AIRPORTS",
-  "SEAPORT",
-  "SEAPORTS",
-  "TERMINAL",
-  "TERMINALS",
-  /* «SHANGHAI CONTAINER TERMINAL» contra «BUSAN CONTAINER TERMINAL»: sacado el genérico de atrás,
-     quedaba coincidiendo por el de adelante. */
-  "CONTAINER",
-  "CONTAINERS",
-  "HARBOUR",
-  "HARBOR",
-  "CITY",
-  "PUERTO",
-  "PUERTOS",
-  "AEROPUERTO",
-  "CIUDAD",
-]);
-
-function coincideLugar(a: string, b: string): boolean {
-  const na = norm(a).trim();
-  const nb = norm(b).trim();
-  if (!na || !nb) return false;
-  const distintiva = (w: string) => w.length > 3 && !GENERICAS_DE_LUGAR.has(w.toUpperCase());
-  const pa = na.split(" ").filter(distintiva);
-  const pb = nb.split(" ").filter(distintiva);
-  if (pa.length === 0 || pb.length === 0) {
-    // Al menos uno es un nombre corto: se compara entero, y vale que uno esté dentro del otro
-    // («IBM» contra «IBM WORLD TRADE CORPORATION»), por palabra para no casar fragmentos.
-    const palabras = (t: string) => t.split(" ").filter(Boolean);
-    const cortas = pa.length === 0 ? palabras(na) : palabras(nb);
-    const otras = pa.length === 0 ? palabras(nb) : palabras(na);
-    return cortas.length > 0 && cortas.every((w) => otras.includes(w));
-  }
-  return pa.some((w) => pb.includes(w));
-}
 
 /** Descripciones de mercadería: o una contiene a la otra, o comparten dos palabras propias. */
 /** Si dos descripciones se parecen lo bastante: una dentro de otra, o dos palabras propias en común. */

@@ -856,6 +856,27 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^El peso bruto del BL tiene que coincidir con el del packing list \/ weight note\.$/g,
     "The gross weight on the bill of lading must agree with that of the packing list or weight note.",
   ],
+  /* El cruce de la ruta entre documentos (DOCDEX 290) */
+  [/^Ruta de embarque$/g, "Shipment route"],
+  [/^Ruta de embarque invertida: /g, "Shipment route reversed: "],
+  /* Sin comillas en el patrón: `textoEnIngles` las reemplaza por huecos antes de aplicar esto. */
+  [/\bdice carga /g, "states loading "],
+  [/ y destino /g, " and destination "],
+  [/ dice lo contrario$/g, " states the opposite"],
+  [/^carga /g, "loading "],
+  [/ \/ destino /g, " / destination "],
+  [
+    /^Los dos casilleros de la ruta están cambiados de lugar entre un documento y otro \(UCP 600 art\. 14 d\)\. El laudo DOCDEX 290 lo resolvió por unanimidad: una ruta invertida no es un error de tipeo —(.*)— y el banco tiene derecho a rechazar\. Corregir el documento antes de presentar\.$/g,
+    "The two route boxes are swapped between one document and another (UCP 600 article 14 (d)). DOCDEX Decision 290 settled this unanimously: a reversed route is not a typing error —$1— and the bank is entitled to refuse. Correct the document before presenting.",
+  ],
+  [
+    /^El puerto de carga difiere entre documentos \(UCP 600 art\. 14 d\)\. No siempre es discrepancia: el casillero de una factura puede traer el lugar de toma a cargo tierra adentro y el del conocimiento el puerto del tramo oceánico\. Verificar contra el crédito\.$/g,
+    "The port of loading differs between documents (UCP 600 article 14 (d)). This is not always a discrepancy: an invoice box may show the inland place of taking in charge while the bill of lading shows the port of the ocean leg. Check against the credit.",
+  ],
+  [
+    /^El puerto de destino difiere entre documentos \(UCP 600 art\. 14 d\)\. No siempre es discrepancia: el casillero de una factura puede traer el lugar de entrega final y el del conocimiento el puerto de descarga\. Verificar contra el crédito\.$/g,
+    "The port of destination differs between documents (UCP 600 article 14 (d)). This is not always a discrepancy: an invoice box may show the place of final delivery while the bill of lading shows the port of discharge. Check against the credit.",
+  ],
   [
     /^Cantidades distintas entre documentos \(comparadas en kilos\): la LC puede fijar la contratada y el BL\/packing lo embarcado — dentro de la tolerancia es normal; fuera, discrepancia\.$/g,
     "Quantities differ between documents (compared in kilos): the credit may state the contracted quantity and the bill of lading or packing list what was shipped — within the tolerance this is usual; outside it, a discrepancy.",

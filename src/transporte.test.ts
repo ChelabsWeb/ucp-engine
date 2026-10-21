@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { articuloDelModo, buqueDeLaAnotacion, type ModoTransporte, modoDelDocumento } from "./transporte";
+import { articuloDelModo, buqueDeLaAnotacion, leerFirma, type ModoTransporte, modoDelDocumento } from "./transporte";
 
 /**
  * Qué clase de documento de transporte se presentó.
@@ -116,5 +116,30 @@ describe("el buque que nombra la anotación de a bordo", () => {
     const r = buqueDeLaAnotacion("SHIPPED ON BOARD M/V EVER DELUXE ON 16-JUL-2013", "EVER DELUXE 0689-106E", null);
     expect(r.nombraAlBuque).toBe(true);
     expect(r.sobra).toEqual([]);
+  });
+});
+/**
+ * «CAPT.» abreviado, que es el laudo DOCDEX 284.
+ *
+ * El fletamento del laudo está firmado «FOR AND/OR ON BEHALF OF CAPT. P / MASTER OF VESSEL D / FOR
+ * COMPANY S / AS AGENTS» y el panel declaró el rechazo inválido por unanimidad. El ancla se rompía en
+ * «CAPT» y la firma salía sin capacidad.
+ */
+describe("la abreviatura del capitán (DOCDEX 284)", () => {
+  it("«on behalf of CAPT. P» es el capitán, por medio de un agente", () => {
+    const f = leerFirma("FOR AND/OR ON BEHALF OF CAPT. P MASTER OF VESSEL D FOR COMPANY S AS AGENTS");
+    expect(f.capacidad).toBe("CAPITAN");
+    expect(f.porAgente).toBe(true);
+  });
+
+  /*
+   * Y el freno sigue en pie: con el transportista nombrado en la frase de la firma manda el
+   * transportista, aunque el pie mencione un capitán. Es la trampa de R834.
+   */
+  it("y no le roba la capacidad al transportista cuando la frase lo nombra", () => {
+    const f = leerFirma(
+      "XXX AS AGENT FOR AND ON BEHALF OF THE CARRIER DAMPSKIBSSELSKABET NORDEN A/S CAPTAIN: CAPT MABE T. BENAGUA",
+    );
+    expect(f.capacidad).toBe("TRANSPORTISTA");
   });
 });

@@ -331,7 +331,20 @@ export function leerFirma(texto: string): FirmaDeTransporte {
     new RegExp(`\\b(?:AS|FOR|ON BEHALF OF)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`).test(t);
 
   if (cap("CARRIER|CARRIERS")) return { capacidad: "TRANSPORTISTA", porAgente };
-  if (cap("MASTER|MASTERS|CAPTAIN")) return { capacidad: "CAPITAN", porAgente };
+  /*
+   * «CAPT.» cuenta como capitán, que lo decidió el laudo DOCDEX 284.
+   *
+   * El fletamento del laudo —<https://library.iccwbo.org/content/tfb/DOCDEX/284.htm>, USD 5,9
+   * millones— está firmado «FOR AND/OR ON BEHALF OF CAPT. P / MASTER OF VESSEL D / FOR COMPANY S / AS
+   * AGENTS», y el panel declaró el rechazo inválido por unanimidad. El propio párrafo 118 de la ISBP
+   * que el laudo transcribe admite las dos palabras: *«the signature of the master (captain) … must be
+   * identified as "master" ("captain")»*, y «CAPT.» es como lo abrevia todo el mundo.
+   *
+   * Sin la abreviatura el ancla se rompía en «CAPT» —que no es palabra de relleno— y la firma salía
+   * sin capacidad reconocida: ATENCION en vez de OK. No era un falso positivo, pero era el motor sin
+   * concluir sobre una firma que el laudo da por buena sin discusión.
+   */
+  if (cap("MASTER|MASTERS|CAPTAIN|CAPT")) return { capacidad: "CAPITAN", porAgente };
   if (cap("OWNER|OWNERS|SHIPOWNER|SHIPOWNERS")) return { capacidad: "ARMADOR", porAgente };
   if (cap("CHARTERER|CHARTERERS")) return { capacidad: "FLETADOR", porAgente };
   if (cap("COURIER|COURIER SERVICE")) return { capacidad: "COURIER", porAgente };
