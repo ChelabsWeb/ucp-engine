@@ -1512,6 +1512,35 @@ function clavePorTexto(s: string): string {
   if (/insurance|seguro/.test(s)) return "SEGURO";
   if (/weight|peso/.test(s)) return "PESO";
   /*
+   * El certificado de recepción del transitario (FCR), que **no** es un documento de transporte.
+   *
+   * La línea sale textual del crédito del laudo DOCDEX 282 —EUR 7.200.000—: «FORWARDERS CERTIFICATE OF
+   * RECEIPT FCR IN 1 ORIGINAL AND 1 COPY DATED NOT LATER THAN 30th AUGUST 2008 ISSUED BY COMPANY N».
+   * Caía en `TXT:<la línea entera>`, que es el síntoma que la batería de `apareo-46a` vigila: con eso
+   * la exigencia del 46A no aparea y el papel presentado sale desestimado por el artículo 14 (g).
+   *
+   * **Y tiene clave propia, no `BL`, y eso es lo importante.** Un FCR acredita que el transitario
+   * recibió la mercadería: no es ninguno de los documentos de los artículos 19 a 25, así que se examina
+   * con el 14 (f) y **no** se le piden anotación de a bordo, puertos ni capacidad de firma. Clasificarlo
+   * como transporte sería peor que no reconocerlo: el motor le correría el capítulo del artículo 20 a un
+   * papel que no lo es. El conocimiento **del** transitario —«FORWARDERS BILL OF LADING»— sí es
+   * transporte, y lo agarra la prueba de `bills of lading` que está más arriba.
+   */
+  if (/forwarder.{0,3}certificate of receipt|\bfcr\b/.test(s)) return "FCR";
+  /*
+   * El mill's test certificate, que es donde vive la calidad medida de un metal.
+   *
+   * La línea sale textual del crédito del laudo DOCDEX 285: «SET OF MILL'S TEST CERTIFICATES […]
+   * ADDITIONALLY 14 ELEMENTS AND VALUES OF TENSILE AND IMPACT TEST AT MINUS 20 DEGREE C TO BE STATED
+   * IN THE MTC». Caía en `TXT:<la línea entera>`.
+   *
+   * **Clave propia y no `ANALISIS`**, aunque sea un certificado de calidad: un crédito de acero puede
+   * pedir los dos —un certificado de calidad y el MTC del laminador— y con la misma clave uno de los
+   * dos saldría FALTA con el papel arriba de la mesa. Lo que sí comparte con `ANALISIS` es el cotejo de
+   * especificaciones contra el 45A, que es donde se miran la tracción y los catorce elementos.
+   */
+  if (/mill.{0,3}test|\bmtc\b/.test(s)) return "MTC";
+  /*
    * La aceptación en sitio y la capacitación, que salieron del laudo DOCDEX 318.
    *
    * Van **antes** de la inspección a propósito: una línea como «SITE ACCEPTANCE TEST REPORT ISSUED BY
