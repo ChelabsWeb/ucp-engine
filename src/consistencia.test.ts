@@ -1271,3 +1271,35 @@ describe("la línea del 46A que pide una letra", () => {
     expect(claveDoc(linea)).toBe(clave);
   });
 });
+
+/**
+ * El aviso de embarque, que se escribe «shipment advice» mucho más seguido que «shipment notice».
+ *
+ * Faltaba el sinónimo más común, y costaba por los dos lados que esta familia de defectos ya tiene:
+ * una línea suelta quedaba **sin aparear** —`TXT:`, o sea FALTA para siempre y el papel presentado
+ * desestimado por el artículo 14 (g)— y una línea con descripción quedaba **robada por la factura**,
+ * porque la cabeza se corta en «quoting», «shipment advice» no se reconocía, y la clasificación caía
+ * sobre la línea entera donde `/invoice/` es la primera prueba.
+ *
+ * Lo encontró una batería de treinta y ocho redacciones reales del 46A pasadas por `claveDoc`, que es
+ * el método que esta familia pide: no se ve leyendo el código.
+ */
+describe("el aviso de embarque y sus sinónimos", () => {
+  it.each([
+    ["SHIPMENT ADVICE SENT TO THE INSURERS WITHIN 5 DAYS AFTER SHIPMENT DATE"],
+    ["SHIPMENT ADVICE QUOTING THE BILL OF LADING NUMBER AND THE INVOICE VALUE"],
+    ["ADVICE OF SHIPMENT SENT BY FAX TO THE APPLICANT"],
+    ["SHIPMENT NOTICE IN 2 COPIES"],
+    ["AVISO DE EMBARQUE EN 2 COPIAS"],
+  ])("«%s» es un aviso de embarque", (linea) => {
+    expect(claveDoc(linea)).toBe("AVISO_EMBARQUE");
+  });
+
+  /* Y lo que no se mueve: los dos tipos que el aviso de embarque podría robarse, y al revés. */
+  it.each([
+    ["SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS", "INVOICE"],
+    ["PACKING LIST MENTIONING TOTAL QUANTITY AS PER LC AND COMMERCIAL INVOICE", "PACKING"],
+  ])("y «%s» sigue siendo %s", (linea, clave) => {
+    expect(claveDoc(linea)).toBe(clave);
+  });
+});

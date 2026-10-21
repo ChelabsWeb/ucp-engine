@@ -1371,7 +1371,25 @@ function clavePorTexto(s: string): string {
      Sin esto caía en `TXT:` con el texto entero de la exigencia, que nunca coincide con el título
      del papel, y el documento quedaba afuera del examen. Va DESPUÉS del conocimiento de embarque
      para que «shipment» no le robe el BL. */
-  if (/shipment notice|aviso de embarque|notice of shipment/.test(s)) return "AVISO_EMBARQUE";
+  /*
+   * El aviso de embarque, que se escribe «shipment advice» mucho más seguido que «shipment notice».
+   *
+   * Faltaba el sinónimo más común, y costaba por los dos lados que esta familia de defectos ya tiene:
+   *
+   * - «SHIPMENT ADVICE SENT TO THE INSURERS WITHIN 5 DAYS AFTER SHIPMENT DATE» caía en `TXT:<línea>`,
+   *   o sea **sin aparear**: la línea del 46A quedaba en FALTA para siempre y el papel presentado
+   *   salía desestimado por el artículo 14 (g) como documento no exigido.
+   * - «SHIPMENT ADVICE QUOTING THE BILL OF LADING NUMBER AND THE INVOICE VALUE» era peor: la cabeza
+   *   se corta en «quoting», «shipment advice» no se reconocía, así que la clasificación caía sobre la
+   *   línea entera y **la factura se la robaba** por el «INVOICE VALUE» del final.
+   *
+   * Es la quinta vez que un documento se pierde por un nombre que el motor no conoce —después del
+   * seguro, el air waybill, «B/LS» en plural y la letra— y la primera por un sinónimo que faltaba y no
+   * por una línea robada. Lo encontró una batería de redacciones reales del 46A pasadas por `claveDoc`,
+   * que es el método que esta familia de defectos pide.
+   */
+  if (/shipment notice|shipment advice|notice of shipment|advice of shipment|aviso de embarque/.test(s))
+    return "AVISO_EMBARQUE";
   return `TXT:${s}`;
 }
 
