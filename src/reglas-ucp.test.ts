@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CamposDoc } from "./consistencia";
 import { contextoDesdeSwift } from "./examen";
 import { SWIFT_CSU2025099 } from "./fixtures";
+import { textoEnIngles } from "./ingles";
 import type { DocAnalizado } from "./presentacion";
 import { type ContextoCredito, reglasUCP } from "./reglas-ucp";
 import { parseMT700 } from "./swift-lc";
@@ -1834,5 +1835,50 @@ describe("el «on board» que pide el crédito sobre un documento multimodal", (
       },
     ] satisfies DocAnalizado[];
     expect(con(aereo, ["1. FULL SET CLEAN ON BOARD BILL OF LADING."])).toBeUndefined();
+  });
+});
+
+/**
+ * El crédito que enumera cantidades, y la tolerancia que va por ítem.
+ *
+ * «No se pudo deducir una cantidad única» es cierto y no alcanza: deja al examinador frente a un 45A
+ * con tres ítems sin decirle qué hacer, y lo primero que se le ocurre a cualquiera es **sumarlos y
+ * comparar el total**. Ese es el error que la Opinión R 688 / TA 619 corrige — *«the tolerance is to
+ * be applied against the individual quantities»*— y es el que cometió el banco negociador del caso.
+ *
+ * El motor no puede hacer el cotejo por ítem: ni el crédito ni la factura traen sus renglones en
+ * campos. Lo que sí puede es enumerar lo que leyó y nombrar la regla.
+ */
+describe("el 45A que enumera cantidades (R 688 / TA 619)", () => {
+  /* Las cifras de la Opinión: 1000 + 500 + 600 contratadas, 1150 + 350 + 580 embarcadas. */
+  const T45 = "ITEM 1: 1000MT ITEM 2: 500MT ITEM 3: 600MT QUANTITY: MORE OR LESS 10PCT IS ACCEPTABLE";
+  const conItems = (cantidad: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: T45, mercaderiaCompleta: T45 },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo("MT") }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-30b-cantidad");
+
+  it("enumera los tres ítems en vez de decir solo que no pudo", () => {
+    const r = conItems("2080");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("1000MT");
+    expect(r?.evidencia).toContain("500MT");
+    expect(r?.evidencia).toContain("600MT");
+  });
+
+  it("y nombra la regla, que es lo que evita sumar y comparar el total", () => {
+    const r = conItems("2080");
+    expect(r?.evidencia).toContain("no a la suma");
+    expect(r?.evidencia).toContain("R 688 / TA 619");
+    expect(r?.fuente).toBe("UCP 600 30a");
+  });
+
+  /* Y en inglés, porque esta rama no aparece en ningún escenario de cobertura. */
+  it("se traduce entero", () => {
+    const en = textoEnIngles(conItems("2080")?.evidencia ?? "");
+    expect(en).not.toMatch(/[áéíóúñ¿¡]|\bla tolerancia\b|\bel crédito\b|\bverificar\b/i);
+    expect(en).toContain("R 688 / TA 619");
   });
 });
