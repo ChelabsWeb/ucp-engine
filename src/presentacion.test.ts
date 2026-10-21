@@ -3,7 +3,7 @@ import { generarChecklist } from "./checklist";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { ablandarPorISBP } from "./isbp";
-import { ejemplaresDe, feeDiscrepancia, precheckPresentacion } from "./presentacion";
+import { ejemplaresDe, feeDiscrepancia, pideSoloCopiaDelTransporte, precheckPresentacion } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
 import type { OperationDetail } from "./types";
 
@@ -677,5 +677,34 @@ describe("«listo» no es «verificado»", () => {
     expect(atencion, "el caso no dejó nada a verificar: el test no mira lo que dice").toBeGreaterThan(0);
     expect(r.sinVerificar).toBe(atencion);
     expect(r.verificado, "se dio por verificado con cosas sin mirar").toBe(false);
+  });
+});
+
+/**
+ * El crédito que pide una copia del documento de transporte, y los dos plazos que no se miden.
+ *
+ * Lo dice el párrafo A6 (c) de la ISBP 821 y la Opinión TA 767rev: una copia de un documento de
+ * transporte **no está sujeta** al plazo de veintiún días del artículo 14 (c) ni al del campo 48,
+ * salvo que el crédito fije la base; y la fecha que muestra una copia **no determina** si el embarque
+ * fue tardío.
+ *
+ * El motor los aplicaba igual que con un original, así que un crédito que pide «COPY OF AIR WAYBILL
+ * EVIDENCING TELEX RELEASE» salía con **presentación tardía y embarque fuera del 44C** sobre una
+ * presentación que la ICC dice que no se mide así. Dos falsos positivos, y uno en `plazo`, que es la
+ * discrepancia más corriente del negocio.
+ */
+describe("la copia del documento de transporte y los plazos", () => {
+  it.each([
+    ["COPY OF AIR WAYBILL EVIDENCING TELEX RELEASE", true],
+    ["PHOTOCOPY OF BILL OF LADING", true],
+    ["NON-NEGOTIABLE COPY OF SEA WAYBILL", true],
+    /* Y lo que NO es «solo una copia»: si pide originales, se examina como siempre. */
+    ["FULL SET OF 3/3 ORIGINAL B/LS PLUS 2 NON NEGOTIABLE COPIES", false],
+    ["FULL SET OF ORIGINAL AIR WAYBILLS", false],
+    ["ORIGINAL HOUSE AIR WAYBILL CONSIGNED TO ISSUING BANK", false],
+    /* Y una línea que no es de transporte no la activa. */
+    ["COPY OF CERTIFICATE OF ORIGIN", false],
+  ])("«%s» → solo copia: %s", (linea, esperado) => {
+    expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
   });
 });

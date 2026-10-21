@@ -1193,6 +1193,23 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Con qué capacidad se firmó el documento de transporte$/g, "In what capacity the transport document was signed"],
   [/^el bloque de firma$/g, "the signature block"],
   [/^el término de entrega de la factura$/g, "the trade term in the invoice"],
+  /* ISBP 821 A6 (c) y TA 767rev — una copia del documento de transporte no está sujeta al plazo */
+  [
+    /^Plazo de presentación con una copia del documento de transporte$/g,
+    "Presentation period where only a copy of the transport document is required",
+  ],
+  [
+    /^el crédito pide una copia del documento de transporte, y una copia no está sujeta al plazo del artículo 14 \(c\) ni al del campo 48 salvo que el crédito fije la base \(ISBP 821 A6 c y Opinión TA 767rev\): verificar a mano si el crédito la fija$/g,
+    "the credit requires a copy of the transport document, and a copy is not subject to the period in sub-article 14 (c) nor to the one in field 48 unless the credit states the basis for it (ISBP 821 A6 (c) and ICC Opinion TA 767rev): check by hand whether the credit states it",
+  ],
+  [
+    /^Último embarque (.+), con una copia del documento de transporte$/g,
+    "Latest shipment $1, with a copy of the transport document",
+  ],
+  [
+    /\bla copia dice (.+?), y la fecha de una copia no determina si el embarque fue tardío \(Opinión TA 767rev\): verificar a mano\b/g,
+    "the copy reads $1, and the date on a copy does not determine whether shipment was late (ICC Opinion TA 767rev): check by hand",
+  ],
   /* UCP 600 20a-ii — qué buque nombra la anotación de a bordo (R 350 contra TA 743rev) */
   [
     /^La anotación de a bordo nombra el buque que salió del puerto de carga$/g,

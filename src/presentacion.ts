@@ -10,6 +10,42 @@ import type { DocumentRow, LcInfo, OperationDetail } from "./types";
  * documentos de la matriz y los demás papeles del 46A— y dos copias del mismo regex se separan: una
  * se corrige y la otra no, y el motor empieza a contestar distinto según por dónde entró el papel.
  */
+/**
+ * Si el crédito pide **solo una copia** del documento de transporte.
+ *
+ * Importa porque cambia dos de los tres plazos del examen, y el motor los aplicaba igual. Lo dice el
+ * párrafo A6 (c) de la ISBP y la Opinión TA 767rev:
+ *
+ * > copies of transport documents covered by UCP600 articles 19-25 are not subject to the default
+ * > presentation period of 21 calendar days stated in UCP600 sub-article 14 (c) or any presentation
+ * > period stated in the credit, unless the LC explicitly states the basis for determining such
+ * > presentation period
+ *
+ * > a photocopy of an Air Waybill is not a transport document covered by the content of UCP 600
+ * > articles 19-25, and the examination thereof is to be completed only to the extent expressly
+ * > stated in the LC
+ *
+ * O sea que con un crédito que pide «COPY OF AIR WAYBILL EVIDENCING TELEX RELEASE» el motor marcaba
+ * **presentación tardía y embarque fuera del 44C** sobre una presentación que la ICC dice que no puede
+ * medirse así. Dos falsos positivos, y uno de ellos en `plazo`, que es la discrepancia más corriente
+ * del negocio.
+ *
+ * **El detector es angosto a propósito.** Pide copia *y* que no pida originales: «FULL SET OF 3/3
+ * ORIGINAL B/LS PLUS 2 NON NEGOTIABLE COPIES» exige originales y se examina como siempre. Lo que
+ * cambia es el crédito que pide **únicamente** una copia o fotocopia, que es el caso de la Opinión.
+ */
+export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null | undefined): boolean {
+  const linea = (documentosExigidos ?? []).find((d) =>
+    /bill of lading|b\/?ls?\b|air ?way ?bill|awb|sea ?way ?bill|consignment note|transport document|conocimiento/i.test(
+      d,
+    ),
+  );
+  if (!linea) return false;
+  const pideCopia = /\b(copy|copies|photocopy|photocopies|non.?negotiable copy)\b/i.test(linea);
+  const pideOriginal = /\b(original|originals|full set)\b/i.test(linea);
+  return pideCopia && !pideOriginal;
+}
+
 export const PIDE_CITAR_NUMERO_LC =
   /INDICAT\w*.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
 
@@ -582,9 +618,26 @@ export function precheckPresentacion(input: {
   }
 
   /* plazos: último embarque, presentación, vencimiento */
+  const soloCopia = pideSoloCopiaDelTransporte(lc.documentosExigidos);
   const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque);
   let diasParaPresentar: number | null = null;
-  if (lim && !lim.esEstimada) {
+  if (soloCopia) {
+    /*
+     * El crédito pide solo una copia del documento de transporte: el plazo no se mide contra su fecha.
+     *
+     * Ver `pideSoloCopiaDelTransporte`. Sale en ATENCION y no en OK porque el crédito **puede** fijar
+     * la base del plazo —y entonces sí rige— y eso lo lee una persona; y no en SIN_DATO porque el dato
+     * está, lo que no corresponde es la cuenta.
+     */
+    reglas.push({
+      id: "plazo",
+      fuente: "ISBP 821 A6c",
+      regla: "Plazo de presentación con una copia del documento de transporte",
+      estado: "ATENCION",
+      evidencia:
+        "el crédito pide una copia del documento de transporte, y una copia no está sujeta al plazo del artículo 14 (c) ni al del campo 48 salvo que el crédito fije la base (ISBP 821 A6 c y Opinión TA 767rev): verificar a mano si el crédito la fija",
+    });
+  } else if (lim && !lim.esEstimada) {
     /*
      * Dos preguntas distintas con la misma cuenta, y confundirlas rechazaba lo conforme.
      *
@@ -624,7 +677,22 @@ export function precheckPresentacion(input: {
     const ab = val(bl, "fechaEmbarque");
     const f = ab ? parseFecha(ab) : null;
     const l = parseFecha(lc.limiteEmbarque);
-    if (f && l)
+    if (soloCopia && ab) {
+      /*
+       * Y la fecha de embarque de una copia tampoco determina si el embarque fue tardío.
+       *
+       * La Opinión TA 767rev lo dice del otro lado: con el **original** presentado en vez de la copia,
+       * «the shipment date shown on the original Air Waybill can be used to determine if the shipment
+       * is within the specified time». Con la copia, no.
+       */
+      reglas.push({
+        id: "ultimo-embarque",
+        fuente: "ISBP 821 A6c",
+        regla: `Último embarque ${lc.limiteEmbarque}, con una copia del documento de transporte`,
+        estado: "ATENCION",
+        evidencia: `la copia dice ${ab}, y la fecha de una copia no determina si el embarque fue tardío (Opinión TA 767rev): verificar a mano`,
+      });
+    } else if (f && l)
       reglas.push({
         id: "ultimo-embarque",
         fuente: "44C",
