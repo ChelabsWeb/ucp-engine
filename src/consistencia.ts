@@ -1229,8 +1229,23 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
  * cabeza no dice nada reconocible, se mira la línea entera: perder una clasificación sería peor que
  * clasificar por una cláusula.
  */
+/*
+ * Las palabras con las que el 46A deja de nombrar el documento y empieza a describirlo.
+ *
+ * `drawn` es la que faltaba, y pega en una redacción de las más corrientes que hay: «BENEFICIARY
+ * DRAFT **DRAWN ON** ISSUING BANK AT 90 DAYS FROM INVOICE DATE» es cómo se pide la letra en cualquier
+ * crédito a plazo. Sin cortar ahí, la clasificación cae sobre la línea entera, la primera prueba de
+ * `clavePorTexto` es `/invoice/`, y «INVOICE DATE» se la lleva: **la letra salía clasificada como la
+ * factura comercial**.
+ *
+ * El daño es el de siempre y por los dos lados: el crédito quedaba pidiendo dos facturas —así que la
+ * factura presentada daba por cumplidas las dos líneas— y la exigencia de la letra **nunca aparecía
+ * como faltante**, aunque el motor no examine letras. Con el corte, la cabeza es «BENEFICIARY DRAFT»,
+ * la clave es `GIRO`, y la línea sale FALTA, que es la verdad: el crédito pide un papel que este
+ * examen no mira.
+ */
 const ABRE_DESCRIPCION =
-  /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|accompanied|declaring|mentioning|quoting)\b/;
+  /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
 
 export function cabezaDeExigencia(s: string): string {
   const m = ABRE_DESCRIPCION.exec(s);
