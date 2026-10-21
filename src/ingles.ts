@@ -1193,6 +1193,12 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Con qué capacidad se firmó el documento de transporte$/g, "In what capacity the transport document was signed"],
   [/^el bloque de firma$/g, "the signature block"],
   [/^el término de entrega de la factura$/g, "the trade term in the invoice"],
+  /* 46A — el nombre del notify contra el del ordenante, con la línea que los tribunales no trazan igual */
+  [/\by el ordenante es\b/g, "and the applicant is"],
+  [
+    /\bdifieren en lo que parece un error de tipeo, y si eso es discrepancia lo deciden los tribunales caso por caso — en Beyene v Irving Trust «Soran» por «Sofan» sí lo fue, en Hing Yip v Daiwa «Industrial» por «Industries» no: verificar a mano\b/g,
+    "they differ by what looks like a typographical error, and whether that is a discrepancy is decided case by case by the courts — in Beyene v Irving Trust «Soran» for «Sofan» was, in Hing Yip v Daiwa «Industrial» for «Industries» was not: check by hand",
+  ],
   /* ISBP 821 A6 (c) y TA 767rev — una copia del documento de transporte no está sujeta al plazo */
   [
     /^Plazo de presentación con una copia del documento de transporte$/g,

@@ -1,5 +1,6 @@
 import { type CamposDoc, claveDoc, compararEntreDocumentos, parseNumero, type TipoDocExterno } from "./consistencia";
 import { diffDias, parseFecha } from "./fechas";
+import { comparaISBP } from "./isbp";
 import { limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
@@ -501,17 +502,56 @@ export function precheckPresentacion(input: {
        * nada después. El conocimiento del expediente de referencia dice «NOTIFY ORIENT FEED (PVT) LTD», que
        * es exactamente el ordenante, y salía discrepante por un dato que falta de este lado.
        */
-      const ok = nt && cliente ? norm(nt).includes(norm(cliente).split(" ")[0]) : false;
+      /*
+       * Y cómo se comparan los dos nombres, que es donde los tribunales se dividen.
+       *
+       * Antes alcanzaba con que el notify **contuviera la primera palabra** del ordenante. Con eso,
+       * el caso *Beyene v Irving Trust* (2d Cir. 1985) salía **OK**: el conocimiento decía «Mohammed
+       * Soran» donde el crédito decía «Mohammed Sofan», comparten «Mohammed», y el tribunal resolvió
+       * que la discrepancia **era válida** —*«"Sofan" was not a name that was inconsequential to the
+       * document, for Sofan was the person to whom the shipper was to give notice of the arrival of
+       * the goods, and the misspelling of his name could well have resulted in his nonreceipt of the
+       * goods»*—. Es el mismo defecto que las once contrapartes del ERP que coincidían con las listas
+       * de sanciones por la palabra «LLC»: una palabra compartida no identifica a nadie.
+       *
+       * Pero el otro lado también tiene sentencia: en *Hing Yip Hing Fat v Daiwa* (Hong Kong, 1991)
+       * «Cheergoal Industrial» por «Cheergoal Industries» **no** era discrepancia, *«an obvious
+       * typographical error»*. Y el propio tribunal de Beyene da el contraejemplo: *«as might be the
+       * case if, for example, "Smith" were misspelled "Smithh"»*.
+       *
+       * O sea que la línea entre un error de tipeo inocuo y uno material **la trazan los tribunales
+       * caso por caso, y no coinciden**. Así que el motor usa tres bandas y no dos:
+       *
+       * - nombres iguales, o uno contenido en el otro con datos de más → **OK**;
+       * - nombres que difieren en lo que parece un error de tipeo → **ATENCION**, con las dos
+       *   sentencias nombradas. El motor no puede medir si el error es material: eso depende de para
+       *   qué sirve el nombre, y acá sirve para que a alguien le avisen que llegó la mercadería;
+       * - nombres que no se parecen → **DISCREPANCIA**, como antes.
+       *
+       * Lo que **no** se tocó, y es la decisión grande que queda abierta: las demás reglas que usan
+       * `comparaISBP` siguen tratando un TIPEO como aceptable sin decirlo. Cambiar eso toca el examen
+       * entero y necesita medirse contra el expediente real antes.
+       */
+      const cmp = nt && cliente ? comparaISBP(nt, cliente) : null;
       reglas.push({
         id: "bl-notify",
         fuente: "46A",
         regla: "BL notify: el ordenante (applicant)",
-        estado: !nt || !cliente ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+        estado:
+          !nt || !cliente
+            ? "ATENCION"
+            : cmp === "IGUAL" || cmp === "EQUIVALENTE"
+              ? "OK"
+              : cmp === "TIPEO"
+                ? "ATENCION"
+                : "DISCREPANCIA",
         evidencia: !nt
           ? "no se leyó el notify"
           : !cliente
             ? `dice "${nt}" y no se leyó el ordenante del crédito: verificar a mano`
-            : `dice "${nt}" · ordenante ${cliente}`,
+            : cmp === "TIPEO"
+              ? `dice "${nt}" y el ordenante es ${cliente}: difieren en lo que parece un error de tipeo, y si eso es discrepancia lo deciden los tribunales caso por caso — en Beyene v Irving Trust «Soran» por «Sofan» sí lo fue, en Hing Yip v Daiwa «Industrial» por «Industries» no: verificar a mano`
+              : `dice "${nt}" · ordenante ${cliente}`,
       });
     }
   }
