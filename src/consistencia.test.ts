@@ -1239,3 +1239,35 @@ describe("la numeración de la exigencia", () => {
     expect(claveDoc("3/3 ORIGINAL BILLS OF LADING")).toBe("BL");
   });
 });
+
+/**
+ * La letra que salía clasificada como la factura comercial.
+ *
+ * «BENEFICIARY DRAFT **DRAWN ON** ISSUING BANK AT 90 DAYS FROM INVOICE DATE» es cómo se pide la letra
+ * en cualquier crédito a plazo. `drawn` no estaba entre las palabras que cortan la cabeza de la
+ * exigencia, así que la clasificación caía sobre la línea entera — y la primera prueba de
+ * `clavePorTexto` es `/invoice/`, que se la lleva por el «INVOICE DATE» del final.
+ *
+ * El daño es el de siempre y por los dos lados: el crédito quedaba pidiendo **dos facturas** —así que
+ * la factura presentada daba por cumplidas las dos líneas— y la exigencia de la letra **nunca
+ * aparecía como faltante**. Con el corte sale `GIRO`, y la línea del 46A queda en FALTA, que es la
+ * verdad: el crédito pide un papel que este examen no mira.
+ */
+describe("la línea del 46A que pide una letra", () => {
+  it.each([
+    ["BENEFICIARY DRAFT DRAWN ON ISSUING BANK AT 90 DAYS FROM INVOICE DATE"],
+    ["DRAFT DRAWN ON THE APPLICANT AT SIGHT"],
+    ["BILL OF EXCHANGE DRAWN ON ISSUING BANK"],
+  ])("«%s» es un giro y no una factura", (linea) => {
+    expect(claveDoc(linea)).toBe("GIRO");
+  });
+
+  /* Y las facturas siguen siendo facturas, con «drawn» o sin él en otra línea. */
+  it.each([
+    ["SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS", "INVOICE"],
+    ["MANUALLY SIGNED AND DULY DATED BENEFICIARY'S COMMERCIAL INVOICE ADDRESSED TO APPLICANT", "INVOICE"],
+    ["FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING MARKED FREIGHT PREPAID", "BL"],
+  ])("y «%s» sigue siendo %s", (linea, clave) => {
+    expect(claveDoc(linea)).toBe(clave);
+  });
+});
