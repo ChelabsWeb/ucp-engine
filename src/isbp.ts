@@ -38,12 +38,35 @@ const ABREVIATURAS: [RegExp, string][] = [
   [/\b(sa|s a)\b/g, "sa"],
 ];
 
-/** Texto comparable: sin acentos, sin puntuación y con las abreviaturas unificadas (A1). */
+/**
+ * Texto comparable: sin acentos, sin puntuación y con las abreviaturas unificadas (A1).
+ *
+ * **El ampersand vale como la palabra «and» en vez de desaparecer**, y eso lo decidió una sentencia.
+ * En *Bulgrains & Co Ltd v Shinhan Bank* [2013] EWHC 2498 (QB) el crédito nombraba al beneficiario
+ * «Bulgrains Co Ltd» y la factura decía «Bulgrains & Co Ltd»; el High Court lo dio por discrepante:
+ *
+ *   «I find therefore, that there was a discrepancy as to name that was not clearly and demonstrably
+ *   simply a typographical error and was material … Even if there was no facility to insert an
+ *   ampersand in SWIFT, the word "and" could have been used.»
+ *
+ * Con el signo borrado los dos nombres llegaban como `bulgrains co ltd` y `comparaISBP` devolvía
+ * IGUAL: el motor daba por idénticos dos nombres que un tribunal declaró materialmente distintos.
+ *
+ * Convertirlo en palabra deja separadas las dos cosas que la sentencia separa, y por eso no se borra
+ * ni se deja como signo:
+ *
+ * - «SMITH & CO» contra «SMITH AND CO» sigue siendo **IGUAL**, que es lo que corresponde: el propio
+ *   tribunal dice que podría haberse usado la palabra, o sea que las dos escrituras nombran a la misma
+ *   empresa, y SWIFT no transmitía el signo;
+ * - «BULGRAINS & CO LTD» contra «BULGRAINS CO LTD» pasa a **DISTINTO**, porque falta una palabra
+ *   entera. No es un error de tipeo: es otro nombre.
+ */
 export function normISBP(s: string): string {
   let t = s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
+    .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
   for (const [re, canon] of ABREVIATURAS) t = t.replace(re, canon);
@@ -122,6 +145,58 @@ export function comparaISBP(a: string, b: string): VeredictoISBP {
   // longitudes distintas: uno puede ser el otro con información de más
   if (na.includes(nb) || nb.includes(na)) return "EQUIVALENTE";
   return "DISTINTO";
+}
+
+/* ────────── El nombre de una parte: tres bandas, porque los tribunales se dividen ────────── */
+
+/**
+ * La nota que acompaña a un nombre que difiere en lo que parece un tipeo.
+ *
+ * Va acá y no escrita en cada regla para que las reglas no puedan decir cosas distintas sobre el mismo
+ * hecho, que es justo lo que pasaba: `bl-notify` tenía las tres bandas y `ucp-18a-i` comparaba con un
+ * **matcher de lugares** —alcanzaba una palabra distintiva compartida— y `fac-emisor` con un
+ * `includes` de la primera palabra del nombre.
+ */
+export const NOTA_TIPEO_DE_NOMBRE =
+  "difieren en lo que parece un error de tipeo, y si eso es discrepancia lo deciden los tribunales caso por caso — en Beyene v Irving Trust «Soran» por «Sofan» sí lo fue, en Hing Yip v Daiwa «Industrial» por «Industries» no: verificar a mano";
+
+/**
+ * Cómo se compara el nombre de una parte, en las tres bandas que las sentencias obligan.
+ *
+ * - **iguales, o uno contenido en el otro con datos de más → OK**;
+ * - **difieren en lo que parece un tipeo → ATENCION**, con las sentencias nombradas. El motor no puede
+ *   medir si el error es material: eso depende de para qué sirve el nombre;
+ * - **no se parecen → DISCREPANCIA**.
+ *
+ * La tercera banda es la que *Bulgrains & Co Ltd v Shinhan Bank* [2013] EWHC 2498 (QB) obligó a usar
+ * donde antes se usaba un comparador flojo: el crédito decía «Bulgrains Co Ltd», la factura «Bulgrains
+ * & Co Ltd», y el High Court lo declaró *«a discrepancy as to name that was not clearly and
+ * demonstrably simply a typographical error and was material»*. Con el matcher de lugares alcanzaba
+ * que compartieran «bulgrains» para dar la factura por buena.
+ */
+export function veredictoDeNombre(enDocumento: string, enCredito: string): "OK" | "ATENCION" | "DISCREPANCIA" {
+  const cmp = comparaISBP(enDocumento, enCredito);
+  if (cmp === "IGUAL" || cmp === "EQUIVALENTE") return "OK";
+  if (cmp === "TIPEO") return "ATENCION";
+  /*
+   * Y las mismas palabras en otro orden **son el mismo nombre**, que lo decidió otro tribunal.
+   *
+   * *Voest-Alpine Trading USA Corp. v Bank of China*: el crédito nombraba al beneficiario
+   * «Voest-Alpine USA Trading Corp.» y los documentos decían «Voest-Alpine Trading USA Corp.» —el
+   * localizador geográfico invertido—. El tribunal lo descartó: los documentos *«obviamente se
+   * refieren a esta operación»* y la inversión *«no significa una entidad corporativa distinta»*.
+   *
+   * `comparaISBP` compara palabra por palabra **por posición**, así que una permutación le sale
+   * DISTINTO: sin esta rama, apretar la comparación del nombre para que atrapara el ampersand de
+   * Bulgrains hacía que el motor rechazara Voest-Alpine. Lo frenó el propio banco de pruebas, que
+   * tiene las dos sentencias como casos y las contó como inventadas.
+   *
+   * El alcance es exacto: **el mismo conjunto de palabras, con las mismas repeticiones**. Si falta
+   * una o sobra una, no es un reordenamiento — es otro nombre, que es justo lo de Bulgrains.
+   */
+  const ordenadas = (t: string) => normISBP(t).split(" ").filter(Boolean).sort().join(" ");
+  if (ordenadas(enDocumento) === ordenadas(enCredito)) return "OK";
+  return "DISCREPANCIA";
 }
 
 /* ────────── Consideración preliminar viii (2023) — el número del crédito ────────── */

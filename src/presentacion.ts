@@ -1,6 +1,6 @@
 import { type CamposDoc, claveDoc, compararEntreDocumentos, parseNumero, type TipoDocExterno } from "./consistencia";
 import { diffDias, parseFecha } from "./fechas";
-import { comparaISBP } from "./isbp";
+import { NOTA_TIPEO_DE_NOMBRE, comparaISBP, veredictoDeNombre } from "./isbp";
 import { limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
@@ -537,20 +537,13 @@ export function precheckPresentacion(input: {
         id: "bl-notify",
         fuente: "46A",
         regla: "BL notify: el ordenante (applicant)",
-        estado:
-          !nt || !cliente
-            ? "ATENCION"
-            : cmp === "IGUAL" || cmp === "EQUIVALENTE"
-              ? "OK"
-              : cmp === "TIPEO"
-                ? "ATENCION"
-                : "DISCREPANCIA",
+        estado: !nt || !cliente ? "ATENCION" : veredictoDeNombre(nt, cliente),
         evidencia: !nt
           ? "no se leyó el notify"
           : !cliente
             ? `dice "${nt}" y no se leyó el ordenante del crédito: verificar a mano`
             : cmp === "TIPEO"
-              ? `dice "${nt}" y el ordenante es ${cliente}: difieren en lo que parece un error de tipeo, y si eso es discrepancia lo deciden los tribunales caso por caso — en Beyene v Irving Trust «Soran» por «Sofan» sí lo fue, en Hing Yip v Daiwa «Industrial» por «Industries» no: verificar a mano`
+              ? `dice "${nt}" y el ordenante es ${cliente}: ${NOTA_TIPEO_DE_NOMBRE}`
               : `dice "${nt}" · ordenante ${cliente}`,
       });
     }
@@ -598,13 +591,37 @@ export function precheckPresentacion(input: {
     }
     const exp = val(fac, "exportador");
     if (exp) {
-      const ok = norm(exp).includes(norm(input.empresaRazonSocial).split(" ")[0]);
+      /*
+       * Y acá la misma comparación que `ucp-18a-i`, porque las dos reglas miran el mismo hecho.
+       *
+       * Esta comparaba con `norm(exp).includes(primera palabra del beneficiario)`: con eso «Bulgrains
+       * & Co Ltd» contra «Bulgrains Co Ltd» salía OK, que es la discrepancia que el High Court declaró
+       * material en *Bulgrains v Shinhan Bank*. Dos reglas sobre el mismo hecho con dos comparadores
+       * distintos pueden contradecirse, y se contradecían: `ucp-18a-i` usaba un matcher de lugares y
+       * ésta un prefijo. Las dos pasan por `veredictoDeNombre`.
+       *
+       * **Que las dos existan es una decisión pendiente del dueño**, no un arreglo: `fac-emisor` es la
+       * versión vieja, vive en este módulo y la mesa la muestra; `ucp-18a-i` es la del artículo. Una de
+       * las dos tiene que desaparecer, y cuál toca lo que la pantalla ya enseña.
+       */
+      /*
+       * Y sin el nombre del beneficiario no se concluye nada, que es lo que el control de
+       * `saber-menos` atrapó al cambiar esto: con `empresaRazonSocial` vacía, el `includes` de la
+       * primera palabra daba siempre verdadero —comparaba contra la cadena vacía— así que la regla
+       * salía OK por el motivo equivocado. Comparar de verdad la volvía DISCREPANCIA, y vaciar un dato
+       * del crédito no puede inventar una discrepancia.
+       */
+      const v = input.empresaRazonSocial?.trim() ? veredictoDeNombre(exp, input.empresaRazonSocial) : "ATENCION";
       reglas.push({
         id: "fac-emisor",
         fuente: "UCP 600 18a",
         regla: "Factura emitida por el beneficiario",
-        estado: ok ? "OK" : "DISCREPANCIA",
-        evidencia: `emisor "${exp}" · beneficiario ${input.empresaRazonSocial}`,
+        estado: v,
+        evidencia: !input.empresaRazonSocial?.trim()
+          ? `emisor "${exp}" y no se leyó el beneficiario del crédito: verificar a mano`
+          : v === "ATENCION"
+            ? `emisor "${exp}" · beneficiario ${input.empresaRazonSocial}: ${NOTA_TIPEO_DE_NOMBRE}`
+            : `emisor "${exp}" · beneficiario ${input.empresaRazonSocial}`,
       });
     }
   }
