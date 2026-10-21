@@ -1659,20 +1659,40 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
    * resolver, se dice.
    */
   /* Y solo cuando el crédito SÍ nombra cantidades: ver `cantidadesDelCredito`. */
-  if (!pedido && cantFac && cantidadesDelCredito(texto45A).length > 0) {
-    out.push(
-      regla(
-        "ucp-30b-cantidad",
-        "UCP 600 30b",
-        "Cantidad de la factura dentro de lo que pide el crédito",
-        "ATENCION",
-        `la factura dice ${cantFac} ${uniFac ?? ""} y del crédito no se pudo deducir una cantidad única (${(texto45A ?? "").replace(/\s+/g, " ").trim().slice(0, 80)}): verificar a mano`.replace(
-          /\s+/g,
-          " ",
+  if (!pedido && cantFac) {
+    const enumeradas = cantidadesDelCredito(texto45A);
+    if (enumeradas.length > 0) {
+      /*
+       * Y cuando el crédito **enumera** cantidades, se dice contra qué hay que verificar.
+       *
+       * «No se pudo deducir una cantidad única» es cierto y no alcanza: deja al examinador frente a
+       * un 45A con tres ítems sin decirle qué hacer con ellos, y lo primero que se le ocurre a
+       * cualquiera es **sumarlos y comparar el total**. Eso es exactamente el error que la Opinión
+       * R 688 / TA 619 corrige: con «Item 1: 1000MT Item 2: 500MT Item 3: 600MT» y una tolerancia del
+       * 10 %, una factura de 1150 + 350 + 580 da 2080 contra 2100 contratadas —dentro de la
+       * tolerancia sobre el total— y **la discrepancia igual es válida**, porque *«the tolerance is
+       * to be applied against the individual quantities»*.
+       *
+       * El motor no puede hacer ese cotejo: ni el crédito ni la factura traen sus renglones en
+       * campos, y hay uno solo de cantidad por documento. Pero sí puede **enumerar lo que leyó y
+       * nombrar la regla**, que es la diferencia entre «no sé» y «no sé, y esto es lo que hay que
+       * mirar».
+       */
+      const lista = enumeradas.map((q) => q.crudo).join(" · ");
+      out.push(
+        regla(
+          "ucp-30b-cantidad",
+          "UCP 600 30a",
+          "Cantidad de la factura dentro de lo que pide el crédito",
+          "ATENCION",
+          `la factura dice ${cantFac} ${uniFac ?? ""} y el crédito enumera ${enumeradas.length} cantidades (${lista}): la tolerancia se aplica a cada una y no a la suma (Opinión R 688 / TA 619), así que hay que verificar ítem por ítem`.replace(
+            /\s+/g,
+            " ",
+          ),
         ),
-      ),
-    );
-    return out;
+      );
+      return out;
+    }
   }
   /*
    * Y el espejo del caso de arriba, que faltaba: **el crédito nombra una cantidad y la factura no.**

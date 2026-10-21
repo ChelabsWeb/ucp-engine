@@ -1219,6 +1219,19 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   /* UCP 600 30b — el crédito pide una cantidad y la factura no declara ninguna */
   [/\bel crédito pide\b/g, "the credit requires"],
+  /*
+   * UCP 600 30a — el crédito enumera cantidades y la tolerancia va por ítem.
+   *
+   * Va a mano y no por un escenario de `ingles.test.ts` porque ningún crédito de los escenarios
+   * enumera ítems, y `ingles-cobertura` saltea los literales con `${`. O sea que esta rama queda sin
+   * red por los dos lados a la vez, que es el caso que CLAUDE.md anota como el más fácil de perder.
+   */
+  [/\by el crédito enumera\b/g, "and the credit lists"],
+  [/\bcantidades \(/g, "quantities ("],
+  [
+    /\bla tolerancia se aplica a cada una y no a la suma \(Opinión R 688 \/ TA 619\), así que hay que verificar ítem por ítem\b/g,
+    "the tolerance applies to each one and not to their sum (ICC Opinion R 688 / TA 619), so each item has to be checked separately",
+  ],
   [
     /\by la factura no declara una cantidad total: verificar a mano\. La ausencia de un total no es discrepancia por sí misma \(Opinión TA 962rev\), pero sin él no hay con qué comparar\b/g,
     "and the invoice states no total quantity: check by hand. The absence of a total is not in itself a discrepancy (ICC Opinion TA 962rev), but without it there is nothing to compare against",
