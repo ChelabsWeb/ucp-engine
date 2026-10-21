@@ -485,7 +485,16 @@ export function reglasCertificados(input: {
     }
 
     /* la calidad que el crédito exige, contra la que el análisis certifica */
-    if (claveDoc(c.exigencia) === "ANALISIS" && input.mercaderiaDelCredito) {
+    /*
+     * El MTC entra al mismo cotejo, y el motivo es el laudo DOCDEX 285.
+     *
+     * Un mill's test certificate es donde el laminador declara la calidad medida del metal —tracción,
+     * impacto, los catorce elementos— y el crédito de ese laudo las exige en el 46A. Tiene clave propia
+     * para no chocar con un certificado de calidad en el mismo crédito, pero comparar sus
+     * especificaciones contra el 45A es exactamente lo mismo que se hace con un análisis.
+     */
+    const claveDelCertificado = claveDoc(c.exigencia);
+    if ((claveDelCertificado === "ANALISIS" || claveDelCertificado === "MTC") && input.mercaderiaDelCredito) {
       /*
        * Lo que el certificado declara sale de sus campos, nunca de cómo se llama el documento.
        *
