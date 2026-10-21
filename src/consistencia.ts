@@ -1057,6 +1057,78 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
       });
     }
   }
+  /*
+   * La ruta: el puerto de carga y el de destino entre documentos (DOCDEX 290).
+   *
+   * El laudo **DOCDEX 290** decide exactamente esto —<https://library.iccwbo.org/content/tfb/DOCDEX/290.htm>—
+   * y por unanimidad. El crédito pedía embarcar de Busan a Qingdao; la factura, el packing list y el
+   * certificado de calidad traían los dos casilleros **invertidos**, y el conocimiento los traía bien.
+   * El banco presentador argumentó que era un error de tipeo y el panel lo rechazó:
+   *
+   *   «The route of shipment need not be shown in the commercial invoice, but if it is shown, it should
+   *   not be conflicting with data in the L/C.»
+   *
+   *   «There is no doubt in this case that the port of loading and final destination in question are
+   *   totally different ports and are places which do exist, and it could not be argued that the
+   *   difference in the words was caused by a misspelling or typing error.»
+   *
+   * El motor no cruzaba los puertos entre papeles: comparaba los del conocimiento contra el crédito y
+   * nada más. Un papel que no es de transporte y que trae la ruta mal pasaba en silencio, que es el
+   * caso del laudo.
+   *
+   * **Y se emite en dos bandas, porque las dos cosas no son lo mismo:**
+   *
+   * - **la ruta invertida es ALTA**, o sea discrepancia. Que el puerto de carga de un papel sea el de
+   *   destino del otro y al revés no admite lectura inocente: es lo que el laudo llama *«a reversal of
+   *   the order of the route of shipment»*, y el panel fue explícito en que averiguar qué quiso poner
+   *   el que tipeó *«would require them to guess or speculate about the maker's intention»*.
+   * - **dos puertos simplemente distintos son MEDIA**, o sea a verificar. El casillero de destino de
+   *   una factura puede traer el **lugar de entrega final** tierra adentro mientras el conocimiento
+   *   trae el puerto de descarga —Lima contra Callao, que es la Opinión TA 735rev— y rechazar eso sería
+   *   un falso positivo. El esquema tiene un solo campo para los dos conceptos, así que acá la duda la
+   *   mira una persona.
+   */
+  {
+    /* El mismo comparador que usa el resto del motor para un lugar: ver `coincideLugar`. */
+    const mismoLugar = coincideLugar;
+    const rutas = docs
+      .filter((d) => d.tipo !== "LC")
+      .map((d) => ({ tipo: d.tipo, carga: val(d, "puertoEmbarque"), destino: val(d, "puertoDestino") }));
+    const invertidos = rutas.filter((x) => x.carga && x.destino) as {
+      tipo: TipoDocExterno;
+      carga: string;
+      destino: string;
+    }[];
+    const parInvertido = invertidos
+      .flatMap((a, i) => invertidos.slice(i + 1).map((b) => [a, b] as const))
+      .find(([a, b]) => mismoLugar(a.carga, b.destino) && mismoLugar(a.destino, b.carga) && !mismoLugar(a.carga, b.carga));
+    if (parInvertido) {
+      const [a, b] = parInvertido;
+      out.push({
+        campo: "Ruta de embarque",
+        valores: [a, b].map((x) => ({ tipo: x.tipo, valor: `carga "${x.carga}" / destino "${x.destino}"` })),
+        severidad: "ALTA",
+        titulo: `Ruta de embarque invertida: ${TIPO_DOC_LABEL[a.tipo].toLowerCase()} dice carga "${a.carga}" y destino "${a.destino}", ${TIPO_DOC_LABEL[b.tipo].toLowerCase()} dice lo contrario`,
+        detalle:
+          "Los dos casilleros de la ruta están cambiados de lugar entre un documento y otro (UCP 600 art. 14 d). El laudo DOCDEX 290 lo resolvió por unanimidad: una ruta invertida no es un error de tipeo —«it could not be argued that the difference in the words was caused by a misspelling or typing error»— y el banco tiene derecho a rechazar. Corregir el documento antes de presentar.",
+      });
+    } else {
+      cruce(
+        "Puerto de carga",
+        "puertoEmbarque",
+        mismoLugar,
+        "MEDIA",
+        "El puerto de carga difiere entre documentos (UCP 600 art. 14 d). No siempre es discrepancia: el casillero de una factura puede traer el lugar de toma a cargo tierra adentro y el del conocimiento el puerto del tramo oceánico. Verificar contra el crédito.",
+      );
+      cruce(
+        "Puerto de destino",
+        "puertoDestino",
+        mismoLugar,
+        "MEDIA",
+        "El puerto de destino difiere entre documentos (UCP 600 art. 14 d). No siempre es discrepancia: el casillero de una factura puede traer el lugar de entrega final y el del conocimiento el puerto de descarga. Verificar contra el crédito.",
+      );
+    }
+  }
   cruce(
     "HS code",
     "hsCode",
@@ -1274,6 +1346,75 @@ export function cabezaDeExigencia(s: string): string {
  */
 function sinPluralEntreParentesis(s: string): string {
   return s.replace(/\((e?s)\)/gi, "$1");
+}
+
+/**
+ * Si dos nombres o lugares se refieren a lo mismo.
+ *
+ * Se descartan las palabras de tres letras o menos —«S.A.», «de», «and»— porque hacen coincidir a
+ * cualquiera. Pero cuando a un lado NO le queda ninguna palabra después de ese filtro, el nombre
+ * entero es corto, y ahí descartarlo todo devolvía false: un ordenante llamado IBM, DHL o ABB,
+ * escrito idéntico en el crédito y en la factura, salía como discrepancia. Lo mismo un puerto como
+ * GOA o RIO.
+ *
+ * Era el falso positivo más barato de disparar del motor —no hacía falta ningún error en los
+ * documentos, solo que alguien se llamara con tres letras— y tocaba siete reglas. Cuando no quedan
+ * palabras largas se comparan los textos completos, que es lo único sensato con un nombre corto.
+ *
+ * **Y el filtro por largo no alcanzaba.** «PORT», «AIRPORT» y «TERMINAL» tienen más de tres letras,
+ * así que **cualquier** par de lugares escritos con su genérico coincidía: «MONTEVIDEO AIRPORT»
+ * contra «BUENOS AIRES AIRPORT» daba OK, y eso es un falso negativo del lado que paga de más —el
+ * documento de transporte iba a otro puerto y la regla salía conforme—. Es el mismo defecto que las
+ * once contrapartes del ERP que coincidían con las listas de sanciones por la palabra «LLC»: una
+ * coincidencia apoyada en una palabra que está en todos los nombres del rubro no dice nada.
+ *
+ * El mismo puerto escrito de las dos formas sigue coincidiendo, porque lo que queda es el nombre
+ * propio: «MONTEVIDEO PORT IN URUGUAY» contra «MONTEVIDEO, URUGUAY» comparten MONTEVIDEO.
+ *
+ * **Vive acá y no en `reglas-ucp.ts` para que haya un solo comparador de lugares.** Al agregar el
+ * cruce de la ruta entre documentos —el laudo DOCDEX 290— se escribió un segundo comparador por
+ * substring, y sobre el expediente real gritó enseguida: el conocimiento dice «MONTEVIDEO, URUGUAY» y
+ * el packing «Montevideo Port, Uruguay», que es el mismo puerto escrito de dos maneras. Es la misma
+ * lección que dejó *Bulgrains v Shinhan* con los nombres de parte: un concepto, un comparador.
+ */
+export const GENERICAS_DE_LUGAR = new Set([
+  "PORT",
+  "PORTS",
+  "AIRPORT",
+  "AIRPORTS",
+  "SEAPORT",
+  "SEAPORTS",
+  "TERMINAL",
+  "TERMINALS",
+  /* «SHANGHAI CONTAINER TERMINAL» contra «BUSAN CONTAINER TERMINAL»: sacado el genérico de atrás,
+     quedaba coincidiendo por el de adelante. */
+  "CONTAINER",
+  "CONTAINERS",
+  "HARBOUR",
+  "HARBOR",
+  "CITY",
+  "PUERTO",
+  "PUERTOS",
+  "AEROPUERTO",
+  "CIUDAD",
+]);
+
+export function coincideLugar(a: string, b: string): boolean {
+  const na = normTexto(a).trim();
+  const nb = normTexto(b).trim();
+  if (!na || !nb) return false;
+  const distintiva = (w: string) => w.length > 3 && !GENERICAS_DE_LUGAR.has(w.toUpperCase());
+  const pa = na.split(" ").filter(distintiva);
+  const pb = nb.split(" ").filter(distintiva);
+  if (pa.length === 0 || pb.length === 0) {
+    // Al menos uno es un nombre corto: se compara entero, y vale que uno esté dentro del otro
+    // («IBM» contra «IBM WORLD TRADE CORPORATION»), por palabra para no casar fragmentos.
+    const palabras = (t: string) => t.split(" ").filter(Boolean);
+    const cortas = pa.length === 0 ? palabras(na) : palabras(nb);
+    const otras = pa.length === 0 ? palabras(nb) : palabras(na);
+    return cortas.length > 0 && cortas.every((w) => otras.includes(w));
+  }
+  return pa.some((w) => pb.includes(w));
 }
 
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
