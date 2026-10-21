@@ -1,7 +1,7 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
 import { aKg, cantidadDelCredito, cantidadesDelCredito, claveDoc, parseNumero, unidadNormal } from "./consistencia";
 import { parseFecha } from "./fechas";
-import { cotejarIncotermISBP, esFacturaComercial, versionIncoterm } from "./isbp";
+import { NOTA_TIPEO_DE_NOMBRE, cotejarIncotermISBP, esFacturaComercial, veredictoDeNombre, versionIncoterm } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
@@ -233,6 +233,61 @@ function seParecen(a: string, b: string): boolean {
   return pa.filter((w) => pb.has(w)).length >= 2;
 }
 
+/** Las palabras que identifican una mercadería: ni números, ni unidades, ni palabras de especificación. */
+const RELLENO_DESCRIPCION = new Set([
+  "about",
+  "approx",
+  "approximately",
+  "circa",
+  "each",
+  "from",
+  "maximum",
+  "minimum",
+  "with",
+  "without",
+]);
+
+function propias(t: string): string[] {
+  return norm(t)
+    .split(" ")
+    .filter((w) => w.length > 3 && !/^\d/.test(w) && !RELLENO_DESCRIPCION.has(w));
+}
+
+/**
+ * Una palabra del nombre del producto **cambiada por otra**: eso es conflicto y no una adición.
+ *
+ * Sale de *Bulgrains & Co Ltd v Shinhan Bank* [2013] EWHC 2498 (QB). El 45A pedía «Wheat bran pellets
+ * in bulk» con nueve especificaciones y la factura decía «Bulgarian wheat grain pellets»: el tribunal
+ * lo dio por discrepante sin discusión —*«the commercial invoice is in markedly different terms»*, «no
+ * dispute about this discrepancy»— y el motor lo pasaba en OK porque compartían dos palabras, «wheat»
+ * y «pellets». *Bran* se había vuelto *grain*: es otro producto.
+ *
+ * **Lo que esto distingue es agregar de sustituir**, que es la línea que la práctica traza:
+ *
+ * - la factura **agrega** datos que el crédito no trae —el origen, el embalaje, un número de
+ *   contrato— y eso no contradice nada: «BULGARIAN WHEAT BRAN PELLETS IN BULK» sigue cumpliendo;
+ * - la factura **omite** parte de la descripción del crédito y tampoco: «WHEAT BRAN PELLETS» contra un
+ *   45A con nueve especificaciones es la factura corriente, y exigir el espejo sería rechazar de más;
+ * - pero si falta una palabra del nombre del producto **y** aparece otra que el crédito no tiene en
+ *   ninguna parte, lo que hubo es un reemplazo. Eso no se puede dar por bueno.
+ *
+ * El nombre del producto es lo que está antes de la primera coma o del primer guion: ahí es donde un
+ * 45A escribe qué es la mercadería, y lo que sigue son las especificaciones.
+ *
+ * **Y nunca rechaza:** `ucp-18c` solo tiene OK y ATENCION, porque si la descripción «se corresponde»
+ * es un juicio que la ISBP deja al examinador. Lo que esto cambia es de qué lado cae la duda.
+ */
+function reemplazaUnaPalabraDelProducto(enDocumento: string, enCredito: string): boolean {
+  const nombre = enCredito.split(/[,;]|\s-\s/)[0] ?? "";
+  const delNombre = propias(nombre);
+  if (delNombre.length === 0) return false;
+  const enDoc = new Set(propias(enDocumento));
+  const falta = delNombre.some((w) => !enDoc.has(w));
+  if (!falta) return false;
+  const todoElCredito = new Set(propias(enCredito));
+  return [...enDoc].some((w) => !todoElCredito.has(w));
+}
+
 /**
  * La descripción del documento contra la del crédito (art. 18 c para la factura).
  *
@@ -250,7 +305,9 @@ function coincideDescripcion(enDocumento: string, enCredito: string): boolean {
     .split(/[,;]/)
     .map((x) => x.trim())
     .filter((x) => x.length > 3);
-  if (items.length <= 1) return seParecen(enDocumento, enCredito);
+  const unaSolaDescripcion = (): boolean =>
+    seParecen(enDocumento, enCredito) && !reemplazaUnaPalabraDelProducto(enDocumento, enCredito);
+  if (items.length <= 1) return unaSolaDescripcion();
 
   /*
    * Lo que se repite en todos los renglones no distingue ninguno.
@@ -276,6 +333,21 @@ function coincideDescripcion(enDocumento: string, enCredito: string): boolean {
   const cuenta = new Map<string, number>();
   for (const p of porItem) for (const w of p) cuenta.set(w, (cuenta.get(w) ?? 0) + 1);
   const comunes = [...cuenta].filter(([, n]) => n >= umbral).map(([w]) => w);
+  /*
+   * Y si **ninguna** palabra se repite en dos tercios de los renglones, esto no es una enumeración:
+   * es una descripción sola con sus especificaciones separadas por comas.
+   *
+   * La diferencia la mostró *Bulgrains v Shinhan Bank*: el 45A decía «Wheat bran pellets in bulk –
+   * moisture max 13.5%, protein min 12.0%, hash max 7.0%, …» y el motor lo partía en siete
+   * mercaderías distintas. Con renglones que no comparten nada, `comunes` queda vacío, `sinLoComun`
+   * no descuenta nada y el criterio degenera en «parecerse a cualquiera de los fragmentos» — que es
+   * más flojo que compararse contra la descripción entera, justo al revés de para lo que se escribió.
+   *
+   * El síntoma es el que ya calcula la función, así que no hace falta adivinar si una coma separa
+   * cortes de carne o porcentajes de proteína: una lista de mercaderías del mismo rubro comparte el
+   * encabezado del rubro, y una lista de especificaciones no comparte nada.
+   */
+  if (comunes.length === 0) return unaSolaDescripcion();
   const sinLoComun = (t: string) =>
     norm(t)
       .split(" ")
@@ -562,13 +634,26 @@ function reglasQuienEmite(ctx: ContextoCredito, docs: DocAnalizado[]): ReglaPres
         ),
       );
     } else {
+      /*
+       * Y se compara como un **nombre**, no como un lugar.
+       *
+       * Esta regla usaba `coincideLugar`, que da por coincidentes dos textos que comparten **una** sola
+       * palabra distintiva. Para un puerto está bien —«MONTEVIDEO, URUGUAY» contra «MONTEVIDEO»— y para
+       * la razón social de una empresa es demasiado: «SMITH TRADING SA» y «SMITH LOGISTICS LTD» salían
+       * iguales. Lo encontró *Bulgrains v Shinhan Bank*, donde el crédito decía «Bulgrains Co Ltd», la
+       * factura «Bulgrains & Co Ltd» y el High Court declaró la discrepancia material: compartían
+       * «bulgrains» y el motor la daba por buena.
+       */
+      const v = veredictoDeNombre(emisor, ctx.beneficiario);
       out.push(
         regla(
           "ucp-18a-i",
           "UCP 600 18a-i",
           "La factura la emite el beneficiario",
-          coincideLugar(emisor, ctx.beneficiario) ? "OK" : "DISCREPANCIA",
-          `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}"`,
+          v,
+          v === "ATENCION"
+            ? `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}": ${NOTA_TIPEO_DE_NOMBRE}`
+            : `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}"`,
         ),
       );
     }

@@ -9,6 +9,7 @@ import {
   esFacturaComercial,
   exigePrevioAlEmbarque,
   normISBP,
+  veredictoDeNombre,
 } from "./isbp";
 import type { ReglaPresentacion } from "./presentacion";
 
@@ -152,5 +153,79 @@ describe("Q3 a Q5 y L3 — quién puede emitir un certificado", () => {
   it("el certificado de origen se reconoce aparte: ahí corre la excepción de la cámara", () => {
     expect(esCertificadoDeOrigen("CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD")).toBe(true);
     expect(esCertificadoDeOrigen("CERTIFICATE OF ANALYSIS")).toBe(false);
+  });
+});
+/**
+ * El ampersand, que es la sentencia *Bulgrains v Shinhan Bank* [2013] EWHC 2498 (QB).
+ *
+ * El motor borraba el signo con el resto de la puntuación, así que «Bulgrains & Co Ltd» y «Bulgrains
+ * Co Ltd» salían IGUAL — dos nombres que un tribunal inglés declaró materialmente distintos. Ahora el
+ * signo vale como la palabra «and», que es lo que deja separado el caso bueno del malo.
+ */
+describe("el ampersand en el nombre de una parte (Bulgrains v Shinhan)", () => {
+  it("«&» y «and» nombran a la misma empresa", () => {
+    expect(comparaISBP("SMITH & CO LTD", "SMITH AND CO LTD")).toBe("IGUAL");
+  });
+
+  it("pero un «&» que falta no es un error de tipeo: es otro nombre", () => {
+    expect(comparaISBP("BULGRAINS & CO LTD", "BULGRAINS CO LTD")).toBe("DISTINTO");
+  });
+
+  it("y en los dos sentidos", () => {
+    expect(comparaISBP("BULGRAINS CO LTD", "BULGRAINS & CO LTD")).toBe("DISTINTO");
+  });
+
+  it("el resto de la puntuación sigue sin contar", () => {
+    expect(comparaISBP("SMITH CO., LTD.", "SMITH CO LTD")).toBe("IGUAL");
+  });
+});
+
+/**
+ * Las tres bandas del nombre de una parte, con las cuatro sentencias que las trazan.
+ *
+ * `veredictoDeNombre` existe para que las reglas no puedan decir cosas distintas sobre el mismo hecho:
+ * antes `bl-notify` tenía las tres bandas, `ucp-18a-i` comparaba con un matcher de lugares y
+ * `fac-emisor` con un prefijo.
+ */
+describe("veredictoDeNombre", () => {
+  it("el mismo nombre con otra abreviatura cumple", () => {
+    expect(veredictoDeNombre("CEREALSUR S.A.", "CEREALSUR SA")).toBe("OK");
+  });
+
+  it("las mismas palabras en otro orden son el mismo nombre (Voest-Alpine v Bank of China)", () => {
+    expect(veredictoDeNombre("Voest-Alpine Trading USA Corp.", "Voest-Alpine USA Trading Corp.")).toBe("OK");
+  });
+
+  it("un tipeo va a verificar: los tribunales no coinciden (Beyene contra Hing Yip)", () => {
+    expect(veredictoDeNombre("MOHAMMED SORAN", "MOHAMMED SOFAN")).toBe("ATENCION");
+  });
+
+  /*
+   * Y el par de *Hing Yip Hing Fat v Daiwa* **no** cae en la banda del medio, que es un desacuerdo
+   * conocido y acá queda medido con su causa.
+   *
+   * El tribunal de Hong Kong dijo que «Industrial» por «Industries» era *«an obvious typographical
+   * error»*; el motor lo rechaza. La causa es la lista de abreviaturas de A1, que la edición 2023 amplió
+   * con `ind / industry / industries`: «industries» se canoniza en `ind` y «industrial» no, así que las
+   * dos palabras quedan a distancia máxima en vez de a dos letras. Sin esa canonización
+   * `esErrorDeTipeo` las daría por tipeo —distancia 2 sobre diez letras— y el par caería en el medio.
+   *
+   * No se cambia acá: tocar `comparaISBP` para comparar también las formas sin abreviar afecta al
+   * examen entero, y la decisión de qué hace cada regla con un tipeo en el nombre de una parte sigue
+   * siendo del dueño. Lo que este test hace es que el desacuerdo no sea una sorpresa.
+   */
+  it("el par de Hing Yip queda del lado del rechazo, por la canonización de «industries»", () => {
+    expect(veredictoDeNombre("CHEERGOAL INDUSTRIAL", "CHEERGOAL INDUSTRIES")).toBe("DISCREPANCIA");
+    expect(normISBP("CHEERGOAL INDUSTRIES")).toBe("cheergoal ind");
+    expect(normISBP("CHEERGOAL INDUSTRIAL")).toBe("cheergoal industrial");
+  });
+
+  it("un ampersand que falta es discrepancia (Bulgrains v Shinhan)", () => {
+    expect(veredictoDeNombre("BULGRAINS & CO LTD", "BULGRAINS CO LTD")).toBe("DISCREPANCIA");
+  });
+
+  /* Y el freno del reordenamiento: una palabra de más o de menos no es una permutación. */
+  it("una palabra que sobra no es un reordenamiento", () => {
+    expect(veredictoDeNombre("SMITH TRADING LOGISTICS LTD", "SMITH TRADING LTD")).toBe("DISCREPANCIA");
   });
 });

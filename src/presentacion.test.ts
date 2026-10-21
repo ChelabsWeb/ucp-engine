@@ -763,3 +763,44 @@ describe("el nombre del notify contra el del ordenante", () => {
     expect(notify("MOHAMMED SORAN", "")?.estado).toBe("ATENCION");
   });
 });
+/**
+ * El nombre del emisor de la factura, que es la sentencia *Bulgrains v Shinhan Bank*.
+ *
+ * `fac-emisor` comparaba con `norm(emisor).includes(primera palabra del beneficiario)`: con eso
+ * «Bulgrains & Co Ltd» contra «Bulgrains Co Ltd» salía OK, que es la discrepancia que el High Court
+ * declaró material. Ahora las dos reglas del 18 (a) (i) pasan por `veredictoDeNombre`.
+ */
+describe("fac-emisor compara el nombre como un nombre", () => {
+  const con = (emisor: string, beneficiario: string) =>
+    precheckPresentacion({
+      lc,
+      docs: [{ tipo: "FACTURA" as const, campos: { ...FACTURA, exportador: campo(emisor) } }],
+      op: OP,
+      empresaRazonSocial: beneficiario,
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "fac-emisor");
+
+  it("el mismo nombre cumple", () => {
+    expect(con("CEREALSUR S.A.", "CEREALSUR SA")?.estado).toBe("OK");
+  });
+
+  it("y un ampersand que falta es discrepancia (Bulgrains v Shinhan)", () => {
+    expect(con("BULGRAINS & CO LTD", "BULGRAINS CO LTD")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("una empresa distinta que comparte una palabra también", () => {
+    expect(con("SMITH LOGISTICS LTD", "SMITH TRADING SA")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("un tipeo va a verificar con las dos sentencias nombradas", () => {
+    const r = con("CEREALSOR SA", "CEREALSUR SA");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("Beyene");
+    expect(r?.evidencia).toContain("Hing Yip");
+  });
+
+  /* Y sin el nombre del beneficiario no se concluye: vaciar un dato no puede inventar discrepancias. */
+  it("sin el beneficiario del crédito no dictamina", () => {
+    expect(con("CEREALSUR SA", "")?.estado).toBe("ATENCION");
+  });
+});
