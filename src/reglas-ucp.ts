@@ -710,7 +710,7 @@ function reglasLugares(
             return regla(
               id,
               fuente,
-              `${cual} el que indica el crédito (${delCredito})`,
+              `${cual} el que indica el crédito ("${delCredito}")`,
               ablanda ? "ATENCION" : v.estado,
               `el documento dice "${enDoc}"${ablanda ? NOTA_R638 : v.nota}`,
             );
@@ -1094,7 +1094,7 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
             return regla(
               id,
               "UCP 600 23a-iv",
-              `Aeropuerto ${cual} el que indica el crédito (${delCredito})`,
+              `Aeropuerto ${cual} el que indica el crédito ("${delCredito}")`,
               v.estado,
               `el documento dice "${enDoc}"${v.nota}`,
             );
@@ -1274,7 +1274,7 @@ function reglasTransporte(
             return regla(
               `ucp-20a-iii-${k}`,
               fuentePuertos,
-              `Puerto ${cual} el que indica el crédito (${puertoLC})`,
+              `Puerto ${cual} el que indica el crédito ("${puertoLC}")`,
               v.estado,
               `el documento dice "${enDoc}"${v.nota}`,
             );

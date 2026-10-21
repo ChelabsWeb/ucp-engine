@@ -804,3 +804,49 @@ describe("el número del crédito en un papel del 46A", () => {
     );
   });
 });
+/**
+ * El certificado que acredita algo que ocurre **en destino**, que es el laudo DOCDEX 318.
+ *
+ * El motor tenía `cert-previo` —el certificado que el crédito pide anterior al embarque— y no tenía el
+ * espejo: una aceptación en sitio fechada el día del a bordo o antes es materialmente imposible, porque
+ * la mercadería todavía no llegó. En el laudo eran USD 4.920.000 y el panel lo tomó por discrepancia
+ * del 14 (d) sin salir de los papeles.
+ */
+describe("el certificado de algo que ocurre en destino (DOCDEX 318)", () => {
+  const SAT = "ONE ORIGINAL AND FOUR COPIES OF BENEFICIARY'S SIGNED CERTIFICATE OF SITE ACCEPTANCE TEST (SAT)";
+  const con = (fecha: string, exigencia = SAT) =>
+    correr([{ exigencia, campos: doc({ fechaDocumento: campo(fecha) }) }]).find((r) =>
+      r.id.startsWith("cert-en-destino"),
+    );
+
+  it("fechado el mismo día que el a bordo va a verificar y nombra el laudo", () => {
+    const r = con("08-APR-2025");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("DOCDEX 318");
+  });
+
+  it("y fechado antes también", () => {
+    expect(con("01-APR-2025")?.estado).toBe("ATENCION");
+  });
+
+  /* Lo normal es que sea posterior: la mercadería llegó, se instaló y se aceptó. Ahí no se emite. */
+  it("fechado después del embarque no emite nada", () => {
+    expect(con("20-APR-2025")).toBeUndefined();
+  });
+
+  it("y el fin de la capacitación entra en la misma familia", () => {
+    expect(con("08-APR-2025", "CERTIFICATE OF COMPLETION OF TRAINING")?.estado).toBe("ATENCION");
+  });
+
+  /*
+   * Y los dos frenos del nombre: una inspección es justamente lo que se hace **antes** de embarcar, y
+   * un certificado de origen no acredita nada que pase en destino.
+   */
+  it("una inspección no entra: se hace antes de embarcar", () => {
+    expect(con("01-APR-2025", "CERTIFICATE OF INSPECTION ISSUED BY AN ACCREDITED SURVEYOR")).toBeUndefined();
+  });
+
+  it("ni un certificado de origen", () => {
+    expect(con("01-APR-2025", "CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE")).toBeUndefined();
+  });
+});

@@ -544,7 +544,7 @@ export function precheckPresentacion(input: {
             ? `dice "${nt}" y no se leyó el ordenante del crédito: verificar a mano`
             : cmp === "TIPEO"
               ? `dice "${nt}" y el ordenante es ${cliente}: ${NOTA_TIPEO_DE_NOMBRE}`
-              : `dice "${nt}" · ordenante ${cliente}`,
+              : `dice "${nt}" · ordenante "${cliente}"`,
       });
     }
   }
@@ -620,8 +620,8 @@ export function precheckPresentacion(input: {
         evidencia: !input.empresaRazonSocial?.trim()
           ? `emisor "${exp}" y no se leyó el beneficiario del crédito: verificar a mano`
           : v === "ATENCION"
-            ? `emisor "${exp}" · beneficiario ${input.empresaRazonSocial}: ${NOTA_TIPEO_DE_NOMBRE}`
-            : `emisor "${exp}" · beneficiario ${input.empresaRazonSocial}`,
+            ? `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}": ${NOTA_TIPEO_DE_NOMBRE}`
+            : `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}"`,
       });
     }
   }
