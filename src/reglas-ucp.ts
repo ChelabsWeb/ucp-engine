@@ -1,5 +1,5 @@
 import type { CamposDoc, TipoDocExterno } from "./consistencia";
-import { aKg, cantidadDelCredito, cantidadesDelCredito, parseNumero, unidadNormal } from "./consistencia";
+import { aKg, cantidadDelCredito, cantidadesDelCredito, claveDoc, parseNumero, unidadNormal } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { cotejarIncotermISBP, esFacturaComercial, versionIncoterm } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
@@ -627,12 +627,41 @@ function veredictoLugar(enDoc: string, delCredito: string): { estado: EstadoRegl
   return { estado: "DISCREPANCIA", nota: "" };
 }
 
+/**
+ * Y sobre un documento **multimodal** el lugar de carga no se puede rechazar.
+ *
+ * La Opinión R 638 / TA 629 decide exactamente este rechazo —*«B/L doesn\'t show port of loading as
+ * required under L/C field 44E»*, con el 44E diciendo Umea y el documento Hamburgo— y lo declara
+ * inválido:
+ *
+ *   «The fact that Umea is not shown as the port of loading but as place of receipt reflects the
+ *   nature of the multimodal transport that occurred. Hamburg, being shown as the port of loading,
+ *   correctly reflects the transport from that port to Jebel Ali.»
+ *
+ * El motivo es la naturaleza del papel y no una tolerancia: *«Where a multimodal transport document is
+ * required or allowed, a shipment from a port to a port is not envisaged»*. El lugar que el crédito
+ * nombra aparece en el casillero de **lugar de recepción**, y ése es un casillero que el esquema no
+ * tiene: el motor lee `puertoEmbarque` y en un multimodal eso es el puerto del tramo oceánico.
+ *
+ * Así que sale **ATENCION y no DISCREPANCIA**, con la Opinión a la vista y diciendo qué hay que mirar
+ * en el papel. No OK: el documento podría de verdad estar cargando en un puerto que el crédito no
+ * nombró, y afirmar que cumple sin ver el lugar de recepción sería inventar la mitad que falta.
+ *
+ * **El alcance es el que la Opinión decide y nada más:** solo el artículo 19, solo el lado de la
+ * carga. Sobre un marítimo del artículo 20 un puerto de carga distinto sigue siendo discrepancia —el
+ * crédito nombró el puerto y el papel es de puerto a puerto— y el lado del destino queda como estaba
+ * hasta que un caso real pruebe el espejo.
+ */
+const NOTA_R638 =
+  " — es un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 / TA 629 declara inválido el rechazo por esto. Verificar en el papel el lugar de recepción";
+
 function reglasLugares(
   doc: DocAnalizado,
   ctx: ContextoCredito,
   fuente: string,
   prefijo: string,
   comoSeLlama: [string, string],
+  esMultimodal = false,
 ): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
   for (const [k, delCredito, cual, sufijo] of [
@@ -646,12 +675,13 @@ function reglasLugares(
       enDoc
         ? (() => {
             const v = veredictoLugar(enDoc, delCredito);
+            const ablanda = esMultimodal && sufijo === "carga" && v.estado === "DISCREPANCIA";
             return regla(
               id,
               fuente,
               `${cual} el que indica el crédito (${delCredito})`,
-              v.estado,
-              `el documento dice "${enDoc}"${v.nota}`,
+              ablanda ? "ATENCION" : v.estado,
+              `el documento dice "${enDoc}"${ablanda ? NOTA_R638 : v.nota}`,
             );
           })()
         : sinLeer(id, fuente, `${cual} el que indica el crédito`, cual.toLowerCase()),
@@ -672,13 +702,33 @@ function reglasMultimodal(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresent
   const out: ReglaPresentacion[] = [];
 
   const constancia = val(doc, "onBoard");
+  /*
+   * Y «received for shipment» **cuenta**, que es lo que la Opinión R 638 / TA 629 resuelve.
+   *
+   * El inciso pide que la mercadería conste «dispatched, taken in charge or shipped on board», y un
+   * documento multimodal que dice «received for shipment» consta tomada a cargo: la conclusión de la
+   * Opinión es explícita —*«Due to the fact that a multimodal transport has occurred, the transport
+   * document marked "received for shipment" and dated as of that date is acceptable»*— y el análisis
+   * explica por qué, *«Where a multimodal transport document is required or allowed, a shipment from a
+   * port to a port is not envisaged»*.
+   *
+   * El motor lo mandaba a verificar: la lista de palabras tenía «shipped» y no «shipment», así que la
+   * leyenda más corriente de un multimodal salía ATENCION. No era un falso positivo —ATENCION no
+   * rechaza— pero era el motor sin concluir sobre lo único que el artículo 19 tiene de propio.
+   *
+   * **El alcance está en que esta regla es solo del artículo 19.** Sobre un marítimo del artículo 20
+   * «received for shipment» no alcanza y eso lo decide `ucp-20a-ii`, que pide la anotación de a bordo
+   * con fecha y no se tocó. Y si el crédito pidió el documento «on board», la exigencia la mira
+   * `ucp-14a-on-board` con los dos frenos de R 638 y R 641.
+   */
+  const CONSTA_19A_II = /dispatch|taken in charge|shipped|shipment|on board|despach|tomad|recib/i;
   out.push(
     constancia
       ? regla(
           "ucp-19a-ii",
           "UCP 600 19a-ii",
           "La mercadería consta despachada, tomada a cargo o embarcada en el lugar del crédito",
-          /dispatch|taken in charge|shipped|on board|despach|tomad/i.test(constancia) ? "OK" : "ATENCION",
+          CONSTA_19A_II.test(constancia) ? "OK" : "ATENCION",
           `dice "${constancia}"`,
         )
       : sinLeer(
@@ -690,10 +740,14 @@ function reglasMultimodal(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresent
   );
 
   out.push(
-    ...reglasLugares(doc, ctx, "UCP 600 19a-iii", "ucp-19a-iii", [
-      "Lugar de despacho o toma a cargo",
-      "Lugar de destino final",
-    ]),
+    ...reglasLugares(
+      doc,
+      ctx,
+      "UCP 600 19a-iii",
+      "ucp-19a-iii",
+      ["Lugar de despacho o toma a cargo", "Lugar de destino final"],
+      true,
+    ),
   );
 
   if (ctx.transbordo && /not\s+allowed|prohib/i.test(ctx.transbordo)) {
@@ -745,11 +799,54 @@ function reglasMultimodal(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresent
  * provided that a valid on board notation was included»* (R 280)— así que la clase sigue saliendo de
  * lo que el papel dice de sí mismo y no de que tenga pre-acarreo.
  */
-function reglaOnBoardQuePideElCredito(doc: DocAnalizado, exigidos: string[]): ReglaPresentacion[] {
-  const lineaDeTransporte = exigidos.find((d) => /bill of lading|transport document|conocimiento/i.test(d));
+function reglaOnBoardQuePideElCredito(
+  doc: DocAnalizado,
+  exigidos: string[],
+  condicionesAdicionales: string[] = [],
+): ReglaPresentacion[] {
+  /*
+   * La línea del transporte se busca con `claveDoc` y no con un patrón propio.
+   *
+   * El patrón de acá decía `/bill of lading|transport document|conocimiento/` y no reconocía
+   * «MARINE BILL(S) OF LADING» —el plural entre paréntesis de la Opinión R 638 / TA 629— ni «3/3
+   * ORIGINAL B/LS» ni un documento multimodal titulado de cualquiera de las otras seis maneras. O sea
+   * que la regla se salteaba en silencio, que es el mismo defecto que la batería de `apareo-46a`
+   * existe para frenar, cometido con un patrón paralelo al que esa batería cubre.
+   */
+  const lineaDeTransporte = exigidos.find((d) => claveDoc(d) === "BL");
   if (!lineaDeTransporte || !/\bon\s*board\b|\bshipped\s+on\s+board\b|a\s+bordo/i.test(lineaDeTransporte)) {
     return [];
   }
+
+  /*
+   * Y el freno que trajo R 638 / TA 629: **si el crédito permite el multimodal, el «on board» no se
+   * le exige.**
+   *
+   * En esa Opinión el 46A pide «full set of at least 3/3 original clean on board marine bill(s) of
+   * lading» y una condición adicional dice «Multimodal transport document is acceptable». El banco
+   * rechazó y la ICC declaró el rechazo inválido: las palabras «on board» pertenecen a la alternativa
+   * del marítimo, y quien escribió el crédito así carga con la ambigüedad —*«it can only be the
+   * issuing bank (and ultimately, the applicant) that bears the risk of such ambiguity»*—. La
+   * conclusión es explícita: *«Due to the fact that a multimodal transport has occurred, the transport
+   * document marked "received for shipment" and dated as of that date is acceptable.»*
+   *
+   * El discriminador es de quién cuelgan las palabras, y lo decide la línea misma:
+   *
+   * - si la línea que dice «on board» **nombra el documento multimodal** —«clean on board multimodal
+   *   transport document», que es el crédito de R 641 / TA 650rev— el crédito sí la pidió para este
+   *   papel y la regla corre;
+   * - si la línea nombra un **marítimo** y el permiso del multimodal está en otra parte, manda R 638 y
+   *   la regla no se emite.
+   *
+   * Sin este freno el motor producía sobre los hechos de R 638 una discrepancia que la ICC declara
+   * inválida, con texto oficial en contra.
+   */
+  const laLineaNombraElMultimodal = /multimodal|combined transport|intermodal|through bill/i.test(lineaDeTransporte);
+  const permitido = condicionesAdicionales.some(
+    (c) =>
+      /multimodal|combined transport|intermodal/i.test(c) && /acceptable|allowed|permitted|acepta|permit/i.test(c),
+  );
+  if (permitido && !laLineaNombraElMultimodal) return [];
   const constancia = val(doc, "onBoard");
   if (!constancia) {
     return [
@@ -762,14 +859,46 @@ function reglaOnBoardQuePideElCredito(doc: DocAnalizado, exigidos: string[]): Re
     ];
   }
   const estaABordo = /\bon\s*board\b|\bshipped\b|a\s+bordo|embarcad/i.test(constancia);
+  /*
+   * Y si está a bordo, **con qué fecha**, que es la mitad que faltaba.
+   *
+   * La Opinión R 641 / TA 650rev contesta exactamente este supuesto —un multimodal contra un crédito
+   * que pidió «clean on board multimodal transport document», con la anotación agregada aparte y sin
+   * fecha dentro de ella— y le da la razón al banco que rechazó:
+   *
+   *   «A dated on board notation is clearly required when the credit so requests. It is also required
+   *   when the document evidences the first leg of the carriage as a sea shipment from the place
+   *   stated in the credit.»
+   *
+   * Hasta acá esta regla miraba la palabra y no la fecha, así que un conocimiento sin fecha de
+   * embarque en ninguna parte salía OK.
+   *
+   * **Sale ATENCION y no DISCREPANCIA, y el motivo es el párrafo 2 de la misma conclusión:**
+   *
+   *   «Where a transport document is pre-printed shipped on board, the date of issuance would be
+   *   deemed to be the date of shipment.»
+   *
+   * O sea que el mismo texto significa dos cosas distintas según venga **preimpreso** —y entonces
+   * rige la fecha de emisión y el documento cumple— o **agregado** —y entonces no hay fecha de
+   * embarque y la discrepancia vale—. El campo trae un solo texto copiado del papel, y «SHIPPED ON
+   * BOARD» se escribe igual en los dos. Rechazar un conocimiento preimpreso sería el falso positivo
+   * que mata la adopción; dejar pasar uno agregado sin fecha es lo que hacía antes. Lo defendible es
+   * ponerlo delante de una persona nombrando la Opinión, que es lo que hace.
+   *
+   * R 642 / TA 666rev lo amplía a cuatro variantes de leyenda preimpresa y no mueve la conclusión:
+   * «the same conclusion will apply notwithstanding the type or title of document presented».
+   */
+  const conFecha = fechaEnTexto(constancia) !== null;
   return [
     regla(
       "ucp-14a-on-board",
       "UCP 600 14a",
-      "El crédito pide el documento «on board» y el documento lo evidencia",
-      estaABordo ? "OK" : "DISCREPANCIA",
+      "El crédito pide el documento «on board» y el documento lo evidencia con fecha",
+      estaABordo ? (conFecha ? "OK" : "ATENCION") : "DISCREPANCIA",
       estaABordo
-        ? `el 46A pide "on board" y el documento dice "${constancia}"`
+        ? conFecha
+          ? `el 46A pide "on board" y el documento dice "${constancia}"`
+          : `el 46A pide "on board" y el documento dice "${constancia}" — no se le leyó una fecha: la Opinión R 641 / TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión. Verificar en el papel si está preimpresa o agregada`
         : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo`,
     ),
   ];
@@ -1915,7 +2044,7 @@ export function reglasUCP(input: {
       out.push(...reglasAereo(ctx, bl));
     } else if (clase.modo === "MULTIMODAL") {
       out.push(...reglasMultimodal(ctx, bl));
-      out.push(...reglaOnBoardQuePideElCredito(bl, exigidos));
+      out.push(...reglaOnBoardQuePideElCredito(bl, exigidos, input.lc.condicionesAdicionales ?? []));
     } else if (clase.modo === "TERRESTRE") {
       out.push(...reglasTerrestre(ctx, bl));
     } else if (clase.modo === "COURIER") {

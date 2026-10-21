@@ -263,6 +263,37 @@ describe("el diccionario cubre todo lo que el motor escribe", () => {
     // El mensaje nombra la palabra y la frase, para que arreglarlo no sea una búsqueda.
     expect(sinTraducir.map((x) => `«${x.palabra}» en «${x.texto}»`)).toEqual([]);
   });
+
+  /*
+   * Y una entrada del diccionario que **no puede dispararse nunca**.
+   *
+   * `textoEnIngles` saca las citas antes de aplicar el diccionario y las repone al final: en el texto
+   * que el diccionario ve, una cita entre comillas dobles es un hueco `\u0000N\u0000`. O sea que un
+   * patrón que incluya una comilla doble no matchea nunca, y lo que traduce al final es algún patrón
+   * más corto y más genérico — media frase en cada idioma, o una frase traducida por un patrón que no
+   * era para ella.
+   *
+   * Había **cuatro** así, muertas desde que se escribieron. Lo encontró la Opinión R 638 / TA 629, que
+   * hizo correr una regla que el expediente de referencia no disparaba, y entonces el control de
+   * arriba mostró «el 46A pide "on board" y the document states …». Las cuatro estaban probadas por el
+   * test de arriba sin que eso significara nada, porque la frase igual terminaba en inglés.
+   *
+   * El control se escribe sobre el **fuente** y no sobre el arreglo porque el diccionario no se
+   * exporta, y es la misma técnica que el resto de este archivo. Si alguna vez hace falta una entrada
+   * con comillas, lo que hay que cambiar es `textoEnIngles`, no esta lista.
+   */
+  it("ninguna entrada del diccionario lleva comillas dobles en el patrón: no podría dispararse", () => {
+    const fuente = FUENTES["./ingles.ts"] ?? "";
+    const desde = fuente.indexOf("const REEMPLAZOS");
+    const hasta = fuente.indexOf("const POR_ESPECIFICIDAD");
+    expect(desde, "no se encontró el diccionario en ingles.ts").toBeGreaterThan(-1);
+    expect(hasta).toBeGreaterThan(desde);
+    const cuerpo = fuente.slice(desde, hasta);
+    /* El patrón de cada entrada: lo que va entre `[` y la primera barra de cierre. */
+    const patrones = [...cuerpo.matchAll(/\[\s*(\/(?:\\.|\[[^\]]*\]|[^/\\\n])+\/[a-z]*)/g)].map((m) => m[1]);
+    expect(patrones.length, "no se reconoció ningún patrón: el control dejó de mirar algo").toBeGreaterThan(400);
+    expect(patrones.filter((p) => p.includes('"'))).toEqual([]);
+  });
 });
 
 describe("todo módulo que le habla al examinador se puede alcanzar desde fuera", () => {

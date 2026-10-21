@@ -57,9 +57,23 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [/^quedan (\d+) d[ií]as h[áa]biles contando hoy$/g, "$1 banking days left, counting today"],
   // ── los límites de un standby (`standby.ts`) ──
+  /*
+   * Estas cuatro frases van **sin la cita adentro**, y el motivo es cómo traduce `textoEnIngles`.
+   *
+   * El procedimiento saca las citas antes de aplicar el diccionario y las repone al final, así que
+   * en el texto que el diccionario ve una cita es un hueco `\u0000N\u0000`. Un patrón que incluye
+   * comillas dobles **no puede dispararse nunca**: cuatro entradas estaban escritas así y estaban
+   * muertas desde que se escribieron, y lo que traducía al final era un patrón más corto y más
+   * genérico —el fragmento sin la cita—, que es por qué nadie lo notó.
+   *
+   * Lo encontró la Opinión R 638 / TA 629: la regla `ucp-14a-on-board` empezó a correr sobre el
+   * expediente de referencia y el control de cobertura mostró «el 46A pide "on board" y the document
+   * states …», media frase en cada idioma. El control que lo frena para siempre está en
+   * `ingles-cobertura.test.ts`.
+   */
   [
-    /^el campo 40E dice "([^"]*)" y este motor mide con las UCP 600, que son otro cuerpo de reglas$/g,
-    'field 40E says "$1" and this engine measures with UCP 600, which is a different body of rules',
+    / y este motor mide con las UCP 600, que son otro cuerpo de reglas$/g,
+    " and this engine measures with UCP 600, which is a different body of rules",
   ],
   [
     /^esa medida no la fija el reglamento sino quien examina, y este examen desactivó lo que no tiene a qué aplicarse$/g,
@@ -127,7 +141,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó el título de la factura en el documento: verificar a mano$/g,
     "the heading of the invoice was not read on the document: check by hand",
   ],
-  [/^se titula "([^"]*)"$/g, 'it is headed "$1"'],
+
   [
     /^una factura proforma no satisface la exigencia de factura comercial \(ISBP 821 C1\)$/g,
     "a proforma invoice does not satisfy a requirement for a commercial invoice (ISBP 821 C1)",
@@ -1224,10 +1238,24 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\bla anotación dice\b/g, "the on board notation reads"],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
+    /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,
+    "The credit requires the document to be «on board» and the document evidences it with a date",
+  ],
+  [
     /^El crédito pide el documento «on board» y el documento lo evidencia$/g,
     "The credit requires the document to be «on board» and the document evidences it",
   ],
-  [/\bel 46A pide "on board" y el documento dice\b/g, 'field 46A requires "on board" and the document reads'],
+  [/^el 46A pide /g, "field 46A requires "],
+  /* R 638 / TA 629: el lugar de carga de un multimodal */
+  [
+    /\bes un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 \/ TA 629 declara inválido el rechazo por esto\. Verificar en el papel el lugar de recepción\b/g,
+    "this is a multimodal transport document, so that box shows the port of loading of the ocean leg and the place named in the credit may appear in the place of receipt box, which the engine does not read: ICC Opinion R 638 / TA 629 holds a refusal on this ground to be invalid. Check the place of receipt on the document itself",
+  ],
+  /* R 641 / TA 650rev: la anotación sin fecha */
+  [
+    /\bno se le leyó una fecha: la Opinión R 641 \/ TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión\. Verificar en el papel si está preimpresa o agregada\b/g,
+    "no date could be read from it: ICC Opinion R 641 / TA 650rev requires a dated on board notation when the credit so requests, unless the wording is pre-printed, in which case the date of issuance governs. Check on the document itself whether it is pre-printed or added",
+  ],
   [
     /\bel artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo\b/g,
     "article 19 allows the goods to be shown as taken in charge, but this credit required them on board",
@@ -1435,7 +1463,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano$/g,
     "the credit requires it in field $1 and none was read on the document: check by hand",
   ],
-  [/^dice "(.+)" y el crédito es "(.+)"$/g, 'states "$1" while the credit is "$2"'],
+  [/ y el crédito es /g, " while the credit is "],
   [/\bfechado el día de la LC o después\b/g, "dated on or after the credit date"],
   [/^BL consignado\b/g, "B/L consigned"],
   [/^BL marcado\b/g, "B/L marked"],

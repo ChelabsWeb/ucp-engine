@@ -467,9 +467,56 @@ describe("los transportes que no son marítimos ni aéreos", () => {
       expect(r?.estado).toBe("OK");
     });
 
-    it("19a-iii: el lugar de despacho y el de destino final son los del crédito", () => {
-      const malo = corr(multi({ puertoEmbarque: campo("BUENOS AIRES") })).find((x) => x.id === "ucp-19a-iii-carga");
-      expect(malo?.estado).toBe("DISCREPANCIA");
+    /*
+     * Y «received for shipment» también, por R 638 / TA 629: es la leyenda más corriente de un
+     * multimodal y el motor la mandaba a verificar porque la lista decía «shipped» y no «shipment».
+     */
+    it("19a-ii: y «received for shipment» cumple (R 638 / TA 629)", () => {
+      const r = corr(multi({ onBoard: campo("RECEIVED FOR SHIPMENT 08-APR-2025") })).find(
+        (x) => x.id === "ucp-19a-ii",
+      );
+      expect(r?.estado).toBe("OK");
+    });
+
+    it("pero sobre un marítimo del artículo 20 no alcanza: ahí manda la anotación de a bordo", () => {
+      const r = reglasUCP({
+        lc: LC,
+        credito: CTX,
+        docs: [
+          {
+            tipo: "BL" as const,
+            campos: doc({
+              tipoTransporte: campo("OCEAN BILL OF LADING"),
+              puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+              puertoDestino: campo("COLOMBO, SRI LANKA"),
+              onBoard: campo("RECEIVED FOR SHIPMENT"),
+            }),
+          },
+        ],
+        hoy: HOY,
+      }).find((x) => x.id === "ucp-20a-ii");
+      expect(r?.estado).toBe("ATENCION");
+    });
+
+    /*
+     * Y acá **cambió el veredicto**, por la Opinión R 638 / TA 629.
+     *
+     * Este test afirmaba DISCREPANCIA, que es exactamente el rechazo que la Opinión declara inválido:
+     * en un multimodal el casillero del puerto de carga es el del tramo oceánico, y el lugar que el
+     * crédito nombra aparece en el de lugar de recepción, que el motor no lee. Queda ATENCION con la
+     * Opinión nombrada — el documento puede de verdad estar cargando donde no corresponde, y eso lo
+     * decide una persona mirando el casillero que falta.
+     */
+    it("19a-iii: el lugar de carga distinto no se rechaza en un multimodal (R 638 / TA 629)", () => {
+      const r = corr(multi({ puertoEmbarque: campo("BUENOS AIRES") })).find((x) => x.id === "ucp-19a-iii-carga");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 638");
+      expect(r?.evidencia).toContain("lugar de recepción");
+    });
+
+    it("pero el lugar de destino sí: la Opinión decide el lado de la carga y nada más", () => {
+      const r = corr(multi({ puertoDestino: campo("BUENOS AIRES") })).find((x) => x.id === "ucp-19a-iii-destino");
+      expect(r?.estado).toBe("DISCREPANCIA");
     });
 
     it("19a-iii: y «intended» no lo hace discrepante, que es lo que el artículo aclara", () => {
@@ -1804,6 +1851,33 @@ describe("el «on board» que pide el crédito sobre un documento multimodal", (
 
   it("y con la anotación de a bordo cumple", () => {
     expect(con(multimodal("SHIPPED ON BOARD 20-AUG-2026"), PIDE_ON_BOARD)?.estado).toBe("OK");
+  });
+
+  /*
+   * La anotación **sin fecha**, que es la Opinión R 641 / TA 650rev.
+   *
+   * «A dated on board notation is clearly required when the credit so requests»: la palabra sola no
+   * alcanza cuando el crédito pidió el documento a bordo. Y sale ATENCION y no DISCREPANCIA porque el
+   * párrafo 2 de la misma conclusión dice que con la leyenda **preimpresa** rige la fecha de emisión,
+   * y el campo trae un solo texto copiado donde las dos se escriben igual.
+   */
+  it("la anotación sin fecha no cumple sola: va a verificar nombrando R 641", () => {
+    const r = con(multimodal("SHIPPED ON BOARD"), PIDE_ON_BOARD);
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 641");
+    expect(r?.evidencia).toContain("preimpresa");
+  });
+
+  it("y nunca rechaza por la fecha que falta: eso lo decide una persona con el papel", () => {
+    expect(con(multimodal("ON BOARD"), PIDE_ON_BOARD)?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y el freno: la fecha se le pide a la anotación, no al documento que no está a bordo. Un
+   * «Received for Shipment» sin fecha sigue siendo la discrepancia del 14 (a) y no un aviso.
+   */
+  it("«Received for Shipment» sin fecha sigue siendo discrepancia, no aviso", () => {
+    expect(con(multimodal("Received for Shipment"), PIDE_ON_BOARD)?.estado).toBe("DISCREPANCIA");
   });
 
   it("sin leer la constancia no se dictamina", () => {

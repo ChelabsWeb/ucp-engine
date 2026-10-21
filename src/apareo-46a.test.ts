@@ -54,6 +54,9 @@ const BATERIA: [linea: string, clave: string][] = [
   /* ── transporte: `BL` es el tipo genérico y de ahí sale la clase (arts. 19 a 25) ── */
   ["FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING MARKED FREIGHT PREPAID", "BL"],
   ["FULL SET 3/3 ORIGINAL B/LS PLUS 2 NON NEGOTIABLE COPIES", "BL"],
+  /* El plural entre paréntesis, que es como lo escribe un mensaje SWIFT: Opinión R 638 / TA 629. */
+  ["FULL SET OF AT LEAST 3/3 ORIGINAL CLEAN ON BOARD MARINE BILL(S) OF LADING", "BL"],
+  ["ORIGINAL AIR WAYBILL(S) CONSIGNED TO ISSUING BANK", "BL"],
   ["CHARTER PARTY BILL OF LADING IN 3 ORIGINALS", "BL"],
   ["FULL SET OF ORIGINAL AIR WAYBILLS CONSIGNED TO APPLICANT", "BL"],
   ["ORIGINAL HOUSE AIR WAYBILL CONSIGNED TO ISSUING BANK", "BL"],
@@ -104,6 +107,9 @@ const BATERIA: [linea: string, clave: string][] = [
   ["SHIPMENT ADVICE QUOTING THE BILL OF LADING NUMBER AND THE INVOICE VALUE", "AVISO_EMBARQUE"],
   ["ADVICE OF SHIPMENT SENT BY FAX TO THE APPLICANT", "AVISO_EMBARQUE"],
   ["SHIPMENT NOTICE IN 2 COPIES", "AVISO_EMBARQUE"],
+  /* Y el mismo plural sobre las otras familias, que es lo que hace general al arreglo. */
+  ["SIGNED COMMERCIAL INVOICE(S) IN TRIPLICATE", "INVOICE"],
+  ["CERTIFICATE(S) OF ORIGIN ISSUED BY CHAMBER OF COMMERCE", "ORIGEN"],
 ];
 
 describe("el apareo de la línea del 46A", () => {
