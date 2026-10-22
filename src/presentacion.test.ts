@@ -852,3 +852,68 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
     expect(r?.estado).toBe("OK");
   });
 });
+
+/**
+ * Dos líneas del 46A que aparean al mismo papel (Opinión TA 893rev)
+ *
+ * `presentado()` marca la entrada como usada y `doc()` no, así que una línea del 46A que **menciona**
+ * un documento sin exigir otro se llevaba el mismo papel y salía en OK diciendo «Analizado (PACKING)»:
+ * el motor afirmaba haber mirado una línea que nunca leyó.
+ *
+ * El 46A de la Opinión es exactamente así — su punto 10 describe qué tiene que decir el packing list
+ * («the packing list should indicate the dimensions of the bale to which the packing list is
+ * pertained»), de modo que nombra ese documento sin pedir uno nuevo.
+ *
+ * Nunca rechaza: una línea de más en el 46A no es un defecto del beneficiario, y cuál de las dos
+ * lecturas vale —el crédito pide dos papeles, o esto es una condición sobre el que ya pidió— el motor
+ * no lo puede decidir.
+ */
+describe("dos líneas del 46A que aparean al mismo papel (TA 893rev)", () => {
+  const LA_CONDICION =
+    "THE MATERIAL SHOULD BE SECURELY PACKED IN SEAWORTHY EXPORT PACKING TO AVOID ANY DAMAGE IN TRANSIT. AMONG OTHER PARTICULARS, THE PACKING LIST SHOULD INDICATE THE DIMENSIONS OF THE BALE TO WHICH THE PACKING LIST IS PERTAINED.";
+
+  const conExigencias = (exigencias: string[]) =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: exigencias },
+      docs: [{ tipo: "PACKING" as const, campos: PACKING }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.filter((x) => /^46A\+/.test(x.id));
+
+  it("la primera línea la cumple el papel y la segunda sale a verificar", () => {
+    const r = conExigencias(["PACKING LIST IN THREE ORIGINALS AND THREE COPIES", LA_CONDICION]);
+    expect(r.map((x) => x.estado)).toEqual(["OK", "ATENCION"]);
+    expect(r[1]?.evidencia).toContain("la línea 46A+1 ya exige este documento");
+    expect(r[1]?.evidencia).toContain("TA 893rev");
+  });
+
+  it("y nunca rechaza: una línea de más en el 46A no es discrepancia del beneficiario", () => {
+    const r = conExigencias(["PACKING LIST IN THREE ORIGINALS AND THREE COPIES", LA_CONDICION]);
+    expect(r.some((x) => x.estado === "DISCREPANCIA")).toBe(false);
+  });
+
+  it("una sola línea sigue saliendo en OK, sin la nota", () => {
+    const r = conExigencias(["PACKING LIST IN THREE ORIGINALS AND THREE COPIES"]);
+    expect(r.map((x) => x.estado)).toEqual(["OK"]);
+    expect(r[0]?.evidencia).toContain("Analizado");
+  });
+
+  /*
+   * Y el freno: la línea repetida que **no** tiene papel sigue saliendo FALTA.
+   *
+   * Si la nota se emitiera también ahí, el examen diría «verificar a mano» sobre un documento que el
+   * crédito pide y nadie presentó, que es la peor confusión posible — y es la que ya costó caro con
+   * los siete certificados que se veían como siete FALTA.
+   */
+  it("sin el papel, la línea repetida sigue faltando", () => {
+    const r = precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["PACKING LIST IN THREE ORIGINALS AND THREE COPIES", LA_CONDICION] },
+      docs: [],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.filter((x) => /^46A\+/.test(x.id));
+    expect(r.some((x) => x.estado === "ATENCION" && /ya exige este documento/.test(x.evidencia ?? ""))).toBe(false);
+  });
+});

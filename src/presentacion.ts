@@ -253,6 +253,21 @@ export function precheckPresentacion(input: {
 
   /* ---- 46A: cada documento exigido, ¿está y con cuántos ejemplares? ---- */
   const exigidos = lc.documentosExigidos ?? [];
+  /*
+   * Qué línea del 46A se llevó cada clave, para que un papel no satisfaga dos líneas.
+   *
+   * `presentado()` marca la entrada como usada y `doc()` no, así que con dos líneas que aparean a la
+   * misma clave el **mismo** papel las daba por cumplidas las dos — y la segunda salía en OK diciendo
+   * «Analizado (PACKING)», o sea afirmando que el motor miró una línea que nunca leyó. Lo encontró la
+   * Opinión TA 893rev, cuyo 46A tiene una cláusula que **describe qué tiene que decir** el packing
+   * list («the packing list should indicate the dimensions of the bale») y por lo tanto nombra ese
+   * documento sin exigir otro.
+   *
+   * Las dos lecturas son posibles —el crédito pide dos papeles, o esta línea es una condición sobre el
+   * que ya pidió— y el motor no puede elegir, así que lo dice. Nunca rechaza: una línea de más en el
+   * 46A no es una discrepancia del beneficiario.
+   */
+  const claveYaExigida = new Map<string, string>();
   exigidos.forEach((texto, i) => {
     const k = claveDoc(texto);
     const ej = ejemplaresDe(texto);
@@ -267,7 +282,17 @@ export function precheckPresentacion(input: {
     const pres = analizado ? undefined : presentado(texto);
     const enChecklist = op.checklist.find((c) => claveDoc(c.label) === k);
     const resumen = texto.length > 90 ? `${texto.slice(0, 87)}…` : texto;
-    if (analizado) {
+    const laPrimeraConEstaClave = claveYaExigida.get(k);
+    if (!laPrimeraConEstaClave) claveYaExigida.set(k, id);
+    if (laPrimeraConEstaClave && (analizado || pres)) {
+      reglas.push({
+        id,
+        fuente: id,
+        regla: resumen,
+        estado: "ATENCION",
+        evidencia: `la línea ${laPrimeraConEstaClave} ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano (Opinión TA 893rev)`,
+      });
+    } else if (analizado) {
       reglas.push({
         id,
         fuente: id,
