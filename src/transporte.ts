@@ -184,6 +184,24 @@ export interface BuqueDeLaAnotacion {
   nombraAlBuque: boolean;
   /** lo que la anotación nombra y no es el buque ni el puerto de carga ni su fecha */
   sobra: string[];
+  /**
+   * Lo que sobra viene **marcado como un buque**: «MV W», «M/V W», «SS W», «VESSEL W».
+   *
+   * Es el discriminador que la Opinión **TA 858rev** permitió usar. El motor avisaba y no concluía
+   * porque lo que sobra en una anotación puede ser un puerto de trasbordo o una terminal, y no se puede
+   * distinguir de un buque. Pero cuando el papel **lo marca** —«SHIPPED ON BOARD MV [VESSEL W]
+   * 04.05.2016 FROM PORT H», que es la anotación de ese expediente— ya no hay ambigüedad: es un buque, y
+   * no es el que el documento declara como oceánico.
+   *
+   *   «UCP 500, and now UCP 600, only requires evidence of the name of the vessel that is leaving the
+   *   port of loading stated in the credit […] for the port of discharge.» — CONCLUSION: «Yes, the
+   *   refusal is valid. The bill of lading requires a dated on board notation indicating vessel O and
+   *   Port H.»
+   *
+   * La Opinión además contesta la objeción que el banco presentador había puesto: *«ICC Opinions R350
+   * and R352 still apply under UCP 600»*.
+   */
+  sobraUnBuque: boolean;
 }
 
 /* Las palabras con las que se redacta una anotación de a bordo, que no nombran nada. */
@@ -258,7 +276,17 @@ export function buqueDeLaAnotacion(
       !delPuerto.has(w) &&
       !distintivasDelBuque.includes(w),
   );
-  return { nombraAlBuque, sobra: [...new Set(sobra)] };
+  /*
+   * Y si el papel marca lo que sobra como un buque, no hay nada que verificar: ver `sobraUnBuque`.
+   *
+   * El marcador tiene que estar **antes** de lo que sobra, que es como se escribe un nombre de buque:
+   * «MV ALGO». Un «VESSEL» suelto en medio de la frase no alcanza — la propia lista de palabras de la
+   * anotación lo trae, porque «on board the vessel» es redacción corriente.
+   */
+  const marcado = sobra.some((w) =>
+    new RegExp(`\\b(?:M[\\s./]?V|M[\\s./]?S|S[\\s./]?S|VESSEL|VSL)[\\s./]+(?:THE[\\s]+)?${w}\\b`).test(texto),
+  );
+  return { nombraAlBuque, sobra: [...new Set(sobra)], sobraUnBuque: marcado && !nombraAlBuque };
 }
 
 /* ──────────────── quién puede firmar, que depende de la clase (inciso (a) (i)) ──────────────── */

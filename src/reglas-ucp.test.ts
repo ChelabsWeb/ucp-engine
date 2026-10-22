@@ -1790,13 +1790,49 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
   });
 
   /*
-   * Y nunca DISCREPANCIA, por más que la Opinión R 350 diga que el rechazo valía: lo que sobra en la
-   * anotación podría ser un puerto de trasbordo o una terminal, y lo que separa a las dos Opiniones
-   * es la redacción. Rechazar sobre una palabra que no se entendió es el error que mata la adopción.
+   * **Sin el marcador no rechaza**, por más que la Opinión R 350 diga que el rechazo valía: lo que sobra
+   * en la anotación podría ser un puerto de trasbordo o una terminal, y rechazar sobre una palabra que
+   * no se entendió es el error que mata la adopción.
+   *
+   * El test se llamaba «y nunca rechaza» y dejó de ser cierto con la Opinión TA 858rev: cuando el papel
+   * **marca** lo que sobra como un buque sí rechaza, y eso está abajo. Lo que sigue en pie es que una
+   * palabra suelta no alcanza.
    */
-  it("y nunca rechaza", () => {
+  it("una palabra suelta que sobra no alcanza para rechazar", () => {
     const r = buscar(conAnotacion("JUL.16, 2013 UNI-PROMOTE 198B", "EVER DELUXE 0689-106E"), "ucp-20a-ii-buque");
     expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y la tercera banda, que es la Opinión **TA 858rev**: con el marcador delante, el aviso se vuelve
+   * veredicto.
+   *
+   * Los hechos de esa Opinión son exactos — misma plaza en lugar de recepción y puerto de carga, dos
+   * buques distintos en pre-acarreo y oceánico, y la anotación nombrando el de pre-acarreo con su «MV»
+   * adelante. «Yes, the refusal is valid. The bill of lading requires a dated on board notation
+   * indicating vessel O and Port H.»
+   */
+  it("un buque marcado que no es el oceánico es discrepancia (TA 858rev)", () => {
+    const r = buscar(
+      conAnotacion("SHIPPED ON BOARD MV VESSELW 04.05.2016 FROM PORT H", "VESSELO"),
+      "ucp-20a-ii-buque",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("TA 858rev");
+  });
+
+  it.each(["M/V", "MS", "S/S", "VSL"])("y el marcador vale en sus formas: «%s»", (m) => {
+    const r = buscar(conAnotacion(`SHIPPED ON BOARD ${m} VESSELW 04.05.2016`, "VESSELO"), "ucp-20a-ii-buque");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  /* Y el marcador tiene que estar **antes**: «on board the vessel» es redacción corriente. */
+  it("un «vessel» suelto en la frase no convierte nada en buque", () => {
+    const r = buscar(
+      conAnotacion("SHIPPED ON BOARD THE VESSEL AT UNI-PROMOTE TERMINAL 16-JUL-2013", "EVER DELUXE"),
+      "ucp-20a-ii-buque",
+    );
+    expect(r?.estado).toBe("ATENCION");
   });
 
   it("la anotación corriente no emite nada", () => {

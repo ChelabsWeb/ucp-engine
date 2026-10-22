@@ -1397,17 +1397,35 @@ function reglasTransporte(
    *   enseña a ignorar los avisos.
    */
   if (onBoard && buque && !intended) {
-    const { nombraAlBuque, sobra } = buqueDeLaAnotacion(onBoard, buque, val(bl, "puertoEmbarque"));
+    const { nombraAlBuque, sobra, sobraUnBuque } = buqueDeLaAnotacion(onBoard, buque, val(bl, "puertoEmbarque"));
     if (nombraAlBuque || sobra.length > 0) {
+      /*
+       * Y la tercera banda, que trajo la Opinión **TA 858rev**: cuando el papel **marca** lo que sobra
+       * como un buque, el aviso se vuelve veredicto.
+       *
+       * El par R 350 / TA 743rev había dejado esto en ATENCION con un motivo bueno: lo que sobra en una
+       * anotación puede ser un puerto de trasbordo o una terminal. La TA 858rev tiene los hechos exactos
+       * —misma plaza en lugar de recepción y puerto de carga, dos buques distintos en pre-acarreo y
+       * oceánico, y la anotación nombrando el de pre-acarreo— y contesta las dos preguntas:
+       *
+       *   «1. ICC Opinions R350 and R352 still apply under UCP 600. 2. Yes, the refusal is valid. The
+       *   bill of lading requires a dated on board notation indicating vessel O and Port H.»
+       *
+       * Así que con el marcador delante —«MV W», «M/V W», «SS W»— ya no hay nada que verificar: es un
+       * buque y no es el que el documento declara como oceánico. Sin marcador, el aviso queda como
+       * estaba.
+       */
       out.push(
         regla(
           "ucp-20a-ii-buque",
           "UCP 600 20a-ii",
           "La anotación de a bordo nombra el buque que salió del puerto de carga",
-          nombraAlBuque ? "OK" : "ATENCION",
+          nombraAlBuque ? "OK" : sobraUnBuque ? "DISCREPANCIA" : "ATENCION",
           nombraAlBuque
             ? `la anotación dice "${onBoard}" y nombra al buque "${buque}"`
-            : `la anotación dice "${onBoard}" y nombra ${sobra.join(", ")} en vez del buque "${buque}": verificar si es el buque que salió del puerto de carga o uno de pre-acarreo — la Opinión R 350 dice que nombrar el de pre-acarreo es discrepancia y la TA 743rev que no lo es cuando la anotación da cuenta del oceánico`,
+            : sobraUnBuque
+              ? `la anotación dice "${onBoard}" y nombra como buque a ${sobra.join(", ")}, que no es el que el documento declara como oceánico ("${buque}"): el artículo pide la anotación sobre el buque que sale del puerto de carga, y la Opinión TA 858rev lo da por discrepancia —y confirma que R 350 y R 352 siguen aplicando bajo las UCP 600`
+              : `la anotación dice "${onBoard}" y nombra ${sobra.join(", ")} en vez del buque "${buque}": verificar si es el buque que salió del puerto de carga o uno de pre-acarreo — la Opinión R 350 dice que nombrar el de pre-acarreo es discrepancia y la TA 743rev que no lo es cuando la anotación da cuenta del oceánico`,
         ),
       );
     }
