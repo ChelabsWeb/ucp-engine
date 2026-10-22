@@ -2072,3 +2072,46 @@ describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
     expect(r?.estado).not.toBe("DISCREPANCIA");
   });
 });
+/**
+ * El término de entrega del crédito contra el de la factura, que es la Opinión **TA 765rev**.
+ *
+ * `isbp-c8` mira la **versión** —«Incoterms 2020»— que es el párrafo C8 de la ISBP. Esto mira **el
+ * término**, que es el artículo 18 (c): en esa Opinión el 45A decía «FOB Singapore», la factura «FCA
+ * Singapore Changi Airport» y el crédito no nombraba ninguna versión, así que la otra regla ni corría.
+ */
+describe("el término de entrega de la factura (TA 765rev)", () => {
+  const con = (enElCredito: string, enLaFactura: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: enElCredito, mercaderiaCompleta: enElCredito },
+      docs: [{ tipo: "FACTURA", campos: doc({ incoterm: campo(enLaFactura) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18c-incoterm");
+
+  it("FCA contra FOB es discrepancia y nombra la Opinión", () => {
+    const r = con("400 CASES OF COMPUTER CHIPS, FOB SINGAPORE", "FCA SINGAPORE CHANGI AIRPORT");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("TA 765rev");
+  });
+
+  it("y el mismo término cumple, aunque el lugar se escriba distinto", () => {
+    expect(con("FOB SINGAPORE", "FOB SINGAPORE CHANGI AIRPORT")?.estado).toBe("OK");
+  });
+
+  /*
+   * Y los frenos: sin término en uno de los dos no hay nada que comparar —eso lo mira `isbp-c8` o una
+   * persona— y la regla no opina sobre si el término es el **apropiado** para el medio de transporte,
+   * que es lo que la Opinión dice que no se examina.
+   */
+  it("si la factura no nombra término, no se emite", () => {
+    expect(con("400 CASES OF COMPUTER CHIPS, FOB SINGAPORE", "")).toBeUndefined();
+  });
+
+  it("y si el crédito no lo nombra, tampoco", () => {
+    expect(con("400 CASES OF COMPUTER CHIPS", "FCA SINGAPORE")).toBeUndefined();
+  });
+
+  it("un FOB aéreo no se discute: el término es el del crédito y nada más", () => {
+    expect(con("COMPUTER CHIPS, FOB SINGAPORE", "FOB SINGAPORE")?.estado).toBe("OK");
+  });
+});

@@ -9,7 +9,14 @@ import {
   unidadNormal,
 } from "./consistencia";
 import { parseFecha } from "./fechas";
-import { NOTA_TIPEO_DE_NOMBRE, cotejarIncotermISBP, esFacturaComercial, veredictoDeNombre, versionIncoterm } from "./isbp";
+import {
+  NOTA_TIPEO_DE_NOMBRE,
+  cotejarIncotermISBP,
+  esFacturaComercial,
+  terminoDeEntrega,
+  veredictoDeNombre,
+  versionIncoterm,
+} from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
@@ -462,6 +469,39 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
               ? evidencia
               : `el crédito dice Incoterms ${versionDelCredito} y la factura dice "${enFactura.slice(0, 60)}" sin indicar la versión: verificar si el crédito la exige repetida`,
           ),
+    );
+  }
+
+  /*
+   * El término de entrega del crédito contra el de la factura (Opinión TA 765rev).
+   *
+   * `isbp-c8` mira la **versión** —«Incoterms 2020»— que es el párrafo C8 de la ISBP. Esto mira **el
+   * término**, que es el artículo 18 (c): la ICC lo dice así en la TA 765rev, donde el 45A decía «FOB
+   * Singapore» y la factura «FCA Singapore Changi Airport» y el crédito no nombraba ninguna versión, de
+   * modo que la otra regla ni corría.
+   *
+   *   «the trade term "FOB Singapore" was part of the description appearing in the credit» — CONCLUSION:
+   *   The second discrepancy is valid.
+   *
+   * **Solo compara cuando los dos lo nombran.** Si la factura no trae término, lo que falta es un dato y
+   * eso lo mira `isbp-c8` o una persona; y la regla no opina sobre si el término es el **apropiado** para
+   * el medio de transporte —el beneficiario de esa Opinión argumentaba que FOB no sirve para un embarque
+   * aéreo— porque eso es investigar más allá de la cara del documento, que es lo que el artículo 14 (a)
+   * prohíbe.
+   */
+  const delCreditoIncoterm = terminoDeEntrega(ctx.mercaderiaCompleta ?? ctx.mercaderia);
+  const deLaFactura = terminoDeEntrega([val(fac, "incoterm"), val(fac, "mercaderia")].filter(Boolean).join(" "));
+  if (delCreditoIncoterm && deLaFactura) {
+    out.push(
+      regla(
+        "ucp-18c-incoterm",
+        "UCP 600 18c",
+        "El término de entrega de la factura es el del crédito",
+        delCreditoIncoterm === deLaFactura ? "OK" : "DISCREPANCIA",
+        delCreditoIncoterm === deLaFactura
+          ? `los dos dicen ${delCreditoIncoterm}`
+          : `el crédito dice ${delCreditoIncoterm} y la factura ${deLaFactura}: el término de entrega es parte de la descripción de la mercadería, así que uno distinto es discrepancia del 18 (c) — Opinión TA 765rev`,
+      ),
     );
   }
 
