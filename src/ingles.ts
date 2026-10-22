@@ -1326,6 +1326,27 @@ const REEMPLAZOS: [RegExp, string][] = [
     / y eso no se puede resolver desde el papel; si está incluido, este banco también está designado y entonces lo rige el artículo 12 \(a\)$/g,
     " and that cannot be settled from the documents; if it is included, this bank is also nominated and article 12 (a) then governs",
   ],
+  /* Deutsche Bank v CIMB: el campo 48 que fija el plazo hasta el vencimiento */
+  [
+    /^Presentada antes del vencimiento, que es el plazo que fija el campo 48$/g,
+    "Presented before the expiry date, which is the period field 48 stipulates",
+  ],
+  [
+    /^Presentar antes del vencimiento, que es el plazo que fija el campo 48$/g,
+    "Present before the expiry date, which is the period field 48 stipulates",
+  ],
+  [
+    / → el campo 48 fija el plazo hasta el vencimiento, /g,
+    " → field 48 stipulates the period as running until the expiry date, ",
+  ],
+  [
+    / — un campo 48 así desplaza los 21 días del artículo 14 \(c\) \(Deutsche Bank v CIMB, Commercial Court de Inglaterra\); la ICC nunca contestó este punto$/g,
+    " — a field 48 worded this way displaces the 21 days of article 14 (c) (Deutsche Bank v CIMB, English Commercial Court); the ICC has never ruled on this point",
+  ],
+  [
+    /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
+    "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
+  ],
   /* DOCDEX 318: el certificado de algo que ocurre en destino */
   [/: acredita algo que ocurre en destino$/g, ": certifies something that happens at destination"],
   [

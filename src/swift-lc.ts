@@ -491,8 +491,21 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     );
   const toleranciaAplicaA = soloCantidad ? "CANTIDAD" : soloImporte ? "IMPORTE" : "AMBAS";
 
-  const dias = /(\d{1,3})/.exec(texto(cs, "48"))?.[1] ?? null;
-  const plazoPresentacion = dias ? `${dias} días desde la fecha de embarque (campo 48)` : "";
+  /*
+   * El campo 48 se guarda **con su texto** cuando no trae un número, y eso no es un detalle.
+   *
+   * Antes el parser le extraía el número y, si no lo encontraba, dejaba el plazo vacío: el texto del
+   * campo se perdía acá y el motor examinaba como si el crédito no hubiera fijado plazo. Con eso, el
+   * crédito de *Deutsche Bank v CIMB* —«48: DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT
+   * VALIDITY»— llegaba al examen indistinguible de un crédito sin campo 48, y el motor producía la
+   * discrepancia de tardía que el Commercial Court declaró inválida: USD 9.959.452,57.
+   *
+   * Lo que decide qué significa esa redacción es `plazoHastaElVencimiento` en `lc.ts`; lo único que
+   * hace el parser es **no perder el dato**, que es su trabajo.
+   */
+  const texto48 = texto(cs, "48").trim();
+  const dias = /(\d{1,3})/.exec(texto48)?.[1] ?? null;
+  const plazoPresentacion = dias ? `${dias} días desde la fecha de embarque (campo 48)` : texto48;
 
   const docs = listaSwift(campo(cs, "46A"));
   const bienes = (campo(cs, "45A") ?? []).join(" ").replace(/\s+/g, " ").trim();
