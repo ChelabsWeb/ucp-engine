@@ -1354,6 +1354,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 893rev: dos líneas del 46A que aparean al mismo papel */
+  [
+    /^la línea (46A\+\d+) ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano \(Opinión TA 893rev\)$/g,
+    "line $1 already requires this document and the engine matches this line to the same paper: either the credit calls for two, or this line is a condition about the one already required and is to be read by hand (ICC Opinion TA 893rev)",
+  ],
   /* TA 886rev: el nombre del emisor que el motor no puede leer */
   /*
    * Las dos notas van partidas en cola y prefijo, porque las dicen **dos** reglas.
