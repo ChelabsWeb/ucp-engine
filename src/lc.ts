@@ -42,6 +42,39 @@ export function diasPresentacion(plazo: string | null | undefined): number | nul
  * dos partes coincidieron en que *«no ICC Banking Commission opinion has ever been sought on the
  * question»* y que la ISBP 745 no lo toca. Por eso el hallazgo del motor la nombra.
  */
+/**
+ * Desde qué fecha cuenta el plazo del campo 48.
+ *
+ * Es *Fortis Bank SA/NV v Indian Overseas Bank* —[2009] EWHC 2303 (Comm) y [2011] EWCA Civ 58—, el
+ * pleito de los USD 8,06 millones. El campo 48 decía «within 21 days from B/L Date but within the
+ * validity of L/C»; el conocimiento tenía el a bordo el 31 de octubre y la emisión el 14 de noviembre,
+ * y la presentación fue el 25. El emisor sostuvo que era tardía contando desde el embarque y la Court
+ * of Appeal lo rechazó:
+ *
+ *   «L/C 3 expressly referred to presentation within 21 days from the date of the bill of lading, not
+ *   the date of shipment. The date of the bill of lading was, as it stated on its face, 14 November
+ *   2008. There is nothing in the UCP that can displace this clear provision. […] the definition in
+ *   sub-article 20 (a) (ii) "The date of issuance of the bill of lading will be deemed to be the date
+ *   of shipment" is a deeming provision for the date of shipment for the purpose of sub-article 14(c);
+ *   it is not relevant to the construction of L/C3 which is on its face clear.»
+ *
+ * El motor contaba **siempre** desde el a bordo, así que sobre esos hechos producía la tardía que las
+ * dos instancias rechazaron.
+ *
+ * **Y el cambio solo puede quitar falsos positivos, nunca agregarlos**, que es lo que lo hace seguro:
+ * un conocimiento se emite el mismo día que el a bordo o después, nunca antes, así que contar desde la
+ * emisión corre el límite para adelante. Cuando las dos fechas coinciden —la mayoría— no cambia nada.
+ */
+export function baseDelPlazo(plazo: string | null | undefined): "EMBARQUE" | "FECHA_DEL_BL" {
+  if (!plazo) return "EMBARQUE";
+  const t = plazo.toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  /* «from B/L date», «from the date of the bill of lading», «after AWB date», «fecha del conocimiento» */
+  if (/\b(b l|bl|bills? of lading|awb|air waybill|transport document) date\b/.test(t)) return "FECHA_DEL_BL";
+  if (/date of (the )?(b l|bl|bills? of lading|air waybill|transport document)\b/.test(t)) return "FECHA_DEL_BL";
+  if (/fecha (de|del) (b l|bl|conocimiento|documento de transporte|guia aerea)/.test(t)) return "FECHA_DEL_BL";
+  return "EMBARQUE";
+}
+
 export function plazoHastaElVencimiento(plazo: string | null | undefined): boolean {
   if (!plazo) return false;
   const t = plazo.toLowerCase().replace(/[^a-z0-9]+/g, " ");
@@ -59,6 +92,13 @@ export const UCP_DIAS_PRESENTACION = 21;
 export interface LimitePresentacion {
   /** fecha del BL usada (real si la hay, si no la estimada de embarque) */
   fechaBL: Date;
+  /**
+   * Desde qué fecha se contó: el a bordo o la emisión del documento de transporte.
+   *
+   * Ver `baseDelPlazo`. Va en el resultado para que el hallazgo pueda decirlo: con las dos fechas
+   * distintas, un límite no explicado es un límite que nadie puede auditar.
+   */
+  base: "EMBARQUE" | "FECHA_DEL_BL";
   esEstimada: boolean;
   dias: number;
   /**
@@ -99,15 +139,27 @@ export function limitePresentacion(
   lc: LcInfo | null | undefined,
   fechaBL: string | null | undefined,
   fechaEmbarqueEstimada: string | null | undefined,
+  /** la fecha de **emisión** del documento de transporte, cuando el crédito cuenta desde ella (Fortis) */
+  fechaEmisionDelTransporte?: string | null,
 ): LimitePresentacion | null {
   if (!lc) return null;
   // UCP 600 art. 14c: si el crédito no dice, la presentación es dentro de los 21 días
   // calendario posteriores al embarque (y nunca después del vencimiento)
   const explicito = diasPresentacion(lc.plazoPresentacion);
-  const hastaVenc = explicito == null && plazoHastaElVencimiento(lc.plazoPresentacion);
+  /*
+   * Las dos preguntas sobre el 48 se le hacen al **texto crudo**, no a la frase armada.
+   *
+   * `plazoPresentacion` es «21 días desde la fecha de embarque (campo 48)» — una frase que el
+   * intérprete construye con el número que encontró, y que por eso dice «embarque» siempre. Preguntarle
+   * a ella desde cuándo cuenta el crédito sería preguntarle a la respuesta.
+   */
+  const texto48 = lc.plazoPresentacionTexto ?? lc.plazoPresentacion;
+  const hastaVenc = explicito == null && plazoHastaElVencimiento(texto48);
+  const base = baseDelPlazo(texto48);
   const real = fechaBL ? parseFecha(fechaBL) : null;
   const est = !real && fechaEmbarqueEstimada ? parseFecha(fechaEmbarqueEstimada) : null;
-  const bl = real ?? est;
+  const deEmision = base === "FECHA_DEL_BL" && fechaEmisionDelTransporte ? parseFecha(fechaEmisionDelTransporte) : null;
+  const bl = deEmision ?? real ?? est;
   if (!bl) return null;
   const venc = parseFecha(lc.vencimiento);
   if (!venc) return null;
@@ -120,7 +172,8 @@ export function limitePresentacion(
   const recortado = porPlazo > venc;
   return {
     fechaBL: bl,
-    esEstimada: !real,
+    base: deEmision ? "FECHA_DEL_BL" : "EMBARQUE",
+    esEstimada: !real && !deEmision,
     dias,
     plazoPorDefectoUCP: explicito == null && !hastaVenc,
     hastaElVencimiento: hastaVenc,

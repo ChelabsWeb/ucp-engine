@@ -163,6 +163,17 @@ export interface LcInfo {
   vencimiento: string;
   limiteEmbarque: string;
   plazoPresentacion: string;
+  /**
+   * El campo 48 **tal como vino**, sin interpretar.
+   *
+   * `plazoPresentacion` es una frase armada —«21 días desde la fecha de embarque (campo 48)»— y en ese
+   * armado se perdían las palabras que el crédito usó. Dos sentencias costaron por eso: el 48 de
+   * *Deutsche Bank v CIMB* decía «within letter of credit validity» y el de *Fortis Bank v Indian
+   * Overseas Bank* decía «within 21 days from B/L Date», y las dos redacciones llegaban al examen
+   * indistinguibles de un 48 corriente. Lo que decide qué significan es `lc.ts`; esto solo guarda el
+   * dato.
+   */
+  plazoPresentacionTexto?: string | null;
   /** tolerancia de cantidad/monto de la LC como fracción (0.05 = ±5 %); null = no dice → rige el ±5 % habitual */
   tolerancia?: number | null;
   /**
