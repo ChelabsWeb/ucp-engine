@@ -350,3 +350,47 @@ describe("el 31D trae fecha y lugar", () => {
     expect(parseMT700(MT710_CSU2025099)?.lc.vencimiento).toBe("30-jun-25");
   });
 });
+
+/**
+ * Una línea de continuación del 46A que arranca con una fecha (Opinión TA 896rev)
+ *
+ * El 46A de esa Opinión pide que la factura certifique la orden de compra **con su fecha**, y cuando
+ * el renglón corta ahí la continuación empieza con «19.06.2018»: el `19.` se leía como el número del
+ * ítem diecinueve. Dos daños a la vez — una exigencia fantasma que el examen saca en FALTA, y el «19»
+ * comido del ítem de verdad, así que el texto de la exigencia quedaba mal escrito.
+ */
+describe("el 46A con una fecha al principio de un renglón", () => {
+  const LINEAS = [
+    "1. BENEFICIARY SIGNED COMMERCIAL INVOICE IN QUADRUPLICATE CERTIFYING THAT GOODS SUPPLIED ARE AS PER PURCHASE ORDER NO. RCPL/5174 DATED",
+    "19.06.2018 AND P.I. NO. KID-1819/0054C DATED 18.06.18",
+    "2. CERTIFICATE OF ORIGIN IN DUPLICATE ISSUED BY CHAMBER OF COMMERCE",
+  ];
+
+  it("la fecha se pega al ítem anterior en vez de abrir uno nuevo", () => {
+    const l = listaSwift(LINEAS);
+    expect(l).toHaveLength(2);
+    expect(l[0]).toContain("DATED 19.06.2018 AND P.I. NO. KID-1819/0054C DATED 18.06.18");
+    expect(l[1]).toBe("CERTIFICATE OF ORIGIN IN DUPLICATE ISSUED BY CHAMBER OF COMMERCE");
+  });
+
+  it("y las otras dos formas de escribir una fecha tampoco abren ítem", () => {
+    for (const fecha of ["19/06/2018 AND THE REST", "19-06-18 AND THE REST"])
+      expect(listaSwift(["1. COMMERCIAL INVOICE DATED", fecha])).toHaveLength(1);
+  });
+
+  /*
+   * El freno, y es el que hacía descartar las dos salidas más generales.
+   *
+   * «3. 3/3 ORIGINAL BILLS OF LADING» es redacción normal de un 46A: el ítem arranca con un dígito,
+   * así que exigir MAYÚSCULA detrás del número —como hace el `split` de los ítems pegados— lo habría
+   * pegado al ítem anterior.
+   */
+  it("un ítem cuyo texto arranca con un número sigue siendo un ítem", () => {
+    const l = listaSwift(["1. COMMERCIAL INVOICE IN 3 COPIES", "3. 3/3 ORIGINAL BILLS OF LADING"]);
+    expect(l).toEqual(["COMMERCIAL INVOICE IN 3 COPIES", "3/3 ORIGINAL BILLS OF LADING"]);
+  });
+
+  it("y una fecha suelta sin ítem anterior no se pierde", () => {
+    expect(listaSwift(["19.06.2018 AND THE REST"])).toEqual(["19.06.2018 AND THE REST"]);
+  });
+});

@@ -312,7 +312,29 @@ export function listaSwift(lineas: string[] | null): string[] {
    */
   const partidas = lineas.flatMap((l) => l.split(/(?<=[.\s])(?=\d{1,2}[.)]\s+[A-Z])|(?<=\s)(?=\+\d{1,2}\))/));
   for (const l of partidas) {
-    const m = /^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l);
+    /*
+     * Un renglón que arranca con una fecha no abre ningún ítem.
+     *
+     * «…AS PER PURCHASE ORDER NO. RCPL/5174 DATED / 19.06.2018 AND P.I. NO. KID-1819/0054C…» es una
+     * línea de continuación corriente, y el «19.» se leía como el número del ítem diecinueve: el
+     * motor quedaba con una exigencia fantasma que sale **FALTA** —el crédito parecía pedir un
+     * documento que nadie presentó— y encima **le comía el «19» al ítem de verdad**, así que el texto
+     * de la exigencia también quedaba mal. Lo encontró la Opinión TA 896rev, cuyo 46A pide que la
+     * factura certifique la orden de compra con su fecha.
+     *
+     * El corte es «dígitos, punto, dos dígitos, punto»: el token entero es una fecha y no un número
+     * de ítem. Es la misma forma angosta que arregló `parseFecha` con «JUL.16».
+     *
+     * **La otra salida, que no se tomó:** exigir que el número sea el siguiente de la serie. Es más
+     * general —atraparía cualquier arranque numérico, no solo una fecha— y rompe el 46A que saltea un
+     * número, que lo escribe el banco emisor y nadie controla. Y exigir MAYÚSCULA detrás del número,
+     * como hace el `split` de arriba, rompería «3. 3/3 ORIGINAL BILLS OF LADING», que es redacción
+     * normal.
+     */
+    const arrancaConFecha = /^\s*\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/.test(l);
+    const m = arrancaConFecha
+      ? null
+      : (/^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l));
     if (m) out.push((m[2] ?? m[1]).trim());
     else if (out.length) out[out.length - 1] = `${out[out.length - 1]} ${l}`.replace(/\s+/g, " ");
     else out.push(l);
