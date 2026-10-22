@@ -1101,7 +1101,9 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
     }[];
     const parInvertido = invertidos
       .flatMap((a, i) => invertidos.slice(i + 1).map((b) => [a, b] as const))
-      .find(([a, b]) => mismoLugar(a.carga, b.destino) && mismoLugar(a.destino, b.carga) && !mismoLugar(a.carga, b.carga));
+      .find(
+        ([a, b]) => mismoLugar(a.carga, b.destino) && mismoLugar(a.destino, b.carga) && !mismoLugar(a.carga, b.carga),
+      );
     if (parInvertido) {
       const [a, b] = parInvertido;
       out.push({

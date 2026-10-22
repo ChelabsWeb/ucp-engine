@@ -1278,10 +1278,7 @@ const REEMPLAZOS: [RegExp, string][] = [
    * Y el frente de `sinLeer` va con una **plantilla general** y no una entrada por variante: las
    * anteriores se escribieron una por una, que es exactamente por qué las tres nuevas no estaban.
    */
-  [
-    /^no se leyó (.+) en el documento: verificar a mano$/g,
-    "$1 was not read on the document: check by hand",
-  ],
+  [/^no se leyó (.+) en el documento: verificar a mano$/g, "$1 was not read on the document: check by hand"],
   [/\bel tramo cubierto\b/g, "the leg covered"],
   [/\besa indicación\b/g, "that indication"],
   [/\bla fecha del seguro\b/g, "the insurance date"],
@@ -1357,6 +1354,26 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 886rev: el nombre del emisor que el motor no puede leer */
+  /*
+   * Las dos notas van partidas en cola y prefijo, porque las dicen **dos** reglas.
+   *
+   * `ucp-18a-i` arma la frase larga y `fac-emisor` solo la cola, así que un patrón anclado al prefijo
+   * dejaba la mitad de la segunda sin traducir — y eso lo encontró el corpus del banco de pruebas.
+   */
+  [
+    /: el crédito exige los documentos en inglés, y eso cambia la práctica del párrafo A21 \(e\) de la ISBP — sin una indicación legible del emisor la discrepancia vale \(Opinión TA 886rev\)$/g,
+    ": the credit requires the documents to be in English, and that modifies the practice of ISBP paragraph A21 (e) — with no legible indication of the issuer the discrepancy is valid (ICC Opinion TA 886rev)",
+  ],
+  [
+    / y no trae ninguna indicación en caracteres latinos de quién la emite:/g,
+    " and bears no indication in Latin characters of who issued it:",
+  ],
+  [/ y el motor no puede cotejarlo contra /g, " and the engine cannot compare it against "],
+  [
+    /: el nombre de una entidad y los sellos pueden ir en otro idioma \(párrafo A21 \(e\) de la ISBP, transcripto en la Opinión TA 886rev\), así que esto no es discrepancia por sí solo — verificar a mano quién emite$/g,
+    ": the name of an entity and any stamps may be in a language other than the one the credit states (ISBP paragraph A21 (e), quoted in ICC Opinion TA 886rev), so this alone is not a discrepancy — check by hand who issued it",
+  ],
   /* TA 759: con dos aseguradores, la firma dice por cuenta de quién */
   [
     /^Con dos aseguradores, la firma dice por cuenta de quién$/g,
@@ -1397,10 +1414,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the credit states $1 and the invoice $2: the trade term is part of the description of the goods, so a different one is a discrepancy under article 18 (c) — ICC Opinion TA 765rev",
   ],
   /* TA 858rev: la anotación que nombra el buque de pre-acarreo */
-  [
-    / y nombra como buque a /g,
-    " and names as the vessel ",
-  ],
+  [/ y nombra como buque a /g, " and names as the vessel "],
   [
     /, que no es el que el documento declara como oceánico \(/g,
     ", which is not the one the document states as the ocean vessel (",
@@ -1410,10 +1424,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     "): the article calls for the notation to be on the vessel leaving the port of loading, and ICC Opinion TA 858rev holds this to be a discrepancy — confirming that R 350 and R 352 still apply under UCP 600",
   ],
   /* TA 756: el calificativo que cambia la categoría de la mercadería */
-  [
-    /^la factura llama a la mercadería /g,
-    "the invoice calls the goods ",
-  ],
+  [/^la factura llama a la mercadería /g, "the invoice calls the goods "],
   [
     / y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: /g,
     " and the credit does not say so anywhere: that indicates a different category of goods and ICC Opinion TA 756 holds it to be a discrepancy · invoice: ",

@@ -891,8 +891,8 @@ describe("el certificado del beneficiario contra el pro forma (Fortis Bank v IOB
   });
 
   it("sin texto en el certificado, manda a leerlo", () => {
-    expect(correr([{ exigencia: CLAUSULA, campos: doc({}) }]).find((r) => r.id.startsWith("cert-benef"))?.evidencia).toContain(
-      "leer el texto",
-    );
+    expect(
+      correr([{ exigencia: CLAUSULA, campos: doc({}) }]).find((r) => r.id.startsWith("cert-benef"))?.evidencia,
+    ).toContain("leer el texto");
   });
 });

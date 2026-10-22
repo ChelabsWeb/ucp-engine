@@ -845,7 +845,10 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
 
   /* Y un nombre propio en el 46A se sigue comparando como nombre. */
   it("un banco nombrado en el 46A se compara como nombre", () => {
-    const r = con("2. BILL OF LADING CONSIGNED TO THE ORDER OF MERIDIAN BANK PLC.", "TO THE ORDER OF MERIDIAN BANK PLC");
+    const r = con(
+      "2. BILL OF LADING CONSIGNED TO THE ORDER OF MERIDIAN BANK PLC.",
+      "TO THE ORDER OF MERIDIAN BANK PLC",
+    );
     expect(r?.estado).toBe("OK");
   });
 });

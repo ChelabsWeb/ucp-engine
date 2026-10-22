@@ -7,8 +7,8 @@ import {
   diasParaPresentar,
   diasPresentacion,
   limitePresentacion,
-  plazoHastaElVencimiento,
   parseTolerancia,
+  plazoHastaElVencimiento,
   sumarHabiles,
   tenorDe,
   toleranciaDe,
@@ -271,7 +271,11 @@ describe("el plazo del campo 48 hasta el vencimiento (Deutsche Bank v CIMB)", ()
 
   it("el límite pasa a ser el vencimiento, no BL + 21", () => {
     const l = limitePresentacion(
-      { ...LC, vencimiento: "15-ene-16", plazoPresentacion: "DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY" },
+      {
+        ...LC,
+        vencimiento: "15-ene-16",
+        plazoPresentacion: "DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY",
+      },
       "10-dic-2015",
       null,
     );
@@ -286,7 +290,11 @@ describe("el plazo del campo 48 hasta el vencimiento (Deutsche Bank v CIMB)", ()
    * días **y lo presentaba como si el crédito no hubiera dicho nada**.
    */
   it("un 48 que no se puede leer queda marcado como tal", () => {
-    const l = limitePresentacion({ ...LC, vencimiento: "15-ene-16", plazoPresentacion: "AS PER AGREEMENT" }, "10-dic-2015", null);
+    const l = limitePresentacion(
+      { ...LC, vencimiento: "15-ene-16", plazoPresentacion: "AS PER AGREEMENT" },
+      "10-dic-2015",
+      null,
+    );
     expect(l?.plazoNoLeido).toBe(true);
     expect(l?.dias).toBe(21);
     /*
@@ -298,7 +306,11 @@ describe("el plazo del campo 48 hasta el vencimiento (Deutsche Bank v CIMB)", ()
   });
 
   it("y un 48 vacío no: ahí el crédito de verdad no dice nada y rige el 14 (c)", () => {
-    const l = limitePresentacion({ ...LC, vencimiento: "15-ene-16", plazoPresentacion: null as unknown as string }, "10-dic-2015", null);
+    const l = limitePresentacion(
+      { ...LC, vencimiento: "15-ene-16", plazoPresentacion: null as unknown as string },
+      "10-dic-2015",
+      null,
+    );
     expect(l?.plazoNoLeido).toBe(false);
     expect(l?.plazoPorDefectoUCP).toBe(true);
   });
