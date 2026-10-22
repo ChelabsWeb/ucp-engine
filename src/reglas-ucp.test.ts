@@ -1956,3 +1956,55 @@ describe("el 45A que enumera cantidades (R 688 / TA 619)", () => {
     expect(en).toContain("R 688 / TA 619");
   });
 });
+/**
+ * El calificativo que cambia la categoría de la mercadería, que es la Opinión TA 756.
+ *
+ * Dos vueltas antes, *Bulgrains v Shinhan Bank* dejó escrito que agregar datos que el crédito no trae
+ * no contradice nada. Esta Opinión le pone el borde: «The words "second hand" indicate a different
+ * category or classification of the goods».
+ */
+describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
+  const con = (enElCredito: string, enLaFactura: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: enElCredito, mercaderiaCompleta: enElCredito },
+      docs: [{ tipo: "FACTURA", campos: doc({ mercaderia: campo(enLaFactura) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18c");
+
+  it("«SECOND HAND» agregado es discrepancia y nombra la Opinión", () => {
+    const r = con("HYDRAULIC DRILLING RIG ABI 12/14300", "SECOND HAND HYDRAULIC DRILLING RIG ABI 12/14300");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("TA 756");
+  });
+
+  it.each(["USED", "RECONDITIONED", "DAMAGED", "DEFECTIVE", "OFF-GRADE"])("y «%s» también", (w) => {
+    expect(con("HYDRAULIC DRILLING RIG", `${w} HYDRAULIC DRILLING RIG`)?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y los frenos, que son la mitad de la decisión.
+   *
+   * Si el crédito **pide** mercadería usada, la factura que la llama usada se corresponde con él: el
+   * freno es lo que evita que el motor rechace justamente el caso bueno. Y el origen no es una
+   * categoría: esa adición sigue siendo inocua, que es lo que dejó escrito Bulgrains.
+   */
+  it("si el crédito la pide usada, no es discrepancia", () => {
+    expect(con("USED HYDRAULIC DRILLING RIG", "SECOND HAND HYDRAULIC DRILLING RIG")?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  it("y el origen agregado sigue siendo una adición inocua", () => {
+    expect(con("WHEAT BRAN PELLETS IN BULK", "BULGARIAN WHEAT BRAN PELLETS IN BULK")?.estado).toBe("OK");
+  });
+
+  /* El crédito puede admitirla usada en las condiciones adicionales y no en el 45A. */
+  it("y alcanza con que el crédito lo diga en el 47A", () => {
+    const r = reglasUCP({
+      lc: { ...LC, condicionesAdicionales: ["USED MACHINERY IS ACCEPTABLE"] },
+      credito: { ...CTX, mercaderia: "HYDRAULIC DRILLING RIG", mercaderiaCompleta: "HYDRAULIC DRILLING RIG" },
+      docs: [{ tipo: "FACTURA", campos: doc({ mercaderia: campo("USED HYDRAULIC DRILLING RIG") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18c");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+});
