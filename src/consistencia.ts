@@ -1422,6 +1422,20 @@ export const GENERICAS_DE_LUGAR = new Set([
   "HARBOUR",
   "HARBOR",
   "CITY",
+  /*
+   * «WAREHOUSE» y los otros genéricos de la cobertura puerta a puerta, que faltaban.
+   *
+   * Lo encontró el test del 28 (f) (iii) al apretar la comparación con la Opinión TA 877: una póliza
+   * que cubre «WAREHOUSE MONTEVIDEO» contra un crédito que dice «MONTEVIDEO PORT IN URUGUAY» cubre **de
+   * más**, no otra cosa, y con «warehouse» contando como palabra distintiva pasaba a ser una diferencia
+   * mutua. Son calificativos del lugar, igual que PORT o TERMINAL.
+   */
+  "WAREHOUSE",
+  "WAREHOUSES",
+  "DEPOT",
+  "DOOR",
+  "ALMACEN",
+  "DEPOSITO",
   "PUERTO",
   "PUERTOS",
   "AEROPUERTO",
@@ -1443,7 +1457,34 @@ export function coincideLugar(a: string, b: string): boolean {
     const otras = pa.length === 0 ? palabras(nb) : palabras(na);
     return cortas.length > 0 && cortas.every((w) => otras.includes(w));
   }
-  return pa.some((w) => pb.includes(w));
+  /*
+   * Y una palabra compartida **no alcanza cuando cada lado nombra otra cosa**.
+   *
+   * Es la Opinión **TA 877**: el crédito pedía descarga en «JIANGYIN FUJIAN, CHINA» y el conocimiento
+   * decía «Jiangyin - Jiangsu» en el casillero del puerto de descarga. Comparten «Jiangyin» —y son dos
+   * ciudades distintas, en dos provincias distintas— así que con «alguna palabra en común» el motor daba
+   * OK sobre la discrepancia que la ICC declara válida.
+   *
+   *   «For the statement "Port of discharge: Jiangyin Fujian, China" to be considered as a notation
+   *   giving the actual port of discharge, "Jiangyin Fujian" should appear in the field "Place of final
+   *   destination" or words of similar effect.» — CONCLUSION: The discrepancy is valid.
+   *
+   * La condición es **mutua y por eso es segura**: cada lado tiene que traer una palabra distintiva que
+   * el otro no tiene. Con eso «MONTEVIDEO, URUGUAY» contra «MONTEVIDEO» sigue coincidiendo —el segundo
+   * no agrega nada— y lo mismo «BUSAN, KOREA» contra «BUSAN, REPUBLIC OF KOREA» o «SHANGHAI» contra
+   * «SHANGHAI PUDONG». Lo que deja de coincidir es un nombre con **dos calificativos incompatibles**,
+   * que es lo que distingue dos lugares homónimos.
+   *
+   * Lo que esto no resuelve es el mismo lugar escrito en dos idiomas —«HAMBURG, GERMANY» contra
+   * «HAMBURG, DEUTSCHLAND»— que quedaría como diferencia mutua. En un crédito los puertos van en
+   * inglés de los dos lados, así que es un riesgo chico y conocido; si aparece, el lugar de arreglarlo
+   * es acá y con un caso que lo pruebe.
+   */
+  const compartenAlgo = pa.some((w) => pb.includes(w));
+  if (!compartenAlgo) return false;
+  const sobraEnA = pa.some((w) => !pb.includes(w));
+  const sobraEnB = pb.some((w) => !pa.includes(w));
+  return !(sobraEnA && sobraEnB);
 }
 
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
