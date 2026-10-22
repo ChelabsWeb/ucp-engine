@@ -1357,6 +1357,23 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 765rev: «a la orden del banco emisor» es un rol, no un nombre */
+  [/^BL consignado a la orden del banco emisor$/g, "B/L consigned to the order of the issuing bank"],
+  [/^BL consignado a la orden del banco emisor \(/g, "B/L consigned to the order of the issuing bank ("],
+  [
+    / y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano$/g,
+    " and the credit calls for it to the order of the issuing bank, which was not read: check by hand",
+  ],
+  /* TA 765rev: el término de entrega de la factura contra el del crédito */
+  [
+    /^El término de entrega de la factura es el del crédito$/g,
+    "The trade term on the invoice is the one in the credit",
+  ],
+  [/^los dos dicen (.+)$/g, "both state $1"],
+  [
+    /^el crédito dice (.+) y la factura (.+): el término de entrega es parte de la descripción de la mercadería, así que uno distinto es discrepancia del 18 \(c\) — Opinión TA 765rev$/g,
+    "the credit states $1 and the invoice $2: the trade term is part of the description of the goods, so a different one is a discrepancy under article 18 (c) — ICC Opinion TA 765rev",
+  ],
   /* TA 858rev: la anotación que nombra el buque de pre-acarreo */
   [
     / y nombra como buque a /g,

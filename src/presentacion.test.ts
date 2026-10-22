@@ -804,3 +804,48 @@ describe("fac-emisor compara el nombre como un nombre", () => {
     expect(con("CEREALSUR SA", "")?.estado).toBe("ATENCION");
   });
 });
+/**
+ * «A la orden del banco emisor» es un rol, no un nombre (Opinión **TA 765rev**).
+ *
+ * Es la redacción más corriente que hay en un 46A y el motor la comparaba literalmente: con el
+ * conocimiento consignado al banco que el crédito nombra en el 52A, la regla daba DISCREPANCIA sobre un
+ * documento que cumple exactamente lo pedido. Y de paso el extractor se llevaba el «AND» de la frase
+ * siguiente adentro del nombre.
+ */
+describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
+  const con = (exigencia: string, consignatario: string, bancoEmisor = "TEST BANK") =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia], bancoEmisor },
+      docs: [{ tipo: "BL" as const, campos: { ...BL, consignatario: campo(consignatario) } }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "bl-consignee");
+
+  const EXIGENCIA = "2. FULL SET BILL OF LADING CONSIGNED TO THE ORDER OF THE ISSUING BANK AND MARKED FREIGHT COLLECT.";
+
+  it("el conocimiento a la orden del banco que el crédito nombra cumple", () => {
+    expect(con(EXIGENCIA, "TO THE ORDER OF TEST BANK")?.estado).toBe("OK");
+  });
+
+  it("y a la orden de otro banco es discrepancia", () => {
+    expect(con(EXIGENCIA, "TO THE ORDER OF OTRO BANCO SA")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /* Sin el nombre del emisor el rol no se puede resolver: ahí se avisa, no se rechaza. */
+  it("si no se leyó el banco emisor, va a verificar", () => {
+    const r = con(EXIGENCIA, "TO THE ORDER OF TEST BANK", "—");
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  it("y «opening bank» es el mismo rol", () => {
+    const r = con("2. BILL OF LADING CONSIGNED TO THE ORDER OF THE OPENING BANK.", "TO THE ORDER OF TEST BANK");
+    expect(r?.estado).toBe("OK");
+  });
+
+  /* Y un nombre propio en el 46A se sigue comparando como nombre. */
+  it("un banco nombrado en el 46A se compara como nombre", () => {
+    const r = con("2. BILL OF LADING CONSIGNED TO THE ORDER OF MERIDIAN BANK PLC.", "TO THE ORDER OF MERIDIAN BANK PLC");
+    expect(r?.estado).toBe("OK");
+  });
+});

@@ -453,15 +453,49 @@ export function precheckPresentacion(input: {
       });
     }
     if (ordenDe) {
-      const ok = consig
-        ? norm(consig).includes(norm(ordenDe)) || norm(ordenDe).includes(norm(consig.replace(/to the order of/i, "")))
-        : false;
+      /*
+       * «To the order of **the issuing bank**» es un rol, no un nombre.
+       *
+       * Es la redacción más corriente que hay en un 46A, y el motor la comparaba literalmente: con el
+       * conocimiento consignado al banco que el crédito nombra en el 52A, la regla daba DISCREPANCIA
+       * sobre un documento que cumple exactamente lo pedido. Lo encontró la Opinión TA 765rev, cuyo 46A
+       * dice «consigned to the order of the issuing bank and marked freight collect» — y además el
+       * extractor se llevaba el «AND» de la frase siguiente adentro del nombre.
+       *
+       * Cuando el crédito nombra el rol, lo que hay que comparar es **el banco de ese rol**: el del 52A
+       * para el emisor, y si no se leyó, el aviso en vez del rechazo. El rol se resuelve con el nombre
+       * del banco y no al revés, porque un conocimiento no dice «a la orden del banco emisor»: dice el
+       * nombre.
+       */
+      const esRol = /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES)\b/i.test(ordenDe);
+      /*
+       * Y el guion largo no es un nombre de banco.
+       *
+       * El intérprete de SWIFT rellena con «—» los campos que no vinieron, así que `bancoEmisor` puede
+       * traerlo. Sin este filtro la comparación daba OK —el nombre normalizado del relleno es la cadena
+       * vacía, y todo la contiene— o sea que el rol se daba por cumplido contra un dato que falta. **Es
+       * la tercera vez que ese relleno se cuela como si fuera un dato**: antes fue el campo 48 y antes
+       * el vencimiento. Un placeholder que parece un valor es lo mismo que un valor inventado.
+       */
+      const nombreDelEmisor = (lc.bancoEmisor ?? "").trim();
+      const delRol = esRol && /[a-z0-9]/i.test(nombreDelEmisor) ? nombreDelEmisor : "";
+      const aQuien = esRol ? delRol : ordenDe;
+      const ok =
+        consig && aQuien
+          ? norm(consig).includes(norm(aQuien)) || norm(aQuien).includes(norm(consig.replace(/to the order of/i, "")))
+          : false;
       reglas.push({
         id: "bl-consignee",
         fuente: "46A",
-        regla: `BL consignado "to the order of ${ordenDe}"`,
-        estado: !consig ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
-        evidencia: consig ? `dice "${consig}"` : "no se leyó el consignee",
+        regla: esRol
+          ? `BL consignado a la orden del banco emisor${delRol ? ` ("${delRol}")` : ""}`
+          : `BL consignado "to the order of ${ordenDe}"`,
+        estado: !consig || (esRol && !delRol) ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+        evidencia: !consig
+          ? "no se leyó el consignee"
+          : esRol && !delRol
+            ? `dice "${consig}" y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano`
+            : `dice "${consig}"`,
       });
     }
     /*

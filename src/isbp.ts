@@ -254,6 +254,36 @@ export function versionIncoterm(texto: string): string | null {
   return /incoterms?\s*®?\s*(\d{4})/i.exec(texto)?.[1] ?? null;
 }
 
+/**
+ * Los once términos de entrega de los Incoterms, que son una lista cerrada.
+ *
+ * `versionIncoterm` mira el **año** y esto mira **el término**, y son dos preguntas distintas: la
+ * primera es el párrafo C8 de la ISBP y la segunda el artículo 18 (c).
+ */
+const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"] as const;
+
+/**
+ * El término de entrega que un texto nombra, o null.
+ *
+ * Salió de la Opinión **TA 765rev**: el 45A decía «FOB Singapore» y la factura «FCA Singapore Changi
+ * Airport», y nadie los comparaba porque el motor solo miraba la versión —y ese crédito no nombraba
+ * ninguna—. La ICC:
+ *
+ *   «UCP 600 sub-article 18 (c) states "The description of the goods, services or performance in a
+ *   commercial invoice must correspond with that appearing in the credit", and **the trade term "FOB
+ *   Singapore" was part of the description appearing in the credit**.» — CONCLUSION: The second
+ *   discrepancy is valid.
+ *
+ * Y la Opinión descarta expresamente que el término tenga que ser el **apropiado** para el medio de
+ * transporte —el beneficiario argumentaba que FOB no sirve para un embarque aéreo— porque eso sería
+ * investigar más allá de la cara del documento. Así que esto compara el término y nada más.
+ */
+export function terminoDeEntrega(texto: string | null | undefined): string | null {
+  if (!texto) return null;
+  const t = texto.toUpperCase();
+  return INCOTERMS.find((x) => new RegExp(`\\b${x}\\b`).test(t)) ?? null;
+}
+
 export function cotejarIncotermISBP(
   enCredito: string,
   enFactura: string,
