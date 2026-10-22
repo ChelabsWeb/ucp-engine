@@ -1347,6 +1347,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 756: el calificativo que cambia la categoría de la mercadería */
+  [
+    /^la factura llama a la mercadería /g,
+    "the invoice calls the goods ",
+  ],
+  [
+    / y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: /g,
+    " and the credit does not say so anywhere: that indicates a different category of goods and ICC Opinion TA 756 holds it to be a discrepancy · invoice: ",
+  ],
   /* Fortis Bank v IOB: el certificado del beneficiario que no repite el pro forma */
   [
     / y no repite (.+) del texto que el crédito le pide: cotejar el texto completo$/g,

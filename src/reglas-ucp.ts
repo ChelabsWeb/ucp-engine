@@ -167,6 +167,49 @@ function esZonaDeLugares(texto: string): boolean {
 }
 
 
+/**
+ * Los calificativos que cambian **de qué mercadería** se habla (Opinión TA 756).
+ *
+ * No son adjetivos cualesquiera: son las palabras con que el comercio clasifica una mercadería en otra
+ * categoría. Un crédito que no las dice no pidió eso.
+ */
+const CAMBIAN_LA_CATEGORIA: [RegExp, string][] = [
+  [/\bsecond\s*hand\b/i, "second hand"],
+  [/\bused\b/i, "used"],
+  [/\bre(?:conditioned|furbished|manufactured|built)\b/i, "reconditioned"],
+  [/\bdamaged\b/i, "damaged"],
+  [/\bdefective\b/i, "defective"],
+  [/\boff[\s-]?grade\b/i, "off-grade"],
+  [/\brejects?\b/i, "reject"],
+  [/\bsub[\s-]?standard\b/i, "substandard"],
+  [/\busad[oa]s?\b/i, "usado"],
+  [/\bsegunda\s+mano\b/i, "segunda mano"],
+  [/\breacondicionad[oa]s?\b/i, "reacondicionado"],
+];
+
+/**
+ * El calificativo que el documento declara y el crédito **no menciona en absoluto**, si hay alguno.
+ *
+ * Mira el 45A entero y también las condiciones adicionales: un crédito que admite mercadería usada lo
+ * dice en alguno de los dos.
+ *
+ * **Y basta con que el crédito nombre cualquiera de los calificativos para que no se marque nada**, no
+ * el mismo. Lo encontró el test: un crédito que pide «USED HYDRAULIC DRILLING RIG» y una factura que
+ * dice «SECOND HAND HYDRAULIC DRILLING RIG» hablan de la misma categoría, y marcarlo sería el falso
+ * positivo que este freno existe para evitar. Es también lo que dice el análisis de la Opinión: lo que
+ * la hace discrepante es que la categoría «is not apparent in the goods description in the credit». Si
+ * el crédito habla de la condición de la mercadería, el pareo de las dos palabras lo lee una persona.
+ */
+function categoriaQueElCreditoNoPidio(
+  enDocumento: string,
+  ctx: ContextoCredito,
+  lc: LcInfo | null | undefined,
+): string | null {
+  const delCredito = [ctx.mercaderiaCompleta ?? ctx.mercaderia ?? "", ...(lc?.condicionesAdicionales ?? [])].join(" ");
+  if (CAMBIAN_LA_CATEGORIA.some(([re]) => re.test(delCredito))) return null;
+  return CAMBIAN_LA_CATEGORIA.find(([re]) => re.test(enDocumento))?.[1] ?? null;
+}
+
 /** Descripciones de mercadería: o una contiene a la otra, o comparten dos palabras propias. */
 /** Si dos descripciones se parecen lo bastante: una dentro de otra, o dos palabras propias en común. */
 function seParecen(a: string, b: string): boolean {
@@ -425,13 +468,38 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
   // 18c: la descripción de la mercadería debe CORRESPONDER con la del crédito (exigencia fuerte)
   const merc = val(fac, "mercaderia");
   if (ctx.mercaderia && merc) {
+    /*
+     * Y el límite que la Opinión TA 756 le pone a «agregar no es contradecir».
+     *
+     * El caso *Bulgrains v Shinhan Bank* dejó escrito que la factura puede traer datos que el crédito
+     * no menciona —el origen, el embalaje, un número de contrato— y que exigir el espejo sería rechazar
+     * de más. Sigue siendo cierto. La **TA 756** le pone el borde: el 45A pedía «HYDRAULIC DRILLING RIG
+     * ABI 12/14300» y la factura decía «SECOND HAND HYDRAULIC DRILLING RIG ABI 12/14300».
+     *
+     *   «The words "second hand" indicate a different category or classification of the goods, which is
+     *   not apparent in the goods description in the credit. The addition of the words "second hand" is
+     *   grounds for refusal on the basis that the goods description in the invoice does not correspond
+     *   with that in the credit.» — CONCLUSION: The discrepancy is valid.
+     *
+     * La lista es corta y cerrada porque lo que la sostiene no es una interpretación: son los
+     * calificativos con que el comercio **clasifica** una mercadería. El origen no entra y no va a
+     * entrar — «BULGARIAN WHEAT BRAN PELLETS» no cambia de qué mercadería se habla.
+     *
+     * **Y rechaza solo si la palabra no está en ninguna parte del crédito**, ni en el 45A ni en las
+     * condiciones adicionales. Un crédito que pide maquinaria usada y una factura que la llama usada se
+     * corresponden; lo que la Opinión castiga es que el papel declare una categoría que el crédito no
+     * nombró. Sin ese freno el motor rechazaría justamente el caso bueno.
+     */
+    const cambiaLaCategoria = categoriaQueElCreditoNoPidio(merc, ctx, lc);
     out.push(
       regla(
         "ucp-18c",
         "UCP 600 18c",
         "La descripción de la mercadería en la factura se corresponde con la del crédito",
-        coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
-        `factura: "${merc.slice(0, 70)}" · crédito 45A: "${ctx.mercaderia.slice(0, 70)}"`,
+        cambiaLaCategoria ? "DISCREPANCIA" : coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
+        cambiaLaCategoria
+          ? `la factura llama a la mercadería "${cambiaLaCategoria}" y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
+          : `factura: "${merc.slice(0, 70)}" · crédito 45A: "${ctx.mercaderia.slice(0, 70)}"`,
       ),
     );
   }
