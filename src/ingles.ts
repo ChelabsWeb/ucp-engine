@@ -1285,6 +1285,16 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\bel tramo cubierto\b/g, "the leg covered"],
   [/\besa indicación\b/g, "that indication"],
   [/\bla fecha del seguro\b/g, "the insurance date"],
+  [/\bla fecha de emisión\b/g, "the date of issuance"],
+  /* TA 862: sin fecha de emisión y con notación de vuelo */
+  [
+    /^no se leyó la fecha de emisión y el documento trae una notación de vuelo, /g,
+    "the date of issuance was not read and the document carries a flight notation, ",
+  ],
+  [
+    /: si el papel no trae fecha de emisión es discrepancia, porque la del vuelo no la reemplaza \(Opinión TA 862\)\. Verificar en el papel$/g,
+    ": if the document itself bears no date of issuance that is a discrepancy, because the flight date does not replace it (ICC Opinion TA 862). Check on the document",
+  ],
   [/: verificar a mano$/g, ": check by hand"],
   [/^se aplica ±(\d+) % a la cantidad$/g, "a ±$1 % tolerance applies to the quantity"],
   [

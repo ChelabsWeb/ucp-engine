@@ -414,6 +414,34 @@ describe("el documento de transporte aéreo (UCP 600 art. 23)", () => {
     expect(r?.estado).not.toBe("DISCREPANCIA");
   });
 
+  /*
+   * Y **sin** fecha de emisión, con la notación de vuelo: el aviso nombra la Opinión TA 862.
+   *
+   * El motor no puede concluir —un campo vacío significa que el papel no la trae, que es la
+   * discrepancia que la ICC declara válida, o que nadie la cargó, que no es nada— pero sí puede evitar
+   * que el examinador tenga que saberse la Opinión de memoria: «An air transport document must always
+   * include a date of issuance».
+   *
+   * El estado es el mismo que el del aviso genérico, así que **el banco de pruebas no distingue las dos
+   * ramas**: lo que las separa es la frase, y por eso se prueba acá.
+   */
+  it("23a-iii: sin fecha de emisión y con notación de vuelo, el aviso nombra la TA 862", () => {
+    const r = corrAereo({ fechaDocumento: campo(""), onBoard: campo("FLIGHT DATE: 16 DEC 2015") }).find(
+      (x) => x.id === "ucp-23a-iii",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("TA 862");
+    expect(r?.evidencia).toContain("FLIGHT DATE: 16 DEC 2015");
+  });
+
+  it("y sin notación de vuelo queda el aviso genérico", () => {
+    const r = corrAereo({ fechaDocumento: campo(""), onBoard: campo("RECEIVED FOR CARRIAGE") }).find(
+      (x) => x.id === "ucp-23a-iii",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).not.toContain("TA 862");
+  });
+
   it("23a-v: alcanza el original del expedidor aunque el crédito pida el juego completo", () => {
     /*
      * El crédito real dice «FULL SET OF (3/3) ... BILLS OF LADING». En un aéreo eso no se puede
