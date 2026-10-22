@@ -1666,6 +1666,20 @@ describe("la versión del término de entrega (ISBP 821 C8)", () => {
     expect(r?.evidencia).toContain("CFR COLOMBO");
   });
 
+  /*
+   * Y la factura que no indica **ningún término** sale a verificar con otra frase: la que nombra el
+   * párrafo C8 y la Opinión TA 873rev, donde la ICC lo transcribe y concluye que la omisión del término
+   * es discrepancia. Sigue avisando y no rechazando por el límite de la TA 862 —un término que no
+   * aparece puede ser un papel que no lo dice o un campo que nadie cargó— pero el examinador se lleva
+   * la cita en la línea.
+   */
+  it("y la que no indica ningún término avisa nombrando C8 y la TA 873rev", () => {
+    const r = buscar(facturaCon("PIPEBURSTER PULLING UNIT"), "isbp-c8");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("C8");
+    expect(r?.evidencia).toContain("TA 873rev");
+  });
+
   it("sin término de entrega leído no se dictamina: queda como verificación pendiente", () => {
     const r = buscar([{ tipo: "FACTURA", campos: doc({}) }], "isbp-c8");
     expect(r?.estado).toBe("ATENCION");

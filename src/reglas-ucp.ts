@@ -442,6 +442,8 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
   if (versionDelCredito) {
     const enFactura = [val(fac, "incoterm"), val(fac, "mercaderia")].filter(Boolean).join(" ");
     const versionDeLaFactura = versionIncoterm(enFactura);
+    /* Y si la factura trae **el término**, que es lo que la TA 873rev decide y no es lo mismo. */
+    const terminoDeLaFactura = terminoDeEntrega(enFactura);
     const { evidencia } = cotejarIncotermISBP(inco45a, enFactura);
     out.push(
       !enFactura
@@ -456,18 +458,48 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
             "ISBP 821 C8",
             "La factura indica la misma versión del término de entrega que el crédito",
             /*
-             * Dos versiones distintas es una contradicción entre papeles y no necesita ningún
-             * párrafo de la ISBP para sostenerse: la decide el artículo 14 (d). La **omisión**, en
-             * cambio, depende de cómo esté redactado C8 exactamente, y el texto de la ISBP 821 no
-             * está comprado — así que sale a verificar con los dos textos a la vista en vez de
-             * rechazar. Es la misma decisión que se tomó con el certificado que no dice cuándo
-             * ocurrió lo que acredita: afinarla necesita la publicación, y acá inventar la práctica
-             * bancaria que falta es peor que dejar el veredicto donde está.
+             * Dos versiones distintas es una contradicción entre papeles y no necesita ningún párrafo
+             * de la ISBP para sostenerse: la decide el artículo 14 (d). **La omisión también es
+             * discrepancia, y eso dejó de ser una duda.**
+             *
+             * Salía a verificar porque el veredicto dependía de cómo estuviera redactado C8 exactamente
+             * y la publicación no está comprada. La Opinión **TA 873rev** lo transcribe adentro, que es
+             * la única forma de citarlo sin comprar nada:
+             *
+             *   «ISBP 745 paragraph C8 states that when a trade term is stated as part of the goods
+             *   description in the credit, an invoice is to indicate that trade term, and when the
+             *   source of the trade term is stated, the same source is to be indicated.»
+             *
+             * Y resuelve el caso con eso: el 45A decía «DAP [Place B] Incoterms 2010», la factura no
+             * traía el término, y *«Accordingly, this constitutes a discrepancy»* — «Yes, both
+             * discrepancies were valid».
+             *
+             * Es el segundo veredicto que este motor pudo cerrar porque una Opinión transcribió el
+             * párrafo que le faltaba, y vale anotar el patrón: lo que no se puede comprar a veces se
+             * puede citar de donde la ICC lo copió.
+             *
+             * **Y sigue sin rechazar, por el mismo límite que declaró la Opinión TA 862:** un término
+             * que no aparece puede ser un papel que no lo dice —la discrepancia que la TA 873rev declara
+             * válida— o un campo que nadie cargó. El propio expediente real lo demuestra: su factura
+             * **sí** trae «CFR COLOMBO, SRI LANKA» en el papel, y el paquete de prueba que reproduce ese
+             * examen no carga el campo. Las dos situaciones llegan acá idénticas.
+             *
+             * Lo que cambió es la **frase**: ahora dice que la omisión del término es discrepancia y de
+             * dónde sale, así que el examinador no tiene que saberse el párrafo. Es el tercer caso que
+             * apunta al mismo hueco del esquema —hace falta un estado «ausente en el papel»— y los tres
+             * están anotados.
+             *
+             * Y la Opinión decide la omisión **del término**, no la de la fuente: en el expediente real
+             * el término está y la fuente no, y el banco lo tomó sin levantar nada. Los hechos de la
+             * TA 873rev son otros —*«The presented invoice did not include this trade term»*— así que las
+             * dos omisiones se nombran distinto aunque las dos avisen.
              */
             versionDeLaFactura ? (versionDeLaFactura === versionDelCredito ? "OK" : "DISCREPANCIA") : "ATENCION",
-            versionDeLaFactura
-              ? evidencia
-              : `el crédito dice Incoterms ${versionDelCredito} y la factura dice "${enFactura.slice(0, 60)}" sin indicar la versión: verificar si el crédito la exige repetida`,
+            !terminoDeLaFactura
+              ? `el crédito pone el término de entrega en la descripción de la mercadería ("Incoterms ${versionDelCredito}") y la factura dice "${enFactura.slice(0, 60)}" sin ningún término: si el papel de verdad no lo indica es discrepancia, porque la factura tiene que repetirlo (párrafo C8 de la ISBP, transcripto en la Opinión TA 873rev). Verificar en el papel`
+              : versionDeLaFactura
+                ? evidencia
+                : `el crédito dice Incoterms ${versionDelCredito} y la factura dice "${enFactura.slice(0, 60)}" sin indicar la versión: verificar si el crédito la exige repetida`,
           ),
     );
   }
