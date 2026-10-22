@@ -500,9 +500,7 @@ describe("los transportes que no son marítimos ni aéreos", () => {
      * multimodal y el motor la mandaba a verificar porque la lista decía «shipped» y no «shipment».
      */
     it("19a-ii: y «received for shipment» cumple (R 638 / TA 629)", () => {
-      const r = corr(multi({ onBoard: campo("RECEIVED FOR SHIPMENT 08-APR-2025") })).find(
-        (x) => x.id === "ucp-19a-ii",
-      );
+      const r = corr(multi({ onBoard: campo("RECEIVED FOR SHIPMENT 08-APR-2025") })).find((x) => x.id === "ucp-19a-ii");
       expect(r?.estado).toBe("OK");
     });
 
@@ -1855,10 +1853,7 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
    * indicating vessel O and Port H.»
    */
   it("un buque marcado que no es el oceánico es discrepancia (TA 858rev)", () => {
-    const r = buscar(
-      conAnotacion("SHIPPED ON BOARD MV VESSELW 04.05.2016 FROM PORT H", "VESSELO"),
-      "ucp-20a-ii-buque",
-    );
+    const r = buscar(conAnotacion("SHIPPED ON BOARD MV VESSELW 04.05.2016 FROM PORT H", "VESSELO"), "ucp-20a-ii-buque");
     expect(r?.estado).toBe("DISCREPANCIA");
     expect(r?.evidencia).toContain("TA 858rev");
   });
@@ -2166,5 +2161,49 @@ describe("el coaseguro del artículo 28 (a) (TA 759)", () => {
   /* Y con un solo asegurador la regla no aparece: no hay pregunta que contestar. */
   it("con un asegurador no se emite nada", () => {
     expect(con("ABC INSURANCE LTD")).toBeUndefined();
+  });
+});
+/**
+ * El nombre del emisor que el motor **no puede leer** (Opinión **TA 886rev**).
+ *
+ * `normISBP` se queda con letras y números, así que un sello en chino se normaliza a la cadena vacía y
+ * `comparaISBP` devuelve DISTINTO: el motor rechazaba por no poder leer, que no es lo mismo que por no
+ * coincidir. Y el párrafo A21 (e) de la ISBP dice que el nombre de una entidad y los sellos **pueden ir
+ * en otro idioma** que el del crédito.
+ *
+ * Lo que decide es la cláusula del crédito: *«The wording in the credit modified the practice as
+ * described in ISBP 745 paragraph A21 (e).»*
+ */
+describe("el emisor de la factura en otro alfabeto (TA 886rev)", () => {
+  const SELLO = "上海进出口有限公司";
+  const con = (emisor: string, condiciones: string[] = []) =>
+    reglasUCP({
+      lc: { ...LC, condicionesAdicionales: condiciones },
+      credito: { ...CTX, beneficiario: "SHANGHAI IMPORT EXPORT CO LTD" },
+      docs: [{ tipo: "FACTURA", campos: doc({ exportador: campo(emisor) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-18a-i");
+
+  it("con la cláusula del idioma en el crédito es discrepancia, y nombra la Opinión", () => {
+    const r = con(SELLO, [
+      "UNLESS OTHERWISE STATED IN THIS DOCUMENTARY CREDIT, ALL DOCUMENTS MUST BE ISSUED IN ENGLISH.",
+    ]);
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("TA 886rev");
+  });
+
+  /*
+   * Y **sin** esa cláusula no es discrepancia: ahí rige A21 (e) y el sello en otro idioma vale. Es el
+   * falso positivo que el caso destapó — el motor rechazaba igual, por no poder leer.
+   */
+  it("sin la cláusula, va a verificar y cita A21 (e)", () => {
+    const r = con(SELLO);
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("A21");
+  });
+
+  it("y un nombre en caracteres latinos se sigue comparando como nombre", () => {
+    expect(con("SHANGHAI IMPORT EXPORT CO LTD")?.estado).toBe("OK");
+    expect(con("OTRA EMPRESA SA")?.estado).toBe("DISCREPANCIA");
   });
 });

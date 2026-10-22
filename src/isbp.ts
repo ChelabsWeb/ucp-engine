@@ -174,7 +174,38 @@ export const NOTA_TIPEO_DE_NOMBRE =
  * demonstrably simply a typographical error and was material»*. Con el matcher de lugares alcanzaba
  * que compartieran «bulgrains» para dar la factura por buena.
  */
-export function veredictoDeNombre(enDocumento: string, enCredito: string): "OK" | "ATENCION" | "DISCREPANCIA" {
+/**
+ * El crédito exige que los documentos vayan en inglés.
+ *
+ * Vive acá porque la decide el texto del crédito y la usan las dos reglas del 18 (a) (i) — que son dos
+ * y tienen que decir lo mismo, que es la lección que dejó *Bulgrains v Shinhan*.
+ */
+export function creditoExigeIngles(lc: { condicionesAdicionales?: string[] | null } | null | undefined): boolean {
+  return (lc?.condicionesAdicionales ?? []).some((c) =>
+    /\b(?:issued|written|drawn)\s+in\s+english\b|\bin\s+the\s+english\s+language\b|\bmust be in english\b/i.test(c),
+  );
+}
+
+export const NOTA_NOMBRE_ILEGIBLE =
+  "el nombre de una entidad y los sellos pueden ir en otro idioma (párrafo A21 (e) de la ISBP, transcripto en la Opinión TA 886rev), así que esto no es discrepancia por sí solo — verificar a mano quién emite";
+
+export const NOTA_NOMBRE_ILEGIBLE_CON_INGLES =
+  "el crédito exige los documentos en inglés, y eso cambia la práctica del párrafo A21 (e) de la ISBP — sin una indicación legible del emisor la discrepancia vale (Opinión TA 886rev)";
+
+export function veredictoDeNombre(
+  enDocumento: string,
+  enCredito: string,
+  /**
+   * El crédito exige los documentos en inglés, lo que cambia qué hacer con un nombre ilegible.
+   *
+   * Ver `NOTA_NOMBRE_ILEGIBLE`. Sin esto, un nombre en un alfabeto que `normISBP` no conserva se
+   * normaliza a la cadena vacía y `comparaISBP` devuelve DISTINTO: el motor rechazaba **por no poder
+   * leer**, que no es lo mismo que por no coincidir, y el párrafo A21 (e) dice que el sello puede ir en
+   * otro idioma. La Opinión TA 886rev decide con esa cláusula del crédito y no con el alfabeto.
+   */
+  exigeIngles = false,
+): "OK" | "ATENCION" | "DISCREPANCIA" {
+  if (enDocumento.trim() && normISBP(enDocumento).trim() === "") return exigeIngles ? "DISCREPANCIA" : "ATENCION";
   const cmp = comparaISBP(enDocumento, enCredito);
   if (cmp === "IGUAL" || cmp === "EQUIVALENTE") return "OK";
   if (cmp === "TIPEO") return "ATENCION";

@@ -10,9 +10,13 @@ import {
 } from "./consistencia";
 import { parseFecha } from "./fechas";
 import {
-  NOTA_TIPEO_DE_NOMBRE,
   cotejarIncotermISBP,
+  creditoExigeIngles,
   esFacturaComercial,
+  NOTA_NOMBRE_ILEGIBLE,
+  NOTA_NOMBRE_ILEGIBLE_CON_INGLES,
+  NOTA_TIPEO_DE_NOMBRE,
+  normISBP,
   terminoDeEntrega,
   veredictoDeNombre,
   versionIncoterm,
@@ -172,7 +176,6 @@ function esZonaDeLugares(texto: string): boolean {
     /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/.test(t)
   );
 }
-
 
 /**
  * Los calificativos que cambian **de qué mercadería** se habla (Opinión TA 756).
@@ -701,7 +704,7 @@ function reglasAplicacion(lc: LcInfo, ctx: ContextoCredito): ReglaPresentacion[]
  * beneficiario, y conocimiento a nombre de Molsur, que es el productor que embarca. Lo primero
  * cumple el 18 (a) (i) y lo segundo lo permite el 14 (k).
  */
-function reglasQuienEmite(ctx: ContextoCredito, docs: DocAnalizado[]): ReglaPresentacion[] {
+function reglasQuienEmite(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[]): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
   const fac = docs.find((d) => d.tipo === "FACTURA");
 
@@ -730,16 +733,44 @@ function reglasQuienEmite(ctx: ContextoCredito, docs: DocAnalizado[]): ReglaPres
        * factura «Bulgrains & Co Ltd» y el High Court declaró la discrepancia material: compartían
        * «bulgrains» y el motor la daba por buena.
        */
-      const v = veredictoDeNombre(emisor, ctx.beneficiario);
+      /*
+       * Y un nombre que el motor **no puede leer** no es un nombre distinto (Opinión TA 886rev).
+       *
+       * `normISBP` se queda con letras y números, así que un sello en chino, árabe o cirílico se
+       * normaliza a la cadena vacía y `comparaISBP` devuelve DISTINTO: el motor rechazaba por no poder
+       * leer, que no es lo mismo que por no coincidir. Y el párrafo A21 (e) de la ISBP —transcripto en
+       * esa Opinión— dice que **el nombre de una entidad y los sellos pueden ir en otro idioma** que el
+       * del crédito, así que esa factura cumple.
+       *
+       * Salvo que el crédito lo haya cambiado, que es lo que decidió el caso:
+       *
+       *   «it had been made clear within the terms and conditions of the credit that any non-English
+       *   text within a document must also be written in English language […] **The wording in the
+       *   credit modified the practice as described in ISBP 745 paragraph A21 (e).**»
+       *
+       *   «In the absence of a letterhead or any other indication, in English, of the name of the issuer
+       *   of the invoice, the discrepancy raised by the issuing bank is valid.»
+       *
+       * Así que las dos cosas se separan: con la cláusula del idioma en el crédito, el nombre ilegible
+       * es **discrepancia**; sin ella, es un **aviso** —el motor no puede verificarlo y lo mira una
+       * persona, que es lo que hizo el banco designado de esa Opinión—.
+       */
+      const sinLetrasLatinas = normISBP(emisor).trim() === "";
+      const pideIngles = creditoExigeIngles(lc);
+      const v = veredictoDeNombre(emisor, ctx.beneficiario, pideIngles);
       out.push(
         regla(
           "ucp-18a-i",
           "UCP 600 18a-i",
           "La factura la emite el beneficiario",
           v,
-          v === "ATENCION"
-            ? `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}": ${NOTA_TIPEO_DE_NOMBRE}`
-            : `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}"`,
+          sinLetrasLatinas
+            ? pideIngles
+              ? `la factura dice "${emisor}" y no trae ninguna indicación en caracteres latinos de quién la emite: ${NOTA_NOMBRE_ILEGIBLE_CON_INGLES}`
+              : `la factura dice "${emisor}" y el motor no puede cotejarlo contra "${ctx.beneficiario}": ${NOTA_NOMBRE_ILEGIBLE}`
+            : v === "ATENCION"
+              ? `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}": ${NOTA_TIPEO_DE_NOMBRE}`
+              : `la factura dice "${emisor}" y el crédito nombra beneficiario a "${ctx.beneficiario}"`,
         ),
       );
     }
@@ -1014,8 +1045,7 @@ function reglaOnBoardQuePideElCredito(
    */
   const laLineaNombraElMultimodal = /multimodal|combined transport|intermodal|through bill/i.test(lineaDeTransporte);
   const permitido = condicionesAdicionales.some(
-    (c) =>
-      /multimodal|combined transport|intermodal/i.test(c) && /acceptable|allowed|permitted|acepta|permit/i.test(c),
+    (c) => /multimodal|combined transport|intermodal/i.test(c) && /acceptable|allowed|permitted|acepta|permit/i.test(c),
   );
   if (permitido && !laLineaNombraElMultimodal) return [];
   const constancia = val(doc, "onBoard");
@@ -2310,7 +2340,7 @@ export function reglasUCP(input: {
 
   out.push(...reglasAplicacion(input.lc, ctx));
   out.push(...reglasQueDocumentoEs(input.docs));
-  out.push(...reglasQuienEmite(ctx, input.docs));
+  out.push(...reglasQuienEmite(input.lc, ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
 
   /*

@@ -1,6 +1,14 @@
 import { type CamposDoc, claveDoc, compararEntreDocumentos, parseNumero, type TipoDocExterno } from "./consistencia";
 import { diffDias, parseFecha } from "./fechas";
-import { NOTA_TIPEO_DE_NOMBRE, comparaISBP, veredictoDeNombre } from "./isbp";
+import {
+  comparaISBP,
+  creditoExigeIngles,
+  NOTA_NOMBRE_ILEGIBLE,
+  NOTA_NOMBRE_ILEGIBLE_CON_INGLES,
+  NOTA_TIPEO_DE_NOMBRE,
+  normISBP,
+  veredictoDeNombre,
+} from "./isbp";
 import { limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
@@ -645,7 +653,18 @@ export function precheckPresentacion(input: {
        * salía OK por el motivo equivocado. Comparar de verdad la volvía DISCREPANCIA, y vaciar un dato
        * del crédito no puede inventar una discrepancia.
        */
-      const v = input.empresaRazonSocial?.trim() ? veredictoDeNombre(exp, input.empresaRazonSocial) : "ATENCION";
+      /*
+       * Y el mismo trato para un nombre que el motor **no puede leer**, que es la Opinión TA 886rev.
+       *
+       * Las dos reglas del 18 (a) (i) tienen que decir lo mismo —la lección de *Bulgrains v Shinhan*—
+       * así que el alfabeto y la cláusula del idioma se deciden en `veredictoDeNombre` y acá solo se
+       * elige la frase. Sin esto, `ucp-18a-i` avisaba y ésta rechazaba sobre el mismo sello.
+       */
+      const ilegible = Boolean(exp.trim()) && normISBP(exp).trim() === "";
+      const exigeIngles = creditoExigeIngles(lc);
+      const v = input.empresaRazonSocial?.trim()
+        ? veredictoDeNombre(exp, input.empresaRazonSocial, exigeIngles)
+        : "ATENCION";
       reglas.push({
         id: "fac-emisor",
         fuente: "UCP 600 18a",
@@ -653,9 +672,11 @@ export function precheckPresentacion(input: {
         estado: v,
         evidencia: !input.empresaRazonSocial?.trim()
           ? `emisor "${exp}" y no se leyó el beneficiario del crédito: verificar a mano`
-          : v === "ATENCION"
-            ? `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}": ${NOTA_TIPEO_DE_NOMBRE}`
-            : `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}"`,
+          : ilegible
+            ? `emisor "${exp}": ${exigeIngles ? NOTA_NOMBRE_ILEGIBLE_CON_INGLES : NOTA_NOMBRE_ILEGIBLE}`
+            : v === "ATENCION"
+              ? `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}": ${NOTA_TIPEO_DE_NOMBRE}`
+              : `emisor "${exp}" · beneficiario "${input.empresaRazonSocial}"`,
       });
     }
   }
