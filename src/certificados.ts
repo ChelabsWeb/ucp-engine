@@ -204,6 +204,24 @@ function pesoEnKg(campos: CamposDoc): number | null {
 
 /* ─────────────────────────── las reglas ─────────────────────────── */
 
+/*
+ * El país nombrado como **indicación de origen**, y no como parte del nombre de otra cosa.
+ *
+ * `new RegExp(pais, "i")` era una subcadena suelta, y la Opinión TA 864rev es exactamente el caso
+ * donde eso engaña: el certificado del acuerdo China-Australia certifica que la mercadería *«comply
+ * with the origin requirements of the China-Australia Free Trade Agreement»*, así que la palabra
+ * «Australia» está en el papel **dentro del nombre del acuerdo**. La ICC lo desarma en una línea: esa
+ * frase *«could mean any number of origins being applicable»*.
+ *
+ * El corte es el guion: un país pegado con guion o barra a otra palabra está nombrando un acuerdo, un
+ * par de países o una ruta, no el origen de la mercadería. Alcanza con que **una** mención esté suelta.
+ */
+function nombraElOrigen(texto: string, pais: string): boolean {
+  const re = new RegExp(`(.?)\\b${pais}\\b(.?)`, "gi");
+  for (const m of texto.matchAll(re)) if (!/[-/]/.test(m[1] ?? "") && !/[-/]/.test(m[2] ?? "")) return true;
+  return false;
+}
+
 export function reglasCertificados(input: {
   lc: LcInfo;
   certificados: DocCertificado[];
@@ -546,18 +564,47 @@ export function reglasCertificados(input: {
         Boolean,
       ) as string[];
       if (pais) {
-        const loTrae = donde.find((x) => new RegExp(pais, "i").test(x));
+        const loTrae = donde.find((x) => nombraElOrigen(x, pais));
+        /*
+         * El criterio de origen del propio formulario, que la ICC acepta.
+         *
+         * Los formularios de los acuerdos de libre comercio no llevan el nombre del país: su casilla
+         * admite «WO» (wholly obtained), «WP» (produced entirely) o «PSR» (product specific rules). La
+         * Opinión TA 864rev dice que eso **también** satisface la exigencia —«Absent an indication of
+         * "Australian origin", **or any indication of the origin criterion which currently allows
+         * "WO", "WP" or "PSR"**, the document is discrepant»— pero no que signifique este país: *«The
+         * instruction sheet … does not explicitly indicate that any of these acronyms mean Australia
+         * and Australia alone»*. Así que con el acrónimo se verifica, no se concluye.
+         */
+        const conCriterio = donde.find((x) => /\b(?:WO|WP|PSR)\b/.test(x));
+        /*
+         * **Y nunca rechaza, aunque la Opinión diga que la discrepancia vale.**
+         *
+         * El primer intento fue poner DISCREPANCIA cuando el texto del documento está cargado y no
+         * nombra el origen, que es literalmente la conclusión de TA 864rev. Lo puso rojo un test que ya
+         * estaba —un certificado con `mercaderia` «FISH MEAL» y el lugar «MONTEVIDEO»— y el test tiene
+         * razón: un campo de mercadería que trae el nombre del producto **no prueba que el papel no
+         * diga el origen**, prueba que nadie lo extrajo. Es la ambigüedad de la Opinión TA 862 una
+         * capa más adentro: «no se leyó» y «el papel no lo trae» se ven iguales, y resolverlo necesita
+         * el tercer estado del esquema de campos, que es una decisión de producto y no una regla.
+         *
+         * Lo que sí se puede hacer es que la evidencia nombre la Opinión y diga qué pasa si el papel
+         * de verdad no lo trae, para que el examinador no tenga que saberse la TA 864rev de memoria.
+         */
+        const estado = loTrae ? "OK" : "ATENCION";
         out.push(
           regla(
             `cert-origen-${sufijo}`,
             "46A",
             `${nombre}: indica origen ${pais.toUpperCase()}`,
-            loTrae ? "OK" : "ATENCION",
+            estado,
             loTrae
               ? `el documento dice "${corto(loTrae)}"`
-              : donde.length > 0
-                ? `no se leyó el origen; el documento dice "${corto(donde.join(" · "))}": verificar a mano`
-                : "no se leyó el origen: verificar a mano",
+              : conCriterio
+                ? `el documento no nombra el origen y trae el criterio del formulario: dice "${corto(conCriterio)}". La Opinión TA 864rev lo admite pero no dice que ese acrónimo signifique este país: verificar a mano`
+                : donde.length > 0
+                  ? `no se leyó el origen ${pais.toUpperCase()}; el documento dice "${corto(donde.join(" · "))}": verificar a mano, y si el papel de verdad no lo indica la discrepancia vale (Opinión TA 864rev)`
+                  : "no se leyó el origen: verificar a mano",
           ),
         );
       }

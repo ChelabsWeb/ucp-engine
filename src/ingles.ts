@@ -1000,6 +1000,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó el origen; el documento dice (.+): verificar a mano$/g,
     "the origin was not read; the document states $1: check by hand",
   ],
+  /* TA 864rev: el origen que el crédito nombra y el papel no indica */
+  [
+    /^no se leyó el origen ([A-Z]+); el documento dice (.+): verificar a mano, y si el papel de verdad no lo indica la discrepancia vale \(Opinión TA 864rev\)$/g,
+    "the $1 origin was not read; the document states $2: check by hand, and if the paper really does not indicate it the discrepancy is valid (ICC Opinion TA 864rev)",
+  ],
+  [
+    /^el documento no nombra el origen y trae el criterio del formulario: dice (.+)\. La Opinión TA 864rev lo admite pero no dice que ese acrónimo signifique este país: verificar a mano$/g,
+    "the document does not name the origin and carries the form's own origin criterion: it states $1. ICC Opinion TA 864rev admits it but does not say that acronym means this country: check by hand",
+  ],
   [
     /^falta la fecha del certificado o la del embarque para compararlas$/g,
     "the date of the certificate or that of shipment is missing, so they cannot be compared",
