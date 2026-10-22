@@ -203,7 +203,14 @@ export function examinarPresentacion(input: {
   const base = precheckPresentacion({
     lc: input.lc,
     /* el plazo del 48 se mide contra el día de la presentación, no contra el del examen */
-    presentadaEl: input.presentacion?.fecha ?? null,
+    /*
+     * Para el plazo del 14 (c) manda la presentación, no la recepción en este banco.
+     *
+     * Ver `presentadaAlDesignadoEl` en `presentaciones.ts`: con un banco designado en el medio son dos
+     * fechas, y el artículo 14 (c) habla de la presentación. La de este banco sigue mandando en el
+     * reloj del aviso, que es el 14 (b) y el 16 (d).
+     */
+    presentadaEl: input.presentacion?.presentadaAlDesignadoEl ?? input.presentacion?.fecha ?? null,
     docs: examinables,
     /*
      * Los certificados y el seguro también satisfacen su línea del 46A.
