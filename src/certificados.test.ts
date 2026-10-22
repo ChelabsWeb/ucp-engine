@@ -572,6 +572,66 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
     expect(r?.evidencia).toMatch(/MONTEVIDEO/);
     expect(r?.evidencia).toMatch(/verificar/);
   });
+
+  /*
+   * El país pegado con guion a otro no indica el origen (Opinión TA 864rev)
+   *
+   * El certificado del acuerdo China-Australia certifica que la mercadería «comply with the origin
+   * requirements of the China-Australia Free Trade Agreement», así que el nombre del país está en el
+   * papel **dentro del nombre del acuerdo**. `new RegExp(pais, "i")` era una subcadena suelta y lo daba
+   * por bueno; la ICC lo desarma en una línea: esa frase *«could mean any number of origins being
+   * applicable»*.
+   */
+  describe("el país dentro del nombre de un acuerdo (TA 864rev)", () => {
+    const correrAU = (campos: Partial<CamposDoc>) =>
+      reglasCertificados({
+        lc: LC,
+        docs: [],
+        hoy: new Date(2017, 2, 22),
+        certificados: [
+          { exigencia: "+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY", campos: doc(campos) },
+        ],
+      }).find((x) => x.id.startsWith("cert-origen"));
+
+    const CUERPO =
+      "FEED BARLEY IN BULK · THE DESCRIBED GOODS COMPLY WITH THE ORIGIN REQUIREMENTS OF THE CHINA-AUSTRALIA FREE TRADE AGREEMENT";
+
+    it("«CHINA-AUSTRALIA» no es una indicación de origen australiano", () => {
+      const r = correrAU({ mercaderia: campo(CUERPO) });
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toMatch(/TA 864rev/);
+    });
+
+    it("pero una mención suelta del mismo país en el mismo texto sí alcanza", () => {
+      expect(correrAU({ mercaderia: campo(`${CUERPO} · COUNTRY OF ORIGIN: AUSTRALIA`) })?.estado).toBe("OK");
+    });
+
+    /*
+     * El criterio de origen del propio formulario, que la ICC **admite**: «or any indication of the
+     * origin criterion which currently allows "WO", "WP" or "PSR"». Lo que no dice es que el acrónimo
+     * signifique este país, así que se verifica y no se concluye.
+     */
+    it("el acrónimo del formulario va a verificar nombrando la Opinión", () => {
+      const r = correrAU({ mercaderia: campo("FEED BARLEY IN BULK · ORIGIN CRITERION: WO") });
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toMatch(/WO/);
+      expect(r?.evidencia).toMatch(/TA 864rev/);
+    });
+
+    /*
+     * Y el freno, que es el que hizo descartar el veredicto de rechazo.
+     *
+     * TA 864rev concluye que la discrepancia **vale**, y el primer intento fue poner DISCREPANCIA
+     * cuando el texto está cargado y no nombra el origen. Lo puso rojo el test de arriba —«FISH MEAL»
+     * con el lugar «MONTEVIDEO»— y tiene razón: un campo de mercadería con el nombre del producto no
+     * prueba que el papel no diga el origen, prueba que nadie lo extrajo. Es la ambigüedad de la
+     * Opinión TA 862 una capa más adentro, y resolverla necesita el tercer estado del esquema.
+     */
+    it("y nunca rechaza, aunque la Opinión diga que la discrepancia vale", () => {
+      for (const campos of [{ mercaderia: campo(CUERPO) }, { mercaderia: campo("FEED BARLEY IN BULK") }, {}])
+        expect(correrAU(campos)?.estado).not.toBe("DISCREPANCIA");
+    });
+  });
 });
 
 describe("la fecha del hecho, cuando el certificado trae varias", () => {
