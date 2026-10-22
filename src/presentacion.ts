@@ -710,16 +710,48 @@ export function precheckPresentacion(input: {
      */
     const yaPresentada = input.presentadaEl ?? null;
     diasParaPresentar = diffDias(yaPresentada ?? hoy, lim.limite);
+    /*
+     * Y dos cosas que el campo 48 puede decir y antes se trataban como si no dijera nada.
+     *
+     * **El plazo hasta el vencimiento** —*Deutsche Bank v CIMB* [2017] EWHC 3380 (Comm)— desplaza los
+     * veintiún días del artículo 14 (c): el límite es el 31D. El motor caía al plazo por defecto y
+     * producía justo la discrepancia que ese tribunal declaró inválida, con USD 9.959.452,57 en juego.
+     * Sale OK si la presentación entró antes del vencimiento, con la sentencia nombrada — y nombrarla
+     * importa, porque los peritos de las dos partes coincidieron en que la ICC nunca contestó esto.
+     *
+     * **Un 48 que el motor no pudo leer** sale a verificar en vez de dictaminar. Antes caía a los
+     * veintiún días y lo presentaba como si el crédito no hubiera fijado plazo: el silencio contado
+     * como conformidad, y encima sobre la discrepancia más corriente del negocio.
+     */
+    const porElVencimiento = lim.hastaElVencimiento;
     reglas.push({
       id: "plazo",
       fuente: lim.plazoPorDefectoUCP ? "UCP 600 14c" : "48",
-      regla: yaPresentada
-        ? `Presentada dentro de ${lim.dias} días del BL y antes del vencimiento`
-        : `Presentar dentro de ${lim.dias} días del BL y antes del vencimiento`,
-      estado: diasParaPresentar < 0 ? "DISCREPANCIA" : yaPresentada ? "OK" : diasParaPresentar <= 3 ? "ATENCION" : "OK",
-      evidencia: yaPresentada
-        ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
-        : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
+      regla: porElVencimiento
+        ? yaPresentada
+          ? "Presentada antes del vencimiento, que es el plazo que fija el campo 48"
+          : "Presentar antes del vencimiento, que es el plazo que fija el campo 48"
+        : yaPresentada
+          ? `Presentada dentro de ${lim.dias} días del BL y antes del vencimiento`
+          : `Presentar dentro de ${lim.dias} días del BL y antes del vencimiento`,
+      estado: lim.plazoNoLeido
+        ? "ATENCION"
+        : diasParaPresentar < 0
+          ? "DISCREPANCIA"
+          : yaPresentada
+            ? "OK"
+            : diasParaPresentar <= 3
+              ? "ATENCION"
+              : "OK",
+      evidencia: lim.plazoNoLeido
+        ? `el campo 48 dice "${lc.plazoPresentacion}" y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 (c) para la cuenta, pero si esa redacción fija otro plazo manda el crédito. Verificar a mano`
+        : porElVencimiento
+          ? yaPresentada
+            ? `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — un campo 48 así desplaza los 21 días del artículo 14 (c) (Deutsche Bank v CIMB, Commercial Court de Inglaterra); la ICC nunca contestó este punto`
+            : `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
+          : yaPresentada
+            ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
+            : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
     });
   } else {
     reglas.push({

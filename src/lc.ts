@@ -18,6 +18,41 @@ export function diasPresentacion(plazo: string | null | undefined): number | nul
   return n > 0 && n <= 180 ? n : null;
 }
 
+/**
+ * El campo 48 que fija el plazo **hasta el vencimiento** en vez de en días.
+ *
+ * Es la sentencia *Deutsche Bank AG v CIMB Bank Berhad* [2017] EWHC 3380 (Comm), y costó
+ * **USD 9.959.452,57**. El crédito decía «48: Period for Presentation — DOCUMENTS TO BE PRESENTED
+ * WITHIN LETTER OF CREDIT VALIDITY» y el banco emisor rechazó por tardía una presentación hecha más de
+ * veintiún días después del embarque pero dentro de la validez. El Commercial Court:
+ *
+ *   «that critical language conveys entirely clearly that the period for presenting documents is the
+ *   period from the date of shipment (necessarily the start of that period if nothing else is said)
+ *   until the expiry date of the credit. That is a period for presentation rule distinctly different
+ *   from a rule requiring documents to be tendered within 21 days from shipment.»
+ *
+ *   «It is irreconcilably inconsistent to say both that the beneficiary must act within 21 days and
+ *   that he may act at any time until expiry.»
+ *
+ * El motor buscaba **un número** en el campo 48 y, al no encontrarlo, caía al plazo por defecto del
+ * artículo 14 (c): o sea que producía exactamente la discrepancia que el tribunal declaró inválida, y
+ * la presentaba como si el crédito no hubiera dicho nada.
+ *
+ * **Y la autoridad sobre esto es la sentencia y nada más**, lo que conviene saber: los peritos de las
+ * dos partes coincidieron en que *«no ICC Banking Commission opinion has ever been sought on the
+ * question»* y que la ISBP 745 no lo toca. Por eso el hallazgo del motor la nombra.
+ */
+export function plazoHastaElVencimiento(plazo: string | null | undefined): boolean {
+  if (!plazo) return false;
+  const t = plazo.toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  /* «within letter of credit validity», «within the validity of the credit», «within l c validity» */
+  if (/within .{0,20}(l c|lc|letter of credit|credit|this credit) validity/.test(t)) return true;
+  if (/within the validity (of|period)/.test(t)) return true;
+  if (/(until|up to|not later than) .{0,15}(expiry|expiration)/.test(t)) return true;
+  if (/dentro de la (validez|vigencia)|hasta el vencimiento/.test(t)) return true;
+  return false;
+}
+
 /** UCP 600 art. 14c: plazo de presentación por defecto cuando la LC no lo fija. */
 export const UCP_DIAS_PRESENTACION = 21;
 
@@ -26,8 +61,31 @@ export interface LimitePresentacion {
   fechaBL: Date;
   esEstimada: boolean;
   dias: number;
-  /** la LC no fija plazo: rige el de UCP 600 art. 14c (21 días calendario) */
+  /**
+   * La cuenta se hizo con el plazo de UCP 600 art. 14c (21 días calendario).
+   *
+   * Dice **qué cuenta hizo el motor**, no si el crédito calló: con un 48 que trae texto ilegible la
+   * cuenta igual es la del artículo, y eso es lo que esta bandera informa. Lo que el crédito dijo y no
+   * se pudo leer lo marca `plazoNoLeido`.
+   */
   plazoPorDefectoUCP: boolean;
+  /**
+   * El campo 48 fija el plazo **hasta el vencimiento**: el límite es el 31D y no «BL + días».
+   *
+   * Ver `plazoHastaElVencimiento`. Va como bandera y no disuelto en `dias` para que el hallazgo pueda
+   * explicarlo y nombrar la sentencia: un plazo de veintiséis días que sale de restar fechas no se
+   * puede distinguir de uno que el crédito escribió en días.
+   */
+  hastaElVencimiento: boolean;
+  /**
+   * El campo 48 **dice algo** y el motor no lo pudo leer.
+   *
+   * Es el hermano silencioso del caso de arriba: con un 48 que no trae un número ni una fórmula
+   * conocida, el motor caía al plazo del artículo 14 (c) **y lo presentaba como si el crédito no
+   * hubiera dicho nada**. Eso es el silencio contado como conformidad, que es el defecto que este
+   * repositorio persigue. Con la bandera, el hallazgo sale a verificar en vez de dictaminar.
+   */
+  plazoNoLeido: boolean;
   /** BL + plazo, SIN acotar (para explicar la CRÍTICA cuando cae después del vencimiento) */
   porPlazo: Date;
   /** el límite operativo: min(BL + plazo, vencimiento) */
@@ -46,20 +104,35 @@ export function limitePresentacion(
   // UCP 600 art. 14c: si el crédito no dice, la presentación es dentro de los 21 días
   // calendario posteriores al embarque (y nunca después del vencimiento)
   const explicito = diasPresentacion(lc.plazoPresentacion);
-  const dias = explicito ?? UCP_DIAS_PRESENTACION;
+  const hastaVenc = explicito == null && plazoHastaElVencimiento(lc.plazoPresentacion);
   const real = fechaBL ? parseFecha(fechaBL) : null;
   const est = !real && fechaEmbarqueEstimada ? parseFecha(fechaEmbarqueEstimada) : null;
   const bl = real ?? est;
   if (!bl) return null;
   const venc = parseFecha(lc.vencimiento);
   if (!venc) return null;
+  /*
+   * Con el plazo hasta el vencimiento, el límite **es** el vencimiento y los días se cuentan desde el
+   * embarque: la cuenta es la misma que haría una persona leyendo el campo 48 de CIMB.
+   */
+  const dias = hastaVenc ? Math.max(diffDias(bl, venc), 0) : (explicito ?? UCP_DIAS_PRESENTACION);
   const porPlazo = new Date(bl.getFullYear(), bl.getMonth(), bl.getDate() + dias);
   const recortado = porPlazo > venc;
   return {
     fechaBL: bl,
     esEstimada: !real,
     dias,
-    plazoPorDefectoUCP: explicito == null,
+    plazoPorDefectoUCP: explicito == null && !hastaVenc,
+    hastaElVencimiento: hastaVenc,
+    /*
+     * El 48 trae texto, no es un número y no es la fórmula del vencimiento: no se pudo leer.
+     *
+     * El guion largo queda afuera: es el relleno con que el intérprete de SWIFT marca **un campo que
+     * no vino**, y un crédito sin campo 48 no dijo nada — ahí rige el artículo 14 (c) y el motor
+     * concluye, que es lo correcto. Lo encontró el banco de pruebas al cambiar esto: tres casos
+     * pasaron de evitada a evitada sin concluir, y dos de ellos son justamente los del 48 en blanco.
+     */
+    plazoNoLeido: explicito == null && !hastaVenc && /[a-z0-9]/i.test(lc.plazoPresentacion ?? ""),
     porPlazo,
     limite: recortado ? venc : porPlazo,
     recortadoPorVencimiento: recortado,

@@ -7,6 +7,7 @@ import {
   diasParaPresentar,
   diasPresentacion,
   limitePresentacion,
+  plazoHastaElVencimiento,
   parseTolerancia,
   sumarHabiles,
   tenorDe,
@@ -240,5 +241,65 @@ describe("a qué se aplica la tolerancia que el crédito declara", () => {
     const lc = conCondicion("A TOLERANCE OF 10 PCT MORE OR LESS ALLOWED.").lc;
     expect(toleranciaDeImporte(lc)).toBeCloseTo(0.1);
     expect(toleranciaDeCantidad(lc)).toBeCloseTo(0.1);
+  });
+});
+/**
+ * El campo 48 que fija el plazo **hasta el vencimiento**, que es *Deutsche Bank v CIMB*.
+ *
+ * El motor buscaba un número en el campo 48 y al no encontrarlo caía a los veintiún días del artículo
+ * 14 (c): producía exactamente la discrepancia que el Commercial Court declaró inválida, con
+ * USD 9.959.452,57 en juego, y la presentaba como si el crédito no hubiera fijado plazo.
+ */
+describe("el plazo del campo 48 hasta el vencimiento (Deutsche Bank v CIMB)", () => {
+  it("reconoce la redacción de CIMB", () => {
+    expect(plazoHastaElVencimiento("DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY")).toBe(true);
+  });
+
+  it.each([
+    "DOCUMENTS TO BE PRESENTED WITHIN L/C VALIDITY",
+    "WITHIN THE VALIDITY OF THE CREDIT",
+    "DOCUMENTS TO BE PRESENTED NOT LATER THAN THE EXPIRY DATE",
+    "PRESENTAR DENTRO DE LA VALIDEZ DEL CREDITO",
+  ])("y sus variantes: «%s»", (t) => {
+    expect(plazoHastaElVencimiento(t)).toBe(true);
+  });
+
+  /* Y los frenos: un plazo en días es un plazo en días, y el campo vacío no dice nada. */
+  it.each(["21/AFTER SHIPMENT DATE", "WITHIN 15 DAYS AFTER B/L DATE", "", null])("no se confunde con «%s»", (t) => {
+    expect(plazoHastaElVencimiento(t)).toBe(false);
+  });
+
+  it("el límite pasa a ser el vencimiento, no BL + 21", () => {
+    const l = limitePresentacion(
+      { ...LC, vencimiento: "15-ene-16", plazoPresentacion: "DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY" },
+      "10-dic-2015",
+      null,
+    );
+    expect(l?.hastaElVencimiento).toBe(true);
+    expect(l?.plazoPorDefectoUCP).toBe(false);
+    expect(l?.limite.toISOString().slice(0, 10)).toBe("2016-01-15");
+    expect(l?.dias).toBe(36);
+  });
+
+  /*
+   * Y el hermano silencioso: un 48 con texto que el motor no puede leer. Antes caía a los veintiún
+   * días **y lo presentaba como si el crédito no hubiera dicho nada**.
+   */
+  it("un 48 que no se puede leer queda marcado como tal", () => {
+    const l = limitePresentacion({ ...LC, vencimiento: "15-ene-16", plazoPresentacion: "AS PER AGREEMENT" }, "10-dic-2015", null);
+    expect(l?.plazoNoLeido).toBe(true);
+    expect(l?.dias).toBe(21);
+    /*
+     * Y `plazoPorDefectoUCP` sigue en `true`, que es lo correcto: dice **qué cuenta hizo el motor**, y
+     * la cuenta fue la del artículo 14 (c). Lo que agrega `plazoNoLeido` es que el crédito sí dijo algo
+     * y no se lo pudo leer, que es lo que convierte el veredicto en un aviso.
+     */
+    expect(l?.plazoPorDefectoUCP).toBe(true);
+  });
+
+  it("y un 48 vacío no: ahí el crédito de verdad no dice nada y rige el 14 (c)", () => {
+    const l = limitePresentacion({ ...LC, vencimiento: "15-ene-16", plazoPresentacion: null as unknown as string }, "10-dic-2015", null);
+    expect(l?.plazoNoLeido).toBe(false);
+    expect(l?.plazoPorDefectoUCP).toBe(true);
   });
 });
