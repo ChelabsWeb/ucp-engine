@@ -2129,3 +2129,42 @@ describe("el término de entrega de la factura (TA 765rev)", () => {
     expect(con("COMPUTER CHIPS, FOB SINGAPORE", "FOB SINGAPORE")?.estado).toBe("OK");
   });
 });
+/**
+ * El coaseguro del artículo 28 (a), que es la Opinión **TA 759**.
+ *
+ * `ucp-28a` miraba una sola cosa —que el nombre del emisor pareciera el de una aseguradora— así que una
+ * póliza que nombra dos y firma una salía OK. La ICC dice lo contrario, y de paso explica por qué el
+ * caso llegó: el párrafo 174 de la ISBP resuelve el coaseguro **en varios documentos** y no dice nada
+ * del coaseguro en uno solo.
+ */
+describe("el coaseguro del artículo 28 (a) (TA 759)", () => {
+  const con = (emisorSeguro: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: CTX,
+      docs: [],
+      seguro: { campos: doc({ emisorSeguro: campo(emisorSeguro), montoAsegurado: campo("110000") }) },
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-28a-coaseguro");
+
+  it("dos aseguradores y una sola firma es discrepancia, y nombra la Opinión", () => {
+    const r = con("ABC INSURANCE LTD AND XYZ INSURANCE LTD — SIGNED BY ABC INSURANCE LTD");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("TA 759");
+  });
+
+  it("y «as leading insurer» solo tampoco alcanza, que es la segunda pregunta de la Opinión", () => {
+    expect(con("ABC INSURANCE LTD AS LEADING INSURER AND XYZ INSURANCE LTD")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("firmar por cuenta del otro cumple", () => {
+    expect(
+      con("ABC INSURANCE LTD AS LEADING INSURER AND FOR AND ON BEHALF OF THE CO-INSURER XYZ INSURANCE LTD")?.estado,
+    ).toBe("OK");
+  });
+
+  /* Y con un solo asegurador la regla no aparece: no hay pregunta que contestar. */
+  it("con un asegurador no se emite nada", () => {
+    expect(con("ABC INSURANCE LTD")).toBeUndefined();
+  });
+});
