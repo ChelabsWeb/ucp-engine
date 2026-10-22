@@ -1347,6 +1347,19 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 858rev: la anotación que nombra el buque de pre-acarreo */
+  [
+    / y nombra como buque a /g,
+    " and names as the vessel ",
+  ],
+  [
+    /, que no es el que el documento declara como oceánico \(/g,
+    ", which is not the one the document states as the ocean vessel (",
+  ],
+  [
+    /\): el artículo pide la anotación sobre el buque que sale del puerto de carga, y la Opinión TA 858rev lo da por discrepancia —y confirma que R 350 y R 352 siguen aplicando bajo las UCP 600$/g,
+    "): the article calls for the notation to be on the vessel leaving the port of loading, and ICC Opinion TA 858rev holds this to be a discrepancy — confirming that R 350 and R 352 still apply under UCP 600",
+  ],
   /* TA 756: el calificativo que cambia la categoría de la mercadería */
   [
     /^la factura llama a la mercadería /g,
