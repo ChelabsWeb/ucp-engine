@@ -1357,6 +1357,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 873rev: la factura sin ningún término de entrega */
+  [
+    /^el crédito pone el término de entrega en la descripción de la mercadería \(/g,
+    "the credit states the trade term as part of the description of the goods (",
+  ],
+  [
+    / sin ningún término: si el papel de verdad no lo indica es discrepancia, porque la factura tiene que repetirlo \(párrafo C8 de la ISBP, transcripto en la Opinión TA 873rev\)\. Verificar en el papel$/g,
+    " with no trade term at all: if the document itself does not state it that is a discrepancy, because the invoice has to repeat it (ISBP paragraph C8, quoted in ICC Opinion TA 873rev). Check on the document",
+  ],
   /* TA 765rev: «a la orden del banco emisor» es un rol, no un nombre */
   [/^BL consignado a la orden del banco emisor$/g, "B/L consigned to the order of the issuing bank"],
   [/^BL consignado a la orden del banco emisor \(/g, "B/L consigned to the order of the issuing bank ("],
