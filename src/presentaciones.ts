@@ -36,6 +36,31 @@ export interface Presentacion {
    * examinador lo abra a las 18:30.
    */
   horaDeRecepcion?: string | null;
+  /**
+   * Cuándo se presentó el juego al **banco designado**, si no fue a este banco.
+   *
+   * Son dos fechas distintas en cuanto hay un banco designado en el medio, y eso es el **flujo normal**
+   * de un crédito disponible con otro banco: el beneficiario presenta allá, los papeles viajan y el
+   * emisor los recibe días o semanas después. `fecha` es cuándo los recibió este banco; esto es cuándo
+   * se presentaron.
+   *
+   * Lo pedía *Grains and Industrial Products Trading Pte Ltd v Bank of India* [2016] SGCA 32, USD
+   * 9.993.239,54: presentado al designado el 16 de marzo, recibido por el emisor el **18 de abril**,
+   * vencimiento el 26 de marzo. El emisor rechazó con «Late negotiation. LC expired on 120326» y la
+   * Court of Appeal de Singapur lo declaró mal: *«Under UCP 600, a beneficiary's obligation to present
+   * documents is discharged once he makes a timely and complying presentation to the nominated bank»*.
+   *
+   * Con una sola fecha el motor hacía lo mismo que ese banco: rechazar por vencido todo lo que llegara
+   * después del 31D. Las dos cuentas se separan así:
+   *
+   * - el **vencimiento** (6 e) y el **plazo** (14 c) se miden contra la presentación al designado;
+   * - el **aviso** (14 b y 16 d) sigue corriendo desde `fecha`, porque el artículo le da los cinco días
+   *   hábiles al banco que recibe.
+   *
+   * Y cuando viene este dato **no se aplica el corrimiento del artículo 33**: la hora del sello es la de
+   * la recepción en este banco, no la de la presentación al designado.
+   */
+  presentadaAlDesignadoEl?: Date | null;
 }
 
 /* ───────────────────────────── el saldo ───────────────────────────── */
@@ -343,12 +368,16 @@ export function reglasDeGiro(input: {
    * hábil siguiente, que es lo que legalmente es. Si el artículo 33 quedara como una nota al
    * costado, el examen seguiría diciendo que llegó en plazo.
    */
-  const efectiva = presentacionEfectiva(
-    input.actual.fecha,
-    input.horario,
-    input.feriados ?? [],
-    input.actual.horaDeRecepcion,
-  );
+  /*
+   * Y la fecha de la presentación no es la de **esta** recepción cuando hubo un banco designado.
+   *
+   * Ver `presentadaAlDesignadoEl`. Con ese dato el artículo 33 no se aplica —la hora del sello es la de
+   * este banco, no la del designado— así que la fecha entra tal cual.
+   */
+  const alDesignado = input.actual.presentadaAlDesignadoEl ?? null;
+  const efectiva: PresentacionEfectiva = alDesignado
+    ? { entregada: alDesignado, efectiva: alDesignado, corrida: false, motivo: "EN_HORARIO" }
+    : presentacionEfectiva(input.actual.fecha, input.horario, input.feriados ?? [], input.actual.horaDeRecepcion);
   const v = vencimientoEfectivo(input.lc, input.feriados ?? []);
   if (v) {
     const dias = diffDias(efectiva.efectiva, v.efectivo);

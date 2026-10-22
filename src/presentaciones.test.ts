@@ -284,3 +284,35 @@ describe("los embarques por cuotas (UCP 600 art. 32)", () => {
     expect(r?.evidencia).toMatch(/calendario|cuotas/i);
   });
 });
+/**
+ * Los dos relojes, que es *Grains v Bank of India* [2016] SGCA 32.
+ *
+ * Con un banco designado en el medio son dos fechas distintas —el beneficiario presenta allá, los
+ * papeles viajan, el emisor los recibe después— y el motor tenía una sola: rechazaba por vencido todo
+ * lo que llegara después del 31D, que es lo que hizo el banco de ese pleito y lo que la Court of Appeal
+ * de Singapur declaró mal. USD 9.993.239,54.
+ */
+describe("el vencimiento contra el banco designado (Grains v Bank of India)", () => {
+  const LC_GRAINS = { ...LC, vencimiento: "26-mar-12" };
+  const con = (fecha: Date, alDesignado?: Date) =>
+    reglasDeGiro({
+      lc: LC_GRAINS,
+      actual: { referencia: "x", fecha, importe: null, presentadaAlDesignadoEl: alDesignado ?? null },
+      anteriores: [],
+      hoy: fecha,
+    }).find((r) => r.id === "giro-vencimiento");
+
+  it("recibida por el emisor después del vencimiento, pero presentada al designado en plazo: cumple", () => {
+    const r = con(new Date(2012, 3, 18), new Date(2012, 2, 16));
+    expect(r?.estado).toBe("OK");
+  });
+
+  /* Y sin ese dato sigue contando contra la recepción, que es lo correcto cuando se presentó acá. */
+  it("sin el dato, cuenta contra la recepción en este banco", () => {
+    expect(con(new Date(2012, 3, 18))?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y una presentación al designado posterior al vencimiento sigue siendo tardía", () => {
+    expect(con(new Date(2012, 3, 18), new Date(2012, 3, 2))?.estado).toBe("DISCREPANCIA");
+  });
+});
