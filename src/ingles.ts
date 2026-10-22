@@ -1347,6 +1347,24 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* Fortis Bank v IOB: el certificado del beneficiario que no repite el pro forma */
+  [
+    / y no repite (.+) del texto que el crédito le pide: cotejar el texto completo$/g,
+    " and does not repeat $1 of the text the credit calls for: compare the full text",
+  ],
+  [
+    / y repite las palabras del texto que el crédito le pide: cotejar el texto completo$/g,
+    " and it repeats the words of the text the credit calls for: compare the full text",
+  ],
+  /* Fortis Bank v IOB: el 48 que cuenta desde la fecha del conocimiento */
+  [
+    /^el campo 48 cuenta desde la fecha del conocimiento, (.+), y no desde el a bordo → límite /g,
+    "field 48 counts from the date of the bill of lading, $1, and not from the on board date → deadline ",
+  ],
+  [
+    / — así lo resolvió Fortis Bank v Indian Overseas Bank \(Court of Appeal de Inglaterra\)$/g,
+    " — so held Fortis Bank v Indian Overseas Bank (English Court of Appeal)",
+  ],
   /* DOCDEX 318: el certificado de algo que ocurre en destino */
   [/: acredita algo que ocurre en destino$/g, ": certifies something that happens at destination"],
   [

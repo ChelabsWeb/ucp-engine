@@ -1319,10 +1319,39 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
 const ABRE_DESCRIPCION =
   /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
 
+/*
+ * Las dos mitades se buscan sobre el texto **en minúsculas**, y el original se corta en ese índice.
+ *
+ * `ABRE_DESCRIPCION` no lleva la bandera `i` —`claveDoc` la usa sobre texto ya normalizado— y eso hacía
+ * que las mismas funciones devolvieran cosas distintas según quién las llamara: con la línea del 46A en
+ * mayúsculas, como viene del crédito, no matcheaba nada. Lo encontró la regla del certificado del
+ * beneficiario en el caso de *Fortis Bank v Indian Overseas Bank*: decía que el papel repetía el texto
+ * del crédito porque estaba comparando contra la cadena vacía.
+ */
+const abre = (s: string): number => {
+  const m = ABRE_DESCRIPCION.exec(s.toLowerCase());
+  return !m || m.index < 4 ? -1 : m.index;
+};
+
 export function cabezaDeExigencia(s: string): string {
-  const m = ABRE_DESCRIPCION.exec(s);
-  if (!m || m.index < 4) return s;
-  return s.slice(0, m.index).trim();
+  const i = abre(s);
+  return i === -1 ? s : s.slice(0, i).trim();
+}
+
+/**
+ * La otra mitad: **lo que el crédito le pide al papel que diga**.
+ *
+ * `cabezaDeExigencia` devuelve el nombre del documento; esto devuelve el resto — el texto que empieza
+ * en «certifying», «stating», «showing». En un certificado del beneficiario ese resto es el **pro
+ * forma**: la redacción que el papel tiene que reproducir. La Court of Appeal lo dijo así en *Fortis
+ * Bank v Indian Overseas Bank*: *«the wording of the L/C sets out a pro forma certificate which is to
+ * be issued by Stemcor»*, y de ahí sale que cambiar «OUR» por «ISSUING BANK'S» fuera discrepancia.
+ *
+ * Devuelve cadena vacía cuando la línea no abre descripción: ahí el crédito no pidió ningún texto.
+ */
+export function textoDeLaExigencia(s: string): string {
+  const i = abre(s);
+  return i === -1 ? "" : s.slice(i).trim();
 }
 
 /**
@@ -1556,7 +1585,20 @@ function clavePorTexto(s: string): string {
   if (/fumiga/.test(s)) return "FUMIGACION"; // "fumigation" y "fumigación"
   if (/analysis|analisis|calidad|quality/.test(s)) return "ANALISIS";
   // normTexto ya sacó el apóstrofo: "beneficiary s certificate"
-  if (/beneficiary.{0,3}certificate|certificado del beneficiario/.test(s)) return `BENEFICIARIO:${s.slice(0, 40)}`;
+  /*
+   * Y admite una palabra en el medio: «BENEFICIARY'S **CONSOLIDATED** CERTIFICATE».
+   *
+   * El hueco era de tres caracteres —lo que ocupa el apóstrofo convertido en espacio— y la línea sale
+   * textual del crédito de *Fortis Bank v Indian Overseas Bank*: con «consolidated» entre medio caía en
+   * `TXT:<la línea entera>` y `cert-benef` **no corría**, que es la regla que coteja el texto certificado
+   * contra el que el crédito exige. En ese pleito eso era justamente la única discrepancia válida.
+   *
+   * Las pruebas de más arriba son las que lo hacen seguro: el origen, el sanitario, la aceptación en
+   * sitio y la capacitación ya se quedaron con su línea antes de llegar acá, así que un
+   * «BENEFICIARY'S SIGNED CERTIFICATE OF SITE ACCEPTANCE TEST» sigue siendo `ACEPTACION` y un
+   * «CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY» sigue siendo `ORIGEN`.
+   */
+  if (/beneficiary.{0,25}certificate|certificado del beneficiario/.test(s)) return `BENEFICIARIO:${s.slice(0, 40)}`;
   /*
    * El courier y el correo van acá, y el lugar no es un detalle.
    *

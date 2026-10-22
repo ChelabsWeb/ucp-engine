@@ -527,6 +527,8 @@ export function parseMT700(textoSwift: string): LcSwift | null {
     vencimiento: vencimiento ?? "—",
     limiteEmbarque: limiteEmbarque ?? "—",
     plazoPresentacion: plazoPresentacion || "—",
+    /* el 48 sin interpretar: ver `plazoPresentacionTexto` en `types.ts` */
+    plazoPresentacionTexto: texto48 || null,
     tolerancia,
     toleranciaAplicaA,
     documentosExigidos: docs.length ? docs : null,

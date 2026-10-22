@@ -850,3 +850,49 @@ describe("el certificado de algo que ocurre en destino (DOCDEX 318)", () => {
     expect(con("01-APR-2025", "CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE")).toBeUndefined();
   });
 });
+/**
+ * El certificado del beneficiario contra el pro forma del crédito, que es *Fortis Bank v IOB*.
+ *
+ * La regla decía «cotejar el texto» y nada más —su estado era `declara ? "ATENCION" : "ATENCION"`, un
+ * ternario con las dos ramas iguales— y ahora señala **qué palabra falta**. Sigue sin concluir, porque
+ * el texto que el crédito pide viene mezclado con la parte administrativa de la línea del 46A.
+ */
+describe("el certificado del beneficiario contra el pro forma (Fortis Bank v IOB)", () => {
+  const CLAUSULA =
+    "BENEFICIARY'S CONSOLIDATED CERTIFICATE CERTIFYING AS FOLLOWS: WE HEREBY CERTIFY THE FOLLOWING D) THAT THE NEGOTIATING BANK HAS BEEN ADVISED TO DESPATCH ORIGINAL SHIPPING DOCUMENTS ONLY BY AIR COURIER SERVICE TO THE LC OPENING BANK AT OUR COST.";
+  const con = (declara: string) =>
+    correr([{ exigencia: CLAUSULA, campos: doc({ mercaderia: campo(declara) }) }]).find((r) =>
+      r.id.startsWith("cert-benef"),
+    );
+
+  /*
+   * La única discrepancia válida de todo el pleito fue **una palabra de tres letras**: el crédito pedía
+   * «AT OUR COST» y el certificado decía «AT ISSUING BANK'S COST». La Court of Appeal: «"OUR" is to be
+   * identified with "WE" – i.e. the person giving the certificate».
+   */
+  it("señala la palabra que falta, aunque tenga tres letras", () => {
+    const r = con(
+      "WE HEREBY CERTIFY THE FOLLOWING: D) THAT THE NEGOTIATING BANK HAS BEEN ADVISED TO DESPATCH ORIGINAL SHIPPING DOCUMENTS ONLY BY AIR COURIER SERVICE TO THE LC OPENING BANK AT ISSUING BANK'S COST",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain('"our"');
+  });
+
+  it("y con el texto del crédito repetido no señala ninguna", () => {
+    const r = con(
+      "WE HEREBY CERTIFY THE FOLLOWING: D) THAT THE NEGOTIATING BANK HAS BEEN ADVISED TO DESPATCH ORIGINAL SHIPPING DOCUMENTS ONLY BY AIR COURIER SERVICE TO THE LC OPENING BANK AT OUR COST",
+    );
+    expect(r?.evidencia).toContain("repite las palabras");
+  });
+
+  /* Y nunca rechaza: el texto exigido viene mezclado con la parte administrativa del 46A. */
+  it("nunca rechaza", () => {
+    expect(con("WE CERTIFY SOMETHING ELSE ENTIRELY")?.estado).toBe("ATENCION");
+  });
+
+  it("sin texto en el certificado, manda a leerlo", () => {
+    expect(correr([{ exigencia: CLAUSULA, campos: doc({}) }]).find((r) => r.id.startsWith("cert-benef"))?.evidencia).toContain(
+      "leer el texto",
+    );
+  });
+});

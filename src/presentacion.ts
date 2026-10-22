@@ -676,7 +676,13 @@ export function precheckPresentacion(input: {
 
   /* plazos: último embarque, presentación, vencimiento */
   const soloCopia = pideSoloCopiaDelTransporte(lc.documentosExigidos);
-  const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque);
+  /*
+   * Y se le pasa la fecha de **emisión** del documento de transporte, porque el crédito puede contar
+   * desde ella: *Fortis Bank v Indian Overseas Bank*, campo 48 «within 21 days from B/L Date». Ver
+   * `baseDelPlazo`. Sin este dato el motor contaba siempre desde el a bordo y producía la tardía que
+   * dos instancias inglesas rechazaron.
+   */
+  const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque, bl ? val(bl, "fechaDocumento") : null);
   let diasParaPresentar: number | null = null;
   if (soloCopia) {
     /*
@@ -749,9 +755,13 @@ export function precheckPresentacion(input: {
           ? yaPresentada
             ? `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — un campo 48 así desplaza los 21 días del artículo 14 (c) (Deutsche Bank v CIMB, Commercial Court de Inglaterra); la ICC nunca contestó este punto`
             : `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
-          : yaPresentada
-            ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
-            : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
+          : lim.base === "FECHA_DEL_BL"
+            ? yaPresentada
+              ? `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — así lo resolvió Fortis Bank v Indian Overseas Bank (Court of Appeal de Inglaterra)`
+              : `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
+            : yaPresentada
+              ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
+              : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
     });
   } else {
     reglas.push({

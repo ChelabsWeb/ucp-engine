@@ -1,4 +1,4 @@
-import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero } from "./consistencia";
+import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero, textoDeLaExigencia } from "./consistencia";
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { fmtFecha, parseFecha } from "./fechas";
 import {
@@ -567,21 +567,123 @@ export function reglasCertificados(input: {
     if (claveDoc(c.exigencia).startsWith("BENEFICIARIO")) {
       const declara = val(c.campos.mercaderia) ?? val(c.campos.referenciaProforma) ?? null;
       const plazo = /within\s+(\d{1,3})\s+days/i.exec(c.exigencia)?.[1];
+      /*
+       * Y ahora señala **qué palabra falta**, en vez de decir «cotejalo» y nada más.
+       *
+       * El estado era `declara ? "ATENCION" : "ATENCION"` — las dos ramas iguales, un ternario que
+       * aparentaba decidir algo. La regla sigue sin concluir, y eso es deliberado: el texto que el
+       * crédito pide viene mezclado con la parte administrativa de la línea del 46A, así que rechazar
+       * por una diferencia de palabras sería temerario. Lo que sí puede hacer es **decirle al
+       * examinador dónde mirar**.
+       *
+       * Sale de *Fortis Bank v Indian Overseas Bank*: el crédito pedía certificar que los documentos
+       * se despachaban «AT OUR COST» y el certificado decía «AT ISSUING BANK'S COST». La Court of
+       * Appeal declaró esa discrepancia válida —*«"OUR" is to be identified with "WE" – i.e. the person
+       * giving the certificate»*— y era la única válida de todo el pleito. Una palabra.
+       */
+      const faltan = palabrasQueFaltanDelProForma(textoDeLaExigencia(c.exigencia), declara ?? "");
       out.push(
         regla(
           `cert-benef-${sufijo}`,
           "46A",
           `${nombre}: declara lo que el crédito pide${plazo ? ` (plazo de ${plazo} días)` : ""}`,
-          declara ? "ATENCION" : "ATENCION",
-          declara
-            ? `dice "${corto(declara, 80)}" — cotejar el texto con el que exige el crédito`
-            : "leer el texto del certificado y cotejarlo con el que exige el crédito",
+          "ATENCION",
+          !declara
+            ? "leer el texto del certificado y cotejarlo con el que exige el crédito"
+            : faltan.length > 0
+              ? `dice "${corto(declara, 80)}" y no repite ${listaEntreComillas(faltan)} del texto que el crédito le pide: cotejar el texto completo`
+              : `dice "${corto(declara, 80)}" y repite las palabras del texto que el crédito le pide: cotejar el texto completo`,
         ),
       );
     }
   });
 
   return out;
+}
+
+/**
+ * Las palabras del pro forma del crédito que el certificado **no** repite.
+ *
+ * Se descartan las administrativas y las vacías, que están en toda línea del 46A y no dicen nada sobre
+ * lo que el papel certifica. Devuelve como mucho cinco, porque una lista larga es lo mismo que decir
+ * «cotejalo».
+ *
+ * **El umbral es de dos letras y los posesivos se quedan**, y eso lo decidió el caso: en *Fortis Bank
+ * v Indian Overseas Bank* la única discrepancia válida de todo el pleito fue **una palabra de tres
+ * letras** —el crédito pedía certificar «AT OUR COST» y el certificado decía «AT ISSUING BANK'S
+ * COST»—. Con el umbral en cuatro letras, el motor decía que el certificado repetía el texto. En un pro
+ * forma, «our», «we» y «your» son justamente lo que identifica de quién habla el papel.
+ */
+const ADMINISTRATIVAS = new Set([
+  /* la parte administrativa de una línea del 46A: está en todas y no dice nada del hecho */
+  "copy",
+  "copies",
+  "duplicate",
+  "each",
+  "original",
+  "originals",
+  "triplicate",
+  "following",
+  "hereby",
+  "certify",
+  "certifying",
+  "stating",
+  "showing",
+  /* «certifying as follows» es la apertura del pro forma, no parte de lo que se certifica */
+  "follows",
+  /* y las palabras vacías, incluidas las cortas — pero **no** los posesivos */
+  "the",
+  "and",
+  "for",
+  "not",
+  "any",
+  "all",
+  "per",
+  "out",
+  "one",
+  "two",
+  "has",
+  "was",
+  "are",
+  "that",
+  "this",
+  "these",
+  "those",
+  "with",
+  "from",
+  "have",
+  "been",
+  "will",
+  "shall",
+  "must",
+  "which",
+  "there",
+  "only",
+]);
+
+/**
+ * Las palabras entrecomilladas, armadas sin escribir una comilla en el fuente.
+ *
+ * `JSON.stringify` las pone, y el motivo es el control de inglés: `textoEnIngles` protege lo que va
+ * entre comillas dobles —así una palabra copiada de un papel no se traduce— y el extractor de
+ * literales que revisa la cobertura es un recorrido de caracteres que se rompe con una comilla dentro
+ * de una interpolación. Las dos cosas se cumplen armando la lista acá.
+ */
+function listaEntreComillas(palabras: string[]): string {
+  return palabras.map((w) => JSON.stringify(w)).join(", ");
+}
+
+function palabrasQueFaltanDelProForma(exigido: string, declarado: string): string[] {
+  const palabras = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(" ")
+      .filter((w) => w.length > 2 && !ADMINISTRATIVAS.has(w));
+  const delExigido = palabras(exigido);
+  if (delExigido.length === 0) return [];
+  const enElPapel = new Set(palabras(declarado));
+  return [...new Set(delExigido.filter((w) => !enElPapel.has(w)))].slice(0, 5);
 }
 
 /**
