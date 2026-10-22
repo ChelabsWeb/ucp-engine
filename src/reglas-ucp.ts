@@ -1708,6 +1708,45 @@ function reglasSeguro(
       : sinLeer("ucp-28a", "UCP 600 28a", "El seguro lo emite una compañía de seguros", "el emisor"),
   );
 
+  /*
+   * 28a, segunda mitad: con **dos o más aseguradores** la firma tiene que decir por cuenta de quién.
+   *
+   * La regla de arriba mira una sola cosa —que el nombre del emisor parezca el de una aseguradora— y
+   * con una póliza que nombra dos y firma una seguía saliendo OK. La Opinión **TA 759** dice lo
+   * contrario, y de paso explica por qué el caso llegó a la ICC: el párrafo 174 de la ISBP resuelve el
+   * coaseguro **en varios documentos** y no dice nada del coaseguro en uno solo.
+   *
+   *   «When an insurance document indicates that the risks are covered by two or more insurers, the
+   *   insurance document must be signed by all the insurers or one insurer on behalf of other
+   *   co-insurers.»
+   *
+   * Y la segunda pregunta de la consulta tiene una respuesta que un examinador no adivina:
+   *
+   *   «an insurance document signed indicating "leading insurer" only will not be sufficient to comply
+   *   with UCP 600 sub-article 28 (a). The leading insurer must also identify that it is signing on
+   *   behalf of the other co-insurer(s).»
+   *
+   * **Solo se emite cuando el papel nombra dos.** Con un asegurador no hay nada que decir, y eso es la
+   * enorme mayoría de las pólizas: la regla no aparece para no hacer ruido donde no hay pregunta.
+   */
+  if (emisor) {
+    const cuantos = (emisor.match(/\b(?:insurance|assurance|underwrit\w*|seguros?|aseguradora)\b/gi) ?? []).length;
+    const porCuentaDeOtro = /\b(?:for and )?on behalf of\b|\bpor cuenta (?:y orden )?de\b/i.test(emisor);
+    if (cuantos >= 2) {
+      out.push(
+        regla(
+          "ucp-28a-coaseguro",
+          "UCP 600 28a",
+          "Con dos aseguradores, la firma dice por cuenta de quién",
+          porCuentaDeOtro ? "OK" : "DISCREPANCIA",
+          porCuentaDeOtro
+            ? `dice "${emisor}": firma por cuenta del otro asegurador, que es lo que el artículo pide`
+            : `dice "${emisor}": el papel nombra más de un asegurador y la firma no indica por cuenta de quién. Tienen que firmar todos, o uno por cuenta de los demás — y decir solo «leading insurer» no alcanza (Opinión TA 759)`,
+        ),
+      );
+    }
+  }
+
   // 28c: las notas de cobertura no se aceptan
   const tipo = val(seg, "tipoSeguro");
   if (tipo) {

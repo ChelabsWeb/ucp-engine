@@ -1357,6 +1357,19 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 759: con dos aseguradores, la firma dice por cuenta de quién */
+  [
+    /^Con dos aseguradores, la firma dice por cuenta de quién$/g,
+    "With two insurers, the signature states on whose behalf it is given",
+  ],
+  [
+    /: firma por cuenta del otro asegurador, que es lo que el artículo pide$/g,
+    ": it is signed on behalf of the other insurer, which is what the article calls for",
+  ],
+  [
+    /: el papel nombra más de un asegurador y la firma no indica por cuenta de quién\. Tienen que firmar todos, o uno por cuenta de los demás — y decir solo «leading insurer» no alcanza \(Opinión TA 759\)$/g,
+    ": the document names more than one insurer and the signature does not state on whose behalf it is given. All of them must sign, or one on behalf of the others — and stating only «leading insurer» is not enough (ICC Opinion TA 759)",
+  ],
   /* TA 873rev: la factura sin ningún término de entrega */
   [
     /^el crédito pone el término de entrega en la descripción de la mercadería \(/g,
