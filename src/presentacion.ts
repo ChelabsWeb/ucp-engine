@@ -558,7 +558,20 @@ export function precheckPresentacion(input: {
         evidencia: `el crédito no pide una marca de flete y el documento dice "${fl}": verificar contra el incoterm de la venta`,
       });
     }
-    if (/NOTIFY\s+APPLICANT/i.test(reglaBL)) {
+    /*
+     * Las formas en que un crédito pide que se notifique al ordenante.
+     *
+     * Era `/NOTIFY\s+APPLICANT/` y nada más, así que un 46A que dice **«NOTIFY ACCOUNTEE»** —vocabulario
+     * estándar de estos créditos, y el del laudo DOCDEX 205— dejaba la exigencia **sin examinar**. Desde
+     * el tablero eso se ve igual que un crédito que no pide notify, que es el disfraz que este
+     * repositorio persigue.
+     *
+     * Las tres palabras son las que nombran al ordenante por su rol —applicant, accountee, opener— y
+     * `NOTIFY PARTY:` entra porque es como lo escribe la mitad de los créditos. Lo que **no** entra es un
+     * notify a nombre de un tercero: «NOTIFY PARTY: XYZ CO LTD» no activa la comparación contra el
+     * ordenante, porque ahí el crédito nombró a otro y compararlo sería inventar una discrepancia.
+     */
+    if (/NOTIFY(?:\s+PARTY)?\s*:?\s*(?:APPLICANT|ACCOUNTEE|OPENER)\b/i.test(reglaBL)) {
       const nt = val(bl, "notify") ?? val(bl, "importador");
       const cliente = op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
       /*

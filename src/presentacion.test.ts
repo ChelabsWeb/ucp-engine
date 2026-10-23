@@ -762,6 +762,52 @@ describe("el nombre del notify contra el del ordenante", () => {
   it("sin el ordenante leído no se dictamina", () => {
     expect(notify("MOHAMMED SORAN", "")?.estado).toBe("ATENCION");
   });
+
+  /**
+   * Cómo pide un crédito que se notifique al ordenante (laudo DOCDEX 205)
+   *
+   * La regla se activaba con `/NOTIFY\s+APPLICANT/` y nada más, así que un 46A que dice **«NOTIFY
+   * ACCOUNTEE»** —vocabulario estándar de estos créditos, y el del laudo— dejaba la exigencia **sin
+   * examinar**. Desde el tablero eso se ve igual que un crédito que no pide notify.
+   */
+  describe("las formas de pedir el notify (DOCDEX 205)", () => {
+    const conExigencia = (exigencia: string, enElBL: string) =>
+      precheckPresentacion({
+        lc: { ...lc, documentosExigidos: [exigencia] },
+        docs: [{ tipo: "BL" as const, campos: { ...BL, notify: { valor: enElBL, confianza: 1 } } }],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((r) => r.id === "bl-notify");
+
+    const ORDENANTE = OP.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
+
+    it("«NOTIFY ACCOUNTEE» activa la regla, que es el caso del laudo", () => {
+      const r = conExigencia("AIR WAYBILL CONSIGNED TO APPLICANT MARKED NOTIFY ACCOUNTEE", ORDENANTE);
+      expect(r?.estado).toBe("OK");
+    });
+
+    it("y el nombre agregado al rol también cumple, que es lo que el laudo decide", () => {
+      // «AWB actually states "Notify Accountee: Company S"» — el nombre de más mejora el dato.
+      expect(conExigencia("AIR WAYBILL MARKED NOTIFY ACCOUNTEE", `NOTIFY ACCOUNTEE: ${ORDENANTE}`)?.estado).toBe("OK");
+    });
+
+    it("«NOTIFY PARTY: APPLICANT» y «NOTIFY OPENER» también", () => {
+      for (const e of ["BILL OF LADING SHOWING NOTIFY PARTY: APPLICANT", "BILL OF LADING NOTIFY OPENER"])
+        expect(conExigencia(e, ORDENANTE)?.estado).toBe("OK");
+    });
+
+    /*
+     * El freno, y es el que impide que esto invente discrepancias: un notify a nombre de un **tercero**
+     * no activa la comparación contra el ordenante. Si lo hiciera, un crédito que manda notificar a un
+     * agente despachante saldría discrepante por no nombrar al ordenante.
+     */
+    it("un notify a nombre de un tercero no activa la comparación", () => {
+      expect(
+        conExigencia("BILL OF LADING NOTIFY PARTY: XYZ CUSTOMS AGENT LTD", "XYZ CUSTOMS AGENT LTD"),
+      ).toBeUndefined();
+    });
+  });
 });
 /**
  * El nombre del emisor de la factura, que es la sentencia *Bulgrains v Shinhan Bank*.
