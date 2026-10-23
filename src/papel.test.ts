@@ -121,6 +121,32 @@ describe("qué le exigen las UCP a cada uno, sobre el mismo juego conforme", () 
   it("y si no se la pide, no se inventa la pregunta", () => {
     expect(con("BLITUYMM").find((x) => x.id === "papel-confirmacion-pedida")).toBeUndefined();
   });
+
+  /*
+   * Y lo que **examinar no hace** (art. 12 c, laudo DOCDEX 363)
+   *
+   * Es el artículo que un beneficiario invoca al revés: que el banco haya recibido los documentos, los
+   * haya examinado y los haya remitido no lo obliga a nada ni cuenta como honrar. Y el laudo agrega la
+   * pieza que a este producto le toca de cerca: un **pre-check** es un servicio **fuera** de las UCP —
+   * *«any agreement between the Claimant and Respondent 1 to pre-check documents prior to formal
+   * presentation falls outside the scope of the UCP 600»*.
+   */
+  it("al designado y al avisador se les dice que examinar y remitir no obliga (art. 12 c)", () => {
+    for (const quien of ["BROUUYMMXXX", "BLITUYMM"]) {
+      const r = con(quien, {
+        bicDisponibleCon: quien === "BROUUYMMXXX" ? "BROUUYMM" : DEL_CREDITO.bicDisponibleCon,
+        disponibleCon: quien === "BROUUYMMXXX" ? "BROUUYMM BY NEGOTIATION" : DEL_CREDITO.disponibleCon,
+      }).find((x) => x.id === "papel-12c");
+      expect(r?.fuente, quien).toContain("12c");
+      expect(r?.fuente, quien).toContain("DOCDEX 363");
+      expect(r?.evidencia, quien).toContain("pre-check");
+    }
+  });
+
+  /* Al emisor y al confirmador no les sirve: ellos sí tienen que honrar. */
+  it("y al emisor no se le dice, porque a él sí lo obliga", () => {
+    expect(con("MRDNLKLX").find((x) => x.id === "papel-12c")).toBeUndefined();
+  });
 });
 
 describe("con una presentación que no cumple, la obligación no se afirma", () => {

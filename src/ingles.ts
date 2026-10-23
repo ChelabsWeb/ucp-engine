@@ -1762,6 +1762,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "state in one place which documents each tranche is paid against: the risk of an ambiguous instruction falls on the issuing bank, and the panel made it pay against the shorter list",
   ],
   [
+    /^Examinar y remitir los documentos no obliga a este banco ni cuenta como honrar$/g,
+    "Examining and forwarding the documents does not oblige this bank, nor does it count as honouring",
+  ],
+  [
+    /^recibir, examinar y remitir no lo hace responsable de honrar ni negociar, y tampoco es honrar ni negociar; y revisar los papeles antes de la presentación formal —un pre-check— es un servicio fuera de las UCP, así que no crea obligación ni para el banco ni para el beneficiario$/g,
+    "receipt, examination and forwarding do not make it liable to honour or negotiate, nor do they constitute honour or negotiation; and checking the documents before the formal presentation — a pre-check — is a service outside the UCP, so it creates no obligation for the bank or for the beneficiary",
+  ],
+  [
     /^Lo que llegó pide cancelar el crédito, y un crédito no se cancela sin el acuerdo del beneficiario$/g,
     "What arrived asks to cancel the credit, and a credit cannot be cancelled without the beneficiary's agreement",
   ],
