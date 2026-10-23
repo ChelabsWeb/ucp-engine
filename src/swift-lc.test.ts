@@ -394,3 +394,33 @@ describe("el 46A con una fecha al principio de un renglón", () => {
     expect(listaSwift(["19.06.2018 AND THE REST"])).toEqual(["19.06.2018 AND THE REST"]);
   });
 });
+/*
+ * ────────────────────────────────────────────────────────────────────────────────────────────────
+ * El año de dos dígitos de una fecha abreviada no abre un ítem (laudo DOCDEX 204)
+ * ────────────────────────────────────────────────────────────────────────────────────────────────
+ *
+ * «…TO BE SHIPPED BEFORE 31.08.97. SHIPMENT OF 100 PCT…» se partía delante del «97.»: el año quedaba
+ * leído como el ítem noventa y siete, desaparecía del ítem de verdad —que terminaba en «BEFORE
+ * 31.08.»— y el 47A pasaba a tener **dos condiciones donde el crédito escribió una**. Cuarta vez que la
+ * numeración de una lista SWIFT rompe algo, y tercera en esta función.
+ */
+describe("una fecha abreviada no abre un ítem", () => {
+  it("el año de dos dígitos se queda en su fecha", () => {
+    const items = listaSwift([
+      "1. SHIPPING SCHEDULE: AT LEAST 40 PCT OF THE GOODS QUANTITY TO BE",
+      "SHIPPED BEFORE 31.07.97, AT LEAST 40 PCT OF THE GOODS QUANTITY TO BE",
+      "SHIPPED BEFORE 31.08.97. SHIPMENT OF 100 PCT BEFORE 19.09.97 IS ALSO",
+      "ACCEPTABLE.",
+    ]);
+    expect(items, "el crédito escribió una condición, no dos").toHaveLength(1);
+    expect(items[0], "y el año no se pierde").toContain("31.08.97");
+    expect(items[0]).toContain("19.09.97");
+  });
+
+  it("y un punto que cierra una palabra sigue partiendo el ítem", () => {
+    const items = listaSwift(["1. COMMERCIAL INVOICE IN 3 ORIGINALS. 2. PACKING LIST IN 3 COPIES"]);
+    expect(items).toHaveLength(2);
+    expect(items[1]).toBe("PACKING LIST IN 3 COPIES");
+  });
+});
+

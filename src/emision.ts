@@ -74,8 +74,19 @@ const ADMINISTRATIVAS =
  * condiciones no documentarias era una contradicción visible: el motor **lee** la tolerancia del 47A
  * y la aplica al examen, y al mismo tiempo avisaba que el artículo 14(h) la tenía por no puesta.
  */
+/*
+ * Y un **calendario de embarques** también configura el crédito: es el artículo 32, no una condición
+ * documentaria.
+ *
+ * Faltaba, y el efecto era el peor de los dos mundos: `revisarCredito` le decía al banco que la cláusula
+ * era una condición no documentaria **tenida por no puesta** (14 h) —justo la cláusula cuyo incumplimiento
+ * deja el crédito sin disponibilidad para esa cuota y las siguientes— y `verificaciones-manuales` la
+ * sacaba como «leerla contra los papeles», que tampoco es: no hay papel que la acredite. Lo encontró el
+ * laudo DOCDEX 204, cuyo 47A es un calendario de tres fechas y donde **dos de los seis rechazos** son
+ * sobre él.
+ */
 export const PARAMETROS_DEL_CREDITO =
-  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b/i;
+  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b/i;
 
 /**
  * ¿La condición menciona un documento que la acredite?
@@ -301,6 +312,35 @@ export function revisarCredito(p: LcSwift): Observacion[] {
   /* ── el campo 47A: las condiciones adicionales ── */
   const cond = lc.condicionesAdicionales ?? [];
   cond.forEach((c, i) => {
+    /*
+     * Un calendario de embarques es el artículo 32, y el artículo 32 es la consecuencia más dura que
+     * tienen las UCP: una cuota no embarcada en su período deja el crédito sin disponibilidad **para esa
+     * y las siguientes**, y eso no se subsana presentando de nuevo.
+     *
+     * El motor no lo parsea a propósito —los créditos lo escriben de veinte maneras y equivocarse cuesta
+     * demasiado—, así que su respuesta es el calendario de cuotas que una persona transcribe en la ficha
+     * del crédito. Lo que faltaba es **decirlo**: antes esta cláusula salía como condición no
+     * documentaria tenida por no puesta, que es el consejo contrario al que corresponde.
+     *
+     * Y el aviso lleva adentro la trampa que el laudo DOCDEX 204 resuelve, porque es la que hace que
+     * transcribir mal el calendario invente una discrepancia: *«The shipment schedule does not demand
+     * that at least 40 pct of the goods quantity shall be shipped after 97-07-31 but before 97-08-31»*.
+     * Una fecha límite acumulada no es un período con inicio y fin — y eso es justo la contradicción
+     * abierta entre R313, que trata una serie de fechas límite como sujeta al artículo de cuotas, y la
+     * ISBP 745, que lo restringió a períodos. Este laudo apoya la línea de la ISBP.
+     */
+    if (/\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b/i.test(c)) {
+      out.push(
+        obs(
+          `emision-calendario-${i}`,
+          "AVISO",
+          "UCP 600 32",
+          "El crédito fija un calendario de embarques: transcribirlo al calendario de cuotas del crédito, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y las siguientes",
+          `47A+${i + 1}`,
+          "al transcribirlo, mirar si cada renglón es un período con inicio y fin o una fecha límite acumulada: «al menos 40 % antes del 31.08» no exige nada entre el 31.07 y el 31.08, y tomarlo por un período inventa una discrepancia (laudo DOCDEX 204)",
+        ),
+      );
+    }
     if (!mencionaDocumento(c) && !/fee|charge|sanction|discrepan/i.test(c) && !PARAMETROS_DEL_CREDITO.test(c)) {
       out.push(
         obs(

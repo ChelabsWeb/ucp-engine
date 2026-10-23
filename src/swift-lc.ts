@@ -309,8 +309,22 @@ export function listaSwift(lineas: string[] | null): string[] {
    * La segunda pide las tres condiciones juntas porque sin ellas se parten «NO.12,HARBOUR ROAD» y
    * «DTD 04.03.2025», que también llevan dígitos con punto y no abren ningún ítem. La primera no
    * las necesita: el «+» delante ya es inequívoco.
+   *
+   * **Y el punto de atrás no puede ser el de un número.** «…TO BE SHIPPED BEFORE 31.08.97. SHIPMENT OF
+   * 100 PCT…» se partía delante del «97.»: el año de dos dígitos quedaba leído como el ítem noventa y
+   * siete, el «97» desaparecía del ítem de verdad —que terminaba en «BEFORE 31.08.»— y el 47A pasaba a
+   * tener **dos condiciones donde el crédito escribió una**. Lo encontró el laudo DOCDEX 204, cuyo 47A
+   * es un calendario de embarques con tres fechas abreviadas.
+   *
+   * Es la **cuarta vez que la numeración rompe algo** —el «3.» metido en la clave de un certificado, el
+   * «B/LS» del apareo, el «19.06.2018» de TA 896rev— y la tercera en esta misma función. El corte es
+   * angosto por lo mismo que los anteriores: un punto precedido por un dígito pertenece al número, no
+   * a la frase. Un «ACCEPTABLE. 2. PACKING LIST» sigue partiéndose, porque ahí el punto cierra una
+   * palabra.
    */
-  const partidas = lineas.flatMap((l) => l.split(/(?<=[.\s])(?=\d{1,2}[.)]\s+[A-Z])|(?<=\s)(?=\+\d{1,2}\))/));
+  const partidas = lineas.flatMap((l) =>
+    l.split(/(?:(?<=\s)|(?<=(?<![0-9])\.))(?=\d{1,2}[.)]\s+[A-Z])|(?<=\s)(?=\+\d{1,2}\))/),
+  );
   for (const l of partidas) {
     /*
      * Un renglón que arranca con una fecha no abre ningún ítem.

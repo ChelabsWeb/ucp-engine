@@ -1,4 +1,5 @@
 import {
+  ABRE_DESCRIPCION,
   type CamposDoc,
   claveDoc,
   compararEntreDocumentos,
@@ -75,6 +76,27 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
  * Los verbos van anclados a su propia alternativa y el hueco sigue siendo uno, por lo que costó
  * `importeFluctuaPorElCredito`: dos huecos en un patrón cuelgan el motor con un 47A largo.
  */
+/**
+ * El nombre de una parte que el 46A nombra, cortado donde empieza la descripción del documento.
+ *
+ * Sin el corte el nombre se lleva la frase entera —«CONSIGNED TO APPLICANT **INDICATING THE TRANSPORT
+ * ROUTE AS PER FIELDS 44E**»— y la comparación se hace contra algo que ninguna parte se llama. Van
+ * **cinco veces** que una captura de nombre comete ese error en este motor, y las cuatro anteriores se
+ * arreglaron cada una con su propio corte: por eso acá se usa `ABRE_DESCRIPCION`, que es el único patrón
+ * del repositorio que sabe dónde termina el nombre de un documento, más las palabras con que un 46A sigue
+ * describiendo a quién consignar.
+ */
+function hastaLaDescripcion(nombre: string | null): string | null {
+  if (!nombre) return null;
+  const low = nombre.toLowerCase();
+  const cortes = [ABRE_DESCRIPCION.exec(low)?.index, /\b(?:notify|blank|endorsed|and|or)\b/.exec(low)?.index]
+    .filter((i): i is number => i !== undefined && i >= 0)
+    .sort((a, b) => a - b);
+  const corte = cortes[0];
+  const recortado = (corte === undefined ? nombre : nombre.slice(0, corte)).replace(/[\s,;.]+$/, "").trim();
+  return recortado || null;
+}
+
 export const PIDE_CITAR_NUMERO_LC =
   /(?:INDICAT|SHOW|EVIDENC|BEAR|QUOT|MENTION)\w*.{0,40}(LETTER OF CREDIT|L\/?C|CREDIT)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
 
@@ -564,8 +586,10 @@ export function precheckPresentacion(input: {
      * exactamente lo pedido. El examen es contra el crédito (art. 14 a): donde el crédito calla no
      * hay discrepancia, hay a lo sumo algo que mirar.
      */
-    const ordenDe =
-      /TO THE ORDER OF\s+([A-Z0-9 .,'&()-]+?)(?:,\s*MARKED|\s+MARKED|\s+NOTIFY|$)/i.exec(reglaBL)?.[1]?.trim() ?? null;
+    /* «TO ORDER OF» sin el «THE» es la misma exigencia, y la mitad de los créditos la escribe así. */
+    const ordenDe = hastaLaDescripcion(
+      /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null,
+    );
     /*
      * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
      *
@@ -584,12 +608,26 @@ export function precheckPresentacion(input: {
      *
      * - si el crédito **sí** nombra a quién consignar además de pedir el endoso en blanco, manda lo
      *   que nombra y esta rama no opina: un «CONSIGNED TO APPLICANT, BLANK ENDORSED» está mal
-     *   redactado y el documento que obedece al crédito no puede salir discrepante por eso;
+     *   redactado y el documento que obedece al crédito no puede salir discrepante por eso. El freno
+     *   mira si el crédito nombra **una parte** y no si usó el verbo «consigned»: con lo segundo, un
+     *   «MADE OUT TO ORDER AND BLANK ENDORSED» —que dice exactamente lo que esta rama verifica— se
+     *   quedaba sin examinar y salía con «el crédito no dice a nombre de quién»;
      * - si no se leyó el consignatario, se sale a verificar. El silencio no gana una discrepancia.
      */
     const exigeEndosoEnBlanco = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BLANK\b/i.test(reglaBL);
-    const nombraConsignatario = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\b/i.test(reglaBL);
-    if (!ordenDe && exigeEndosoEnBlanco && !nombraConsignatario) {
+    /*
+     * **A quién** lo consigna, cuando el crédito lo nombra derecho en vez de pedirlo a la orden.
+     *
+     * El nombre se corta donde empieza la descripción del documento —«MARKED», «NOTIFY», «SHOWING»,
+     * «AND BLANK ENDORSED»— por el mismo motivo que el emisor de un certificado: sin el corte, el nombre
+     * se lleva la frase entera. Y «TO ORDER» a secas no es un nombre: eso lo resuelve la rama del endoso
+     * en blanco.
+     */
+    const crudoConsignadoA = hastaLaDescripcion(
+      /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null,
+    );
+    const consignadoA = crudoConsignadoA && !/^ORDER\b/i.test(crudoConsignadoA) ? crudoConsignadoA : null;
+    if (!ordenDe && exigeEndosoEnBlanco && !consignadoA) {
       const aLaOrden = consig ? /\bORDER\b|\bORDEN\b/i.test(consig) : null;
       reglas.push({
         id: "bl-consignee",
@@ -602,6 +640,45 @@ export function precheckPresentacion(input: {
             : aLaOrden
               ? `el documento dice "${consig}"`
               : `el documento dice "${consig}", consignado derecho a una parte nominada: así no se puede endosar, y el crédito pide el endoso en blanco`,
+      });
+    } else if (!ordenDe && consignadoA) {
+      /*
+       * El crédito que consigna **derecho a una parte nombrada**, que el motor no comparaba.
+       *
+       * `ordenDe` solo entendía «TO THE ORDER OF», así que un 46A que dice «SHOWING GOODS CONSIGNED TO
+       * COMPANY B» —o «CONSIGNED TO APPLICANT», que es la redacción de cualquier crédito aéreo— caía en
+       * la rama de abajo y salía con «el crédito no dice a nombre de quién». Eso es **falso**: el crédito
+       * lo dice, y el motor perdía la discrepancia. Es un falso negativo del lado que paga de más, el
+       * mismo borde que ya había costado el endoso en blanco de TA 814rev4.
+       *
+       * Lo encontró el laudo DOCDEX 204, donde es el **único** motivo de rechazo válido de seis: el campo
+       * 2 del CMR mostraba al ordenante y el texto adicional decía «Goods consigned to Company B» —*«By
+       * adding another consignee, Company B, in the field for additional text the documents become
+       * contradictory. The contradiction is a discrepancy»*—.
+       *
+       * El veredicto sale de `veredictoDeNombre`, que es el único comparador de nombres del motor y
+       * manda a verificar lo que está a distancia de tipeo en vez de rechazarlo. Y el rol se resuelve
+       * igual que en la rama de la orden: un conocimiento no dice «el ordenante», dice el nombre. Y el
+       * ordenante sale de la operación, que es de donde lo saca `bl-notify`: el 50 del mensaje no está en
+       * `LcInfo`.
+       */
+      const rol = /^(?:THE\s+)?(?:APPLICANT|ACCOUNTEE|OPENER)\b/i.test(consignadoA)
+        ? (op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "")
+        : /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES)\b/i.test(consignadoA)
+          ? (lc.bancoEmisor ?? "")
+          : consignadoA;
+      /* El relleno «—» del intérprete no es un nombre: ver la rama de la orden. */
+      const aQuien = /[a-z0-9]/i.test(rol) ? rol.trim() : "";
+      reglas.push({
+        id: "bl-consignee",
+        fuente: "46A",
+        regla: `El documento de transporte va consignado a quien el crédito nombra (${consignadoA})`,
+        estado: !consig || !aQuien ? "ATENCION" : veredictoDeNombre(consig, aQuien),
+        evidencia: !consig
+          ? `el crédito lo consigna a "${consignadoA}" y no se leyó el consignatario: verificar a mano`
+          : !aQuien
+            ? `el crédito lo consigna a "${consignadoA}" y no se leyó ese nombre en el crédito: verificar a mano`
+            : `el documento dice "${consig}" · el crédito pide "${aQuien}"`,
       });
     } else if (!ordenDe) {
       reglas.push({

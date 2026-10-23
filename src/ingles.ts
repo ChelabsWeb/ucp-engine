@@ -1738,11 +1738,24 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\(BL\)/g, "(B/L)"],
 
   // ── plantillas de regla ──
+  [/^El documento de transporte va consignado a quien el crédito nombra \(/g, "The transport document is consigned to the party the credit names ("],
+  [/^el crédito lo consigna a /g, "the credit consigns it to "],
+  [/ y no se leyó ese nombre en el crédito: verificar a mano$/g, " and that name was not read in the credit: check by hand"],
+  [/^el documento dice /g, "the document states "],
+  [/ · el crédito pide /g, " · the credit requires "],
   [/\bcita el número de la LC\b/g, "quotes the credit number"],
   [/\bel número de LC que cita es el del crédito\b/g, "the credit number it quotes is this credit's"],
   [
     /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano$/g,
     "the credit requires it in field $1 and none was read on the document: check by hand",
+  ],
+  [
+    /^El crédito fija un calendario de embarques: transcribirlo al calendario de cuotas del crédito, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y las siguientes$/g,
+    "The credit sets a shipment schedule: transcribe it into the credit's instalment calendar, because an instalment not shipped within its period leaves the credit unavailable for that and any subsequent instalment",
+  ],
+  [
+    /^al transcribirlo, mirar si cada renglón es un período con inicio y fin o una fecha límite acumulada: «al menos 40 % antes del 31\.08» no exige nada entre el 31\.07 y el 31\.08, y tomarlo por un período inventa una discrepancia \(laudo DOCDEX 204\)$/g,
+    "when transcribing it, check whether each line is a period with a start and an end or a cumulative deadline: \u00ab40 pct at least before 31.08\u00bb demands nothing between 31.07 and 31.08, and taking it for a period invents a discrepancy (DOCDEX Decision 204)",
   ],
   [
     /^el crédito no le pide a este documento que cite el número: su falta no es discrepancia$/g,

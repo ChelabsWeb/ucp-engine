@@ -990,6 +990,77 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
 });
 
 /**
+ * El crédito que consigna **derecho a una parte nombrada** (laudo DOCDEX 204)
+ *
+ * `ordenDe` solo entendía «TO THE ORDER OF», así que un 46A que dice «SHOWING GOODS CONSIGNED TO COMPANY
+ * B» —o «CONSIGNED TO APPLICANT», que es la redacción de cualquier crédito aéreo— salía con «el crédito no
+ * dice a nombre de quién». Eso es **falso** y pierde la discrepancia: es el mismo falso negativo que ya
+ * había costado el endoso en blanco de TA 814rev4, del lado que paga de más.
+ *
+ * El laudo DOCDEX 204 es el caso: de seis motivos de rechazo, el único válido es que el campo 2 del CMR
+ * mostraba al ordenante mientras el crédito pedía consignar a Company B — *«By adding another consignee,
+ * Company B, in the field for additional text the documents become contradictory. The contradiction is a
+ * discrepancy»*.
+ */
+describe("bl-consignee compara el consignatario que el crédito nombra (laudo DOCDEX 204)", () => {
+  /* El ordenante sale de la operación, igual que para `bl-notify`: el 50 no está en `LcInfo`. */
+  const conOrdenante = (quien: string): OperationDetail => ({
+    ...OP,
+    legs: OP.legs.map((l) => (l.tipo === "VENTA" ? { ...l, contraparte: quien } : l)),
+  });
+
+  const con = (exigencia: string, consignatario: string, ordenante = "ORIENT FEED (PVT) LTD") =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia] },
+      docs: [{ tipo: "BL" as const, campos: { ...BL, consignatario: campo(consignatario) } }],
+      op: conOrdenante(ordenante),
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "bl-consignee");
+
+  const CMR = "4. ORIGINAL COPY FOR CONSIGNOR/SHIPPER OF ROAD WAYBILL CMR, SHOWING GOODS CONSIGNED TO COMPANY B";
+
+  it("consignado a quien el crédito nombra: cumple", () => {
+    expect(con(CMR, "COMPANY B")?.estado).toBe("OK");
+  });
+
+  it("consignado a otro: discrepancia, y la evidencia muestra los dos nombres", () => {
+    const r = con(CMR, "COMPANY C HANDELSGESELLSCHAFT MBH");
+    expect(r?.estado, "el crédito lo dice y el documento dice otra cosa").toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("COMPANY C");
+    expect(r?.evidencia).toContain("COMPANY B");
+  });
+
+  it("y sin consignatario leído se avisa, no se rechaza", () => {
+    expect(con(CMR, "")?.estado).toBe("ATENCION");
+  });
+
+  /* El rol se resuelve con el nombre, igual que el del banco emisor: un papel no dice «el ordenante». */
+  it("«consigned to applicant» es un rol: se compara contra el ordenante del crédito", () => {
+    const linea = "2. AIR WAYBILL CONSIGNED TO APPLICANT";
+    expect(con(linea, "ORIENT FEED (PVT) LTD")?.estado, "cumple lo que el crédito pidió").toBe("OK");
+    expect(con(linea, "OTRA EMPRESA SA")?.estado).toBe("DISCREPANCIA");
+    expect(con(linea, "ORIENT FEED (PVT) LTD", "—")?.estado, "sin ordenante legible no se dictamina").toBe(
+      "ATENCION",
+    );
+  });
+
+  /* Y «to order» a secas no es un nombre: eso lo decide la rama del endoso en blanco. */
+  it("«made out to order and blank endorsed» no se compara como nombre", () => {
+    const r = con("2. FULL SET BILLS OF LADING MADE OUT TO ORDER AND BLANK ENDORSED", "TO ORDER");
+    expect(r?.estado).toBe("OK");
+    expect(r?.regla, "es la rama del endoso en blanco").toContain("endoso en blanco");
+  });
+
+  /* Y un crédito que no dice nada sigue sin opinar: donde el crédito calla no hay discrepancia. */
+  it("y un 46A que no dice a nombre de quién sigue saliendo a verificar", () => {
+    const r = con("2. FULL SET OF CLEAN ON BOARD BILLS OF LADING", "COMPANY C");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("no dice a nombre de quién");
+  });
+});
+
+/**
  * Dos líneas del 46A que aparean al mismo papel (Opinión TA 893rev)
  *
  * `presentado()` marca la entrada como usada y `doc()` no, así que una línea del 46A que **menciona**

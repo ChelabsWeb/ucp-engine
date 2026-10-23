@@ -1333,7 +1333,14 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
  * la clave es `GIRO`, y la línea sale FALTA, que es la verdad: el crédito pide un papel que este
  * examen no mira.
  */
-const ABRE_DESCRIPCION =
+/**
+ * Donde termina el nombre del documento y empieza lo que el crédito le pide decir.
+ *
+ * Se exporta porque **la misma pregunta se hace en cuatro lugares** —la clave de la exigencia, el emisor
+ * exigido, el calificativo del párrafo Q5 y, desde el laudo DOCDEX 204, el consignatario que el 46A
+ * nombra— y van cinco veces que una captura de nombre se lleva la frase entera por tener su propio corte.
+ */
+export const ABRE_DESCRIPCION =
   /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
 
 /*
