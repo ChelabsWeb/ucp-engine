@@ -2420,3 +2420,64 @@ describe("el punto de miles o decimal en la cantidad (R 218)", () => {
     expect(conCantidad("1000 MT OF PULP", "1020", "MT")?.estado).toBe("OK");
   });
 });
+/**
+ * El crédito que prohíbe costos adicionales al flete (laudo DOCDEX 384, ISBP 745 E27)
+ *
+ * El artículo 26 (c) dice que un documento de transporte **puede** llevar una referencia a costos
+ * adicionales al flete, así que la prohibición la pone el crédito. El laudo rinde el párrafo E27 en dos
+ * mitades —palabras del panel, no texto de la ISBP, que no está comprada— y la segunda da la lista:
+ * *«Free In (FI), Free Out (FO), Free In and Out (FIO) and Free In and Out Stowed (FIOS)»*.
+ *
+ * **Y el límite es lo que el laudo decide**, unánimemente: «LINER IN – LINER OUT» **no** es una de esas
+ * indicaciones, porque *«Neither the UCP 600 nor the Incoterms® 2020 contain a definition of the terms
+ * "liner terms", "Liner In" or "Liner Out"»*. La lista dice «such as, but not limited to» y aun así esto no
+ * se extiende: el panel tenía esa misma lista delante y resolvió que LI/LO no entra.
+ */
+describe("costos adicionales al flete (laudo DOCDEX 384)", () => {
+  const PROHIBE = "3. FULL SET OF BILLS OF LADING MARKED LINER TERMS AND FREIGHT PREPAID. CHARGES ADDITIONAL TO FREIGHT ARE NOT ACCEPTABLE.";
+  const con = (flete: string, exigencia = PROHIBE) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia] },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ flete: campo(flete) }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "isbp-e27");
+
+  /*
+   * **Y nunca rechaza, porque hay una Opinión más nueva que decide exactamente eso.** La primera versión de
+   * la regla daba DISCREPANCIA sobre un «FREE OUT» y el banco de pruebas la frenó en la primera corrida: la
+   * Opinión TA 957rev —octubre de 2025, posterior a este laudo— es un conocimiento con «Free out»
+   * **preimpreso** bajo un crédito que prohibía cargos adicionales al flete, y la Banking Commission dijo
+   * que no es discrepancia porque esas palabras son parte de las **condiciones de transporte**, que no se
+   * examinan. Lo que separa los dos casos es si la marca viene preimpresa o es de este embarque, y eso el
+   * motor no lo puede ver: dice las dos cosas y no decide.
+   */
+  it.each(["FREIGHT PREPAID FIOS", "FREIGHT PREPAID, FREE IN AND OUT", "FREIGHT PREPAID FO"])(
+    "«%s» es una de las palabras de E27 (b) y sale a verificar, nunca a rechazar",
+    (fl) => {
+      const r = con(fl);
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("E27 (b)");
+      expect(r?.evidencia, "la Opinión que impide rechazarlo va en la evidencia").toContain("TA 957rev");
+    },
+  );
+
+  it("«LINER IN - LINER OUT» no lo indica: es lo que el laudo decide", () => {
+    expect(con("FREIGHT PREPAID / LINER IN - LINER OUT")?.estado).toBe("OK");
+  });
+
+  it("y una marca de flete corriente tampoco", () => {
+    expect(con("FREIGHT PREPAID")?.estado).toBe("OK");
+    expect(con("FREIGHT COLLECT")?.estado).toBe("OK");
+  });
+
+  /* Sin la prohibición en el crédito no hay nada que mirar: el artículo 26 (c) la admite. */
+  it("y sin la prohibición la regla no se emite", () => {
+    expect(con("FREIGHT PREPAID FIOS", "3. FULL SET OF BILLS OF LADING MARKED FREIGHT PREPAID.")).toBeUndefined();
+  });
+
+  it("y sin marca de flete leída se sale a verificar", () => {
+    expect(con("")?.estado).toBe("ATENCION");
+  });
+});
+

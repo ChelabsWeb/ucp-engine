@@ -1754,6 +1754,22 @@ const REEMPLAZOS: [RegExp, string][] = [
     " — that is the area the credit names, not a port: the document must indicate the actual port of loading, which is what sub-article (a) (iii) requires and what DOCDEX Decision 361 holds to be a valid discrepancy (ISBP 745 G5 (g))",
   ],
   [
+    /^El documento de transporte no indica costos adicionales al flete, que el crédito no admite$/g,
+    "The transport document does not indicate costs additional to the freight, which the credit does not accept",
+  ],
+  [
+    /^El documento de transporte no indica costos adicionales al flete$/g,
+    "The transport document does not indicate costs additional to the freight",
+  ],
+  [
+    /, que es una de las palabras que el párrafo E27 \(b\) cuenta como indicación de costos adicionales al flete — pero si viene preimpresa es una condición de transporte y no se examina, que es lo que resolvió la Opinión TA 957rev: verificar en el papel si la marca es de este embarque$/g,
+    ", which is one of the words paragraph E27 (b) counts as an indication of costs additional to the freight — but where it is pre-printed it is a condition of carriage and is not examined, which is what ICC Opinion TA 957rev held: check on the document whether the marking relates to this shipment",
+  ],
+  [
+    /, que no es ninguna de las indicaciones del párrafo E27 \(b\)$/g,
+    ", which is none of the indications in paragraph E27 (b)",
+  ],
+  [
     /^El crédito deja deducir del cobro lo que el ordenante reclame, así que una presentación conforme puede no cobrarse entera$/g,
     "The credit allows whatever the applicant claims to be deducted from the proceeds, so a complying presentation may not be paid in full",
   ],
