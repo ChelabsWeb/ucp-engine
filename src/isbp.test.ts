@@ -9,6 +9,7 @@ import {
   esFacturaComercial,
   exigePrevioAlEmbarque,
   normISBP,
+  terminoDeEntrega,
   veredictoDeNombre,
 } from "./isbp";
 import type { ReglaPresentacion } from "./presentacion";
@@ -227,5 +228,60 @@ describe("veredictoDeNombre", () => {
   /* Y el freno del reordenamiento: una palabra de más o de menos no es una permutación. */
   it("una palabra que sobra no es un reordenamiento", () => {
     expect(veredictoDeNombre("SMITH TRADING LOGISTICS LTD", "SMITH TRADING LTD")).toBe("DISCREPANCIA");
+  });
+});
+
+/**
+ * El término de entrega escrito en palabras (laudo DOCDEX 208)
+ *
+ * `terminoDeEntrega` solo reconocía los códigos de tres letras, así que devolvía null para
+ * **«EX-WORKS»**, «FREE ON BOARD» o «COST AND FREIGHT» — y entonces `ucp-18c-incoterm` y `isbp-c8` no
+ * corrían: el crédito nombraba su término de entrega y el motor no lo veía. El 45A del laudo dice
+ * literalmente «EX-WORKS».
+ */
+describe("el término de entrega escrito en palabras (DOCDEX 208)", () => {
+  it("los once, en palabras, dan su código", () => {
+    expect([
+      terminoDeEntrega("EX-WORKS U.S.A."),
+      terminoDeEntrega("FREE CARRIER MONTEVIDEO"),
+      terminoDeEntrega("FREE ALONGSIDE SHIP MONTEVIDEO"),
+      terminoDeEntrega("FREE ON BOARD MONTEVIDEO"),
+      terminoDeEntrega("COST AND FREIGHT COLOMBO"),
+      terminoDeEntrega("COST, INSURANCE AND FREIGHT COLOMBO"),
+      terminoDeEntrega("CARRIAGE PAID TO HAMBURG"),
+      terminoDeEntrega("CARRIAGE AND INSURANCE PAID TO HAMBURG"),
+      terminoDeEntrega("DELIVERED AT PLACE LIMA"),
+      terminoDeEntrega("DELIVERED AT PLACE UNLOADED LIMA"),
+      terminoDeEntrega("DELIVERED DUTY PAID LIMA"),
+    ]).toEqual(["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP", "DPU", "DDP"]);
+  });
+
+  /*
+   * El orden de dos pares importa, y por eso la lista es una lista: «delivered at place unloaded»
+   * contiene «delivered at place», así que DPU va antes que DAP. Si se invirtiera, un DPU saldría DAP y
+   * el motor compararía dos términos distintos como si fueran el mismo.
+   */
+  it("«delivered at place unloaded» no se confunde con «delivered at place»", () => {
+    expect(terminoDeEntrega("DELIVERED AT PLACE UNLOADED LIMA")).toBe("DPU");
+    expect(terminoDeEntrega("DELIVERED AT PLACE LIMA")).toBe("DAP");
+  });
+
+  /*
+   * «C & F» es CFR, y lo dice la Opinión TA 936rev: *«"CFR" did replace the term "C & F" in the
+   * Incoterms publications because the ampersand sign caused issues with SWIFT/Telex messages»*. Importa
+   * porque hay industrias —GAFTA, o sea los granos— que siguen escribiéndolo así.
+   */
+  it("«C & F» es CFR (TA 936rev)", () => {
+    for (const t of ["C & F COLOMBO", "C&F COLOMBO", "C AND F COLOMBO"]) expect(terminoDeEntrega(t)).toBe("CFR");
+  });
+
+  /*
+   * Y el freno que sostiene la mitad discrepante del laudo: **«EX-WARE HOUSE» no es «EX-WORKS»**. El
+   * panel declaró esa factura discrepante, así que si el patrón de EXW la reconociera el motor daría por
+   * bueno justo el papel que el laudo rechaza.
+   */
+  it("«EX-WARE HOUSE» no es EXW, que es la discrepancia que el laudo sostiene", () => {
+    expect(terminoDeEntrega("EX-WARE HOUSE MERSIN FREE ZONE")).toBeNull();
+    expect(terminoDeEntrega("WOOL YARN EX WAREHOUSE")).toBeNull();
   });
 });
