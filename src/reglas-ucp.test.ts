@@ -677,8 +677,37 @@ describe("cuando el crédito indica una zona y no un puerto", () => {
     ["ANY EUROPE AIRPORT", "AMSTERDAM", "TA 937"],
     ["ANY PANAMA AIRPORT", "PANAMA CIUDAD DE", "TA 937"],
     ["ANY SEAPORT IN EGYPT", "ALEXANDRIA", "TA 957rev"],
+    /*
+     * Y las dos del laudo DOCDEX 202, cuyo crédito dice «From Black Sea port or Azov Port».
+     *
+     * Ninguna de las dos formas entraba: no hay «ANY», ni plural, ni barra. El motor comparaba el
+     * puerto real contra esa frase y rechazaba — y el panel dice que no corresponde, con un ejemplo que
+     * vale guardado: *«This is similar to a case where a credit says, for example, "Mediterranean port"
+     * and the B/L shows "Marseille" as the port of loading»*.
+     *
+     * Entran por dos lados independientes: un mar o un golfo calificando al puerto, y **dos puertos
+     * unidos por «or»**, que es nombrar un rango por definición.
+     */
+    ["FROM BLACK SEA PORT OR AZOV PORT", "ODESSA", "DOCDEX 202"],
+    ["BLACK SEA PORT", "ODESSA", "DOCDEX 202"],
+    ["ARABIAN GULF PORT", "DUBAI", "DOCDEX 202"],
+    ["MONTEVIDEO PORT OR NUEVA PALMIRA PORT", "NUEVA PALMIRA", "DOCDEX 202"],
   ])("«%s» con «%s» no es discrepancia (%s)", (enCredito, enDoc) => {
     expect(conDestino(enCredito, enDoc)?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y el hueco que queda declarado, del lado que importa saber: «MEDITERRANEAN PORT» a secas —el ejemplo
+   * **hipotético** del panel, no sus hechos— sigue sin reconocerse como zona, porque distinguirlo
+   * necesitaría una lista de mares y regiones y eso es lo que este repositorio decidió no mantener
+   * cuando apareció el mismo problema con los países.
+   *
+   * El test afirma el estado actual para que el día que alguien lo arregle venga a leer el comentario, y
+   * no para defenderlo: es un hueco del lado caro —el motor rechaza cuando no debería— y si aparece un
+   * caso con esa redacción, se arregla acá y con el caso al lado.
+   */
+  it("«MEDITERRANEAN PORT» a secas todavía no se reconoce como zona, y es un hueco declarado", () => {
+    expect(conDestino("MEDITERRANEAN PORT", "MARSEILLE")?.estado).toBe("DISCREPANCIA");
   });
 
   it("un aeropuerto concreto sigue siendo un aeropuerto concreto, no una zona", () => {

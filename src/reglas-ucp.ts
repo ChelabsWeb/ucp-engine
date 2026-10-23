@@ -165,6 +165,22 @@ function fechaEnTexto(t: string): Date | null {
  *
  * `ANY` es lo que marca la zona, no el aeropuerto: «MONTEVIDEO AIRPORT» es un aeropuerto concreto y
  * tiene que seguir comparándose como tal.
+ *
+ * **Y dos formas más, que salieron del laudo DOCDEX 202**, cuyo crédito dice «From Black Sea port or
+ * Azov Port» contra un conocimiento que muestra el puerto real. Sin ellas el motor rechazaba, y el panel
+ * dice que no corresponde —con un ejemplo que vale guardado: *«This is similar to a case where a credit
+ * says, for example, "Mediterranean port" and the B/L shows "Marseille" as the port of loading»*.
+ *
+ * - **Un mar, un golfo o una costa calificando al puerto**: «BLACK SEA PORT», «ARABIAN GULF PORT». Un
+ *   puerto concreto no se llama así.
+ * - **Dos puertos unidos por «or»**: nombrar alternativas **es** nombrar un rango, por definición. La
+ *   ventana no cruza comas ni punto y coma, para que no se trague media línea del 46A.
+ *
+ * **Lo que no se hizo, y conviene que esté dicho:** reconocer «MEDITERRANEAN PORT» a secas —el ejemplo
+ * hipotético del panel— necesitaría una lista de mares y regiones, que es exactamente lo que este
+ * repositorio decidió no mantener cuando apareció el mismo problema con los países. Queda como hueco
+ * declarado, y es un hueco del lado seguro: ahí el motor **rechaza** cuando no debería, que es el error
+ * caro. Si aparece un caso con esa redacción, el lugar de arreglarlo es acá y con el caso al lado.
  */
 function esZonaDeLugares(texto: string): boolean {
   const t = texto.toUpperCase();
@@ -173,6 +189,8 @@ function esZonaDeLugares(texto: string): boolean {
       t,
     ) ||
     /\bANY\s+(?:[A-Z]+\s+){0,3}(?:SEA)?(?:AIR)?PORTS?\b/.test(t) ||
+    /\b(?:SEA|GULF|OCEAN|COAST|BAY|STRAIT)\s+(?:AIR)?PORTS?\b/.test(t) ||
+    /\b(?:AIR)?PORTS?\b[^,;]{0,40}\bOR\b[^,;]{0,40}\b(?:AIR)?PORTS?\b/.test(t) ||
     /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/.test(t)
   );
 }
