@@ -392,6 +392,60 @@ export function reglasCertificados(input: {
     /* la fecha (ISBP 821 A12) */
     const f = val(c.campos.fechaDocumento) ?? val(c.campos.fechaSeguro);
     const fd = f ? parseFecha(f) : null;
+
+    /*
+     * Un certificado sin fecha de emisión no es discrepante **si dice a qué embarque se refiere**.
+     *
+     * Es el laudo **DOCDEX 213**, unánime, y la regla que da es la que al motor le faltaba:
+     *
+     *   «A certificate must serve the purpose for which it has been issued; that is the reason why it
+     *   has to show **either a date of issuance or otherwise to show the event (shipment or provision of
+     *   services) to which it relates**.»
+     *
+     * El emisor había rechazado dos certificados provisionales de peso y de ensayo por no llevar fecha,
+     * y el panel contestó que no hacía falta porque mostraban el buque y la fecha del conocimiento:
+     * *«they unequivocally establish that these documents relate to the shipment and the necessary
+     * linkage between the documents presented»*.
+     *
+     * Antes de esto el motor **no decía nada** sobre un certificado sin fecha, y una regla ausente se
+     * lee como «no aplica» y no como «no pude». Ahora:
+     *
+     *   - con fecha → no se emite nada acá, que es lo que el laudo resuelve;
+     *   - sin fecha pero con el buque, el número o la fecha del conocimiento en su texto → **OK**,
+     *     citando el laudo;
+     *   - sin fecha y sin nada que lo ate al embarque → **ATENCION**, porque entonces el papel no se
+     *     puede vincular a esta presentación y eso sí hay que mirarlo.
+     *
+     * **Nunca rechaza**, y no por prudencia genérica: el panel dice que la vinculación puede venir «de
+     * otro modo», y un campo vacío en este motor significa además «nadie lo cargó» (el límite de la
+     * Opinión TA 862). Rechazar ahí sería rechazar por no haber podido leer.
+     */
+    if (!fd) {
+      const texto = [
+        val(c.campos.mercaderia),
+        val(c.campos.numeroDoc),
+        val(c.campos.referenciaProforma),
+        val(c.campos.puertoEmbarque),
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      const buque = val(bl?.campos.buque);
+      const numeroBl = val(bl?.campos.numeroDoc);
+      const ata = [buque, numeroBl, fechaEmbarque].find(
+        (x) => x && texto.toUpperCase().includes(x.toUpperCase().slice(0, 12)),
+      );
+      out.push(
+        regla(
+          `cert-vinculo-${sufijo}`,
+          "UCP 600 14d",
+          `${nombre}: sin fecha de emisión, qué lo ata a este embarque`,
+          ata ? "OK" : "ATENCION",
+          ata
+            ? `no trae fecha de emisión y nombra "${corto(ata, 40)}", que lo ata al embarque: el laudo DOCDEX 213 lo admite — «it has to show either a date of issuance or otherwise to show the event to which it relates»`
+            : `no trae fecha de emisión ni nada que lo ate a este embarque —ni el buque, ni el número del conocimiento, ni su fecha—: el laudo DOCDEX 213 pide una de las dos cosas. Verificar a mano${texto ? ` lo que el documento dice: "${corto(texto, 60)}"` : ""}`,
+        ),
+      );
+    }
     if (exigePrevioAlEmbarque(c.exigencia)) {
       const fe = fechaEmbarque ? parseFecha(fechaEmbarque) : null;
       /*

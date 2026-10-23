@@ -954,3 +954,63 @@ describe("el certificado del beneficiario contra el pro forma (Fortis Bank v IOB
     ).toContain("leer el texto");
   });
 });
+
+/**
+ * El certificado sin fecha de emisión y lo que lo ata al embarque (laudo DOCDEX 213)
+ *
+ * El emisor rechazó dos certificados provisionales por no llevar fecha, y el panel —unánime— contestó
+ * que no hacía falta porque mostraban el buque y la fecha del conocimiento: *«they unequivocally
+ * establish that these documents relate to the shipment and the necessary linkage between the documents
+ * presented»*. Y dio la regla que al motor le faltaba:
+ *
+ *   «A certificate must serve the purpose for which it has been issued; that is the reason why it has to
+ *   show **either a date of issuance or otherwise to show the event (shipment or provision of services)
+ *   to which it relates**.»
+ *
+ * Antes de esto el motor **no decía nada** sobre un certificado sin fecha: ninguna regla la exigía —lo
+ * cual coincide con la conclusión— pero tampoco miraba lo otro, y una regla ausente se lee como «no
+ * aplica» y no como «no pude».
+ */
+describe("el certificado sin fecha de emisión (DOCDEX 213)", () => {
+  const BUQUE = "M/V ECO CHARGER";
+  const conCertificado = (campos: Partial<CamposDoc>) =>
+    reglasCertificados({
+      lc: LC,
+      docs: [{ tipo: "BL", campos: doc({ buque: campo(BUQUE), fechaEmbarque: campo("09-dic-97") }) }],
+      hoy: new Date(1998, 0, 15),
+      certificados: [{ exigencia: "+3)PROVISIONAL WEIGHT AND MOISTURE CERTIFICATE", campos: doc(campos) }],
+    }).find((x) => x.id.startsWith("cert-vinculo"));
+
+  it("sin fecha pero nombrando el buque, cumple y cita el laudo", () => {
+    const r = conCertificado({ mercaderia: campo(`PROVISIONAL WEIGHT · ${BUQUE} · B/L DATE 9/12/97`) });
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toContain("DOCDEX 213");
+  });
+
+  it("sin fecha y sin nada que lo ate al embarque, va a verificar", () => {
+    const r = conCertificado({ mercaderia: campo("PROVISIONAL WEIGHT 5000 WMT MOISTURE 8,2 PCT") });
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("DOCDEX 213");
+  });
+
+  /*
+   * Con fecha no se emite nada acá: la fecha es la primera de las dos cosas que el panel admite, y las
+   * reglas que la miran son otras (el 14 i, el A12b, el cruce del 14 d).
+   */
+  it("con fecha de emisión la regla no se emite", () => {
+    expect(
+      conCertificado({ fechaDocumento: campo("09-dic-97"), mercaderia: campo("PROVISIONAL WEIGHT") }),
+    ).toBeUndefined();
+  });
+
+  /*
+   * Y **nunca rechaza**, que no es prudencia genérica: el panel admite que la vinculación venga «de otro
+   * modo» —una referencia que el motor no sepa leer— y en este motor un campo vacío significa además
+   * «nadie lo cargó», que es el límite de la Opinión TA 862. Rechazar ahí sería rechazar por no haber
+   * podido leer.
+   */
+  it("y nunca rechaza, ni con el certificado vacío", () => {
+    for (const campos of [{}, { mercaderia: campo("ALGO QUE NO DICE NADA") }])
+      expect(conCertificado(campos)?.estado).not.toBe("DISCREPANCIA");
+  });
+});
