@@ -1754,6 +1754,22 @@ const REEMPLAZOS: [RegExp, string][] = [
     " — that is the area the credit names, not a port: the document must indicate the actual port of loading, which is what sub-article (a) (iii) requires and what DOCDEX Decision 361 holds to be a valid discrepancy (ISBP 745 G5 (g))",
   ],
   [
+    /^Una condición dice que el pago se hace SOLO contra algunos documentos, y el crédito exige otros además: no se sabe qué hay que presentar para cobrar$/g,
+    "A condition says payment is made ONLY against certain documents while the credit requires others as well: what must be presented to be paid is unclear",
+  ],
+  [
+    /^decir en un solo lugar contra qué documentos se paga cada tramo: el riesgo de una instrucción ambigua lo lleva el emisor, y el panel hizo pagar contra la lista más corta$/g,
+    "state in one place which documents each tranche is paid against: the risk of an ambiguous instruction falls on the issuing bank, and the panel made it pay against the shorter list",
+  ],
+  [
+    /^Lo que llegó pide cancelar el crédito, y un crédito no se cancela sin el acuerdo del beneficiario$/g,
+    "What arrived asks to cancel the credit, and a credit cannot be cancelled without the beneficiary's agreement",
+  ],
+  [
+    /^mientras el beneficiario no acepte, el crédito sigue vivo y una presentación conforme hay que honrarla: que el emisor diga que el beneficiario quiere cancelar no es que el beneficiario lo haya aceptado, y presentar documentos es rechazar la cancelación\. Cerrar el expediente ahora deja sin examinar una presentación que puede llegar en plazo — y devolverla con un mensaje que no es un aviso del artículo 16 \(c\) precluye al emisor$/g,
+    "until the beneficiary agrees the credit is alive and a complying presentation must be honoured: the issuing bank saying that the beneficiary wishes to cancel is not the beneficiary having accepted it, and presenting documents is a rejection of the cancellation. Closing the file now leaves unexamined a presentation that may still arrive in time — and returning it with a message that is not an article 16 (c) notice precludes the issuing bank",
+  ],
+  [
     /^El documento de transporte no indica costos adicionales al flete, que el crédito no admite$/g,
     "The transport document does not indicate costs additional to the freight, which the credit does not accept",
   ],

@@ -1,3 +1,4 @@
+import { claveDoc } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { diasPresentacion, limitePresentacion } from "./lc";
 import type { LcSwift } from "./swift-lc";
@@ -413,6 +414,59 @@ export function revisarCredito(p: LcSwift): Observacion[] {
 
   /* ── el campo 47A: las condiciones adicionales ── */
   const cond = lc.condicionesAdicionales ?? [];
+
+  /*
+   * Una cláusula de pago que nombra **menos documentos** de los que el crédito exige.
+   *
+   * El laudo **DOCDEX 362** es un crédito de pago mixto en tres tramos donde el último, del 10 %, pedía
+   * *«an acceptance certificate and a performance bank guarantee»* y además decía que el banco pagaría
+   * **solo** contra factura y garantía. El beneficiario presentó la factura y la garantía, el emisor
+   * rechazó, hubo una medida judicial de por medio, y el panel resolvió:
+   *
+   * > **Usage of the word "only" and the missing requirement for an acceptance certificate gave rise to
+   * > ambiguity** as to the requirements for payment. Whilst the beneficiary presented only an invoice and
+   * > a performance bank guarantee, **the risk of misinterpretation must be borne by the Respondent.**
+   *
+   * > Under the provisions of the UCP 600 and the ISBP 745, **the Respondent bore responsibility for
+   * > ambiguous instructions.** Hence the Respondent should have honoured presentation of the invoice and
+   * > bank guarantee alone. The Respondent was also liable for the delay in payment.
+   *
+   * Lo que el panel cita es la consideración preliminar (v) de la ISBP, que ya está en el repositorio por
+   * la Opinión TA 796rev: *«The applicant bears the risk of any ambiguity in its instructions […] An
+   * issuing bank should ensure that any credit or amendment it issues is not ambiguous or conflicting in
+   * its terms and conditions»*.
+   *
+   * **El disparador es la palabra que el panel señala**: una cláusula que condiciona el pago con «only» y
+   * nombra documentos, mientras el crédito exige además otros. Sin «only» no se marca —un crédito de pago
+   * mixto puede nombrar los documentos de cada tramo sin contradecirse— y sin documentos nombrados en la
+   * cláusula tampoco: «only against presentation of the documents specified above» no contradice nada.
+   */
+  cond.forEach((c, i) => {
+    if (!/\bonly\b/i.test(c) || !/\b(?:against|upon|on)\b/i.test(c)) return;
+    if (!/\b(?:payment|paid|pay|honour|honor|negotiat|reimburs)/i.test(c)) return;
+    const nombrados = new Set(
+      c
+        .split(/\band\b|\bor\b|,|\//i)
+        .map((x) => claveDoc(x))
+        .filter((k) => k && !k.startsWith("TXT:")),
+    );
+    if (nombrados.size === 0) return;
+    const faltan = (lc.documentosExigidos ?? [])
+      .map((d) => claveDoc(d))
+      .filter((k) => k && !k.startsWith("TXT:") && !nombrados.has(k));
+    if (faltan.length === 0) return;
+    out.push(
+      obs(
+        `emision-pago-contra-menos-${i}`,
+        "CONFLICTO",
+        "Laudo DOCDEX 362 · ISBP, consideración preliminar (v)",
+        "Una condición dice que el pago se hace SOLO contra algunos documentos, y el crédito exige otros además: no se sabe qué hay que presentar para cobrar",
+        `47A+${i + 1}`,
+        "decir en un solo lugar contra qué documentos se paga cada tramo: el riesgo de una instrucción ambigua lo lleva el emisor, y el panel hizo pagar contra la lista más corta",
+      ),
+    );
+  });
+
   cond.forEach((c, i) => {
     /*
      * Un calendario de embarques es el artículo 32, y el artículo 32 es la consecuencia más dura que
