@@ -198,3 +198,31 @@ describe("el apareo de la línea del 46A", () => {
     expect(BATERIA.filter(([l]) => claveDoc(l).startsWith("TXT:")).map(([l]) => l)).toEqual([]);
   });
 });
+/**
+ * La carta de indemnidad, y el séptimo documento que otro tipo se roba (laudo DOCDEX 372)
+ *
+ * El laudo es un crédito que admite presentar factura y **letter of indemnity** en lugar del juego de
+ * conocimientos, y la presentación de esos dos es la que el panel declara conforme. Antes de tener clave
+ * propia, esa línea caía en el capítulo del transporte —la línea menciona los conocimientos— y la línea que
+ * ofrece la alternativa se la llevaba **la factura**, que es la primera prueba de la lista.
+ *
+ * Los dos son la misma forma, la séptima vez: **un documento cuyo texto nombra otro tipo y se lo deja robar
+ * por la primera prueba que coincida.** El corte en «in lieu of» hace que mande la cabeza de la línea, que
+ * es donde el crédito nombra el documento.
+ */
+describe("la carta de indemnidad (laudo DOCDEX 372)", () => {
+  it("tiene clave propia y no se la lleva el transporte", () => {
+    expect(claveDoc("LETTER OF INDEMNITY ISSUED BY THE BENEFICIARY")).toBe("INDEMNIDAD");
+    expect(claveDoc("BENEFICIARY'S LETTER OF INDEMNITY IN LIEU OF BILLS OF LADING")).toBe("INDEMNIDAD");
+    expect(claveDoc("INVOICE AND LOI AS PER CREDIT TERMS")).not.toBe("BL");
+  });
+
+  it("y la línea que ofrece la alternativa la gobierna su cabeza, no lo que nombra después", () => {
+    expect(
+      claveDoc("FULL SET OF ORIGINAL BILLS OF LADING OR, IN LIEU THEREOF, COMMERCIAL INVOICE AND LETTER OF INDEMNITY"),
+      "la cabeza es el juego de conocimientos",
+    ).toBe("BL");
+    expect(claveDoc("COMMERCIAL INVOICE AND LOI ACCEPTABLE INSTEAD OF SHIPPING DOCUMENTS")).toBe("INVOICE");
+  });
+});
+
