@@ -875,7 +875,37 @@ function reglasQuienEmite(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[]
  * Marcar discrepancia sobre un embarque correcto —Rotterdam contra «EUROPEAN MAIN PORTS»— es peor
  * que pedir que alguien lo mire: la discrepancia falsa cuesta el fee, la demora y la confianza.
  */
-function veredictoLugar(enDoc: string, delCredito: string): { estado: EstadoRegla; nota: string } {
+function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): { estado: EstadoRegla; nota: string } {
+  /*
+   * **Repetir la zona no es nombrar un puerto**, y eso el motor sí lo puede decidir.
+   *
+   * La licencia de la zona corre en una sola dirección: el crédito puede nombrar un área y el documento
+   * tiene que nombrar **el puerto real que está dentro**. Si el papel copia el área —«ANY NORTH EUROPEAN
+   * PORT» en el casillero del puerto de carga— no dice dónde cargó, y el motor le daba **OK** porque los
+   * dos textos coinciden: el acierto más vacío que tenía esta familia.
+   *
+   * Lo decide el laudo DOCDEX 361, donde el panel rinde el párrafo G5 (g) de la ISBP 745 así: *«when a
+   * credit indicates a geographical area or range of ports of loading, a charter party bill of lading is
+   * to indicate **the actual port or ports of loading**, which are to be within that geographical area or
+   * range of ports»*, y agrega que *«the charter party bill of lading need not indicate the geographical
+   * area»*. O sea: el área es del crédito y el puerto es del papel.
+   *
+   * Y acá no corre el límite de la TA 862 —«no se leyó» contra «el papel no lo trae»— porque el campo está
+   * cargado: lo que dice no es un puerto. La evidencia muestra el texto para que una persona lo vea de
+   * entrada, que es lo que hace discutible un artefacto de carga.
+   *
+   * **Solo sobre el puerto de CARGA, y la asimetría es del negocio y no una prudencia:** la mercadería se
+   * cargó en un lugar definido y el papel lo sabe, mientras el puerto de **descarga** puede estar sin
+   * decidir cuando el conocimiento se emite —un fletamento con rango de descarga es redacción normal— y
+   * eso ya está medido en el caso del CPBL con rango de puertos de descarga. El laudo habla de *«ports of
+   * loading»* y el cambio no se extiende más allá de lo que decide.
+   */
+  if (esLaCarga && esZonaDeLugares(enDoc)) {
+    return {
+      estado: "DISCREPANCIA",
+      nota: " — eso es la zona que nombra el crédito y no un puerto: el documento tiene que indicar el puerto real de carga, que es lo que exige el inciso (a) (iii) y lo que el laudo DOCDEX 361 declara discrepancia válida (ISBP 745 G5 (g))",
+    };
+  }
   if (coincideLugar(enDoc, delCredito)) return { estado: "OK", nota: "" };
   if (esZonaDeLugares(delCredito)) {
     return {
@@ -933,7 +963,7 @@ function reglasLugares(
     out.push(
       enDoc
         ? (() => {
-            const v = veredictoLugar(enDoc, delCredito);
+            const v = veredictoLugar(enDoc, delCredito, sufijo === "carga");
             const ablanda = esMultimodal && sufijo === "carga" && v.estado === "DISCREPANCIA";
             return regla(
               id,
@@ -1521,7 +1551,7 @@ function reglasTransporte(
     out.push(
       enDoc
         ? (() => {
-            const v = veredictoLugar(enDoc, puertoLC);
+            const v = veredictoLugar(enDoc, puertoLC, k === "puertoEmbarque");
             return regla(
               `ucp-20a-iii-${k}`,
               fuentePuertos,

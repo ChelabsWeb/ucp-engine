@@ -744,8 +744,78 @@ describe("cuando el crédito indica una zona y no un puerto", () => {
     expect(conDestino("COLOMBO,SRI LANKA", "MUMBAI, INDIA")?.estado).toBe("DISCREPANCIA");
   });
 
-  it("y si el documento coincide con la zona tal cual, está bien sin más vueltas", () => {
+  /*
+   * Y en el **destino** sigue estando bien, que es la asimetría del laudo DOCDEX 361.
+   *
+   * Un fletamento con rango de puertos de descarga es redacción normal: cuando el conocimiento se emite el
+   * puerto de descarga puede estar sin decidir, y eso está medido en el caso del CPBL con rango. En la
+   * **carga** no: la mercadería se cargó en un lugar definido y el papel lo sabe.
+   */
+  it("y si el documento repite la zona en el DESTINO, está bien sin más vueltas", () => {
     expect(conDestino("EUROPEAN MAIN PORTS", "EUROPEAN MAIN PORTS")?.estado).toBe("OK");
+  });
+});
+
+/**
+ * Repetir la zona no es nombrar un puerto de carga (laudo DOCDEX 361)
+ *
+ * La licencia de la zona corre en una sola dirección: el crédito puede nombrar un área y el documento tiene
+ * que nombrar **el puerto real que está dentro**. Si el papel copia el área en el casillero del puerto de
+ * carga no dice dónde cargó, y el motor le daba **OK** porque los dos textos coinciden — el acierto más
+ * vacío que tenía esta familia.
+ *
+ * El panel rinde el párrafo G5 (g) de la ISBP 745 así: *«when a credit indicates a geographical area or
+ * range of ports of loading, a charter party bill of lading is to indicate **the actual port or ports of
+ * loading**, which are to be within that geographical area or range of ports»*, y agrega que *«the charter
+ * party bill of lading need not indicate the geographical area»*.
+ */
+describe("repetir la zona no es nombrar un puerto de carga (laudo DOCDEX 361)", () => {
+  const conCarga = (enElCredito: string, enElDocumento: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, puertoEmbarque: enElCredito },
+      docs: [{ tipo: "BL", campos: doc({ puertoEmbarque: campo(enElDocumento) }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-20a-iii-puertoEmbarque");
+
+  it.each(["ANY NORTH EUROPEAN PORT", "BLACK SEA PORT OR AZOV PORT", "EUROPEAN MAIN PORTS"])(
+    "el documento que copia «%s» en el puerto de carga es discrepancia",
+    (zona) => {
+      const r = conCarga(zona, zona);
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).toContain("DOCDEX 361");
+    },
+  );
+
+  it("y el puerto real dentro de la zona sigue saliendo a verificar, no a rechazar", () => {
+    const r = conCarga("ANY NORTH EUROPEAN PORT", "ANTWERP, BELGIUM");
+    expect(r?.estado, "el motor no sabe geografía y no conviene que la sepa").toBe("ATENCION");
+  });
+
+  it("y un puerto contra un puerto no se toca", () => {
+    expect(conCarga("MONTEVIDEO PORT IN URUGUAY", "MONTEVIDEO, URUGUAY")?.estado).toBe("OK");
+    expect(conCarga("MONTEVIDEO, URUGUAY", "BUENOS AIRES, ARGENTINA")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * **Y el hueco que este laudo deja abierto, afirmado como está hoy para que quien lo arregle venga a
+   * leer el motivo.**
+   *
+   * El 44E del laudo dice «Sumatra, Indonesia» y el conocimiento dice lo mismo, y la discrepancia **vale**:
+   * *«No "Sumatra port" exists in Sumatra or Indonesia»*. El motor no lo puede ver por los dos lados —
+   * «SUMATRA, INDONESIA» no tiene ninguna de las marcas de zona (ni «any», ni plural, ni «or», ni la
+   * palabra «port»), así que no entra por la rama de arriba; y si el papel nombrara el puerto real de
+   * Sumatra, el motor lo **rechazaría** por no coincidir, que es el falso positivo del lado caro.
+   *
+   * Las dos mitades necesitan lo mismo: saber si «Sumatra» es un puerto o una isla. Eso es geografía, y es
+   * exactamente lo que este repositorio decidió no mantener cuando apareció el mismo problema con los
+   * países y con «MEDITERRANEAN PORT» del laudo DOCDEX 202. El propio panel lo resuelve con conocimiento
+   * externo —el mismo que la Opinión TA 796rev dice que un banco no tendría que necesitar—, y eso un panel
+   * de la ICC puede hacerlo y un motor de reglas no.
+   */
+  it("y «Sumatra, Indonesia» no se reconoce como zona: el hueco queda afirmado", () => {
+    expect(conCarga("SUMATRA, INDONESIA", "SUMATRA, INDONESIA")?.estado, "la discrepancia del laudo 361").toBe("OK");
+    expect(conCarga("SUMATRA, INDONESIA", "BELAWAN")?.estado, "y el puerto real sale rechazado").toBe("DISCREPANCIA");
   });
 });
 

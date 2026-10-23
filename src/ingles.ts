@@ -1750,6 +1750,10 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the credit requires it in field $1 and none was read on the document: check by hand",
   ],
   [
+    / — eso es la zona que nombra el crédito y no un puerto: el documento tiene que indicar el puerto real de carga, que es lo que exige el inciso \(a\) \(iii\) y lo que el laudo DOCDEX 361 declara discrepancia válida \(ISBP 745 G5 \(g\)\)$/g,
+    " — that is the area the credit names, not a port: the document must indicate the actual port of loading, which is what sub-article (a) (iii) requires and what DOCDEX Decision 361 holds to be a valid discrepancy (ISBP 745 G5 (g))",
+  ],
+  [
     /^El crédito deja deducir del cobro lo que el ordenante reclame, así que una presentación conforme puede no cobrarse entera$/g,
     "The credit allows whatever the applicant claims to be deducted from the proceeds, so a complying presentation may not be paid in full",
   ],
