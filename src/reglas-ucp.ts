@@ -8,7 +8,7 @@ import {
   parseNumero,
   unidadNormal,
 } from "./consistencia";
-import { parseFecha } from "./fechas";
+import { fmtFecha, parseFecha } from "./fechas";
 import {
   cotejarIncotermISBP,
   creditoExigeIngles,
@@ -1828,10 +1828,33 @@ function reglasSeguro(
    * certificado bajo póliza flotante emitido después del embarque —el caso corriente— salía
    * discrepante por construcción. La cláusula tiene su propio campo desde ahora.
    */
+  const textoDeVigencia = `${val(seg, "vigenciaSeguro") ?? ""} ${val(seg, "coberturaDesde") ?? ""} ${val(seg, "tipoSeguro") ?? ""}`;
   const mencionaCoberturaEfectiva =
-    /effective|efectiva|attachment|attaching|desde el|from\s+\d|warehouse to warehouse/i.test(
-      `${val(seg, "vigenciaSeguro") ?? ""} ${val(seg, "coberturaDesde") ?? ""} ${val(seg, "tipoSeguro") ?? ""}`,
+    /effective|efectiva|attachment|attaching|desde el|from\s+\d|warehouse to warehouse|(?:insurance\s+)?period\s+start\w*|commenc\w*|inception/i.test(
+      textoDeVigencia,
     );
+  /*
+   * Y cuándo empieza a correr, si el papel lo dice.
+   *
+   * La Opinión TA 908rev lo pone así: *«The purpose of UCP 600 sub-article 28 (e) is to ensure that the
+   * insurance cover is effective from a date no later than the date of shipment; this may be evidenced
+   * by the issuance date of the insurance document, **or by wording on the insurance document evidencing
+   * the date from which the cover** is effective»*. Con esa frase en el papel el motor puede concluir en
+   * vez de avisar, y ahí está la diferencia entre «no sé» y «esto cumple».
+   *
+   * Lo delicado es **cuál** de las fechas del texto se toma, y es el mismo error que ya se pagó con
+   * `fechaDelHecho` de los certificados: la cláusula de esa Opinión nombra dos —«insurance period
+   * starting on 02 May 2020» y «warranted free from known and / or reported losses on or before
+   * 19.05.2020»— y quedarse con la última, o con la primera del texto, da el veredicto contrario al que
+   * la ICC resolvió. Así que se busca la fecha **que sigue a la frase que nombra el inicio** y nada más.
+   */
+  const inicioDeCobertura = (() => {
+    const m =
+      /\b(?:effective\s+from|effective\s+as\s+of|attaching\s+from|attachment\s+(?:from|date)|cover(?:age)?\s+(?:is\s+)?effective\s+from|(?:insurance\s+)?period\s+(?:starting|commencing|start(?:s|ing)?)\s+(?:on|from)?|commencing\s+(?:on|from)?|inception\s+(?:date)?\s*:?|desde\s+el)\s*:?\s*([^.;]{0,40})/i.exec(
+        textoDeVigencia,
+      );
+    return m?.[1] ? fechaEnTexto(m[1]) : null;
+  })();
   out.push(
     a && b
       ? a <= b
@@ -1842,21 +1865,36 @@ function reglasSeguro(
             "OK",
             `seguro ${fSeg} · embarque ${fEmb}`,
           )
-        : mencionaCoberturaEfectiva
-          ? regla(
+        : inicioDeCobertura
+          ? /*
+             * El papel dice desde cuándo cubre, así que se dictamina en los dos sentidos.
+             *
+             * Si esa fecha no es posterior al embarque, el inciso lo admite; si lo es, la excepción no
+             * aplica y el documento es discrepante — y la evidencia cita **la fecha que se leyó**, para
+             * que la persona pueda desarmarlo si el motor eligió mal la frase.
+             */
+            regla(
               "ucp-28e",
               "UCP 600 28e",
               "El seguro no está fechado después del embarque",
-              "ATENCION",
-              `seguro ${fSeg} · embarque ${fEmb} — el documento menciona una cobertura efectiva: si corre desde una fecha no posterior al embarque, el artículo lo admite; verificarlo a mano`,
+              inicioDeCobertura <= b ? "OK" : "DISCREPANCIA",
+              `seguro ${fSeg} · embarque ${fEmb} — el documento declara la cobertura desde ${fmtFecha(inicioDeCobertura)}, que ${inicioDeCobertura <= b ? "no es posterior al embarque, y el artículo lo admite" : "es posterior al embarque, así que la excepción del inciso no aplica"} (Opinión TA 908rev)`,
             )
-          : regla(
-              "ucp-28e",
-              "UCP 600 28e",
-              "El seguro no está fechado después del embarque",
-              "DISCREPANCIA",
-              `seguro ${fSeg} · embarque ${fEmb}`,
-            )
+          : mencionaCoberturaEfectiva
+            ? regla(
+                "ucp-28e",
+                "UCP 600 28e",
+                "El seguro no está fechado después del embarque",
+                "ATENCION",
+                `seguro ${fSeg} · embarque ${fEmb} — el documento menciona una cobertura efectiva: si corre desde una fecha no posterior al embarque, el artículo lo admite; verificarlo a mano`,
+              )
+            : regla(
+                "ucp-28e",
+                "UCP 600 28e",
+                "El seguro no está fechado después del embarque",
+                "DISCREPANCIA",
+                `seguro ${fSeg} · embarque ${fEmb}`,
+              )
       : sinLeer("ucp-28e", "UCP 600 28e", "El seguro no está fechado después del embarque", "la fecha del seguro"),
   );
 

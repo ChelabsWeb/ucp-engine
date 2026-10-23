@@ -1434,6 +1434,58 @@ describe("el seguro fechado después del embarque (art. 28 e)", () => {
   it("un seguro fechado antes del embarque no necesita ninguna cláusula", () => {
     expect(conSeguro({ fechaSeguro: campo("05-abr-25") })?.estado).toBe("OK");
   });
+
+  /**
+   * Y cuándo se puede concluir en vez de avisar (Opinión TA 908rev)
+   *
+   * *«this may be evidenced by the issuance date of the insurance document, **or by wording on the
+   * insurance document evidencing the date from which the cover** is effective»*. Con esa frase y su
+   * fecha en el papel, el motor dictamina.
+   *
+   * Y la cláusula de esa Opinión trae la trampa en el mismo campo: nombra **dos** fechas, el inicio de
+   * la cobertura y la de emisión, y quedarse con la última da el veredicto contrario al que la ICC
+   * resolvió. Es el mismo error que ya se pagó con `fechaDelHecho` de los certificados.
+   */
+  describe("cuándo el papel dice desde cuándo cubre (TA 908rev)", () => {
+    /*
+     * La cláusula de la Opinión, con las fechas trasladadas a las del fixture de este bloque: el
+     * embarque es el 8 de abril y el seguro se emite el 10, así que la cobertura arranca el 8 —no
+     * posterior al embarque, que es lo que el inciso pide— y la segunda frase nombra el 10.
+     *
+     * Trasladarlas es lo que hace que el caso **mida**: con las fechas de 2020 las dos quedarían antes
+     * del embarque del fixture y la trampa no podría bitir. Las fechas reales de la Opinión están en el
+     * caso del banco de pruebas, donde el expediente es el de ella.
+     */
+    const CLAUSULA =
+      "THIS INSURANCE POLICY HAS BEEN ISSUED ON 10.04.2025 FOR THE INSURANCE PERIOD STARTING ON 08 APR 2025. THE END OF THE INSURANCE COVER IN ACCORDANCE WITH THE INSURANCE TERMS C100/2015. WARRANTED FREE FROM KNOWN AND / OR REPORTED LOSSES ON OR BEFORE 10.04.2025.";
+
+    it("«insurance period starting on» con su fecha da OK y nombra la Opinión", () => {
+      const r = conSeguro({ vigenciaSeguro: campo(CLAUSULA) });
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("TA 908rev");
+    });
+
+    /*
+     * El freno: la fecha que se toma es la que sigue a la frase del inicio, no otra del mismo texto.
+     *
+     * Si se tomara el 10.04.2025 de la última frase —la de los siniestros conocidos— el papel saldría
+     * discrepante, que es exactamente el rechazo que la Opinión declara inválido. Es el mismo error que
+     * ya se pagó con `fechaDelHecho` de los certificados.
+     */
+    it("y no se queda con la otra fecha de la misma cláusula", () => {
+      expect(conSeguro({ vigenciaSeguro: campo(CLAUSULA) })?.evidencia).toContain("desde 08-abr-25");
+    });
+
+    it("si la cobertura empieza después del embarque, sigue siendo discrepancia", () => {
+      expect(conSeguro({ vigenciaSeguro: campo("INSURANCE PERIOD STARTING ON 12 APR 2025") })?.estado).toBe(
+        "DISCREPANCIA",
+      );
+    });
+
+    it("una frase de cobertura sin fecha legible sigue saliendo a verificar", () => {
+      expect(conSeguro({ vigenciaSeguro: campo("WAREHOUSE TO WAREHOUSE") })?.estado).toBe("ATENCION");
+    });
+  });
 });
 
 describe("la cantidad, con lo que la auditoría encontró", () => {

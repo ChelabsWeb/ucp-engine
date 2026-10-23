@@ -1363,6 +1363,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* TA 908rev: el seguro que declara desde cuándo cubre */
+  [
+    / — el documento declara la cobertura desde (.+), que no es posterior al embarque, y el artículo lo admite \(Opinión TA 908rev\)$/g,
+    " — the document states that cover runs from $1, which is not later than the date of shipment, and the sub-article allows it (ICC Opinion TA 908rev)",
+  ],
+  [
+    / — el documento declara la cobertura desde (.+), que es posterior al embarque, así que la excepción del inciso no aplica \(Opinión TA 908rev\)$/g,
+    " — the document states that cover runs from $1, which is later than the date of shipment, so the exception in the sub-article does not apply (ICC Opinion TA 908rev)",
+  ],
   /* Korea Exchange Bank v SCB: el importe que el 47A deja fluctuar solo */
   [
     /, y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización \(Korea Exchange Bank v SCB\)/g,
