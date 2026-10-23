@@ -309,5 +309,59 @@ describe("un documento que el ordenante presenta él mismo (laudo DOCDEX 209)", 
     expect(con("CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE SHOWING THE APPLICANT AS CONSIGNEE.")).toEqual([]);
   });
 });
+/**
+ * Una cláusula que deja deducir del cobro lo que el ordenante reclame (laudo DOCDEX 212)
+ *
+ * Un crédito de USD 2.417.000 con la cláusula *«The opening bank have the right to deduct the claim amount
+ * from the payment under negotiation mentioned above directly with the applicant's applications»*, y el
+ * emisor se negó a pagar un vencimiento de USD 966.800 porque *«the applicant had asked not to pay the
+ * bill due to serious quality problems of goods»*.
+ *
+ * El panel la detesta y la hace valer, que es la combinación que importa: *«It is most unusual (and
+ * certainly against the spirit of UCP 500)»* pero *«the issuing bank is entitled to deduct the claim
+ * amount from payments under the letter of credit»*, y *«a beneficiary who accepts a letter of credit
+ * containing a clause permitting the issuing bank to deduct certain amounts […] does so at his own
+ * risk»*.
+ *
+ * Lo que esto corrige es un **consejo**: la cláusula no menciona ningún documento, así que salía como
+ * condición no documentaria tenida por no puesta (14 h). Segunda vez que ese consejo es el peligroso — la
+ * primera fue el calendario de embarques del laudo 204.
+ */
+describe("una cláusula que deja deducir del cobro (laudo DOCDEX 212)", () => {
+  const CLAUSULA =
+    "THE OPENING BANK HAVE THE RIGHT TO DEDUCT THE CLAIM AMOUNT FROM THE PAYMENT UNDER NEGOTIATION MENTIONED ABOVE DIRECTLY WITH THE APPLICANT'S APPLICATIONS.";
+
+  it("sale como CONFLICTO y nombra el laudo", () => {
+    const r = revisarCredito(conCondiciones(CLAUSULA)).find((o) => o.id.startsWith("emision-deduccion"));
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 212");
+    expect(r?.sugerencia, "la sugerencia dice qué le falta a la cláusula si se queda").toContain("tope");
+  });
+
+  it("y NO se tiene por no puesta: el panel la hace valer", () => {
+    expect(noDocumentarias(conCondiciones(CLAUSULA)), "decirle al banco que la ignore es el consejo contrario").toEqual(
+      [],
+    );
+  });
+
+  /* El freno es el fee de discrepancia, que es una deducción legítima y está en el crédito real. */
+  it("el fee de discrepancia no es una cláusula de deducción", () => {
+    for (const c of [
+      "A DISCREPANCY FEE OF USD 80/- OR ITS EQUIVALENT WILL BE DEDUCTED FROM PROCEEDS FOR EACH SET OF DOCUMENTS PRESENTED WITH DISCREPANCIES.",
+      "ALL BANK CHARGES OUTSIDE THE ISSUING BANK'S COUNTRY WILL BE DEDUCTED FROM THE PROCEEDS.",
+    ])
+      expect(
+        revisarCredito(conCondiciones(c)).filter((o) => o.id.startsWith("emision-deduccion")),
+        c,
+      ).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación nueva", () => {
+    expect(revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-deduccion"))).toEqual(
+      [],
+    );
+  });
+});
+
 
 

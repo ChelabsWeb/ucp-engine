@@ -1750,6 +1750,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the credit requires it in field $1 and none was read on the document: check by hand",
   ],
   [
+    /^El crédito deja deducir del cobro lo que el ordenante reclame, así que una presentación conforme puede no cobrarse entera$/g,
+    "The credit allows whatever the applicant claims to be deducted from the proceeds, so a complying presentation may not be paid in full",
+  ],
+  [
+    /^sacarla: el panel la llama «against the spirit of UCP 500» y aun así la hace valer, porque es un término del crédito\. Si el comprador necesita retener algo, va en el contrato y no acá — y si la cláusula se queda, tendría que decir al menos tope, plazo y en qué condiciones un reclamo vale$/g,
+    "remove it: the panel calls it \u00abagainst the spirit of UCP 500\u00bb and still gives it effect, because it is a term of the credit. If the buyer needs to hold something back it belongs in the contract, not here — and if the clause stays, it should at least state a cap, a deadline and on what conditions a claim is valid",
+  ],
+  [
     /^Un documento del 46A lo presenta el propio ordenante, así que el beneficiario no puede completar la presentación$/g,
     "A document required in field 46A is presented by the applicant itself, so the beneficiary cannot complete the presentation",
   ],

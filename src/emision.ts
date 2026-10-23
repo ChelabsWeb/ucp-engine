@@ -68,6 +68,49 @@ const PRESENTA_EL_ORDENANTE =
 const DEL_ORDENANTE =
   /\b(issued|signed|countersigned|approved|certified)\s+by\s+(the\s+)?(applicant|buyer|importer|opener)\b|applicant'?s?\s+(signature|certificate|approval|inspection)/i;
 
+/**
+ * Una cláusula que **deja al banco deducir del cobro** lo que el ordenante le reclame.
+ *
+ * El laudo DOCDEX 212 es el expediente: un crédito de USD 2.417.000 con la cláusula *«The opening bank
+ * have the right to deduct the claim amount from the payment under negotiation mentioned above directly
+ * with the applicant's applications»*, y el emisor se negó a pagar un vencimiento de USD 966.800 porque
+ * *«the applicant had asked not to pay the bill due to serious quality problems of goods»*.
+ *
+ * El panel la detesta y la hace valer, que es la combinación que importa:
+ *
+ * > **It is most unusual (and certainly against the spirit of UCP 500)** for a letter of credit to contain
+ * > a clause giving the issuing bank the right to deduct, at the instructions of the applicant, a claim
+ * > amount from the payments under negotiations **against conforming documents.**
+ *
+ * > Furthermore, the wording of the clause **does not contain any specific information** regarding a
+ * > possible maximum claim amount, latest date for a claim to be considered, or details regarding the
+ * > conditions for such a claim to be acceptable.
+ *
+ * > a beneficiary who accepts a letter of credit containing a clause permitting the issuing bank to deduct
+ * > certain amounts from payments under the letter of credit **does so at his own risk.** Though the
+ * > condition in the credit is undesirable, our conclusion is that **the issuing bank is entitled to
+ * > deduct** the claim amount from payments under the letter of credit.
+ *
+ * Lo que esto corrige es un **consejo** del motor, no un veredicto: la cláusula no menciona ningún
+ * documento, así que salía como condición no documentaria «tenida por no puesta» (14 h) — o sea que el
+ * motor le decía al banco que podía ignorar justo la cláusula que el panel hace valer. **Es la segunda vez
+ * que el consejo del 14 (h) es el peligroso**: la primera fue el calendario de embarques del laudo 204.
+ *
+ * El freno es el fee de discrepancia, que es una deducción legítima y está en el crédito real del
+ * expediente: lo que se busca es el derecho a deducir **un reclamo** o a deducir **por instrucción del
+ * ordenante**, que es otra cosa.
+ */
+const DEDUCE_RECLAMO =
+  /\b(?:deduct|withhold|set[\s-]?off|retain)\w*\b[^.;]{0,80}\b(?:claim|penalt|compensat|damage|liquidated|shortage)/i;
+const DEDUCE_POR_EL_ORDENANTE =
+  /\b(?:deduct|withhold|set[\s-]?off|retain)\w*\b[^.;]{0,80}\b(?:applicant|buyer|importer|opener)/i;
+
+/** ¿La cláusula deja deducir del cobro del beneficiario algo que no es un gasto bancario? */
+function deduceDelCobro(c: string): boolean {
+  if (/\bdiscrepanc\w*\s+fee|\bfee\b|\bcharges?\b|\bcommission/i.test(c)) return false;
+  return DEDUCE_RECLAMO.test(c) || DEDUCE_POR_EL_ORDENANTE.test(c);
+}
+
 /** Frases que la práctica manda descartar porque no significan nada. */
 const SIN_SIGNIFICADO = [
   {
@@ -372,7 +415,25 @@ export function revisarCredito(p: LcSwift): Observacion[] {
         ),
       );
     }
-    if (!mencionaDocumento(c) && !/fee|charge|sanction|discrepan/i.test(c) && !PARAMETROS_DEL_CREDITO.test(c)) {
+    if (deduceDelCobro(c)) {
+      out.push(
+        obs(
+          `emision-deduccion-${i}`,
+          "CONFLICTO",
+          "Laudo DOCDEX 212 · UCP 600 4a",
+          "El crédito deja deducir del cobro lo que el ordenante reclame, así que una presentación conforme puede no cobrarse entera",
+          `47A+${i + 1}`,
+          "sacarla: el panel la llama «against the spirit of UCP 500» y aun así la hace valer, porque es un término del crédito. Si el comprador necesita retener algo, va en el contrato y no acá — y si la cláusula se queda, tendría que decir al menos tope, plazo y en qué condiciones un reclamo vale",
+        ),
+      );
+    }
+    if (
+      !mencionaDocumento(c) &&
+      !/fee|charge|sanction|discrepan/i.test(c) &&
+      !PARAMETROS_DEL_CREDITO.test(c) &&
+      /* Y una cláusula de deducción **no** se tiene por no puesta: el laudo DOCDEX 212 la hace valer. */
+      !deduceDelCobro(c)
+    ) {
       out.push(
         obs(
           `emision-no-documentaria-${i}`,
