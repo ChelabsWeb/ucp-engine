@@ -225,3 +225,40 @@ describe("la cláusula del tercero que la ICC desaconseja (DOCDEX 206)", () => {
     expect(tercero(conCondiciones("ALL DOCUMENTS MUST BEAR THE CREDIT NUMBER"))).toHaveLength(0);
   });
 });
+/**
+ * Un calendario de embarques es el artículo 32, no una condición no documentaria (laudo DOCDEX 204)
+ *
+ * El 47A del laudo es un calendario de tres fechas, y el motor lo mandaba por el peor camino posible:
+ * `revisarCredito` le decía al banco que era una condición no documentaria **tenida por no puesta**
+ * (14 h), justo la cláusula cuyo incumplimiento deja el crédito sin disponibilidad para esa cuota y las
+ * siguientes. Ahora sale como AVISO nombrando el artículo 32 y mandando a transcribirla al calendario de
+ * cuotas, que es la respuesta que el motor tiene para eso.
+ *
+ * Y el aviso lleva adentro la trampa que el laudo resuelve: *«The shipment schedule does not demand that
+ * at least 40 pct of the goods quantity shall be shipped after 97-07-31 but before 97-08-31»*. Una fecha
+ * límite acumulada no es un período con inicio y fin.
+ */
+describe("un calendario de embarques (laudo DOCDEX 204)", () => {
+  const CALENDARIO =
+    "SHIPPING SCHEDULE: AT LEAST 40 PCT OF THE GOODS QUANTITY TO BE SHIPPED BEFORE 31.07.97, AT LEAST 40 PCT OF THE GOODS QUANTITY TO BE SHIPPED BEFORE 31.08.97.";
+
+  it("no se tiene por no puesta", () => {
+    expect(noDocumentarias(conCondiciones(CALENDARIO)), "es un término del crédito, no una condición").toEqual([]);
+  });
+
+  it("y sale un aviso que nombra el artículo 32 y manda a transcribir el calendario", () => {
+    const r = revisarCredito(conCondiciones(CALENDARIO)).find((o) => o.id.startsWith("emision-calendario"));
+    expect(r?.gravedad, "el crédito sigue siendo operable: avisa, no impide").toBe("AVISO");
+    expect(r?.fuente).toContain("32");
+    expect(r?.sugerencia, "la trampa que el laudo resuelve va adentro del aviso").toContain("acumulada");
+  });
+
+  it("y un crédito sin calendario no gana ningún aviso", () => {
+    expect(
+      revisarCredito(conCondiciones("ALL DOCUMENTS MUST INDICATE THE LC NUMBER.")).filter((o) =>
+        o.id.startsWith("emision-calendario"),
+      ),
+    ).toEqual([]);
+  });
+});
+
