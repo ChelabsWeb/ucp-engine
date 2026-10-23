@@ -2268,6 +2268,30 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
       );
       const corto = desvio < 0;
       const dentro = Math.abs(desvio) <= tol + 1e-9;
+      /*
+       * Y el punto que puede ser de miles o decimal, que el motor **no puede resolver del string**.
+       *
+       * `parseNumero` lee «994.781» como 994781, y hace bien: en este negocio un punto con tres dígitos
+       * detrás es separador de miles, y la primera cosa que este repositorio aprendió fue que
+       * «630.000 Kos» son 630.000 kilos y no 630. Pero el caso R 218 es de pulpa de celulosa y ahí
+       * «994.781 ADMT» son 994 toneladas con tres decimales — el tercer decimal es literalmente de lo
+       * que trata ese caso.
+       *
+       * Las dos lecturas son legítimas y el string no alcanza para elegir. Lo que **no** se puede hacer
+       * es rechazar por un desvío de 99.000 %: eso no es una discrepancia, es un artefacto de lectura, y
+       * un banco que lo vea deja de mirar el examen. Así que cuando la otra lectura cae **dentro** de la
+       * tolerancia, el motor lo dice con las dos cifras a la vista y manda a verificar.
+       *
+       * Tampoco se elige la lectura que conviene: elegirla sería decidir sobre una ambigüedad del papel
+       * con una corazonada, y `numeros.ts` existe porque este repositorio ya pagó eso una vez.
+       */
+      const otraLectura = /^\d+[.,]\d{3}$/.test((cantFac ?? "").trim())
+        ? Number.parseFloat((cantFac ?? "").trim().replace(",", "."))
+        : null;
+      const laOtraEntra =
+        !dentro && otraLectura !== null && enKgFac !== null
+          ? Math.abs((aKg(otraLectura, uniFac ?? "") ?? otraLectura) - par.b) / par.b <= tol + 1e-9
+          : false;
       /* el giro corto bajo 43P no es ninguna de las dos cosas: ver el comentario de arriba */
       const porParcial = parcialesOk && corto && !dentro;
       out.push(
@@ -2275,13 +2299,15 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
           "ucp-30b-cantidad",
           porAbout ? "UCP 600 30a" : lc.tolerancia != null ? "39A" : "UCP 600 30b",
           `Cantidad de la factura dentro de lo que pide el crédito (${pedido.valor} ${pedido.unidad} ±${Math.round(tol * 100)} %)`,
-          dentro ? "OK" : porParcial ? "ATENCION" : "DISCREPANCIA",
+          dentro ? "OK" : porParcial || laOtraEntra ? "ATENCION" : "DISCREPANCIA",
           `factura ${cantFac} ${uniFac ?? ""} · el crédito pide ${pedido.valor} ${pedido.unidad}`.trim() +
-            (porParcial
-              ? ` — es el ${Math.round((par.a / par.b) * 100)} % del crédito, y el 43P admite embarques parciales: no se mide contra el total. Queda por verificar que la SUMA de los giros no lo exceda.`
-              : dentro
-                ? ""
-                : ` — ${desvio > 0 ? "+" : ""}${Math.round(desvio * 100)} %`),
+            (laOtraEntra
+              ? ` — el punto de "${cantFac}" puede ser de miles o decimal: leído como miles el desvío es del ${Math.round(desvio * 100)} % y leído como decimal entra en la tolerancia. El motor no puede elegir, hay que mirar el papel`
+              : porParcial
+                ? ` — es el ${Math.round((par.a / par.b) * 100)} % del crédito, y el 43P admite embarques parciales: no se mide contra el total. Queda por verificar que la SUMA de los giros no lo exceda.`
+                : dentro
+                  ? ""
+                  : ` — ${desvio > 0 ? "+" : ""}${Math.round(desvio * 100)} %`),
         ),
       );
     } else {

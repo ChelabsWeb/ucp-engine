@@ -441,6 +441,57 @@ export function revisarCredito(p: LcSwift): Observacion[] {
     }
   }
 
+  /*
+   * ── «third party documents are acceptable», que la ICC desaconseja expresamente ──
+   *
+   * Es una cláusula corriente y el laudo **DOCDEX 206** la desarma: *«the clause "Third party documents
+   * are acceptable" is a very obscure provision which does not clarify: — in respect of which parties a
+   * party has to be considered a "third party"; — whether a document (and which document) is acceptable
+   * when issued by a party not mentioned in the credit […]; — whether a document (and which document) is
+   * acceptable when containing a reference to a party not mentioned in the credit»*.
+   *
+   * Y lo que importa de verdad, porque es lo que un banco cree que la cláusula le da: **no cubre una
+   * contradicción entre documentos.** *«the Panel of Experts agrees that the clause "Third party
+   * documents are acceptable" as stipulated in the L/C should not have been used and that this clause
+   * does not support documents which appear on their face to be inconsistent with one another»*.
+   *
+   * El panel además señala que la propia ICC se negó a interpretarla —publicación 565, R 246— *«with the
+   * aim not to support in any way this term and to discourage applicants and issuing banks from adopting
+   * such terminology without providing some meaning thereto»*. Es de las pocas veces que la ICC dice
+   * explícitamente que una redacción no se debería usar, así que avisarlo al revisar un crédito es
+   * exactamente lo que `emision.ts` existe para hacer.
+   *
+   * **AVISO y no IMPIDE**: el crédito sigue siendo operable y la práctica bancaria le da a la cláusula un
+   * sentido restringido que el propio laudo recoge —admitir un documento de transporte cuyo shipper no
+   * es el beneficiario—. Lo que no hace es lo que un banco espera que haga.
+   *
+   * **Y solo avisa cuando la cláusula va pelada, que lo decidió el crédito real del expediente.** La
+   * primera versión marcaba cualquier «third party documents acceptable» y el test que fija que el
+   * crédito de referencia no tiene nada que reescribir se puso rojo — con razón: ese 47A dice «THIRD
+   * PARTY DOCUMENTS **EXCEPT DRAFT AND COMMERCIAL INVOICE** ACCEPTABLE», o sea que **sí aclara qué
+   * documentos**, que es exactamente la primera de las tres cosas que el panel echa en falta. Un banco
+   * que escribe la excepción está escribiendo la cláusula bien, y marcarlo sería ruido en un crédito
+   * mejor redactado que el del laudo.
+   */
+  {
+    const texto = (p.lc.condicionesAdicionales ?? []).join(" \n ");
+    const laCláusula = /\bTHIRD\s+PARTY\s+DOCUMENTS?\b[^.;\n]{0,60}\bACCEPTABLE\b/i.exec(texto)?.[0] ?? "";
+    const aclaraCuales =
+      /\bEXCEPT\b|\bOTHER\s+THAN\b|\bEXCLUDING\b|\bSAVE\s+FOR\b|\bSAVE\b|\bI\.?E\.?\b|\bSUCH\s+AS\b/i.test(laCláusula);
+    if (laCláusula && !aclaraCuales) {
+      out.push(
+        obs(
+          "emision-tercero-aceptable",
+          "AVISO",
+          "Laudo DOCDEX 206 · ICC pub. 565 R 246",
+          "«Third party documents are acceptable» es una cláusula que la ICC desaconseja: no dice respecto de quién un tercero es tercero, ni qué documento admite",
+          "campo 47A",
+          "el laudo DOCDEX 206 resolvió que **no cubre una contradicción entre documentos** y que no se debería usar; si lo que se quiere es admitir un documento de transporte cuyo shipper no es el beneficiario, conviene escribirlo así",
+        ),
+      );
+    }
+  }
+
   /* ── «about» en el importe (artículo 30a) ── */
   if (/\b(about|approximately|circa)\b/i.test(`${extra.formaCredito ?? ""} ${campos.montoTotal.valor}`)) {
     out.push(

@@ -1377,6 +1377,20 @@ const REEMPLAZOS: [RegExp, string][] = [
     /, y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización \(Korea Exchange Bank v SCB\)/g,
     ", and field 47A lets the amount of the credit fluctuate on its own with the price: that ceiling is not the ceiling and it is to be checked against the quotation (Korea Exchange Bank v SCB)",
   ],
+  /* R 218: el punto que puede ser de miles o decimal */
+  [
+    / — el punto de (.+) puede ser de miles o decimal: leído como miles el desvío es del (-?\d+) % y leído como decimal entra en la tolerancia\. El motor no puede elegir, hay que mirar el papel$/g,
+    " — the dot in $1 may be a thousands separator or a decimal point: read as thousands the deviation is $2 % and read as a decimal it falls within tolerance. The engine cannot choose; the paper is to be looked at",
+  ],
+  /* DOCDEX 206: la cláusula del tercero que la ICC desaconseja */
+  [
+    /^«Third party documents are acceptable» es una cláusula que la ICC desaconseja: no dice respecto de quién un tercero es tercero, ni qué documento admite$/g,
+    "«Third party documents are acceptable» is a clause the ICC discourages: it does not say in respect of whom a third party is a third party, nor which document it admits",
+  ],
+  [
+    /^el laudo DOCDEX 206 resolvió que \*\*no cubre una contradicción entre documentos\*\* y que no se debería usar; si lo que se quiere es admitir un documento de transporte cuyo shipper no es el beneficiario, conviene escribirlo así$/g,
+    "DOCDEX Decision 206 held that it **does not cover an inconsistency between documents** and that it should not have been used; if the intention is to allow a transport document whose shipper is not the beneficiary, it is better said that way",
+  ],
   /* DOCDEX 213: el nombre de la regla del vínculo */
   [
     /: sin fecha de emisión, qué lo ata a este embarque$/g,

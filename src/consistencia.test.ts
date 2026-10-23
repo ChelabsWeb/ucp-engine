@@ -1359,3 +1359,49 @@ describe("la ruta de embarque entre documentos (DOCDEX 290)", () => {
     ).not.toContain("Ruta de embarque");
   });
 });
+
+/**
+ * La unidad calificada entre el número y la unidad (laudo DOCDEX 206)
+ *
+ * El número y la unidad tenían que estar pegados, así que un 45A que dice **«24200 METRIC TONS»** no daba
+ * cantidad y el artículo 30 (b) **no corría**: el tope de la cantidad del crédito quedaba sin examinar.
+ * Es la misma forma que el término de entrega escrito en palabras del laudo DOCDEX 208 — el motor
+ * reconocía la abreviatura y no el nombre.
+ */
+describe("la cantidad del crédito con la unidad calificada (DOCDEX 206)", () => {
+  it("«24200 METRIC TONS» se lee, que es el 45A del laudo", () => {
+    expect(cantidadDelCredito("24200 METRIC TONS BRAZILIAN ORIGIN LOW PROTEIN SOYABEAN MEAL")).toEqual({
+      valor: 24200,
+      unidad: "TONS",
+      en: 0,
+    });
+  });
+
+  it("y las otras formas del granel también", () => {
+    for (const [t, valor] of [
+      ["5000 METRIC TONNES OF WHEAT", 5000],
+      ["400 METRIC TON OF ALUMINIUM", 400],
+      ["2800 LONG TONS OF COAL", 2800],
+      ["5000 WMT OF COPPER CONCENTRATES", 5000],
+      ["1000 ADMT OF BLEACHED SOFTWOOD KRAFT PULP", 1000],
+    ] as const)
+      expect(cantidadDelCredito(t)?.valor, t).toBe(valor);
+  });
+
+  /*
+   * Y el freno que ya estaba: el envase antes del total no se toma por la cantidad del embarque. Era un
+   * error de seis cifras sobre una factura correcta.
+   */
+  it("el peso del envase sigue sin tomarse por el total", () => {
+    expect(cantidadDelCredito("PACKED IN 50 KG BAGS, TOTAL 57 MTS")?.valor).toBe(57);
+  });
+
+  /*
+   * WMT, DMT y ADMT son **toneladas**, y que `aKg` no las conociera no hacía que no se compararan: hacía
+   * algo peor. `ucp-30b-cantidad` decide si corre la tolerancia del 5 % según si la unidad se convierte a
+   * kilos, así que una cantidad en ADMT quedaba del lado de los bultos y se comparaba **exacta**.
+   */
+  it("WMT, DMT y ADMT son toneladas", () => {
+    for (const u of ["WMT", "DMT", "ADMT", "wmt", "admts"]) expect(aKg(1, u), u).toBe(1000);
+  });
+});
