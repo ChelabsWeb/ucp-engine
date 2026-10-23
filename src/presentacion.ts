@@ -62,8 +62,32 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
   return pideCopia && !pideOriginal;
 }
 
+/*
+ * Las formas en que un crédito pide que un documento cite su número.
+ *
+ * El verbo era **uno solo**, «INDICATING», y el laudo DOCDEX 207 trae el otro: su crédito pide que el
+ * conocimiento *«must show the "L/C number"»*. Con «SHOWING THE LETTER OF CREDIT NUMBER» —que es
+ * redacción tan corriente como la otra— el motor daba el número por **no pedido**, así que la fuente del
+ * hallazgo decía «Práctica bancaria» y su omisión dejaba de ser discrepancia sobre un crédito que la
+ * pedía. Es la misma forma que ya apareció con el término de entrega escrito en palabras y con la unidad
+ * «METRIC TONS»: **el motor reconocía una redacción y no la otra.**
+ *
+ * Los verbos van anclados a su propia alternativa y el hueco sigue siendo uno, por lo que costó
+ * `importeFluctuaPorElCredito`: dos huecos en un patrón cuelgan el motor con un 47A largo.
+ */
 export const PIDE_CITAR_NUMERO_LC =
-  /INDICAT\w*.{0,40}(LETTER OF CREDIT|L\/?C)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
+  /(?:INDICAT|SHOW|EVIDENC|BEAR|QUOT|MENTION)\w*.{0,40}(LETTER OF CREDIT|L\/?C|CREDIT)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
+
+/**
+ * Y si **esta** línea del 46A lo pide, que no es lo mismo que si el 46A lo pide en alguna parte.
+ *
+ * Lo necesita `certificados.ts`, donde cada certificado llega con su propia `exigencia`: un crédito que
+ * pide el número en el conocimiento no se lo pide al certificado de la naviera, y decirle que sí es
+ * mandar al banco presentador al lugar equivocado (laudo DOCDEX 207).
+ */
+export function laExigenciaPideElNumeroLC(texto: string): boolean {
+  return PIDE_CITAR_NUMERO_LC.test(texto.toUpperCase());
+}
 
 /** El campo donde el crédito lo pide, para que la fuente del hallazgo mande al lugar correcto. */
 export function dondeSePideElNumeroLC(lc: LcInfo): "47A" | "46A" | null {
@@ -139,6 +163,37 @@ export function feeDiscrepancia(condiciones: string[] | null | undefined): numbe
 
 /** El tipo de documento analizable que cubre una clave del 46A (INVOICE → FACTURA…). */
 const TIPO_DE_CLAVE: Record<string, TipoDocExterno> = { INVOICE: "FACTURA", PACKING: "PACKING", BL: "BL" };
+
+/**
+ * **En qué documentos** el crédito pide que se cite su número.
+ *
+ * `null` significa «en todos»: el crédito lo pidió como condición general del 47A —«ALL DOCUMENTS SHOULD
+ * INDICATE THE LETTER OF CREDIT NUMBER»— y entonces alcanza a cada papel.
+ *
+ * Un `Set` significa «solo en éstos»: el crédito lo escribió **dentro de la línea de un documento** del
+ * 46A, y ahí la exigencia es de ese documento y no de los demás. Antes la regla miraba el 46A **entero**,
+ * así que un crédito que pedía el número en el conocimiento se lo exigía también al certificado de
+ * origen y al de la compañía naviera.
+ *
+ * Lo encontró el laudo **DOCDEX 207**, donde eso fue uno de los tres motivos de rechazo: *«The credit
+ * stipulated that the bill of lading and beneficiary's fax or telex must show the "L/C number", but the
+ * credit did not stipulate that all documents should evidence the L/C number. Therefore **the issuing
+ * bank had no reason for refusing the documents on the grounds of a missing L/C number on the shipping
+ * company certificate**»*.
+ *
+ * Y el mismo laudo da la regla general sobre el alcance de una exigencia, a propósito de otra cláusula
+ * del mismo crédito: *«If the issuing bank meant that every document should evidence the data, **it
+ * should have stated "all" instead of "all relevant"**»*. El alcance es lo que el crédito escribió.
+ */
+export function documentosQueDebenCitarElNumeroLC(lc: LcInfo): Set<string> | null {
+  const cond = (lc.condicionesAdicionales ?? []).join(" ").toUpperCase();
+  if (PIDE_CITAR_NUMERO_LC.test(cond)) return null;
+  const tipos = (lc.documentosExigidos ?? [])
+    .filter((d) => PIDE_CITAR_NUMERO_LC.test(d.toUpperCase()))
+    .map((d) => TIPO_DE_CLAVE[claveDoc(d)])
+    .filter((t): t is TipoDocExterno => Boolean(t));
+  return new Set(tipos);
+}
 
 /**
  * Qué tipo con extracción propia cubre una exigencia del 46A, si alguno.
@@ -431,10 +486,33 @@ export function precheckPresentacion(input: {
   const pedidoEn = dondeSePideElNumeroLC(lc);
   const loPideElCredito = pedidoEn !== null;
   const exigeNumeroLC = loPideElCredito || exigidos.length > 0;
+  /*
+   * Y en **qué** documentos lo pide, que es lo que el laudo DOCDEX 207 corrige.
+   *
+   * `null` = en todos (condición general del 47A). Un `Set` = solo en los que la línea del 46A nombra, y
+   * exigírselo a los demás es lo que ese panel declaró sin fundamento.
+   */
+  const dondeDebeCitarse = documentosQueDebenCitarElNumeroLC(lc);
   const exigeFechaDesdeLC =
     /ON OR AFTER THE (LETTER OF CREDIT|L\/?C) DATE|DATED (PRIOR|BEFORE).{0,30}(LETTER OF CREDIT|L\/?C)/.test(cond);
   for (const d of docs) {
     const nombre = d.nombreArchivo ?? d.tipo;
+    /*
+     * Si el crédito lo pidió **en la línea de otro documento**, a éste no se lo pidió.
+     *
+     * La regla sigue corriendo sobre todos los papeles —que falte sale en ATENCION y eso no cambia— pero
+     * la **fuente** sí: atribuirle «46A» a un certificado cuando el 46A lo pidió en el conocimiento es
+     * mandar al banco presentador al lugar equivocado, y la fuente es lo que viaja en el aviso del
+     * artículo 16. Es el mismo borde que se arregló en la familia de los puertos, donde el hallazgo
+     * invocaba el artículo 20 sobre un fletamento.
+     *
+     * Lo encontró el laudo DOCDEX 207: *«The credit stipulated that the bill of lading and beneficiary's
+     * fax or telex must show the "L/C number", but the credit did not stipulate that all documents should
+     * evidence the L/C number. Therefore the issuing bank had no reason for refusing the documents on the
+     * grounds of a missing L/C number on the shipping company certificate»*.
+     */
+    const seLoPideAEste =
+      pedidoEn === "47A" ? "47A" : pedidoEn === "46A" && dondeDebeCitarse?.has(d.tipo) ? "46A" : null;
     if (exigeNumeroLC) {
       const n = val(d, "numeroLC");
       const cita =
@@ -450,7 +528,7 @@ export function precheckPresentacion(input: {
          * artículo 14 (d) sin importar quién pidió qué. Un dígito cambiado al tipear ya costó un
          * paquete devuelto.
          */
-        fuente: n && !cita ? "UCP 600 14d" : (pedidoEn ?? "Práctica bancaria"),
+        fuente: n && !cita ? "UCP 600 14d" : (seLoPideAEste ?? "Práctica bancaria"),
         regla: `${nombre}: cita el número de la LC`,
         estado: !n ? "ATENCION" : cita ? "OK" : "DISCREPANCIA",
         evidencia: !n

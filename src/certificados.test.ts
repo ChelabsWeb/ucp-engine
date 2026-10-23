@@ -807,13 +807,19 @@ describe("el número del crédito en un papel del 46A", () => {
       documentosExigidos: exigidos,
     }) as unknown as LcInfo;
 
-  const correr = (numeroEnElPapel: string | null, lc: LcInfo) =>
+  /*
+   * La `exigencia` del certificado **es** su línea del 46A —la pantalla la copia de ahí— así que es
+   * donde se lee si el crédito le pide a ESTE papel que cite el número (laudo DOCDEX 207).
+   */
+  const EXIGENCIA = "11. SHIPMENT NOTICE IN 1 COPY INDICATING THAT HAS EMAILED APPLICANT";
+
+  const correr = (numeroEnElPapel: string | null, lc: LcInfo, exigencia = EXIGENCIA) =>
     (
       reglasCertificados({
         lc,
         certificados: [
           {
-            exigencia: "11. SHIPMENT NOTICE IN 1 COPY INDICATING THAT HAS EMAILED APPLICANT",
+            exigencia,
             nombreArchivo: "shipment notice",
             campos: (numeroEnElPapel
               ? { numeroLC: { valor: numeroEnElPapel, confianza: 1 } }
@@ -827,10 +833,14 @@ describe("el número del crédito en un papel del 46A", () => {
 
   const NO_PIDE = lcCon(["1.T/T REIMBURSEMENTS ARE NOT ALLOWED."]);
   const PIDE_47A = lcCon(["2.ALL DOCUMENTS SHOUD INDICATE THE LETTER OF CREDIT NUMBER."]);
-  const PIDE_46A = lcCon(
+  /* El 46A lo pide en la línea de OTRO documento: a este papel no se lo pidió (laudo DOCDEX 207). */
+  const PIDE_46A_A_OTRO = lcCon(
     ["1.T/T REIMBURSEMENTS ARE NOT ALLOWED."],
     ["1. COMMERCIAL INVOICE INDICATING CONTRACT NUMBER, NUMBER OF LETTER OF CREDIT"],
   );
+  /* Y acá se lo pide a él, en su propia línea — que es la `exigencia` con la que llega el papel. */
+  const A_ESTE = `${EXIGENCIA} AND LC NUMBER`;
+  const PIDE_46A_A_ESTE = lcCon(["1.T/T REIMBURSEMENTS ARE NOT ALLOWED."], [A_ESTE]);
 
   it("un número que contradice al crédito es discrepancia del 14 (d), aunque el crédito no pida citarlo", () => {
     const [r] = correr("779101LC26000047", NO_PIDE);
@@ -852,7 +862,35 @@ describe("el número del crédito en un papel del 46A", () => {
 
   it("si el crédito lo pide, la fuente dice en qué campo lo pide", () => {
     expect(correr("LCMRDN25000471", PIDE_47A)[0]?.fuente).toBe("47A");
-    expect(correr("LCMRDN25000471", PIDE_46A)[0]?.fuente, "lo pide el 46A, no el 47A").toBe("46A");
+    expect(correr("LCMRDN25000471", PIDE_46A_A_ESTE, A_ESTE)[0]?.fuente, "lo pide el 46A, no el 47A").toBe("46A");
+  });
+
+  /*
+   * Y si el 46A lo pide en la línea de OTRO documento, a éste no se lo pidió (laudo DOCDEX 207)
+   *
+   * `dondeSePideElNumeroLC` contesta si el crédito lo pide **en alguna parte**, y con eso esta regla le
+   * decía a todo certificado «el crédito lo pide en el campo 46A» aunque el 46A lo hubiera pedido en la
+   * línea del conocimiento. El veredicto no cambia —la omisión sale en ATENCION— pero la fuente y la
+   * evidencia sí, y la fuente es lo que viaja en el aviso del artículo 16.
+   *
+   * Este test afirmaba lo contrario con un shipment notice y un 46A que pide el número en la factura, o
+   * sea el defecto exacto. Lo corrige el laudo sobre este documento exacto: *«The credit stipulated that
+   * the bill of lading and beneficiary's fax or telex must show the "L/C number", but the credit did not
+   * stipulate that all documents should evidence the L/C number. Therefore the issuing bank had no reason
+   * for refusing the documents on the grounds of a missing L/C number on the shipping company
+   * certificate»*. Y la regla general del alcance: *«If the issuing bank meant that every document should
+   * evidence the data, it should have stated "all" instead of "all relevant"»*.
+   *
+   * El crédito real del expediente no se mueve: su 47A dice «ALL DOCUMENTS SHOULD INDICATE THE LC
+   * NUMBER», así que `pedidoEn` sigue siendo 47A y las dos observaciones que el banco levantó sobre un
+   * shipment notice y una carta de presentación siguen sostenidas por el campo que las sostiene.
+   */
+  it("y si el 46A lo pide en la línea de otro documento, la fuente no se lo atribuye a éste", () => {
+    const [r] = correr(null, PIDE_46A_A_OTRO);
+    expect(r?.fuente, "el 46A se lo pide a la factura, no al shipment notice").toBe("Práctica bancaria");
+    expect(r?.estado, "sigue sin concluir: que no se haya leído no es que el papel no lo traiga").toBe("ATENCION");
+    expect(r?.evidencia, "y la evidencia no puede afirmar que el crédito se lo pide").not.toContain("46A");
+    expect(r?.evidencia).toContain("no le pide a este documento");
   });
 
   it("que no se haya leído manda a verificar: no es que el papel no lo tenga", () => {
