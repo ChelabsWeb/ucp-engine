@@ -511,6 +511,13 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
     expect(r?.gravedad).toBe("CONFLICTO");
     expect(r?.fuente).toContain("DOCDEX 366");
     expect(r?.fuente).toContain("B10");
+    /*
+     * Y el artículo 2, que es la autoridad más fuerte de las tres: la definición de negociación de las UCP
+     * dice lo mismo entre paréntesis —«the purchase by the nominated bank of drafts (drawn on a bank other
+     * than the nominated bank)»— y el laudo DOCDEX 364 la transcribe. Un párrafo de la ISBP que este repo
+     * no puede comprar queda como respaldo, no como la única pata.
+     */
+    expect(r?.fuente, "el texto de las UCP dice lo mismo que el párrafo rendido").toContain("UCP 600 2");
   });
 
   /* Los tres frenos, que son lo que lo hace usable en un crédito corriente. */

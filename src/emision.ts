@@ -298,6 +298,11 @@ export function revisarCredito(p: LcSwift): Observacion[] {
    * > The ISBP 745 paragraph B10 states that **when a credit is available by negotiation with a nominated
    * > bank or any bank, the draft is to be drawn on a bank other than the nominated bank.**
    *
+   * **Y lo mismo está en el texto de las UCP**, que es una autoridad más fuerte que un párrafo rendido de
+   * una ISBP que no se puede comprar: el artículo 2 define la negociación como *«the purchase by the
+   * nominated bank of drafts **(drawn on a bank other than the nominated bank)** and/or documents under a
+   * complying presentation»*. El paréntesis es del propio artículo, y lo transcribe el laudo **DOCDEX 364**.
+   *
    * > The analysis noted that **neither the UCP 600 nor international standard banking practice provided
    * > any guidance for negotiation of drafts by the drawee bank itself.**
    *
@@ -333,7 +338,7 @@ export function revisarCredito(p: LcSwift): Observacion[] {
         obs(
           "emision-giro-sobre-el-designado",
           "CONFLICTO",
-          "Laudo DOCDEX 366 · ISBP 745 B10",
+          "UCP 600 2 · Laudo DOCDEX 366 · ISBP 745 B10",
           "El crédito está disponible por negociación con un banco y los giros van librados sobre ese mismo banco",
           "campos 41 y 42",
           "librar el giro sobre otro banco —el emisor, normalmente—: ni las UCP ni la práctica bancaria estándar dicen cómo se negocia un giro librado sobre el propio banco designado, y la ambigüedad la paga el beneficiario que la lea de otra manera",
