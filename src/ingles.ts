@@ -1750,6 +1750,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the credit requires it in field $1 and none was read on the document: check by hand",
   ],
   [
+    /^Un documento del 46A lo presenta el propio ordenante, así que el beneficiario no puede completar la presentación$/g,
+    "A document required in field 46A is presented by the applicant itself, so the beneficiary cannot complete the presentation",
+  ],
+  [
+    /^sacarlo del crédito o pedirlo como documento que el beneficiario presenta: mientras falte, la obligación del emisor no nace, y el beneficiario no tiene cómo saberlo ni cómo subsanarlo$/g,
+    "remove it from the credit or require it as a document the beneficiary presents: while it is missing the issuing bank's undertaking does not arise, and the beneficiary has no way of knowing it nor of curing it",
+  ],
+  [
     /^El crédito fija un calendario de embarques: transcribirlo al calendario de cuotas del crédito, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y las siguientes$/g,
     "The credit sets a shipment schedule: transcribe it into the credit's instalment calendar, because an instalment not shipped within its period leaves the credit unavailable for that and any subsequent instalment",
   ],
