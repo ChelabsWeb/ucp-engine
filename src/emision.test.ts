@@ -178,3 +178,50 @@ describe("la política interna que el crédito se reserva aplicar «a su sola di
     expect(politica(conCondiciones("DOCUMENTS MIGHT NOT BE PROCESSED IF A COURT ORDER SO REQUIRES."))).toEqual([]);
   });
 });
+
+/**
+ * «Third party documents are acceptable», que la ICC desaconseja (laudo DOCDEX 206)
+ *
+ * El panel la desarma: *«a very obscure provision which does not clarify: — in respect of which parties
+ * a party has to be considered a "third party"; — whether a document (and which document) is acceptable
+ * when issued by a party not mentioned in the credit […]»*. Y lo que importa de verdad, porque es lo que
+ * un banco cree que la cláusula le da: *«this clause does not support documents which appear on their
+ * face to be inconsistent with one another»*.
+ *
+ * La propia ICC se negó a interpretarla —publicación 565, R 246— *«with the aim not to support in any way
+ * this term and to discourage applicants and issuing banks from adopting such terminology»*. Es de las
+ * pocas veces que dice explícitamente que una redacción no se debería usar.
+ */
+describe("la cláusula del tercero que la ICC desaconseja (DOCDEX 206)", () => {
+  const tercero = (p: ReturnType<typeof conCondiciones>) =>
+    revisarCredito(p).filter((o) => o.id === "emision-tercero-aceptable");
+
+  it("la cláusula pelada sale como aviso y nombra el laudo", () => {
+    const o = tercero(conCondiciones("THIRD PARTY DOCUMENTS ARE ACCEPTABLE"));
+    expect(o).toHaveLength(1);
+    expect(o[0]?.gravedad, "el crédito sigue siendo operable: no impide, avisa").toBe("AVISO");
+    expect(o[0]?.fuente).toMatch(/DOCDEX 206/);
+  });
+
+  /*
+   * **Y el freno lo decidió el crédito real del expediente.**
+   *
+   * Su 47A dice «THIRD PARTY DOCUMENTS **EXCEPT DRAFT AND COMMERCIAL INVOICE** ACCEPTABLE», o sea que
+   * **sí aclara qué documentos** — que es exactamente la primera de las tres cosas que el panel echa en
+   * falta. Un banco que escribe la excepción está escribiendo la cláusula bien, y marcarlo sería ruido
+   * en un crédito mejor redactado que el del laudo. La primera versión de la regla lo marcaba y el test
+   * de «el crédito real no tiene nada que reescribir» se puso rojo.
+   */
+  it("pero la que aclara qué documentos no se marca, que es la del crédito real", () => {
+    for (const c of [
+      "THIRD PARTY DOCUMENTS EXCEPT DRAFT AND COMMERCIAL INVOICE ACCEPTABLE",
+      "THIRD PARTY DOCUMENTS OTHER THAN THE INVOICE ARE ACCEPTABLE",
+      "THIRD PARTY DOCUMENTS EXCLUDING THE DRAFT ACCEPTABLE",
+    ])
+      expect(tercero(conCondiciones(c))).toHaveLength(0);
+  });
+
+  it("y un crédito que no la tiene no gana ninguna observación", () => {
+    expect(tercero(conCondiciones("ALL DOCUMENTS MUST BEAR THE CREDIT NUMBER"))).toHaveLength(0);
+  });
+});

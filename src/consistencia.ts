@@ -279,6 +279,21 @@ export function aKg(n: number, unidadTexto: string): number | null {
   const u = sinAcentos(unidadTexto.toLowerCase());
   if (/(^|[^a-z])kgs?($|[^a-z])|kilo/.test(u)) return n;
   // "MTS" es como lo escriben la LC (45A) y la factura reales del caso CSU2025099
+  /*
+   * Y las toneladas métricas calificadas, que en los graneles son la unidad del contrato.
+   *
+   * **WMT** (wet metric tonne), **DMT** (dry metric tonne) y **ADMT** (air-dry metric tonne) son
+   * toneladas: mil kilos cada una, medidas sobre la mercadería en distinto estado de humedad. Faltaban,
+   * y la consecuencia no era que no se compararan sino algo peor: `ucp-30b-cantidad` decide si corre la
+   * tolerancia del 5 % según **si la unidad se puede convertir a kilos**, así que una cantidad en ADMT
+   * quedaba del lado de los bultos y se comparaba **exacta**. Con eso 994,781 ADMT contra un crédito de
+   * 1000 ADMT salía discrepante por medio punto porcentual.
+   *
+   * Lo destapó el laudo DOCDEX 206 al arreglar la lectura de «24200 METRIC TONS»: el caso R 218, que es
+   * de pulpa de celulosa y venía pasando porque la regla **no corría**, empezó a correr y a rechazar. El
+   * artículo 30 (b) limita su 5 % al peso y al volumen, y estas tres son peso.
+   */
+  if (/(^|[^a-z])(w?d?mts?|admts?)($|[^a-z])/.test(u)) return n * 1000;
   if (/(^|[^a-z])(mt|mts|tm|tn|ton|tons|tonne|tonnes|tonelada|toneladas|mton|t)($|[^a-z])/.test(u)) return n * 1000;
   if (/(^|[^a-z])(lb|lbs|pound|pounds)($|[^a-z])/.test(u)) return n * 0.453592;
   return null;
@@ -2106,8 +2121,24 @@ export function cantidadesDelCredito(
 ): { valor: number; unidad: string; en: number; crudo: string }[] {
   const t = (mercaderia ?? "").trim();
   if (!t) return [];
+  /*
+   * El calificativo entre el número y la unidad, que hacía perder la cantidad entera.
+   *
+   * El número y la unidad tenían que estar pegados, así que un 45A que dice **«24200 METRIC TONS»** no
+   * daba cantidad y el artículo 30 (b) **no corría**: el tope de la cantidad del crédito quedaba sin
+   * examinar, que es lo que ya había pasado una vez cuando la regla no existía —«un embarque corto fuera
+   * de tolerancia pasaba en silencio»— y volvió por la puerta de la unidad.
+   *
+   * Lo encontró el laudo **DOCDEX 206**, cuyo 45A dice exactamente eso, y «metric tons» es como lo
+   * escribe la mitad de los créditos de granos. Es la misma forma que el término de entrega escrito en
+   * palabras del laudo DOCDEX 208: **el motor reconocía la abreviatura y no el nombre.**
+   *
+   * Los calificativos son los del comercio de graneles —metric, long, short, dry, wet, air dry— y van
+   * opcionales, así que «57 MTS» sigue leyéndose igual. Y se agregan las abreviaturas compuestas que
+   * aparecen en los contratos de concentrados: WMT, DMT, ADMT.
+   */
   const re =
-    /(\d+(?:[.,]\d+)*)\s*(kgs?|kilos?|kilogramos?|mts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/gi;
+    /(\d+(?:[.,]\d+)*)\s*(?:(?:metric|long|short|dry|wet|air[\s-]?dry|imperial)\s+)?(kgs?|kilos?|kilogramos?|w?d?mts?|admts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/gi;
   return [...t.matchAll(re)]
     .map((m) => ({ valor: parseNumero(m[1] ?? ""), unidad: (m[2] ?? "").trim(), en: m.index ?? 0, crudo: m[0] }))
     .filter((x): x is { valor: number; unidad: string; en: number; crudo: string } => x.valor !== null);

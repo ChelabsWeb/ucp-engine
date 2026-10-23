@@ -2288,3 +2288,44 @@ describe("el emisor de la factura en otro alfabeto (TA 886rev)", () => {
     expect(con("OTRA EMPRESA SA")?.estado).toBe("DISCREPANCIA");
   });
 });
+
+/**
+ * El punto que puede ser de miles o decimal (caso R 218)
+ *
+ * `parseNumero` lee «994.781» como 994781, y hace bien: en este negocio un punto con tres dígitos detrás
+ * es separador de miles, y la primera cosa que este repositorio aprendió fue que «630.000 Kos» son
+ * 630.000 kilos y no 630. Pero el caso R 218 es de pulpa de celulosa y ahí «994.781 ADMT» son 994
+ * toneladas con tres decimales — el tercer decimal es de lo que trata ese caso.
+ *
+ * Las dos lecturas son legítimas y el string no alcanza para elegir. Lo que no se puede hacer es rechazar
+ * por un desvío de 99.000 %: eso no es una discrepancia, es un artefacto de lectura, y un banco que lo
+ * vea deja de mirar el examen.
+ */
+describe("el punto de miles o decimal en la cantidad (R 218)", () => {
+  const conCantidad = (enElCredito: string, enLaFactura: string, unidad: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, mercaderia: enElCredito, mercaderiaCompleta: enElCredito },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(enLaFactura), unidad: campo(unidad) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("con la otra lectura dentro de la tolerancia, avisa en vez de rechazar", () => {
+    const r = conCantidad("1000 ADMT OF BLEACHED SOFTWOOD KRAFT PULP", "994.781", "ADMT");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("puede ser de miles o decimal");
+  });
+
+  /*
+   * Y los dos frenos. Si la otra lectura **tampoco** entra, la discrepancia es real y se mantiene: no se
+   * usa la ambigüedad como excusa para no concluir nunca.
+   */
+  it("pero si la otra lectura tampoco entra, sigue siendo discrepancia", () => {
+    expect(conCantidad("1000 ADMT OF PULP", "500.000", "ADMT")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y una cantidad sin ambigüedad se compara como siempre", () => {
+    expect(conCantidad("1000 MT OF PULP", "1200", "MT")?.estado).toBe("DISCREPANCIA");
+    expect(conCantidad("1000 MT OF PULP", "1020", "MT")?.estado).toBe("OK");
+  });
+});
