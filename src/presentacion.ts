@@ -9,7 +9,7 @@ import {
   normISBP,
   veredictoDeNombre,
 } from "./isbp";
-import { limitePresentacion, toleranciaDeImporte } from "./lc";
+import { importeFluctuaPorElCredito, limitePresentacion, toleranciaDeImporte } from "./lc";
 import type { DocumentRow, LcInfo, OperationDetail } from "./types";
 
 /**
@@ -648,12 +648,24 @@ export function precheckPresentacion(input: {
       // Tolerancia de IMPORTE: el 5 % del artículo 30 (b) es de cantidad, no de monto.
       const tol = toleranciaDeImporte(lc);
       const tope = lc.monto * (1 + tol);
+      const excede = n > tope + 1e-9;
+      /*
+       * Y el mismo freno que `giro-saldo`: si el 47A deja fluctuar el importe, ese tope no es el techo.
+       *
+       * *Korea Exchange Bank v SCB* [2005] SGHC 220. Son dos reglas sobre el mismo hecho —una mira la
+       * factura y la otra el acumulado— y tienen que decir lo mismo, que es la lección de *Bulgrains*.
+       */
+      const fluctua = excede && importeFluctuaPorElCredito(lc);
       reglas.push({
         id: "fac-monto",
         fuente: "32B/39A",
         regla: `Factura dentro del monto de la LC (${lc.moneda ?? ""} ${lc.monto.toLocaleString("es-UY")}${tol ? ` ±${Math.round(tol * 100)} %` : ""})`,
-        estado: n <= tope + 1e-9 ? "OK" : "DISCREPANCIA",
-        evidencia: `factura ${monto}${n > tope ? ` supera el tope ${tope.toLocaleString("es-UY")}` : ""}`,
+        estado: fluctua ? "ATENCION" : excede ? "DISCREPANCIA" : "OK",
+        evidencia:
+          `factura ${monto}${excede ? ` supera el tope ${tope.toLocaleString("es-UY")}` : ""}` +
+          (fluctua
+            ? ", y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización (Korea Exchange Bank v SCB)"
+            : ""),
       });
     }
     const exp = val(fac, "exportador");

@@ -257,6 +257,64 @@ export function toleranciaDe(lc: LcInfo | null | undefined): number {
  * Hacia arriba, sin 39A ni «about», el tope es el 32B a secas. Hacia abajo el 30 (c) admite un 5 %
  * menos con condiciones, que es otra regla y todavía no está.
  */
+/**
+ * El crédito deja que su propio importe fluctúe solo, por una cláusula del 47A.
+ *
+ * *Korea Exchange Bank v Standard Chartered Bank* [2005] SGHC 220, USD 1.961.430,67: el crédito era de
+ * USD 800.000 con 39A 10/10 y el reclamo fue de USD 939.789,01, o sea USD 59.789,01 por encima del
+ * techo. El emisor rechazó con «Amount Overdrawn» y el High Court de Singapur lo declaró mal, porque el
+ * 47A decía *«The amount of this letter of credit shall automatically fluctuate to cover any
+ * increase/decrease according to the price clause without further amendment to this credit»* y
+ * *«the fluctuation in this provision is not expressed to be subject to any tolerance limits»*.
+ *
+ * El razonamiento es de interpretación y no del reglamento, así que no depende de la versión: si la
+ * tolerancia del 39A pudiera absorber la variación del precio, la cláusula del 47A **sería superflua**;
+ * y si la tolerancia se consumiera entera con el ±10 % del volumen, la cláusula quedaría sin ningún
+ * efecto. Ninguna de las dos lecturas es admisible.
+ *
+ * **Lo que el motor hace con esto es dejar de concluir, no subir el techo.** El tribunal dice que el
+ * aumento igual tiene un límite —*«the increase in the credit is limited by the increase in the price of
+ * oil»*— y ese límite depende de una cotización que el motor no tiene y no va a tener. Así que con esta
+ * cláusula las reglas del importe salen a **verificar** citando el caso: es la diferencia entre «no sé»
+ * y «esto está mal», y el cambio solo puede quitar falsos positivos.
+ *
+ * El patrón pide las dos mitades —que el sujeto sea el **importe del crédito** y que la variación sea
+ * automática— porque «fluctuate» a secas aparece en cualquier cláusula de precio, y una tolerancia
+ * corriente no es esto.
+ */
+export function importeFluctuaPorElCredito(lc: LcInfo | null | undefined): boolean {
+  return (lc?.condicionesAdicionales ?? []).some((c) => {
+    const t = c.toLowerCase();
+    /*
+     * Se comprueba por partes y no con un solo patrón, y eso no es estilo.
+     *
+     * La primera versión era un patrón con huecos —`[\s\S]{0,60}` entre alternativas— y sobre una
+     * condición larga del 47A hace **backtracking catastrófico**: un test del motor pasó de
+     * milisegundos a **diecisiete minutos**, y `pnpm verificar` se cayó por tiempo. Un motor que se
+     * cuelga con un crédito verboso es peor que uno que no mira la cláusula, así que acá no hay
+     * huecos: tres pruebas chicas y una comparación de posiciones.
+     */
+    if (!/\bautomatic(?:ally)?\b/.test(t)) return false;
+    const VARIA = /\b(?:fluctuat\w*|adjust\w*|vary|varied|revis\w*|increas\w*|decreas\w*|reduc\w*)\b/;
+    if (!VARIA.test(t)) return false;
+    const elImporte =
+      /\b(?:amount|value)\s+(?:of\s+)?(?:this\s+|the\s+)?(?:letter of credit|documentary credit|credit|l\/c|lc)\b/.exec(
+        t,
+      );
+    if (!elImporte) return false;
+    /*
+     * Y el sujeto tiene que ser el importe del crédito, no el precio de la mercadería.
+     *
+     * «the price shall automatically fluctuate with the Platts quotation» no es esto: lo que la
+     * sentencia decide es una cláusula cuyo sujeto es **el importe del crédito**. Se pide que la
+     * palabra de la variación aparezca cerca de ese sujeto —ciento veinte caracteres a cada lado—
+     * medido con `indexOf` sobre un recorte, y no con un hueco dentro del patrón.
+     */
+    const desde = Math.max(0, elImporte.index - 120);
+    return VARIA.test(t.slice(desde, elImporte.index + elImporte[0].length + 120));
+  });
+}
+
 export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
   // una tolerancia declarada «solo en cantidad» no mueve el tope del importe: admitirla pagaba de
   // más, que es el error que no se ve hasta que alguien concilia

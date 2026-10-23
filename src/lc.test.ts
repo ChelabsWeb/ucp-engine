@@ -6,6 +6,7 @@ import {
   cobroEstimado,
   diasParaPresentar,
   diasPresentacion,
+  importeFluctuaPorElCredito,
   limitePresentacion,
   parseTolerancia,
   plazoHastaElVencimiento,
@@ -313,5 +314,58 @@ describe("el plazo del campo 48 hasta el vencimiento (Deutsche Bank v CIMB)", ()
     );
     expect(l?.plazoNoLeido).toBe(false);
     expect(l?.plazoPorDefectoUCP).toBe(true);
+  });
+});
+
+/**
+ * El importe que el 47A deja fluctuar solo (Korea Exchange Bank v SCB [2005] SGHC 220)
+ *
+ * El crédito era de USD 800.000 con 39A 10/10 y el reclamo de USD 939.789,01. El emisor rechazó con
+ * «Amount Overdrawn» y el High Court de Singapur lo declaró mal, porque la cláusula E del 47A hacía
+ * fluctuar el importe del crédito con el precio sin enmienda y *«the fluctuation in this provision is
+ * not expressed to be subject to any tolerance limits»*.
+ */
+describe("el importe que el crédito deja fluctuar solo (Korea Exchange Bank v SCB)", () => {
+  const con = (...condicionesAdicionales: string[]) => importeFluctuaPorElCredito({ condicionesAdicionales } as never);
+
+  const CLAUSULA_E =
+    "E. THE AMOUNT OF THIS LETTER OF CREDIT SHALL AUTOMATICALLY FLUCTUATE TO COVER ANY INCREASE/DECREASE ACCORDING TO THE PRICE CLAUSE WITHOUT FURTHER AMENDMENT TO THIS CREDIT.";
+
+  it("reconoce la cláusula del fallo", () => {
+    expect(con(CLAUSULA_E)).toBe(true);
+  });
+
+  it("y la reconoce entre otras condiciones del 47A", () => {
+    expect(con("ALL DOCUMENTS MUST BEAR THE CREDIT NUMBER", CLAUSULA_E, "T/T REIMBURSEMENT ACCEPTABLE")).toBe(true);
+  });
+
+  /*
+   * Los dos frenos, que son la mitad de la regla.
+   *
+   * Una tolerancia corriente **no** es esto —si lo fuera, cualquier crédito con 39A dejaría de poder
+   * concluir sobre su propio techo— y una cláusula de precio tampoco: lo que el fallo decide es una
+   * cláusula cuyo sujeto es **el importe del crédito**.
+   */
+  it("una tolerancia corriente no es esto", () => {
+    expect(con("A TOLERANCE OF 10 PCT MORE OR LESS IN AMOUNT AND QUANTITY IS ACCEPTABLE")).toBe(false);
+  });
+
+  it("y una cláusula de precio tampoco, aunque diga que fluctúa automáticamente", () => {
+    expect(con("THE PRICE SHALL AUTOMATICALLY FLUCTUATE WITH THE PLATTS QUOTATION")).toBe(false);
+  });
+
+  /*
+   * Y el tiempo, que es el defecto que esta función ya tuvo.
+   *
+   * La primera versión era un solo patrón con huecos —`[\s\S]{0,60}` entre alternativas— y sobre una
+   * condición larga del 47A hacía **backtracking catastrófico**: un test del motor pasó de
+   * milisegundos a diecisiete minutos y `pnpm verificar` se cayó por tiempo. Un motor que se cuelga
+   * con un crédito verboso es peor que uno que no mira la cláusula, así que el tiempo se afirma.
+   */
+  it("no se cuelga con una condición larga del 47A", () => {
+    const larga = `ALL DOCUMENTS MUST BEAR THE CREDIT NUMBER AND ${"THE GOODS SHALL BE PACKED IN SEAWORTHY EXPORT PACKING ".repeat(200)}`;
+    const t0 = Date.now();
+    expect(con(larga, CLAUSULA_E)).toBe(true);
+    expect(Date.now() - t0).toBeLessThan(500);
   });
 });
