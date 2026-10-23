@@ -1,4 +1,5 @@
 import type { Enmienda } from "./enmiendas";
+import type { Papel } from "./papel";
 
 /**
  * Qué crédito rige mientras una enmienda no se contesta (UCP 600 art. 10).
@@ -76,7 +77,46 @@ const CLAUSULA_TACITA =
 const PIDE_CANCELAR =
   /\bcancel\w*\b|\bcancelaci[oó]n\b|\bclose\s+(?:the|your|our)?\s*(?:file|credit)\b|\bcerrar\s+(?:el\s+)?(?:expediente|cr[eé]dito)\b/i;
 
-export function revisarEnmienda(e: Enmienda, estado: EstadoEnmienda): ObservacionEnmienda[] {
+/**
+ * Lo que un banco **avisador** puede hacer con una enmienda, que no es lo que un beneficiario espera.
+ *
+ * El artículo 9 (e) dice que un banco avisador **puede elegir no avisar** una enmienda, y que si elige eso
+ * tiene que informárselo **sin demora al banco del que la recibió** — y a nadie más. El laudo **DOCDEX 365**
+ * es ese expediente: un avisador tardó en pasarle la segunda enmienda al beneficiario, el beneficiario fue
+ * a los tribunales locales, y el panel contestó:
+ *
+ * > The UCP 600 sub-article 9 (e) states that **an advising bank which has advised a credit may elect not to
+ * > advise an amendment to the credit** […] An advising bank which elects not to advise an amendment, **must
+ * > inform the bank from which it received the amendment of its decision without delay. An advising bank has
+ * > no other responsibilities to any other party under the credit, including the beneficiary in this
+ * > respect.**
+ *
+ * > **Decision:** The Claimant may elect not to advise an amendment but, as per the UCP 600 sub-article
+ * > 9 (e), it must inform the issuing bank without delay. **The Claimant had no obligation to the Respondent
+ * > in this respect. The UCP 600 does not specify a period of time in which an advising bank should advise an
+ * > amendment.**
+ *
+ * Y de paso define la frase del 9 (b) que el motor ya le dice a un avisador: *«'Apparent authenticity' means
+ * that an amendment appears to originate from the sender and any authentication process has been fulfilled
+ * and completed»*.
+ *
+ * **Sale solo para un avisador o un designado sin confirmar**: al emisor la enmienda es suya y al confirmador
+ * le toca la del 8 (b). Y no dice que haya que avisarla rápido —el panel subraya que el artículo **no fija
+ * plazo**— sino qué hay que hacer si se elige no avisarla, que es la parte que este expediente llevó a
+ * juicio.
+ */
+function reglaDelAvisadorSobreLaEnmienda(papel: Papel | null | undefined): ObservacionEnmienda | null {
+  if (papel !== "AVISADOR" && papel !== "DESIGNADO") return null;
+  return {
+    id: "ucp-9e",
+    que: "Este banco puede elegir no avisar esta enmienda, y si la elige tiene que decírselo al banco del que la recibió",
+    fuente: "UCP 600 9e · Laudo DOCDEX 365",
+    porQue:
+      "avisar una enmienda es una opción y no un deber: lo que el artículo obliga, si se elige no avisarla, es informarlo sin demora al banco del que vino —y a nadie más, tampoco al beneficiario—. El artículo no fija un plazo para avisarla, así que la demora no es por sí sola un incumplimiento; lo que sí es un incumplimiento es quedarse callado con el banco que la mandó. Y al avisarla, lo que este banco afirma es la autenticidad aparente: que la enmienda parece venir de quien dice venir y que el proceso de autenticación se completó",
+  };
+}
+
+export function revisarEnmienda(e: Enmienda, estado: EstadoEnmienda, papel?: Papel | null): ObservacionEnmienda[] {
   const out: ObservacionEnmienda[] = [];
   const donde = [e.narrativa ?? "", ...(e.condicionesAdicionales ?? [])].join(" \n ");
 
@@ -124,6 +164,9 @@ export function revisarEnmienda(e: Enmienda, estado: EstadoEnmienda): Observacio
         "los términos originales siguen rigiendo para el beneficiario hasta que comunique que acepta la enmienda; el emisor sí quedó obligado desde que la emitió (10 b)",
     });
   }
+
+  const delAvisador = reglaDelAvisadorSobreLaEnmienda(papel);
+  if (delAvisador) out.push(delAvisador);
 
   return out;
 }

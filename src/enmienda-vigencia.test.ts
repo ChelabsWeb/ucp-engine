@@ -122,3 +122,43 @@ describe("lo demás del artículo", () => {
     expect(revisarEnmienda(BASE, "ACEPTADA").find((x) => x.id === "ucp-10c")).toBeUndefined();
   });
 });
+/**
+ * Lo que un avisador puede hacer con una enmienda (laudo DOCDEX 365, artículo 9 e)
+ *
+ * Un avisador tardó en pasarle la segunda enmienda al beneficiario y el beneficiario fue a los tribunales
+ * locales. El panel: *«an advising bank which has advised a credit **may elect not to advise an amendment**
+ * to the credit»*, y si lo elige *«must inform the bank from which it received the amendment of its decision
+ * without delay. An advising bank has **no other responsibilities to any other party** under the credit,
+ * including the beneficiary in this respect»*. Y la línea que cierra el reclamo: *«The UCP 600 **does not
+ * specify a period of time** in which an advising bank should advise an amendment»*.
+ */
+describe("el artículo 9 (e): avisar una enmienda es una opción (laudo DOCDEX 365)", () => {
+  const con = (papel: Parameters<typeof revisarEnmienda>[2]) =>
+    revisarEnmienda({ ...BASE, narrativa: "THE LATEST SHIPMENT DATE IS EXTENDED TO 31.05.2025." }, "SIN_RESPUESTA", papel).find(
+      (o) => o.id === "ucp-9e",
+    );
+
+  it("al avisador se le dice, con el artículo y el laudo", () => {
+    const r = con("AVISADOR");
+    expect(r?.fuente).toContain("9e");
+    expect(r?.fuente).toContain("DOCDEX 365");
+    expect(r?.porQue, "lo que obliga es avisarle al banco del que vino").toContain("sin demora");
+    expect(r?.porQue, "y que el artículo no fija plazo, que es lo que cerró el reclamo").toContain("no fija un plazo");
+  });
+
+  it("y al designado sin confirmar también", () => {
+    expect(con("DESIGNADO")).toBeDefined();
+  });
+
+  /* Al emisor la enmienda es suya y al confirmador le toca el 8 (b): decirles esto sería ruido. */
+  it("y al emisor y al confirmador no", () => {
+    expect(con("EMISOR")).toBeUndefined();
+    expect(con("CONFIRMADOR")).toBeUndefined();
+  });
+
+  it("y sin saber el papel tampoco se inventa", () => {
+    expect(con(null)).toBeUndefined();
+    expect(con(undefined)).toBeUndefined();
+  });
+});
+
