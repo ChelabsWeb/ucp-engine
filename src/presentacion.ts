@@ -470,6 +470,15 @@ export function precheckPresentacion(input: {
     /*
      * La línea repetida sale a verificar **siempre que la primera haya encontrado un papel**.
      *
+     * **Y un laudo contestó la pregunta que esta regla declara que no puede contestar.** El DOCDEX 366 es un
+     * crédito de cuatro pagos parciales cuyo tercer y cuarto pago se cobraban «against identical documents»,
+     * el tercero a la vista y el cuarto a plazo, así que las dos líneas del giro aparean a la misma clave. El
+     * panel eligió, y eligió **dos**: *«For each drawing under the third and fourth progress payments, a
+     * separate set of drafts, one at sight and one at usance, were required to be presented»* — y el
+     * beneficiario que presentó uno **perdió el cuarto pago**, el 25 % del crédito. O sea que no decidir es
+     * correcto **y** cuesta: lo que la nota hace es poner esa pregunta delante de una persona antes de que la
+     * conteste un vencimiento.
+     *
      * Antes la condición era «y esta línea también aparea un papel», y eso dependía de un accidente: los
      * cuatro tipos con extracción propia se buscan con `doc()`, que **no consume**, así que la segunda
      * línea volvía a encontrar el mismo papel; los demás se buscan con `presentado()`, que sí consume, y

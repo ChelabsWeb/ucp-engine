@@ -1766,6 +1766,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "not in the package, and the credit allows other documents to be presented in lieu of this one: check that the alternative was presented (DOCDEX Decision 372)",
   ],
   [
+    /^El crédito está disponible por negociación con un banco y los giros van librados sobre ese mismo banco$/g,
+    "The credit is available by negotiation with a bank and the drafts are drawn on that same bank",
+  ],
+  [
+    /^librar el giro sobre otro banco —el emisor, normalmente—: ni las UCP ni la práctica bancaria estándar dicen cómo se negocia un giro librado sobre el propio banco designado, y la ambigüedad la paga el beneficiario que la lea de otra manera$/g,
+    "draw the draft on another bank — the issuing bank, normally: neither the UCP nor international standard banking practice says how a draft drawn on the nominated bank itself is negotiated, and the ambiguity is paid for by the beneficiary who reads it differently",
+  ],
+  [
     /^Examinar y remitir los documentos no obliga a este banco ni cuenta como honrar$/g,
     "Examining and forwarding the documents does not oblige this bank, nor does it count as honouring",
   ],
