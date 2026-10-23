@@ -1341,7 +1341,7 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
  * nombra— y van cinco veces que una captura de nombre se lleva la frase entera por tener su propio corte.
  */
 export const ABRE_DESCRIPCION =
-  /\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
+  /\bin\s+lieu\b|\binstead\s+of\b|\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
 
 /*
  * Las dos mitades se buscan sobre el texto **en minúsculas**, y el original se corta en ese índice.
@@ -1686,6 +1686,18 @@ function clavePorTexto(s: string): string {
    */
   if (/\bstatement of (?:shipper|the shipper|beneficiary|exporter)\b|\bshipper.{0,3}s statement\b/.test(s))
     return "DECLARACION";
+  /*
+   * La carta de indemnidad, que en un crédito de graneles reemplaza al juego de conocimientos.
+   *
+   * Cuando los documentos no llegan a tiempo —lo normal en un cargamento de crudo o de granos a un
+   * puerto cercano— el crédito admite presentar factura y **letter of indemnity** en lugar del juego
+   * completo. Sin clave propia esa línea caía en el capítulo del transporte: `claveDoc("BENEFICIARY'S
+   * LETTER OF INDEMNITY IN LIEU OF BILLS OF LADING")` devolvía **BL**, porque la línea menciona los
+   * conocimientos. **Es la séptima vez que un documento cuyo texto nombra otro tipo se lo deja robar**, y
+   * la encontró el laudo DOCDEX 372, donde la presentación de factura y LOI es la que el panel declara
+   * conforme.
+   */
+  if (/\bletters?\s+of\s+indemnity\b|\bLOI\b|\bcarta de indemnidad\b/i.test(s)) return "INDEMNIDAD";
   /*
    * El mill's test certificate, que es donde vive la calidad medida de un metal.
    *

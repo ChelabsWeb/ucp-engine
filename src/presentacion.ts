@@ -97,6 +97,74 @@ function hastaLaDescripcion(nombre: string | null): string | null {
   return recortado || null;
 }
 
+/**
+ * Los documentos que el crédito admite presentar **en lugar de** otros.
+ *
+ * Un crédito de graneles lo escribe cuando los papeles no llegan a tiempo: «commercial invoice and
+ * beneficiary's letter of indemnity are acceptable in lieu of the full set of bills of lading». Si el
+ * beneficiario usa esa puerta, las líneas del 46A que la cláusula desplaza **no están** — y el examen las
+ * sacaba en **FALTA**, que afirma «nadie presentó este documento». Eso es falso: el crédito dijo que no hacía
+ * falta, y el laudo **DOCDEX 372** lo decide — *«Since a presentation solely comprising an invoice and an
+ * LOI was allowed under this specific credit, the documents were seen to represent a complying
+ * presentation»*.
+ *
+ * **Es el octavo «no se veía como una falla, se veía como un FALTA» de este repositorio**, y el más caro de
+ * la familia después de los siete certificados: un crédito de crudo con LOI deja tres o cuatro líneas en
+ * FALTA siempre, así que `listo` no puede ser `true` nunca.
+ *
+ * Lo que se devuelve son las claves **desplazadas** —lo que viene después de «in lieu of»— y nada más. No se
+ * comprueba que la alternativa esté presentada: eso es lo que el examinador tiene que mirar, y afirmarlo
+ * desde acá pediría recorrer el apareo dos veces. Lo único que cambia es que una línea desplazada sin papel
+ * sale a **verificar** en vez de afirmar una ausencia que el crédito autorizó.
+ */
+export function clavesDesplazadasPorSustitucion(lc: LcInfo): { claves: Set<string>; texto: string } {
+  const claves = new Set<string>();
+  const partes: string[] = [];
+  for (const t of [...(lc.documentosExigidos ?? []), ...(lc.condicionesAdicionales ?? [])]) {
+    const m = /\b(?:in\s+lieu\s+of|instead\s+of)\b([^.;]*)/i.exec(t);
+    if (!m) continue;
+    /*
+     * **«In lieu thereof» apunta para atrás, y ahí lo que sigue es la alternativa y no lo desplazado.**
+     *
+     * El inglés escribe la sustitución de las dos maneras: «A and B are acceptable **in lieu of** C» —y
+     * entonces lo que viene después es lo que se reemplaza— y «C or, **in lieu thereof**, A and B», donde
+     * lo que viene después es lo que se presenta. Tomar la segunda por la primera marcaría como desplazada
+     * justo la línea que el crédito sí exige, que es el error exactamente al revés.
+     */
+    if (/^\s*(?:thereof|hereof|the\s+above|these\s+documents|said\s+documents)/i.test(m[1] ?? "")) continue;
+    partes.push(m[1] ?? "");
+    for (const trozo of (m[1] ?? "").split(/\band\b|\bor\b|,|\//i)) {
+      const k = claveDoc(trozo);
+      if (k && !k.startsWith("TXT:")) claves.add(k);
+    }
+  }
+  return { claves, texto: aplanado(partes.join(" ")) };
+}
+
+/**
+ * El nombre del documento de una línea del 46A, sin lo que el crédito le pide decir.
+ *
+ * Hace falta porque la mitad de los documentos del 46A **no tienen clave**: un «CERTIFICATE OF QUANTITY
+ * ISSUED BY INDEPENDENT INSPECTOR» y el «certificate of quantity» que la cláusula de sustitución nombra son
+ * dos claves `TXT:` distintas y no se reconocen entre sí. Comparar la **cabeza** de la línea sí: es donde el
+ * crédito nombra el documento, que es la misma razón por la que `claveDoc` la usa.
+ */
+function cabezaDeLaExigencia(texto: string): string {
+  const plano = aplanado(texto.replace(/^\s*\+?\s*\d{1,2}[).]\s*/, ""));
+  const i = ABRE_DESCRIPCION.exec(plano)?.index;
+  return (i === undefined ? plano : plano.slice(0, i)).trim();
+}
+
+/** Minúsculas, sin acentos y sin puntuación: para comparar nombres de documento entre dos textos. */
+function aplanado(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 export const PIDE_CITAR_NUMERO_LC =
   /(?:INDICAT|SHOW|EVIDENC|BEAR|QUOT|MENTION)\w*.{0,40}(LETTER OF CREDIT|L\/?C|CREDIT)\s*(NUMBER|NO)|LC NUMBER|NUMBER OF LETTER OF CREDIT/;
 
@@ -352,6 +420,13 @@ export function precheckPresentacion(input: {
    * 46A no es una discrepancia del beneficiario.
    */
   const claveYaExigida = new Map<string, { id: string; conPapel: boolean }>();
+  /* Las líneas que el crédito admite reemplazar por otros documentos (laudo DOCDEX 372). */
+  const sustitucion = clavesDesplazadasPorSustitucion(lc);
+  const estaDesplazada = (clave: string, texto: string): boolean => {
+    if (sustitucion.claves.has(clave)) return true;
+    const cabeza = cabezaDeLaExigencia(texto);
+    return cabeza.length > 8 && sustitucion.texto.includes(cabeza);
+  };
   exigidos.forEach((texto, i) => {
     const k = claveDoc(texto);
     const ej = ejemplaresDe(texto);
@@ -464,6 +539,21 @@ export function precheckPresentacion(input: {
         regla: resumen,
         estado: "ATENCION",
         evidencia: `Marcado completo en el checklist (${enChecklist.label}) pero no analizado: subirlo para verificarlo · ${ej.texto}`,
+      });
+    } else if (estaDesplazada(k, texto)) {
+      /*
+       * El crédito admite reemplazar este documento, así que su ausencia no es un FALTA afirmado.
+       *
+       * Ver `clavesDesplazadasPorSustitucion`: decir «no está en el paquete» sobre una línea que el propio
+       * crédito autorizó a no presentar es afirmar algo falso sobre la presentación. Sale a verificar, que
+       * es lo que una persona tiene que hacer: mirar si la alternativa está.
+       */
+      reglas.push({
+        id,
+        fuente: id,
+        regla: resumen,
+        estado: "ATENCION",
+        evidencia: `no está en el paquete, y el crédito admite presentar otros documentos en lugar de éste: verificar que la alternativa esté presentada (laudo DOCDEX 372) · ${ej.texto}`,
       });
     } else {
       reglas.push({

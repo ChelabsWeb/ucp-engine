@@ -1762,6 +1762,10 @@ const REEMPLAZOS: [RegExp, string][] = [
     "state in one place which documents each tranche is paid against: the risk of an ambiguous instruction falls on the issuing bank, and the panel made it pay against the shorter list",
   ],
   [
+    /^no está en el paquete, y el crédito admite presentar otros documentos en lugar de éste: verificar que la alternativa esté presentada \(laudo DOCDEX 372\)/g,
+    "not in the package, and the credit allows other documents to be presented in lieu of this one: check that the alternative was presented (DOCDEX Decision 372)",
+  ],
+  [
     /^Examinar y remitir los documentos no obliga a este banco ni cuenta como honrar$/g,
     "Examining and forwarding the documents does not oblige this bank, nor does it count as honouring",
   ],

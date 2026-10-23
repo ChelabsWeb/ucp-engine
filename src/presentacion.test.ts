@@ -1187,3 +1187,63 @@ describe("dos líneas del 46A que aparean al mismo papel (TA 893rev)", () => {
     expect(r.some((x) => x.estado === "ATENCION" && /ya exige este documento/.test(x.evidencia ?? ""))).toBe(false);
   });
 });
+/**
+ * El documento que el crédito admite reemplazar (laudo DOCDEX 372)
+ *
+ * Un crédito de graneles lo escribe cuando los papeles no llegan a tiempo: «commercial invoice and
+ * beneficiary's letter of indemnity are acceptable in lieu of the full set of bills of lading». Si el
+ * beneficiario usa esa puerta, las líneas que la cláusula desplaza **no están**, y el examen las sacaba en
+ * **FALTA** — que afirma «nadie presentó este documento» y es falso: el crédito dijo que no hacía falta.
+ *
+ * El laudo lo decide: *«Since a presentation solely comprising an invoice and an LOI was allowed under this
+ * specific credit, the documents were seen to represent a complying presentation»* — y el emisor, que no
+ * cursó un aviso válido, quedó obligado a honrar.
+ *
+ * Octavo «no se veía como una falla, se veía como un FALTA» de este repositorio, y de los caros: un crédito
+ * de crudo con LOI deja tres o cuatro líneas en FALTA siempre, así que `listo` no puede ser `true` nunca.
+ */
+describe("el documento que el crédito admite reemplazar (laudo DOCDEX 372)", () => {
+  const SUSTITUCION =
+    "COMMERCIAL INVOICE AND BENEFICIARY'S LETTER OF INDEMNITY ARE ACCEPTABLE IN LIEU OF THE FULL SET OF BILLS OF LADING AND CERTIFICATE OF ORIGIN.";
+  const con = (condiciones: string[]) =>
+    precheckPresentacion({
+      lc: {
+        ...lc,
+        documentosExigidos: [
+          "1. SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS",
+          "2. FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING",
+          "3. CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE",
+        ],
+        condicionesAdicionales: condiciones,
+      },
+      docs: [{ tipo: "FACTURA" as const, campos: FACTURA }],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas;
+
+  it("las dos líneas desplazadas salen a verificar y no en FALTA", () => {
+    const r = con([SUSTITUCION]);
+    for (const id of ["46A+2", "46A+3"]) {
+      const x = r.find((y) => y.id === id);
+      expect(x?.estado, id).toBe("ATENCION");
+      expect(x?.evidencia, id).toContain("DOCDEX 372");
+    }
+  });
+
+  it("y sin la cláusula siguen en FALTA, que es lo que corresponde", () => {
+    const r = con([]);
+    for (const id of ["46A+2", "46A+3"]) expect(r.find((y) => y.id === id)?.estado, id).toBe("FALTA");
+  });
+
+  /*
+   * Y el freno: lo que la cláusula **no** desplaza sigue en FALTA. Acá la sustitución nombra solo el juego
+   * de conocimientos, así que el certificado de origen sigue siendo una ausencia afirmada.
+   */
+  it("solo se afloja lo que la cláusula nombra", () => {
+    const r = con(["COMMERCIAL INVOICE AND LETTER OF INDEMNITY ARE ACCEPTABLE IN LIEU OF THE BILLS OF LADING."]);
+    expect(r.find((y) => y.id === "46A+2")?.estado, "el conocimiento está desplazado").toBe("ATENCION");
+    expect(r.find((y) => y.id === "46A+3")?.estado, "el certificado de origen no").toBe("FALTA");
+  });
+});
+
