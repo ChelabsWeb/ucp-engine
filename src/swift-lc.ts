@@ -331,10 +331,8 @@ export function listaSwift(lineas: string[] | null): string[] {
      * como hace el `split` de arriba, rompería «3. 3/3 ORIGINAL BILLS OF LADING», que es redacción
      * normal.
      */
-    const arrancaConFecha = /^\s*\d{1,2}[.\/-]\d{1,2}[.\/-]\d{2,4}\b/.test(l);
-    const m = arrancaConFecha
-      ? null
-      : (/^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l));
+    const arrancaConFecha = /^\s*\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b/.test(l);
+    const m = arrancaConFecha ? null : (/^\+?\s*(\d{1,2})[).]\s*(.*)$/.exec(l) ?? /^\+\s*(.*)$/.exec(l));
     if (m) out.push((m[2] ?? m[1]).trim());
     else if (out.length) out[out.length - 1] = `${out[out.length - 1]} ${l}`.replace(/\s+/g, " ");
     else out.push(l);

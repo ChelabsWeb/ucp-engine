@@ -1363,6 +1363,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el campo 48 dice (.+) y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 \(c\) para la cuenta, pero si esa redacción fija otro plazo manda el crédito\. Verificar a mano$/g,
     "field 48 reads $1 and no period could be read from it: the examination used the 21 days of article 14 (c) for the count, but if that wording stipulates a different period the credit governs. Check by hand",
   ],
+  /* Korea Exchange Bank v SCB: el importe que el 47A deja fluctuar solo */
+  [
+    /, y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización \(Korea Exchange Bank v SCB\)/g,
+    ", and field 47A lets the amount of the credit fluctuate on its own with the price: that ceiling is not the ceiling and it is to be checked against the quotation (Korea Exchange Bank v SCB)",
+  ],
   /* TA 893rev: dos líneas del 46A que aparean al mismo papel */
   [
     /^la línea (46A\+\d+) ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano \(Opinión TA 893rev\)$/g,

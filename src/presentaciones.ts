@@ -1,6 +1,6 @@
 import { plazoDeAviso } from "./checking-list";
 import { diffDias, fmtFecha, parseFecha } from "./fechas";
-import { toleranciaDeImporte } from "./lc";
+import { importeFluctuaPorElCredito, toleranciaDeImporte } from "./lc";
 import type { EstadoRegla, ReglaPresentacion } from "./presentacion";
 import type { LcInfo, OperationDetail } from "./types";
 
@@ -348,14 +348,25 @@ export function reglasDeGiro(input: {
   if (saldo.tope !== null && input.actual.importe !== null) {
     const total = saldo.girado + input.actual.importe;
     const excede = total > saldo.tope + 1e-9;
+    /*
+     * Salvo que el propio crédito deje fluctuar su importe (ver `importeFluctuaPorElCredito`).
+     *
+     * *Korea Exchange Bank v SCB*: con esa cláusula en el 47A el techo del 32B y el 39A no es el techo,
+     * y rechazar por «Amount Overdrawn» es lo que el High Court de Singapur declaró mal. El motor no
+     * puede calcular el techo verdadero —depende de una cotización— así que avisa en vez de concluir.
+     */
+    const fluctua = excede && importeFluctuaPorElCredito(input.lc);
     out.push(
       regla(
         "giro-saldo",
         saldo.tolerancia > 0 ? "32B / 39A" : "32B",
         `El total girado no supera el crédito${saldo.tolerancia > 0 ? ` (±${Math.round(saldo.tolerancia * 100)} %)` : ""}`,
-        excede ? "DISCREPANCIA" : "OK",
+        fluctua ? "ATENCION" : excede ? "DISCREPANCIA" : "OK",
         `${money(saldo.girado, moneda)} girados + ${money(input.actual.importe, moneda)} de esta presentación = ` +
-          `${money(total, moneda)} · tope ${money(saldo.tope, moneda)}`,
+          `${money(total, moneda)} · tope ${money(saldo.tope, moneda)}` +
+          (fluctua
+            ? ", y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización (Korea Exchange Bank v SCB)"
+            : ""),
       ),
     );
   }

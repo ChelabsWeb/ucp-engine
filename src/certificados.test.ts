@@ -588,9 +588,7 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
         lc: LC,
         docs: [],
         hoy: new Date(2017, 2, 22),
-        certificados: [
-          { exigencia: "+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY", campos: doc(campos) },
-        ],
+        certificados: [{ exigencia: "+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY", campos: doc(campos) }],
       }).find((x) => x.id.startsWith("cert-origen"));
 
     const CUERPO =
