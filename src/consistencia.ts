@@ -1490,6 +1490,50 @@ export function coincideLugar(a: string, b: string): boolean {
 }
 
 /** Clave canónica de un documento (ES o EN) para cotejar la LC con el checklist. */
+/**
+ * El segundo documento que una línea del 46A nombra, cuando nombra dos.
+ *
+ * «COMMERCIAL INVOICE AND PACKING LIST **EACH** IN TRIPLICATE» es una sola línea y **dos** documentos, y
+ * `claveDoc` solo puede devolver una clave: la factura se la lleva y **la exigencia del packing list
+ * desaparece**. El crédito queda pidiendo un documento menos y eso no se ve en ninguna parte —es la
+ * sexta vez que una línea del 46A pierde un documento, y la primera en que lo pierde por nombrar dos.
+ *
+ * Lo encontró el laudo **DOCDEX 211**, y el panel es explícito en que esa línea estipula dos documentos
+ * y que el «each» prohíbe combinarlos: *«item 1 stipulates "commercial invoice" and "packing list",
+ * **impliedly forbidding any combination of these documents by requiring presentation of "each in
+ * triplicate"**»*.
+ *
+ * Devuelve la clave del segundo documento solo cuando es **otro tipo conocido**, así que «BILL OF LADING
+ * AND COPY THEREOF» no dispara: las dos mitades dan la misma clave y no hay nada que avisar.
+ *
+ * **Y la segunda mitad tiene que empezar por el nombre de un documento**, que es el apriete que hizo
+ * falta porque la primera versión tenía dos falsos positivos en el propio banco de pruebas:
+ *
+ *   - «SURVEY REPORT OF QUANTITY **AND** QUALITY ISSUED BY AN INDEPENDENT SURVEYOR» (Voest-Alpine) es
+ *     **un** documento con dos calificativos, y el «and» une las materias y no dos papeles;
+ *   - «BENEFICIARY'S SIGNED COMMERCIAL INVOICE IN 1 ORIGINAL **AND** 2 COPIES» (DOCDEX 285) es un
+ *     documento y su conteo de ejemplares.
+ *
+ * Un aviso que grita sobre dos casos buenos enseña a ignorarlo, que es el peor destino que puede tener
+ * un control en este repositorio. Así que se pide un **sustantivo de documento** en las tres primeras
+ * palabras de la segunda mitad: «packing **list** each in triplicate» entra, «quality issued by an
+ * independent» y «2 copies» no.
+ */
+const SUSTANTIVO_DE_DOCUMENTO =
+  /^(?:[a-z0-9']+\s+){0,2}(?:invoice|list|certificate|report|policy|statement|receipt|note|waybill|bill|draft|declaration)\b/;
+
+export function segundoDocumentoDeLaLinea(nombre: string): string | null {
+  const completo = normTexto(sinPluralEntreParentesis(nombre.replace(/^\s*\+?\d{1,2}\s*[.)]\s*/, "")));
+  const cabeza = cabezaDeExigencia(completo);
+  const m = /^(.*?)\s+and\s+(.+)$/.exec(cabeza);
+  if (!m) return null;
+  const [primera, segunda] = [m[1] ?? "", m[2] ?? ""];
+  if (!SUSTANTIVO_DE_DOCUMENTO.test(segunda)) return null;
+  const [a, b] = [clavePorTexto(primera), clavePorTexto(segunda)];
+  if (a.startsWith("TXT:") || b.startsWith("TXT:") || a === b) return null;
+  return b;
+}
+
 export function claveDoc(nombre: string): string {
   /*
    * La numeración del 46A no es parte del nombre del documento.
@@ -1599,6 +1643,27 @@ function clavePorTexto(s: string): string {
    * transporte, y lo agarra la prueba de `bills of lading` que está más arriba.
    */
   if (/forwarder.{0,3}certificate of receipt|\bfcr\b/.test(s)) return "FCR";
+  /*
+   * La declaración del embarcador, que no es un documento de transporte aunque hable de uno.
+   *
+   * Lo encontró el laudo **DOCDEX 211**, cuyo 46A pide tres: «STATEMENT OF SHIPPER STATING THAT ALL
+   * MERCHANDISE ARE SHIPPED IN ACCORDANCE WITH AGREEMENT», otra sobre el marcado, y una tercera sobre la
+   * certificación **intermodal** de los embarques de más de 29.000 libras. Esa última salía **`BL`**: la
+   * cabeza —«statement of shipper»— no tenía clave, así que `claveDoc` volvía a clasificar sobre la línea
+   * entera y la palabra «intermodal» se la llevaba al capítulo del transporte. Es la misma trampa que ya
+   * se pagó con el seguro que decía «FOR 110 PCT OF INVOICE VALUE», el air waybill y la letra: **un
+   * documento cuyo texto menciona otro tipo y se lo deja robar.**
+   *
+   * **La clave no lleva el texto adentro, y eso es deliberado.** Con el texto, las tres líneas serían
+   * tres exigencias distintas y el papel combinado —que es lo que el laudo declara **conforme**— dejaría
+   * dos en FALTA. Sin el texto colapsan, y entonces la regla del 46A hace lo que corresponde: la primera
+   * la cumple el papel y las otras salen a **verificar**, diciendo que o el crédito pide dos o esa línea
+   * es una condición sobre el que ya pidió. Eso es exactamente la respuesta del panel —*«the number of
+   * required documents (disregarding any copies) cannot be ascertained»*— y es la razón por la que este
+   * laudo vale como autoridad de esa regla.
+   */
+  if (/\bstatement of (?:shipper|the shipper|beneficiary|exporter)\b|\bshipper.{0,3}s statement\b/.test(s))
+    return "DECLARACION";
   /*
    * El mill's test certificate, que es donde vive la calidad medida de un metal.
    *

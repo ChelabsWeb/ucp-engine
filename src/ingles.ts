@@ -1377,6 +1377,16 @@ const REEMPLAZOS: [RegExp, string][] = [
     /, y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización \(Korea Exchange Bank v SCB\)/g,
     ", and field 47A lets the amount of the credit fluctuate on its own with the price: that ceiling is not the ceiling and it is to be checked against the quotation (Korea Exchange Bank v SCB)",
   ],
+  /* DOCDEX 211: la línea repetida sin papel que quede */
+  [
+    /^la línea (46A\+\d+) ya exige este documento y no quedó otro papel de ese tipo: el motor no puede saber si el crédito pide dos documentos o si alcanza uno que contenga los dos, así que hay que contarlos a mano \(laudo DOCDEX 211\)$/g,
+    "line $1 already requires this document and no further paper of that type was presented: the engine cannot tell whether the credit calls for two documents or whether one containing both suffices, so they are to be counted by hand (DOCDEX Decision 211)",
+  ],
+  /* DOCDEX 211: una línea del 46A que nombra dos documentos */
+  [
+    /^esta línea del 46A nombra dos documentos y el examen aparea el primero: el segundo \((.+)\) no se está verificando por separado, hay que contarlo a mano \(laudo DOCDEX 211\)$/g,
+    "this line of field 46A names two documents and the examination matches the first: the second one ($1) is not being checked separately and is to be counted by hand (DOCDEX Decision 211)",
+  ],
   /* TA 893rev: dos líneas del 46A que aparean al mismo papel */
   [
     /^la línea (46A\+\d+) ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano \(Opinión TA 893rev\)$/g,

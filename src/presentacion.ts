@@ -1,4 +1,11 @@
-import { type CamposDoc, claveDoc, compararEntreDocumentos, parseNumero, type TipoDocExterno } from "./consistencia";
+import {
+  type CamposDoc,
+  claveDoc,
+  compararEntreDocumentos,
+  parseNumero,
+  segundoDocumentoDeLaLinea,
+  type TipoDocExterno,
+} from "./consistencia";
 import { diffDias, parseFecha } from "./fechas";
 import {
   comparaISBP,
@@ -267,7 +274,7 @@ export function precheckPresentacion(input: {
    * que ya pidió— y el motor no puede elegir, así que lo dice. Nunca rechaza: una línea de más en el
    * 46A no es una discrepancia del beneficiario.
    */
-  const claveYaExigida = new Map<string, string>();
+  const claveYaExigida = new Map<string, { id: string; conPapel: boolean }>();
   exigidos.forEach((texto, i) => {
     const k = claveDoc(texto);
     const ej = ejemplaresDe(texto);
@@ -282,15 +289,59 @@ export function precheckPresentacion(input: {
     const pres = analizado ? undefined : presentado(texto);
     const enChecklist = op.checklist.find((c) => claveDoc(c.label) === k);
     const resumen = texto.length > 90 ? `${texto.slice(0, 87)}…` : texto;
-    const laPrimeraConEstaClave = claveYaExigida.get(k);
-    if (!laPrimeraConEstaClave) claveYaExigida.set(k, id);
-    if (laPrimeraConEstaClave && (analizado || pres)) {
+    const laPrimera = claveYaExigida.get(k);
+    /*
+     * Y si la línea nombra **dos** documentos, el segundo se avisa en vez de desaparecer.
+     *
+     * `claveDoc` devuelve una clave por línea, así que «COMMERCIAL INVOICE AND PACKING LIST EACH IN
+     * TRIPLICATE» se la lleva la factura y **la exigencia del packing list no existe para el examen**:
+     * el crédito queda pidiendo un documento menos y eso no se ve en ninguna parte. Lo encontró el laudo
+     * DOCDEX 211, cuyo panel dice que esa línea estipula dos documentos y que el «each» prohíbe
+     * combinarlos.
+     *
+     * No se parte la línea en dos exigencias —eso cambiaría el apareo de todo el 46A y hay ochenta casos
+     * midiendo el actual— sino que se **dice**: el segundo documento que la línea nombra no se está
+     * apareando por separado. Nunca rechaza; es una verificación.
+     */
+    const segundo = segundoDocumentoDeLaLinea(texto);
+    if (segundo) {
+      const tipoSegundo = TIPO_DE_CLAVE[segundo];
+      reglas.push({
+        id: `${id}-segundo`,
+        fuente: id,
+        regla: resumen,
+        estado: "ATENCION",
+        evidencia: `esta línea del 46A nombra dos documentos y el examen aparea el primero: el segundo (${tipoSegundo ?? segundo}) no se está verificando por separado, hay que contarlo a mano (laudo DOCDEX 211)`,
+      });
+    }
+    if (!laPrimera) claveYaExigida.set(k, { id, conPapel: Boolean(analizado || pres) });
+    /*
+     * La línea repetida sale a verificar **siempre que la primera haya encontrado un papel**.
+     *
+     * Antes la condición era «y esta línea también aparea un papel», y eso dependía de un accidente: los
+     * cuatro tipos con extracción propia se buscan con `doc()`, que **no consume**, así que la segunda
+     * línea volvía a encontrar el mismo papel; los demás se buscan con `presentado()`, que sí consume, y
+     * entonces la segunda línea salía **FALTA**. O sea que el mismo hecho —un papel y dos líneas— daba
+     * dos respuestas distintas según el tipo de documento.
+     *
+     * Lo encontró el laudo **DOCDEX 211**: tres líneas del 46A piden declaraciones del embarcador, el
+     * beneficiario presentó **una** que contiene las tres, y el panel dice que eso cumple porque *«the
+     * number of required documents (disregarding any copies) cannot be ascertained»*. Con la condición
+     * vieja el examen sacaba dos FALTA, que afirma «nadie los presentó» y es falso.
+     *
+     * **El freno sigue en pie y es el que importa:** si la primera línea tampoco encontró papel, las dos
+     * salen FALTA. Un crédito que pide un documento que nadie presentó tiene que verse como lo que es.
+     */
+    if (laPrimera?.conPapel) {
       reglas.push({
         id,
         fuente: id,
         regla: resumen,
         estado: "ATENCION",
-        evidencia: `la línea ${laPrimeraConEstaClave} ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano (Opinión TA 893rev)`,
+        evidencia:
+          analizado || pres
+            ? `la línea ${laPrimera.id} ya exige este documento y el motor aparea esta línea con el mismo papel: o el crédito pide dos, o esta línea es una condición sobre el que ya exige y hay que leerla a mano (Opinión TA 893rev)`
+            : `la línea ${laPrimera.id} ya exige este documento y no quedó otro papel de ese tipo: el motor no puede saber si el crédito pide dos documentos o si alcanza uno que contenga los dos, así que hay que contarlos a mano (laudo DOCDEX 211)`,
       });
     } else if (analizado) {
       reglas.push({

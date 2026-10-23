@@ -939,20 +939,83 @@ describe("dos líneas del 46A que aparean al mismo papel (TA 893rev)", () => {
     expect(r.some((x) => x.estado === "DISCREPANCIA")).toBe(false);
   });
 
+  /**
+   * Y una línea que nombra **dos** documentos (laudo DOCDEX 211)
+   *
+   * `claveDoc` devuelve una clave por línea, así que «COMMERCIAL INVOICE AND PACKING LIST EACH IN
+   * TRIPLICATE» se la lleva la factura y **la exigencia del packing list no existe para el examen**: el
+   * crédito queda pidiendo un documento menos y eso no se ve en ninguna parte. El panel es explícito en
+   * que esa línea estipula dos documentos y que el «each» prohíbe combinarlos.
+   */
+  it("una línea que nombra dos documentos avisa por el segundo", () => {
+    const r = conExigencias(["COMMERCIAL INVOICE AND PACKING LIST EACH IN TRIPLICATE MADE OUT TO APPLICANT"]);
+    const nota = r.find((x) => x.id.endsWith("-segundo"));
+    expect(nota?.estado).toBe("ATENCION");
+    expect(nota?.evidencia).toContain("DOCDEX 211");
+    expect(nota?.evidencia).toMatch(/packing/i);
+  });
+
+  /*
+   * Y los dos frenos, que salieron de dos falsos positivos en el propio banco de pruebas: un documento
+   * con dos calificativos unidos por «and», y un documento con su conteo de ejemplares. Un aviso que
+   * grita sobre dos casos buenos enseña a ignorarlo.
+   */
+  it("pero un documento con dos calificativos no dispara el aviso", () => {
+    for (const e of [
+      "SURVEY REPORT OF QUANTITY AND QUALITY ISSUED BY AN INDEPENDENT SURVEYOR",
+      "BENEFICIARY'S SIGNED COMMERCIAL INVOICE IN 1 ORIGINAL AND 2 COPIES",
+    ])
+      expect(conExigencias([e]).some((x) => x.id.endsWith("-segundo"))).toBe(false);
+  });
+
   it("una sola línea sigue saliendo en OK, sin la nota", () => {
     const r = conExigencias(["PACKING LIST IN THREE ORIGINALS AND THREE COPIES"]);
     expect(r.map((x) => x.estado)).toEqual(["OK"]);
     expect(r[0]?.evidencia).toContain("Analizado");
   });
 
+  /**
+   * Y la línea repetida cuando **no queda otro papel de ese tipo** (laudo DOCDEX 211)
+   *
+   * Antes la nota pedía que esta línea también apareara un papel, y eso dependía de un accidente: los
+   * cuatro tipos con extracción propia se buscan con `doc()`, que no consume, así que la segunda línea
+   * volvía a encontrar el mismo papel; los demás se buscan con `presentado()`, que sí consume, y
+   * entonces la segunda línea salía **FALTA**. El mismo hecho daba dos respuestas según el tipo.
+   *
+   * El laudo lo resuelve: tres líneas piden declaraciones del embarcador, el beneficiario presentó una
+   * que contiene las tres, y eso cumple porque *«the number of required documents (disregarding any
+   * copies) cannot be ascertained»*. Dos FALTA habrían afirmado «nadie los presentó», que es falso.
+   */
+  it("la línea repetida sin papel que quede sale a verificar y nombra el laudo", () => {
+    const r = precheckPresentacion({
+      lc: {
+        ...lc,
+        documentosExigidos: [
+          "STATEMENT OF SHIPPER STATING THAT ALL MERCHANDISE ARE SHIPPED IN ACCORDANCE WITH AGREEMENT",
+          "STATEMENT OF SHIPPER STATING THAT ALL UNITS ARE MARKED ACCORDING TO THE AGREEMENT",
+        ],
+      },
+      docs: [],
+      otros: [
+        { exigencia: "STATEMENT OF SHIPPER STATING THAT ALL MERCHANDISE ARE SHIPPED IN ACCORDANCE WITH AGREEMENT" },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.filter((x) => /^46A\+/.test(x.id));
+    expect(r.map((x) => x.estado)).toEqual(["OK", "ATENCION"]);
+    expect(r[1]?.evidencia).toContain("DOCDEX 211");
+  });
+
   /*
-   * Y el freno: la línea repetida que **no** tiene papel sigue saliendo FALTA.
+   * Y el freno que sigue en pie, que es el que importa: si **la primera** línea tampoco encontró papel,
+   * las dos salen FALTA.
    *
    * Si la nota se emitiera también ahí, el examen diría «verificar a mano» sobre un documento que el
    * crédito pide y nadie presentó, que es la peor confusión posible — y es la que ya costó caro con
    * los siete certificados que se veían como siete FALTA.
    */
-  it("sin el papel, la línea repetida sigue faltando", () => {
+  it("sin ningún papel, la línea repetida sigue faltando", () => {
     const r = precheckPresentacion({
       lc: { ...lc, documentosExigidos: ["PACKING LIST IN THREE ORIGINALS AND THREE COPIES", LA_CONDICION] },
       docs: [],
