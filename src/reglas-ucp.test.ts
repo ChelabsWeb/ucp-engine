@@ -2151,6 +2151,27 @@ describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
     expect(con("WHEAT BRAN PELLETS IN BULK", "BULGARIAN WHEAT BRAN PELLETS IN BULK")?.estado).toBe("OK");
   });
 
+  /*
+   * Y la cantidad del 45A no es parte del nombre del producto (laudo DOCDEX 203)
+   *
+   * Un 45A escribe «20000 PCS OF MEN'S PANT», y el motor contaba la cantidad como dos palabras del
+   * nombre. Con eso, un papel que **no repite la cantidad** —que es lo normal— y que **agrega** un dato
+   * —el origen— daba las dos condiciones a la vez: falta una palabra «del nombre» y sobra una que el
+   * crédito no tiene, o sea que se leía como un reemplazo de producto. Es el borde de Bulgrains entrando
+   * por la puerta de la cantidad, y el laudo lo resuelve: *«the same description of the goods, "MEN'S
+   * PANT", is referenced in all of the above three documents […] Obviously, they are not [in
+   * contradiction]»*.
+   */
+  it("la cantidad del 45A no cuenta como palabra del nombre, y el origen agregado sigue siendo inocuo", () => {
+    expect(con("20000 PCS OF MEN'S PANT", "MEN'S PANT · ORIGIN: CHINA")?.estado).toBe("OK");
+    expect(con("57 MTS OF FISH MEAL", "FISH MEAL · ORIGIN: URUGUAY")?.estado).toBe("OK");
+  });
+
+  /* Y el freno: con la cantidad afuera, un reemplazo de producto sigue cayendo del lado de la duda. */
+  it("pero un reemplazo del producto sigue saliendo a verificar", () => {
+    expect(con("20000 PCS OF MEN'S PANT", "MEN'S SHIRT · ORIGIN: CHINA")?.estado).toBe("ATENCION");
+  });
+
   /* El crédito puede admitirla usada en las condiciones adicionales y no en el 45A. */
   it("y alcanza con que el crédito lo diga en el 47A", () => {
     const r = reglasUCP({
