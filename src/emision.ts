@@ -102,13 +102,41 @@ const DEL_ORDENANTE =
  */
 const DEDUCE_RECLAMO =
   /\b(?:deduct|withhold|set[\s-]?off|retain)\w*\b[^.;]{0,80}\b(?:claim|penalt|compensat|damage|liquidated|shortage)/i;
+/*
+ * Y al revés, porque el orden de la frase no cambia lo que la cláusula hace.
+ *
+ * Una cláusula penal se escribe «a penalty of 10 pct of the invoice value […] **will be deducted from the
+ * payment**»: el reclamo va primero y la deducción después. Lo encontró el laudo DOCDEX 385, que es **la
+ * tercera cara del consejo del 14 (h)** —después del calendario de embarques (204) y de la deducción por
+ * instrucción del ordenante (212)— y acá el defecto era peor que en las otras dos, porque dependía de una
+ * palabra: con «invoice value» adentro la cláusula mencionaba un documento y el motor se callaba; con
+ * «value of the goods» salía **SE_DESCARTA**, o sea «los bancos la tienen por no puesta». El panel decide
+ * lo contrario y cobra la penalidad.
+ *
+ * El razonamiento del panel es la regla general que faltaba, y conviene tenerla escrita:
+ *
+ * > The ICC Opinion R212 states that **a condition is not deemed to be non-documentary if the condition can
+ * > be clearly linked to a document stipulated in the credit.**
+ *
+ * > the penalty clause in the credit was linked to the failure of the Claimant to ship goods within the
+ * > latest date of shipment. As the latest shipment date was mentioned in the credit, **it was possible to
+ * > calculate the penalty amount from the shipped on board date and hence the condition was not
+ * > non-documentary as it had a linkage to the date of shipment**, which could be verified from the date of
+ * > shipment, which was a documentary requirement of the credit.
+ *
+ * > It was decided that **the penalty clause was not non-documentary** due to its linkage to shipment date
+ * > on the bill of lading. Furthermore, as the penalty condition applied, **the approval of the Claimant was
+ * > not required.**
+ */
+const RECLAMO_SE_DEDUCE =
+  /\b(?:claim|penalt|compensat|damage|liquidated|shortage)\w*\b[^.;]{0,120}\b(?:deduct|withh[eo]ld|set[\s-]?off|retain)/i;
 const DEDUCE_POR_EL_ORDENANTE =
   /\b(?:deduct|withhold|set[\s-]?off|retain)\w*\b[^.;]{0,80}\b(?:applicant|buyer|importer|opener)/i;
 
 /** ¿La cláusula deja deducir del cobro del beneficiario algo que no es un gasto bancario? */
 function deduceDelCobro(c: string): boolean {
   if (/\bdiscrepanc\w*\s+fee|\bfee\b|\bcharges?\b|\bcommission/i.test(c)) return false;
-  return DEDUCE_RECLAMO.test(c) || DEDUCE_POR_EL_ORDENANTE.test(c);
+  return DEDUCE_RECLAMO.test(c) || RECLAMO_SE_DEDUCE.test(c) || DEDUCE_POR_EL_ORDENANTE.test(c);
 }
 
 /** Frases que la práctica manda descartar porque no significan nada. */
