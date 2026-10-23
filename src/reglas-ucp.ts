@@ -650,6 +650,83 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
  * Importa más desde que lo no exigido se desestima (art. 14 g): si la proforma cuenta como la
  * factura del crédito, el crédito queda dado por cumplido con un documento que no lo cumple.
  */
+/* ─────────── costos adicionales al flete (ISBP 821 E27, art. 26 c) ─────────── */
+
+/**
+ * El crédito que **prohíbe** costos adicionales al flete, y qué los indica.
+ *
+ * El artículo 26 (c) dice que un documento de transporte **puede** llevar una referencia, por sello o de
+ * otro modo, a costos adicionales al flete. Así que la prohibición la pone el crédito, y entonces hay algo
+ * que mirar: el laudo DOCDEX 384 rinde el párrafo E27 de la ISBP 745 en dos mitades —y lo que sigue son las
+ * palabras del panel, no el texto de la ISBP, que no está comprada—:
+ *
+ * > The ISBP 745 paragraph E27 (a) states that **when a credit states that costs additional to freight are
+ * > not acceptable, a bill of lading is not to indicate that costs additional to the freight have been or
+ * > will be incurred.**
+ *
+ * > The ISBP 745 paragraph E27 (b) states that an indication of costs additional to freight may be made by
+ * > express reference to additional costs **or by the use of trade terms which refer to costs associated
+ * > with the loading or unloading of goods, such as, but not limited to, Free In (FI), Free Out (FO), Free
+ * > In and Out (FIO) and Free In and Out Stowed (FIOS).**
+ *
+ * **Y el límite es la mitad que el laudo decide**, porque es lo que el banco emisor rechazó: el panel
+ * declaró **unánimemente** que «LINER IN – LINER OUT» no es una de esas indicaciones —*«Neither the UCP 600
+ * nor the Incoterms® 2020 contain a definition of the terms "liner terms", "Liner In" or "Liner Out" […]
+ * the requirement that the bills of lading be marked "liner terms" has no defined interpretation under the
+ * UCP 600 and would be satisfied by any notation on the bills of lading that appeared to meet this
+ * requirement»*—. La lista de E27 (b) dice «such as, but not limited to», y aun así **esto no se extiende
+ * más allá de los cuatro términos que nombra**: el panel tenía esa misma lista delante y resolvió que LI/LO
+ * no entra.
+ *
+ * ## Y NUNCA RECHAZA, porque hay una Opinión más nueva que decide exactamente eso
+ *
+ * La primera versión de esta regla daba DISCREPANCIA sobre un «FREE OUT» y **el banco de pruebas la frenó
+ * en la primera corrida**, con un caso que ya estaba: la Opinión **TA 957rev** —aprobada en octubre de
+ * 2025, o sea posterior a este laudo— es un conocimiento con «Free out» **preimpreso** bajo un crédito que
+ * prohibía cargos adicionales al flete, y un banco que lo marcó invocando los párrafos E27 (a) y (b). La
+ * Banking Commission dijo que **no es discrepancia**: esas palabras son parte de las condiciones de
+ * transporte, y las condiciones de transporte **no se examinan**.
+ *
+ * Lo que separa los dos casos no es el término sino **dónde está**: una condición preimpresa del
+ * transportista no dice nada de este embarque, y una marca puesta para este embarque sí. El motor no puede
+ * distinguir una de otra —es el mismo límite que la cláusula de cubierta de CMA CGM y el «shipper's load
+ * and count» de TA 941rev, las dos veces que una condición general se leyó como una declaración— así que
+ * **dice las dos cosas y no decide**: ATENCION con las dos autoridades a la vista.
+ *
+ * Lo que sí queda afirmado es que el crédito prohibió los costos adicionales y que el papel trae una de las
+ * palabras de E27 (b), que es lo que un examinador tiene que mirar en el documento. Sin la prohibición en
+ * el crédito no se emite nada: el artículo 26 (c) la admite.
+ */
+const PROHIBE_COSTOS_EXTRA =
+  /\b(?:costs?|charges?|expenses?)\s+(?:additional|in\s+addition)\s+to\s+(?:the\s+)?freight\b[^.;]{0,60}\b(?:not\s+(?:acceptable|allowed|permitted)|prohibited|unacceptable)|\bno\s+(?:costs?|charges?)\s+(?:additional|in\s+addition)\s+to\s+(?:the\s+)?freight\b/i;
+
+/** Lo que el párrafo E27 (b) nombra como indicación de costos adicionales, y nada más. */
+const INDICA_COSTOS_EXTRA =
+  /\b(?:FIOS|FIO|FI|FO)\b|\bfree\s+in\s+and\s+out(?:\s+stowed)?\b|\bfree\s+(?:in|out)\b|\b(?:costs?|charges?|expenses?)\s+(?:additional|in\s+addition)\s+to\s+(?:the\s+)?freight\b/i;
+
+function reglasCostosAdicionales(lc: LcInfo, bl: DocAnalizado | undefined): ReglaPresentacion[] {
+  if (!bl) return [];
+  const texto = [...(lc.documentosExigidos ?? []), ...(lc.condicionesAdicionales ?? [])].join(" ");
+  if (!PROHIBE_COSTOS_EXTRA.test(texto)) return [];
+  const fl = val(bl, "flete");
+  if (!fl)
+    return [
+      sinLeer("isbp-e27", "ISBP 821 E27", "El documento de transporte no indica costos adicionales al flete", "la marca de flete"),
+    ];
+  const indica = INDICA_COSTOS_EXTRA.test(fl);
+  return [
+    regla(
+      "isbp-e27",
+      indica ? "ISBP 821 E27 · Opinión TA 957rev" : "ISBP 821 E27",
+      "El documento de transporte no indica costos adicionales al flete, que el crédito no admite",
+      indica ? "ATENCION" : "OK",
+      indica
+        ? `dice "${fl}", que es una de las palabras que el párrafo E27 (b) cuenta como indicación de costos adicionales al flete — pero si viene preimpresa es una condición de transporte y no se examina, que es lo que resolvió la Opinión TA 957rev: verificar en el papel si la marca es de este embarque`
+        : `dice "${fl}", que no es ninguna de las indicaciones del párrafo E27 (b)`,
+    ),
+  ];
+}
+
 function reglasQueDocumentoEs(docs: DocAnalizado[]): ReglaPresentacion[] {
   const fac = docs.find((d) => d.tipo === "FACTURA");
   if (!fac) return [];
@@ -2490,6 +2567,7 @@ export function reglasUCP(input: {
   if (input.seguro) out.push(...reglasSeguro(input.lc, ctx, input.seguro, fac, doc("BL")));
 
   out.push(...reglasAplicacion(input.lc, ctx));
+  out.push(...reglasCostosAdicionales(input.lc, doc("BL")));
   out.push(...reglasQueDocumentoEs(input.docs));
   out.push(...reglasQuienEmite(input.lc, ctx, input.docs));
   out.push(...reglasGenerales(input.lc, ctx, input.docs, input.hoy));
