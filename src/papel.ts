@@ -189,6 +189,45 @@ export function reglasDelPapel(p: PapelDelBanco, input: { conforme: boolean }): 
   }
 
   /*
+   * Y lo que **examinar no hace**, que es lo que un banco designado necesita tener escrito.
+   *
+   * El artículo 12 (c) es el que falta en la lista de arriba y el que un beneficiario invoca al revés: que
+   * el banco haya recibido los documentos, los haya examinado y los haya remitido **no** lo obliga a nada
+   * ni cuenta como honrar o negociar. Y el laudo **DOCDEX 363** agrega la pieza que a este producto le toca
+   * de cerca: un **pre-check** —revisar los papeles antes de la presentación formal— es un servicio
+   * **fuera** de las UCP.
+   *
+   * Ese laudo es el expediente: el beneficiario le mandó los documentos al banco avisador para un
+   * pre-check, el avisador le marcó una discrepancia, el beneficiario corrigió, el avisador marcó otras dos
+   * —que el emisor después no levantó— y al final el emisor rechazó por dos motivos distintos. El panel:
+   *
+   * > The UCP 600 sub-article 12 (c) states that **receipt or examination and forwarding of documents by a
+   * > nominated bank that is not a confirming bank does not make that nominated bank liable to honour or
+   * > negotiate, nor does it constitute honour or negotiation.**
+   *
+   * > In respect of a pre-check of documents, **this is a service provided outside the scope of the UCP
+   * > 600.**
+   *
+   * > **Decision:** Respondent 1 did not add its confirmation to the credit and, therefore, **had no duty
+   * > to honour or negotiate.** Furthermore, **any agreement between the Claimant and Respondent 1 to
+   * > pre-check documents prior to formal presentation falls outside the scope of the UCP 600.**
+   *
+   * Sale solo para quien no está obligado —designado sin confirmar y avisador—: al emisor y al confirmador
+   * no les sirve de nada, porque ellos sí tienen que honrar.
+   */
+  if (p.papel === "DESIGNADO" || p.papel === "AVISADOR") {
+    out.push(
+      regla(
+        "papel-12c",
+        "UCP 600 12c · Laudo DOCDEX 363",
+        "Examinar y remitir los documentos no obliga a este banco ni cuenta como honrar",
+        "ATENCION",
+        "recibir, examinar y remitir no lo hace responsable de honrar ni negociar, y tampoco es honrar ni negociar; y revisar los papeles antes de la presentación formal —un pre-check— es un servicio fuera de las UCP, así que no crea obligación ni para el banco ni para el beneficiario",
+      ),
+    );
+  }
+
+  /*
    * La designación abierta: el banco puede estar designado y el motor no lo puede resolver.
    *
    * Cambia la conclusión de arriba —de «solo aviso» a «puedo honrar y me reembolsan»— así que no
