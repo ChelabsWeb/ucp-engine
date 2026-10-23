@@ -309,10 +309,44 @@ const INCOTERMS = ["EXW", "FCA", "FAS", "FOB", "CFR", "CIF", "CPT", "CIP", "DAP"
  * transporte —el beneficiario argumentaba que FOB no sirve para un embarque aéreo— porque eso sería
  * investigar más allá de la cara del documento. Así que esto compara el término y nada más.
  */
+/**
+ * Y los mismos once términos escritos en palabras, que es como los escribe la mitad de los créditos.
+ *
+ * Sin esto `terminoDeEntrega` devolvía null para **«EX-WORKS»**, «FREE ON BOARD» o «COST AND FREIGHT»,
+ * así que `ucp-18c-incoterm` y `isbp-c8` no corrían: el crédito nombraba su término de entrega y el
+ * motor no lo veía. Lo encontró el laudo **DOCDEX 208**, cuyo 45A dice literalmente «EX-WORKS».
+ *
+ * El orden importa en dos pares, y por eso es una lista y no un objeto: **DPU antes que DAP**, porque
+ * «delivered at place unloaded» contiene «delivered at place»; y **CIP antes que CPT** por prudencia,
+ * aunque «carriage and insurance paid to» no contenga literalmente «carriage paid to».
+ *
+ * «C & F» va a CFR porque la Opinión TA 936rev lo dice: *«"CFR" did replace the term "C & F" in the
+ * Incoterms publications because the ampersand sign caused issues with SWIFT/Telex messages. Whilst they
+ * are, in essence, the same term, certain industries such as GAFTA still use C & F for grain
+ * shipments»*.
+ *
+ * **Y el patrón de EXW es angosto a propósito.** Pide «ex» seguido de «work» o «works», así que
+ * «EX-WARE HOUSE» —que es la factura que el panel de DOCDEX 208 declaró **discrepante**— no coincide.
+ * Si coincidiera, el motor daría por bueno justo el papel que el laudo rechaza.
+ */
+const EN_PALABRAS: ReadonlyArray<readonly [RegExp, string]> = [
+  [/\bEX[\s-]?WORKS?\b/, "EXW"],
+  [/\bFREE[\s-]?CARRIER\b/, "FCA"],
+  [/\bFREE[\s-]?ALONGSIDE[\s-]?SHIP\b/, "FAS"],
+  [/\bFREE[\s-]?ON[\s-]?BOARD\b/, "FOB"],
+  [/\bCOST[,\s-]+INSURANCE[,\s-]+AND[\s-]?FREIGHT\b|\bCOST[,\s-]+INSURANCE[\s-]?AND[\s-]?FREIGHT\b/, "CIF"],
+  [/\bCOST[\s-]?AND[\s-]?FREIGHT\b|\bC[\s-]*&[\s-]*F\b|\bC[\s-]+AND[\s-]+F\b/, "CFR"],
+  [/\bCARRIAGE[\s-]?AND[\s-]?INSURANCE[\s-]?PAID[\s-]?TO\b/, "CIP"],
+  [/\bCARRIAGE[\s-]?PAID[\s-]?TO\b/, "CPT"],
+  [/\bDELIVERED[\s-]?AT[\s-]?PLACE[\s-]?UNLOADED\b/, "DPU"],
+  [/\bDELIVERED[\s-]?AT[\s-]?PLACE\b/, "DAP"],
+  [/\bDELIVERED[\s-]?DUTY[\s-]?PAID\b/, "DDP"],
+];
+
 export function terminoDeEntrega(texto: string | null | undefined): string | null {
   if (!texto) return null;
   const t = texto.toUpperCase();
-  return INCOTERMS.find((x) => new RegExp(`\\b${x}\\b`).test(t)) ?? null;
+  return INCOTERMS.find((x) => new RegExp(`\\b${x}\\b`).test(t)) ?? EN_PALABRAS.find(([re]) => re.test(t))?.[1] ?? null;
 }
 
 export function cotejarIncotermISBP(
