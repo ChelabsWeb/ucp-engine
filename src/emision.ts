@@ -1,4 +1,5 @@
 import { claveDoc } from "./consistencia";
+import { comparaISBP } from "./isbp";
 import { parseFecha } from "./fechas";
 import { diasPresentacion, limitePresentacion } from "./lc";
 import type { LcSwift } from "./swift-lc";
@@ -287,6 +288,59 @@ export function revisarCredito(p: LcSwift): Observacion[] {
       ),
     );
   }
+  /*
+   * El giro librado **sobre el banco designado**, que ni las UCP ni la ISBP saben cómo resolver.
+   *
+   * El laudo **DOCDEX 366** es un crédito de cuatro pagos parciales confirmado por el banco con el que
+   * estaba disponible, y los giros librados sobre ese mismo banco. El panel rinde el párrafo B10 de la
+   * ISBP 745 —palabras del panel, no texto de la ISBP, que no está comprada— y agrega la línea que importa:
+   *
+   * > The ISBP 745 paragraph B10 states that **when a credit is available by negotiation with a nominated
+   * > bank or any bank, the draft is to be drawn on a bank other than the nominated bank.**
+   *
+   * > The analysis noted that **neither the UCP 600 nor international standard banking practice provided
+   * > any guidance for negotiation of drafts by the drawee bank itself.**
+   *
+   * Y el final es lo que lo vuelve un CONFLICTO y no un aviso: *«despite the credit being ambiguous for
+   * which the Respondent was responsible, the credit was available by negotiation with separate sight and
+   * usance drafts required, and not by mixed payment»* — o sea que la ambigüedad era del emisor **y el
+   * beneficiario igual perdió el cuarto pago**, porque no presentó el giro a plazo. Conviene leerlo al lado
+   * del laudo DOCDEX 362, que usa la misma consideración preliminar para el lado contrario: ahí el emisor
+   * tuvo que pagar contra la lista corta. **Que el riesgo de la ambigüedad sea del emisor no le ahorra al
+   * beneficiario un documento que el crédito pide.**
+   *
+   * El disparador es mecánico: el crédito está disponible **por negociación** con un banco nombrado y el
+   * librado del 42A/42D es **ese mismo banco**. Con «ANY BANK BY NEGOTIATION» y el giro sobre el emisor
+   * —que es el crédito corriente, el del expediente real incluido— no se marca nada.
+   */
+  const disponible = extra.disponibleCon ?? "";
+  if (/\bnegotiation\b|\bnegociaci[oó]n\b/i.test(disponible) && lc.librado && /[a-z]/i.test(lc.librado)) {
+    /*
+     * El 41 llega como una sola línea —«MERIDIAN BANK PLC BY NEGOTIATION»— así que el modo se recorta en
+     * vez de buscarse por renglón: el intérprete une las líneas del campo y preguntarle por renglones es
+     * preguntarle a la forma del mensaje y no al dato.
+     */
+    const nombreDisponible = disponible
+      .replace(/\bby\s+(?:negotiation|acceptance|mixed\s+payment|deferred\s+payment|payment|sight\s+payment)\b.*$/i, "")
+      .replace(/^[A-Z0-9]{8}([A-Z0-9]{3})?\s+/, "")
+      .trim();
+    const mismo =
+      nombreDisponible.length > 3 && !/\bany\s+bank\b/i.test(nombreDisponible)
+        ? comparaISBP(lc.librado, nombreDisponible) !== "DISTINTO"
+        : false;
+    if (mismo)
+      out.push(
+        obs(
+          "emision-giro-sobre-el-designado",
+          "CONFLICTO",
+          "Laudo DOCDEX 366 · ISBP 745 B10",
+          "El crédito está disponible por negociación con un banco y los giros van librados sobre ese mismo banco",
+          "campos 41 y 42",
+          "librar el giro sobre otro banco —el emisor, normalmente—: ni las UCP ni la práctica bancaria estándar dicen cómo se negocia un giro librado sobre el propio banco designado, y la ambigüedad la paga el beneficiario que la lea de otra manera",
+        ),
+      );
+  }
+
   if (/\bapplicant\b/i.test(extra.disponibleCon ?? "") || /\bapplicant\b/i.test(extra.reglas ?? "")) {
     out.push(
       obs(

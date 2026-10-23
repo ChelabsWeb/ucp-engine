@@ -484,6 +484,57 @@ describe("una cancelación necesita el sí del beneficiario (laudo DOCDEX 358)",
     expect(con("THE LATEST SHIPMENT DATE IS EXTENDED TO 31.05.2025.")).toBeUndefined();
   });
 });
+/**
+ * El giro librado sobre el banco designado (laudo DOCDEX 366, ISBP 745 B10)
+ *
+ * Un crédito de cuatro pagos parciales confirmado por el banco con el que estaba disponible, y los giros
+ * librados sobre ese mismo banco. El panel rinde el párrafo B10 —palabras del panel, no texto de la ISBP, que
+ * no está comprada—: *«when a credit is available by negotiation with a nominated bank or any bank, the
+ * draft is to be drawn on a bank other than the nominated bank»*, y agrega que *«neither the UCP 600 nor
+ * international standard banking practice provided any guidance for negotiation of drafts by the drawee bank
+ * itself»*.
+ *
+ * Y el final es lo que lo vuelve un CONFLICTO: la ambigüedad era del emisor **y el beneficiario igual perdió
+ * el cuarto pago**. Al lado del laudo 362, que usa la misma consideración preliminar para el lado contrario.
+ */
+describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
+  const con = (disponible: string, librado: string) => {
+    const swift = SWIFT_CSU2025099.replace(
+      /( {5}41D: Available With\.\.\.By\.\.\. - Name&Addr\n)[\s\S]*?(\n {5}42C:)/,
+      `$1${disponible}$2`,
+    ).replace(/( {5}42D: Drawee - Name & Address\n)[\s\S]*?(\n {5}43P:)/, `$1${librado}$2`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-giro-sobre-el-designado");
+  };
+
+  it("sale como CONFLICTO y nombra el laudo y el párrafo", () => {
+    const [r] = con("          MERIDIAN BANK PLC\n          BY NEGOTIATION", "          MERIDIAN BANK PLC");
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 366");
+    expect(r?.fuente).toContain("B10");
+  });
+
+  /* Los tres frenos, que son lo que lo hace usable en un crédito corriente. */
+  it("«any bank by negotiation» con el giro sobre el emisor no se marca", () => {
+    expect(con("          ANY BANK IN URUGUAY\n          BY NEGOTIATION", "          MERIDIAN BANK PLC")).toEqual([]);
+  });
+
+  it("y un designado distinto del librado tampoco", () => {
+    expect(con("          BANCO LITORAL (URUGUAY) S.A.\n          BY NEGOTIATION", "          MERIDIAN BANK PLC")).toEqual(
+      [],
+    );
+  });
+
+  it("y sin negociación tampoco: el párrafo habla de créditos disponibles por negociación", () => {
+    expect(con("          MERIDIAN BANK PLC\n          BY ACCEPTANCE", "          MERIDIAN BANK PLC")).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-giro-sobre-el-designado"),
+    ).toEqual([]);
+  });
+});
+
 
 
 
