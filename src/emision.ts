@@ -1,5 +1,6 @@
 import { claveDoc } from "./consistencia";
 import { comparaISBP } from "./isbp";
+import { modoDeHonrar } from "./mt750";
 import { parseFecha } from "./fechas";
 import { diasPresentacion, limitePresentacion } from "./lc";
 import type { LcSwift } from "./swift-lc";
@@ -264,14 +265,43 @@ export function revisarCredito(p: LcSwift): Observacion[] {
       ),
     );
   }
-  if (!extra.giros) {
+  /*
+   * **El artículo 6 (b) vive en el campo 41, no en el 42C**, y mirar el campo equivocado hacía que el motor
+   * declarara inoperable un crédito normal.
+   *
+   * El 42C es el plazo del **giro** —«Drafts at… SIGHT», «90 DAYS»— y solo existe cuando el crédito pide
+   * giro. Cómo está disponible el crédito lo dice el 41: «BY NEGOTIATION», «BY DEFERRED PAYMENT», «BY
+   * ACCEPTANCE», «BY PAYMENT». Así que un crédito disponible por pago diferido sin giro —que es corriente—
+   * salía con un **IMPIDE** diciendo que no dice si es a la vista, a plazo, por aceptación o por
+   * negociación. Lo dice: en el campo de al lado.
+   *
+   * Y es el peor lugar donde tener un falso positivo, porque ya está escrito en este archivo: «un banco que
+   * ve IMPIDE donde el artículo tiene una respuesta deja de confiar en las que sí impiden».
+   *
+   * **Lo encontró el corpus de los créditos del banco de pruebas**, que se armó justamente porque
+   * `revisarCredito` no llega al tablero: disparaba en más de sesenta de los noventa y ocho. El crédito real
+   * del expediente tiene las dos cosas —41D «ANY BANK IN URUGUAY BY NEGOTIATION» y 42C «SIGHT»— así que el
+   * test de «el crédito real no tiene nada que reescribir» no lo podía ver.
+   *
+   * La pregunta se le hace a `modoDeHonrar`, que ya existía para el campo 23 del MT752 y lee los dos campos:
+   * dos funciones para la misma pregunta es cómo se desincronizan dos respuestas.
+   */
+  /*
+   * Y el **pago mixto** dice cómo está disponible aunque `modoDeHonrar` no lo resuelva a una sola forma:
+   * se reparte entre un tramo a la vista y otro a plazo (laudo DOCDEX 366), así que esa función devuelve
+   * `null` a propósito —no le toca elegir— y acá eso no es un crédito que no diga nada.
+   */
+  const diceComoEstaDisponible =
+    Boolean(modoDeHonrar(extra.disponibleCon, extra.giros)) ||
+    /\bmixed\s+(?:payment|pymt)\b|\bpago\s+mixto\b/i.test(`${extra.disponibleCon ?? ""} ${extra.giros ?? ""}`);
+  if (!diceComoEstaDisponible) {
     out.push(
       obs(
         "emision-forma",
         "IMPIDE",
         "UCP 600 6b",
         "El crédito no dice si es a la vista, a plazo, por aceptación o por negociación",
-        "campo 42C",
+        "campos 41 y 42C",
         "indicarlo: sin eso el beneficiario no sabe cómo cobra",
       ),
     );

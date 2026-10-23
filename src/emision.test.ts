@@ -541,6 +541,52 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
     ).toEqual([]);
   });
 });
+/**
+ * El artículo 6 (b) vive en el campo 41, no en el 42C
+ *
+ * El 42C es el plazo del **giro** y solo existe cuando el crédito pide giro; cómo está disponible el crédito
+ * lo dice el 41. Mirando el campo equivocado, un crédito disponible por pago diferido sin giro —que es
+ * corriente— salía con un **IMPIDE** diciendo que no dice si es a la vista, a plazo, por aceptación o por
+ * negociación.
+ *
+ * **Lo encontró el corpus de los créditos del banco de pruebas** —`emision-de-los-creditos.test.ts`, que
+ * existe porque `revisarCredito` no llega al tablero—: disparaba en más de sesenta de los noventa y ocho. El
+ * crédito real del expediente tiene las dos cosas, así que el test de «el crédito real no tiene nada que
+ * reescribir» no lo podía ver.
+ */
+describe("el artículo 6 (b) se lee del campo 41", () => {
+  const con = (campo41: string, campo42: string | null) => {
+    let swift = SWIFT_CSU2025099.replace(
+      /( {5}41D: Available With\.\.\.By\.\.\. - Name&Addr\n)[\s\S]*?(\n {5}42C:)/,
+      `$1${campo41}$2`,
+    );
+    swift =
+      campo42 === null
+        ? swift.replace(/ {5}42C: Drafts at\.\.\.\n[\s\S]*?(\n {5}42D:)/, "$1")
+        : swift.replace(/( {5}42C: Drafts at\.\.\.\n)[\s\S]*?(\n {5}42D:)/, `$1          ${campo42}$2`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-forma");
+  };
+
+  it.each([
+    ["ANY BANK IN URUGUAY\n          BY NEGOTIATION", "por negociación"],
+    ["MERIDIAN BANK PLC\n          BY DEFERRED PAYMENT", "por pago diferido"],
+    ["MERIDIAN BANK PLC\n          BY ACCEPTANCE", "por aceptación"],
+    ["MERIDIAN BANK PLC\n          BY PAYMENT", "por pago"],
+  ])("un crédito %s sin 42C no es inoperable", (campo41) => {
+    expect(con(`          ${campo41}`, null)).toEqual([]);
+  });
+
+  it("y el que no lo dice en ninguno de los dos campos sigue saliendo como IMPIDE", () => {
+    const [r] = con("          MERIDIAN BANK PLC", null);
+    expect(r?.gravedad).toBe("IMPIDE");
+    expect(r?.donde, "y la observación nombra los dos campos").toContain("41");
+  });
+
+  it("y el 42C solo también alcanza: un crédito que pide giro a la vista lo dice ahí", () => {
+    expect(con("          MERIDIAN BANK PLC", "SIGHT")).toEqual([]);
+  });
+});
+
 
 
 

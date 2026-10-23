@@ -203,6 +203,23 @@ export function modoDeHonrar(
   if (/\bACCEPTANCE\b|\bACEPTACION\b/.test(t)) return "ACEPTACION";
   if (/\bDEF(ERRED)?\s*PAYMENT\b|\bPAGO\s+DIFERIDO\b/.test(t)) return "PAGO_DIFERIDO";
   if (/\bSIGHT\b|\bA\s+LA\s+VISTA\b/.test(t)) return "PAGO_A_LA_VISTA";
+  /*
+   * **«BY PAYMENT» y «BY MIXED PYMT» son códigos estándar del campo 41**, y faltaban.
+   *
+   * El 41 se escribe con una de cinco formas —BY PAYMENT, BY NEGOTIATION, BY ACCEPTANCE, BY DEF PAYMENT,
+   * BY MIXED PYMT— y acá solo entraban tres: un crédito disponible «BY PAYMENT» devolvía `null`. Eso tiene
+   * dos consecuencias y ninguna se veía: el **botón del MT752 no existe** cuando el modo no se puede
+   * determinar —escrito así a propósito, porque adivinar el campo 23 de un mensaje que va a otro banco
+   * sería peor— y, desde que `emision-forma` pregunta acá, un crédito de pago a la vista salía declarado
+   * **inoperable**.
+   *
+   * «BY PAYMENT» es pago a la vista. El pago mixto se reparte entre formas distintas —el laudo DOCDEX 366 es
+   * uno de esos, con un tramo a la vista y otro a plazo— así que **no se resuelve a una sola**: devolver una
+   * sería elegir por el banco cuál de los dos tramos está honrando. Queda en `null` a propósito, y lo que
+   * cambia es que `emision-forma` ya no lo llama inoperable, porque el crédito **sí dice** cómo está
+   * disponible.
+   */
+  if (/\bPAYMENT\b|\bPAGO\b/.test(t) && !/\bMIXED\b|\bMIXTO\b/.test(t)) return "PAGO_A_LA_VISTA";
   // «90 DAYS AFTER B/L DATE» sin decir cómo: es un plazo, así que se honra en diferido
   if (/\b\d{1,3}\s*(DAYS?|D[ÍI]AS?)\b/.test(t)) return "PAGO_DIFERIDO";
   return null;
