@@ -8,7 +8,13 @@ import {
   esCertificadoDeOrigen,
   exigePrevioAlEmbarque,
 } from "./isbp";
-import { type DocAnalizado, dondeSePideElNumeroLC, type EstadoRegla, type ReglaPresentacion } from "./presentacion";
+import {
+  type DocAnalizado,
+  dondeSePideElNumeroLC,
+  type EstadoRegla,
+  laExigenciaPideElNumeroLC,
+  type ReglaPresentacion,
+} from "./presentacion";
 import type { LcInfo } from "./types";
 
 /**
@@ -267,9 +273,28 @@ export function reglasCertificados(input: {
         evidencia: `dice "${numeroCitado}" y el crédito es "${numeroDelCredito}"`,
       });
     } else if (pedidoEn) {
+      /*
+       * Pero el alcance es el que el crédito escribió, y acá se ve mejor que en la regla hermana.
+       *
+       * `dondeSePideElNumeroLC` contesta si el crédito lo pide **en alguna parte**, y con eso esta regla
+       * le decía a todo certificado «el crédito lo pide en el campo 46A» aunque el 46A lo hubiera pedido
+       * en la línea del conocimiento. El veredicto no cambiaba —la omisión sale en ATENCION— pero la
+       * fuente y la evidencia sí, y la fuente es lo que viaja en el aviso del artículo 16.
+       *
+       * Lo corrige el laudo DOCDEX 207, sobre este documento exacto: *«The credit stipulated that the
+       * bill of lading and beneficiary's fax or telex must show the "L/C number", but the credit did not
+       * stipulate that all documents should evidence the L/C number. Therefore the issuing bank had no
+       * reason for refusing the documents on the grounds of a missing L/C number on the shipping company
+       * certificate»*. Y la regla general del alcance, del mismo laudo: *«If the issuing bank meant that
+       * every document should evidence the data, it should have stated "all" instead of "all relevant"»*.
+       *
+       * Un certificado llega con su propia `exigencia`, así que acá la pregunta se contesta sin tabla de
+       * tipos: o lo pide el 47A para todos, o lo pide la línea de este papel.
+       */
+      const seLoPideAEste = pedidoEn === "47A" || laExigenciaPideElNumeroLC(c.exigencia);
       out.push({
         id: `cert-lc-num-${sufijo}`,
-        fuente: pedidoEn,
+        fuente: seLoPideAEste ? pedidoEn : "Práctica bancaria",
         regla: `${nombre}: cita el número de la LC`,
         /*
          * Que no se haya LEÍDO no es que el documento no lo TENGA.
@@ -282,7 +307,9 @@ export function reglasCertificados(input: {
         estado: numeroCitado ? "OK" : "ATENCION",
         evidencia: numeroCitado
           ? `dice "${numeroCitado}"`
-          : `el crédito lo pide en el campo ${pedidoEn} y no se leyó en el documento: verificar a mano`,
+          : seLoPideAEste
+            ? `el crédito lo pide en el campo ${pedidoEn} y no se leyó en el documento: verificar a mano`
+            : "el crédito no le pide a este documento que cite el número: su falta no es discrepancia",
       });
     }
 

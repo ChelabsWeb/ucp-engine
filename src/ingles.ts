@@ -1744,6 +1744,10 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano$/g,
     "the credit requires it in field $1 and none was read on the document: check by hand",
   ],
+  [
+    /^el crédito no le pide a este documento que cite el número: su falta no es discrepancia$/g,
+    "the credit does not require this document to state the number: its absence is not a discrepancy",
+  ],
   [/ y el crédito es /g, " while the credit is "],
   [/\bfechado el día de la LC o después\b/g, "dated on or after the credit date"],
   [/^BL consignado\b/g, "B/L consigned"],

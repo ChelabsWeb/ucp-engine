@@ -3,7 +3,13 @@ import { generarChecklist } from "./checklist";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { ablandarPorISBP } from "./isbp";
-import { ejemplaresDe, feeDiscrepancia, pideSoloCopiaDelTransporte, precheckPresentacion } from "./presentacion";
+import {
+  dondeSePideElNumeroLC,
+  ejemplaresDe,
+  feeDiscrepancia,
+  pideSoloCopiaDelTransporte,
+  precheckPresentacion,
+} from "./presentacion";
 import { parseMT700 } from "./swift-lc";
 import type { OperationDetail } from "./types";
 
@@ -611,6 +617,90 @@ describe("el número del crédito citado en el documento, y quién lo pide", () 
     };
     const r = correr(enEl46A, "");
     expect(r?.fuente, "lo pide el 46A, no el 47A").toBe("46A");
+  });
+
+  /*
+   * Y el verbo era uno solo: «SHOWING THE LETTER OF CREDIT NUMBER» daba el número por no pedido.
+   *
+   * El crédito del laudo DOCDEX 207 pide que el conocimiento *«must show the "L/C number"»*, y con el
+   * patrón viejo eso no se reconocía: la fuente decía «Práctica bancaria» y la omisión dejaba de ser
+   * discrepancia sobre un crédito que sí la pedía. Es la misma forma que el término de entrega escrito en
+   * palabras (laudo 208) y la unidad «METRIC TONS» (laudo 206) — el motor reconocía una redacción y no la
+   * otra.
+   */
+  it("y el verbo no es uno solo: «showing», «evidencing» y «bearing» también lo piden", () => {
+    for (const linea of [
+      "FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING SHOWING THE LETTER OF CREDIT NUMBER",
+      "COMMERCIAL INVOICE EVIDENCING THE L/C NUMBER",
+      "PACKING LIST BEARING THE CREDIT NUMBER",
+      "CERTIFICATE OF ORIGIN QUOTING LETTER OF CREDIT NO",
+    ])
+      expect(dondeSePideElNumeroLC({ ...sinLaCondicion, documentosExigidos: [linea] } as never), linea).toBe("46A");
+  });
+
+  it("y una línea que no lo pide sigue sin pedirlo", () => {
+    for (const linea of [
+      "COMMERCIAL INVOICE INDICATING CONTRACT NUMBER AMS2026164",
+      "FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING MARKED FREIGHT PREPAID",
+      "BENEFICIARY'S CERTIFICATE STATING THAT ONE SET OF COPY DOCUMENTS WAS SENT TO THE APPLICANT",
+    ])
+      expect(dondeSePideElNumeroLC({ ...sinLaCondicion, documentosExigidos: [linea] } as never), linea).toBe(null);
+  });
+
+  /**
+   * Y si lo pide **en la línea de otro documento**, a éste no se lo pidió (laudo DOCDEX 207)
+   *
+   * `dondeSePideElNumeroLC` miraba el 46A **entero**, así que un crédito que pide el número en el
+   * conocimiento se lo atribuía también al packing list y a los certificados. La regla no rechaza por
+   * omisión —sale en ATENCION— pero la **fuente** sí cambiaba, y la fuente es lo que viaja en el aviso
+   * del artículo 16: atribuirle «46A» a un papel al que el 46A no se lo pidió es mandar al banco
+   * presentador al lugar equivocado. Es el mismo borde que la familia de los puertos, donde el hallazgo
+   * invocaba el artículo 20 sobre un fletamento.
+   *
+   * El laudo lo resuelve: *«the credit did not stipulate that all documents should evidence the L/C
+   * number. Therefore the issuing bank had no reason for refusing the documents on the grounds of a
+   * missing L/C number on the shipping company certificate»*. Y la regla general del alcance, del mismo
+   * laudo: *«If the issuing bank meant that every document should evidence the data, it should have
+   * stated "all" instead of "all relevant"»*.
+   */
+  it("y si el 46A lo pide en otro documento, la fuente no se lo atribuye a éste", () => {
+    const soloEnElBL = {
+      ...sinLaCondicion,
+      documentosExigidos: [
+        "COMMERCIAL INVOICE IN 3 ORIGINALS",
+        "FULL SET OF BILLS OF LADING INDICATING THE LETTER OF CREDIT NUMBER",
+      ],
+    };
+    const reglas = precheckPresentacion({
+      lc: soloEnElBL,
+      docs: [
+        { tipo: "FACTURA" as const, campos: { ...FACTURA, numeroLC: { valor: "", confianza: 0 } } },
+        { tipo: "BL" as const, campos: { ...BL, numeroLC: { valor: "", confianza: 0 } } },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas;
+    expect(reglas.find((r) => r.id === "lc-num-BL")?.fuente, "el 46A se lo pide al conocimiento").toBe("46A");
+    expect(
+      reglas.find((r) => r.id === "lc-num-FACTURA")?.fuente,
+      "a la factura no se lo pidió: la fuente no puede decir 46A",
+    ).toBe("Práctica bancaria");
+  });
+
+  it("y con la condición general del 47A, la fuente es 47A para todos", () => {
+    const reglas = precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["COMMERCIAL INVOICE", "BILL OF LADING"] },
+      docs: [
+        { tipo: "FACTURA" as const, campos: { ...FACTURA, numeroLC: { valor: "", confianza: 0 } } },
+        { tipo: "BL" as const, campos: { ...BL, numeroLC: { valor: "", confianza: 0 } } },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas;
+    for (const id of ["lc-num-BL", "lc-num-FACTURA"])
+      expect(reglas.find((r) => r.id === id)?.fuente, id).toBe("47A");
   });
 
   /*
