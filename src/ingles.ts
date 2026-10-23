@@ -1377,6 +1377,24 @@ const REEMPLAZOS: [RegExp, string][] = [
     /, y el 47A deja que el importe del crédito fluctúe solo con el precio: ese tope no es el techo y hay que verificarlo contra la cotización \(Korea Exchange Bank v SCB\)/g,
     ", and field 47A lets the amount of the credit fluctuate on its own with the price: that ceiling is not the ceiling and it is to be checked against the quotation (Korea Exchange Bank v SCB)",
   ],
+  /* DOCDEX 213: el nombre de la regla del vínculo */
+  [
+    /: sin fecha de emisión, qué lo ata a este embarque$/g,
+    ": with no date of issuance, what links it to this shipment",
+  ],
+  /* DOCDEX 213: el certificado sin fecha de emisión y lo que lo ata al embarque */
+  [
+    /^no trae fecha de emisión y nombra (.+), que lo ata al embarque: el laudo DOCDEX 213 lo admite — «it has to show either a date of issuance or otherwise to show the event to which it relates»$/g,
+    "it bears no date of issuance and states $1, which links it to the shipment: DOCDEX Decision 213 allows this — «it has to show either a date of issuance or otherwise to show the event to which it relates»",
+  ],
+  [
+    /^no trae fecha de emisión ni nada que lo ate a este embarque —ni el buque, ni el número del conocimiento, ni su fecha—: el laudo DOCDEX 213 pide una de las dos cosas\. Verificar a mano lo que el documento dice: (.+)$/g,
+    "it bears no date of issuance and nothing that links it to this shipment — neither the vessel, nor the bill of lading number, nor its date: DOCDEX Decision 213 requires one of the two. Check by hand what the document states: $1",
+  ],
+  [
+    /^no trae fecha de emisión ni nada que lo ate a este embarque —ni el buque, ni el número del conocimiento, ni su fecha—: el laudo DOCDEX 213 pide una de las dos cosas\. Verificar a mano$/g,
+    "it bears no date of issuance and nothing that links it to this shipment — neither the vessel, nor the bill of lading number, nor its date: DOCDEX Decision 213 requires one of the two. Check by hand",
+  ],
   /* DOCDEX 211: la línea repetida sin papel que quede */
   [
     /^la línea (46A\+\d+) ya exige este documento y no quedó otro papel de ese tipo: el motor no puede saber si el crédito pide dos documentos o si alcanza uno que contenga los dos, así que hay que contarlos a mano \(laudo DOCDEX 211\)$/g,
