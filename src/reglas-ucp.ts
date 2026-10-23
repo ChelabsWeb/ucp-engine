@@ -294,9 +294,31 @@ function propias(t: string): string[] {
  * **Y nunca rechaza:** `ucp-18c` solo tiene OK y ATENCION, porque si la descripción «se corresponde»
  * es un juicio que la ISBP deja al examinador. Lo que esto cambia es de qué lado cae la duda.
  */
+/**
+ * El nombre del producto dentro del 45A: lo que está antes de la primera coma o guion, **sin la cantidad**.
+ *
+ * Un 45A escribe «20000 PCS OF MEN'S PANT» o «57 MTS OF FISH MEAL»: la cantidad va adelante, y el motor la
+ * contaba como dos palabras del nombre. Con eso, un papel que no repite la cantidad —que es lo normal— y
+ * que **agrega** un dato —el origen, el embalaje, un número de contrato— daba las dos condiciones del
+ * reemplazo a la vez: falta una palabra «del nombre» y sobra una que el crédito no tiene. O sea que se
+ * leía como un reemplazo de producto, que es lo contrario de lo que pasó.
+ *
+ * Lo encontró el laudo DOCDEX 203, que es exactamente ese caso y lo resuelve: *«the same description of
+ * the goods, "MEN'S PANT", is referenced in all of the above three documents […] Obviously, they are not
+ * [in contradiction]»*. El motor tiene `cantidadDelCredito` para leer la cantidad y `ucp-30b-cantidad`
+ * para compararla: en la descripción no tiene nada que hacer.
+ *
+ * Es el borde que Bulgrains dejó medido —agregar no es contradecir— entrando por la puerta de la cantidad.
+ */
+function nombreDelProducto(enCredito: string): string {
+  return (enCredito.split(/[,;]|\s-\s/)[0] ?? "").replace(/^\s*\d[\d.,]*\s*[a-z]*\.?\s*(?:of\s+)?/i, "");
+}
+
 function reemplazaUnaPalabraDelProducto(enDocumento: string, enCredito: string): boolean {
-  const nombre = enCredito.split(/[,;]|\s-\s/)[0] ?? "";
-  const delNombre = propias(nombre);
+  /*
+   * La cantidad del 45A **no es parte del nombre del producto**: ver `nombreDelProducto`.
+   */
+  const delNombre = propias(nombreDelProducto(enCredito));
   if (delNombre.length === 0) return false;
   const enDoc = new Set(propias(enDocumento));
   const falta = delNombre.some((w) => !enDoc.has(w));
@@ -322,8 +344,25 @@ function coincideDescripcion(enDocumento: string, enCredito: string): boolean {
     .split(/[,;]/)
     .map((x) => x.trim())
     .filter((x) => x.length > 3);
+  /*
+   * Y que el documento traiga **el nombre del producto entero** alcanza, aunque no comparta dos palabras.
+   *
+   * `seParecen` pide dos palabras de más de tres letras en común, y «MEN'S PANT» deja **una**: `norm`
+   * separa el apóstrofo y «men» tiene tres letras. Así que la descripción que el laudo DOCDEX 203 declara
+   * idéntica en los tres documentos salía a verificar en dos de ellos — una alerta sobre una presentación
+   * conforme, que es lo que enseña a ignorar las alertas.
+   *
+   * Comparar contra el nombre del producto y no contra el 45A entero es lo correcto: el 45A lleva adelante
+   * la cantidad y detrás las especificaciones, y ningún documento que no sea la factura tiene que
+   * repetirlas (art. 14 e).
+   */
+  const traeElNombreDelProducto = (): boolean => {
+    const producto = norm(nombreDelProducto(enCredito));
+    return producto.length > 3 && norm(enDocumento).includes(producto);
+  };
   const unaSolaDescripcion = (): boolean =>
-    seParecen(enDocumento, enCredito) && !reemplazaUnaPalabraDelProducto(enDocumento, enCredito);
+    (seParecen(enDocumento, enCredito) || traeElNombreDelProducto()) &&
+    !reemplazaUnaPalabraDelProducto(enDocumento, enCredito);
   if (items.length <= 1) return unaSolaDescripcion();
 
   /*
