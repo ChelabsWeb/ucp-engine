@@ -156,3 +156,39 @@ describe("con qué modo se honra el crédito (campo 23 del 752)", () => {
     expect(modoDeHonrar("ANY BANK IN URUGUAY", "")).toBeNull();
   });
 });
+/**
+ * Los cinco códigos del campo 41, y los dos que faltaban
+ *
+ * El 41 se escribe con una de cinco formas —BY PAYMENT, BY NEGOTIATION, BY ACCEPTANCE, BY DEF PAYMENT,
+ * BY MIXED PYMT— y `modoDeHonrar` solo entendía tres. Un crédito disponible «BY PAYMENT» devolvía `null`, y
+ * eso tenía dos consecuencias invisibles: el botón del MT752 no existe cuando el modo no se puede determinar
+ * —escrito así a propósito— y, desde que `emision-forma` pregunta acá, un crédito de pago a la vista salía
+ * declarado **inoperable**. Lo encontró el corpus de los créditos del banco de pruebas.
+ */
+describe("los códigos del campo 41", () => {
+  it.each([
+    ["ANY BANK BY PAYMENT", "PAGO_A_LA_VISTA"],
+    ["ANY BANK BY NEGOTIATION", "NEGOCIACION"],
+    ["ANY BANK BY ACCEPTANCE", "ACEPTACION"],
+    ["ANY BANK BY DEF PAYMENT", "PAGO_DIFERIDO"],
+    ["ANY BANK BY DEFERRED PAYMENT", "PAGO_DIFERIDO"],
+  ])("«%s» es %s", (campo41, esperado) => {
+    expect(modoDeHonrar(campo41, null)).toBe(esperado);
+  });
+
+  /*
+   * Y el pago mixto **no se resuelve a una sola forma**, a propósito: se reparte entre un tramo a la vista
+   * y otro a plazo —el laudo DOCDEX 366 es uno de esos— así que devolver una sería elegir por el banco cuál
+   * de los dos tramos está honrando. El campo 23 del MT752 se queda sin botón, que es lo correcto.
+   */
+  it("y el pago mixto se queda en null, porque elegir sería adivinar", () => {
+    expect(modoDeHonrar("ANY BANK BY MIXED PYMT", null)).toBeNull();
+    expect(modoDeHonrar("ANY BANK BY MIXED PAYMENT", null)).toBeNull();
+  });
+
+  it("y un 41 que no dice el modo sigue en null", () => {
+    expect(modoDeHonrar("MERIDIAN BANK PLC", null)).toBeNull();
+    expect(modoDeHonrar(null, null)).toBeNull();
+  });
+});
+
