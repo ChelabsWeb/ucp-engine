@@ -276,15 +276,7 @@ export function examinarPresentacion(input: {
    * Sin el BIC del banco no se dice nada: suponer un papel sería decidir sobre la obligación de
    * pagar con un dato inventado.
    */
-  const papel = papelDelBanco({
-    bicPropio: input.bicPropio,
-    bicEmisor: input.credito?.bicEmisor,
-    bicAvisador: input.credito?.bicAvisador,
-    bicDisponibleCon: input.credito?.bicDisponibleCon,
-    bicReceptor: input.credito?.bicReceptor,
-    disponibleCon: input.credito?.disponibleCon,
-    confirmacion: input.credito?.confirmacion,
-  });
+  const papel = papelDeLaEntrada(input);
   const delPapel = papel ? reglasDelPapel(papel, { conforme: faltan === 0 && discrepancias === 0 }) : [];
   const reglas = [...sinElPapel, ...delPapel];
 
@@ -337,6 +329,25 @@ export function examinarPresentacion(input: {
  * Los dos exámenes se corren de verdad, porque no hay manera de saber si cumple con los dos sin
  * examinarlo contra los dos. Eso lo hace el motor y no la pantalla: la pantalla no decide nada.
  */
+/**
+ * El papel del banco que examina, sacado de la misma entrada del examen.
+ *
+ * Estaba escrito adentro de `examinarPresentacion` y hace falta en dos lugares desde que el laudo DOCDEX 365
+ * trajo la regla del 9 (e): el examen y la revisión de la enmienda. Una copia de siete líneas es como se
+ * desincronizan dos respuestas sobre el mismo hecho.
+ */
+function papelDeLaEntrada(input: Parameters<typeof examinarPresentacion>[0]): PapelDelBanco | null {
+  return papelDelBanco({
+    bicPropio: input.bicPropio,
+    bicEmisor: input.credito?.bicEmisor,
+    bicAvisador: input.credito?.bicAvisador,
+    bicDisponibleCon: input.credito?.bicDisponibleCon,
+    bicReceptor: input.credito?.bicReceptor,
+    disponibleCon: input.credito?.disponibleCon,
+    confirmacion: input.credito?.confirmacion,
+  });
+}
+
 export function examinarConEnmienda(
   input: Parameters<typeof examinarPresentacion>[0] & {
     enmienda: Enmienda;
@@ -381,6 +392,10 @@ export function examinarConEnmienda(
     rige,
     rigeDespues: aceptacion.aceptada ? "ENMENDADO" : rige,
     aceptacion,
-    observaciones: revisarEnmienda(enmienda, estado),
+    /*
+     * Y la revisión de la enmienda recibe el **papel** del banco, porque el artículo 9 (e) es distinto para
+     * un avisador que para el emisor: puede elegir no avisarla (laudo DOCDEX 365).
+     */
+    observaciones: revisarEnmienda(enmienda, estado, papelDeLaEntrada(base)?.papel ?? null),
   };
 }

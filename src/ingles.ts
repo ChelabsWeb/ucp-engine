@@ -1782,6 +1782,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "receipt, examination and forwarding do not make it liable to honour or negotiate, nor do they constitute honour or negotiation; and checking the documents before the formal presentation — a pre-check — is a service outside the UCP, so it creates no obligation for the bank or for the beneficiary",
   ],
   [
+    /^Este banco puede elegir no avisar esta enmienda, y si la elige tiene que decírselo al banco del que la recibió$/g,
+    "This bank may elect not to advise this amendment, and if it so elects it must tell the bank it received it from",
+  ],
+  [
+    /^avisar una enmienda es una opción y no un deber: lo que el artículo obliga, si se elige no avisarla, es informarlo sin demora al banco del que vino —y a nadie más, tampoco al beneficiario—\. El artículo no fija un plazo para avisarla, así que la demora no es por sí sola un incumplimiento; lo que sí es un incumplimiento es quedarse callado con el banco que la mandó\. Y al avisarla, lo que este banco afirma es la autenticidad aparente: que la enmienda parece venir de quien dice venir y que el proceso de autenticación se completó$/g,
+    "advising an amendment is an option, not a duty: what the article requires, if the bank elects not to advise it, is to inform the bank it came from without delay — and no one else, not even the beneficiary. The article sets no time limit for advising it, so delay alone is not a breach; what is a breach is staying silent with the bank that sent it. And in advising it, what this bank represents is apparent authenticity: that the amendment appears to originate from the sender and that any authentication process has been completed",
+  ],
+  [
     /^Lo que llegó pide cancelar el crédito, y un crédito no se cancela sin el acuerdo del beneficiario$/g,
     "What arrived asks to cancel the credit, and a credit cannot be cancelled without the beneficiary's agreement",
   ],
