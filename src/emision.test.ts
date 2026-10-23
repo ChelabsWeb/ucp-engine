@@ -261,4 +261,53 @@ describe("un calendario de embarques (laudo DOCDEX 204)", () => {
     ).toEqual([]);
   });
 });
+/**
+ * Un documento que **el ordenante presenta él mismo** (laudo DOCDEX 209)
+ *
+ * El motor ya avisaba sobre un documento que el ordenante **emite** —deja el cobro a voluntad del
+ * comprador— y faltaba el caso peor: uno que el ordenante **presenta directo al banco emisor**. Ahí el
+ * beneficiario no tiene manera de saber si la presentación está completa, y si no está no tiene nada que
+ * hacer.
+ *
+ * El laudo es ese expediente: el beneficiario embarcó, presentó todo lo que estaba bajo su control, el
+ * consignatario alcanzó a retirar un tercio de la mercadería y el panel decidió que *«the issuing bank is
+ * not liable to pay under its credit»*, porque *«UCP and international standard banking practice require
+ * the presentation of all documents as stipulated in the credit […] before the issuing bank's obligation
+ * under the credit comes into effect»*. El argumento del beneficiario —haber presentado *«all stipulated
+ * documents within the beneficiary's control»*— no alcanzó.
+ */
+describe("un documento que el ordenante presenta él mismo (laudo DOCDEX 209)", () => {
+  const con = (exigencia: string) => {
+    const swift = SWIFT_CSU2025099.replace(
+      /( {5}46A: Documents Required\n)/,
+      `$1          +99)${exigencia}\n`,
+    );
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id.startsWith("emision-presenta-ordenante"));
+  };
+
+  it("sale como CONFLICTO y nombra el laudo", () => {
+    const [r] = con(
+      "INSPECTION CERTIFICATE TO BE ISSUED BY THE APPLICANT AND PRESENTED BY THE APPLICANT DIRECTLY TO THE ISSUING BANK.",
+    );
+    expect(r?.gravedad, "el beneficiario no puede completar la presentación").toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 209");
+    expect(r?.sugerencia).toContain("no nace");
+  });
+
+  it("y «the applicant will present» también", () => {
+    expect(con("CERTIFICATE OF QUALITY WHICH THE APPLICANT WILL PRESENT TO US.")).toHaveLength(1);
+  });
+
+  /*
+   * Y el freno: un documento que el beneficiario presenta no entra, ni siquiera cuando el ordenante
+   * aparece nombrado en la línea por otra razón —que es la mitad del 46A de cualquier crédito—.
+   */
+  it("un documento que el beneficiario presenta no entra", () => {
+    expect(con("BENEFICIARY'S CERTIFICATE STATING THAT ONE SET OF COPY DOCUMENTS WAS SENT TO THE APPLICANT.")).toEqual(
+      [],
+    );
+    expect(con("CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE SHOWING THE APPLICANT AS CONSIGNEE.")).toEqual([]);
+  });
+});
+
 

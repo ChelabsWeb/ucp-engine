@@ -45,6 +45,25 @@ const obs = (
 /** Palabras que el artículo 3 deja sin efecto práctico si califican a un emisor. */
 const VAGOS = /\b(first class|well known|qualified|independent|official|competent|local)\b/i;
 
+/**
+ * Un documento que **el ordenante presenta él mismo**, que es peor que uno que él emite.
+ *
+ * Un certificado emitido por el ordenante y entregado al beneficiario deja el cobro a voluntad del
+ * comprador; uno que el ordenante **presenta directo al banco emisor** deja al beneficiario sin manera de
+ * saber si la presentación está completa, y sin nada que hacer si no está. El laudo DOCDEX 209 es ese
+ * expediente: el beneficiario embarcó, presentó todo lo que estaba bajo su control, el consignatario
+ * alcanzó a retirar un tercio de la mercadería —lo paró una orden judicial— y el panel decidió que *«the
+ * issuing bank is not liable to pay under its credit»*, porque *«UCP and international standard banking
+ * practice require the presentation of all documents as stipulated in the credit […] before the issuing
+ * bank's obligation under the credit comes into effect»*.
+ *
+ * El beneficiario había invocado el artículo 9 (a) (ii) de las UCP 500 diciendo que presentó *«all
+ * stipulated documents within the beneficiary's control»*. No alcanza: la obligación del emisor nace con
+ * **todos** los documentos del crédito presentados.
+ */
+const PRESENTA_EL_ORDENANTE =
+  /\bpresent\w*\s+(?:directly\s+)?by\s+(?:the\s+)?(applicant|buyer|importer|opener)\b|\b(applicant|buyer|importer|opener)\s+(?:will|shall|to|is to)\s+present\w*/i;
+
 /** Un documento que solo puede emitir el ordenante: pedirlo deja el cobro en sus manos. */
 const DEL_ORDENANTE =
   /\b(issued|signed|countersigned|approved|certified)\s+by\s+(the\s+)?(applicant|buyer|importer|opener)\b|applicant'?s?\s+(signature|certificate|approval|inspection)/i;
@@ -277,6 +296,18 @@ export function revisarCredito(p: LcSwift): Observacion[] {
           "Se exige un documento que emite o firma el propio ordenante",
           `46A+${i + 1}`,
           "deja el cobro del beneficiario a voluntad del comprador: conviene no pedirlo",
+        ),
+      );
+    }
+    if (PRESENTA_EL_ORDENANTE.test(d)) {
+      out.push(
+        obs(
+          `emision-presenta-ordenante-${i}`,
+          "CONFLICTO",
+          "Laudo DOCDEX 209 · UCP 600 2 y 7a",
+          "Un documento del 46A lo presenta el propio ordenante, así que el beneficiario no puede completar la presentación",
+          `46A+${i + 1}`,
+          "sacarlo del crédito o pedirlo como documento que el beneficiario presenta: mientras falte, la obligación del emisor no nace, y el beneficiario no tiene cómo saberlo ni cómo subsanarlo",
         ),
       );
     }
