@@ -50,9 +50,45 @@ export function creditoVigente(estado: EstadoEnmienda): "ORIGINAL" | "ENMENDADO"
 const CLAUSULA_TACITA =
   /(deemed|considered?|considerar[aá]|entender[aá])\s+(to\s+be\s+)?(accept|aceptad)|enter\s+into\s+force\s+unless|unless\s+(it\s+is\s+)?rejected|salvo\s+(que\s+)?(sea\s+)?rechaz|si\s+no\s+(es|fuera)\s+rechaz/i;
 
+/**
+ * Una cancelación, que no es una enmienda cualquiera: necesita el **sí** del beneficiario.
+ *
+ * El artículo 10 (a) dice que un crédito no se puede modificar ni cancelar sin el acuerdo del banco
+ * emisor, del confirmador si hay y **del beneficiario**. Lo que hace a esto peligroso es la forma en que
+ * llega: el emisor avisa que el beneficiario quiere cancelar y pide cerrar el expediente, y si alguien lo
+ * cierra la presentación que venga después se pierde — aunque cumpla.
+ *
+ * Es el laudo **DOCDEX 358**: el emisor le dijo al banco designado *«that the beneficiary wished to cancel
+ * the credit and that the file should be closed»*, el designado presentó documentos conformes antes del
+ * vencimiento y el emisor los devolvió por tener el crédito por cancelado. El panel:
+ *
+ * > reference is made to the UCP 600 sub-article 10 (a), wherein it is stated that **a credit cannot be
+ * > cancelled without the agreement of the beneficiary. A statement from the Respondent that the
+ * > beneficiary wished to cancel the credit does not mean that the beneficiary has accepted such
+ * > cancellation.**
+ *
+ * > In view of the fact that the beneficiary presented documents to the Claimant, **this clearly indicated
+ * > that the request for cancellation by the Respondent had been rejected by the beneficiary.**
+ *
+ * Y el final, que es lo que cuesta: el mensaje con que el emisor devolvió los papeles no era un aviso de
+ * rechazo válido del 16 (c), así que quedó **precluido** por el 16 (f) y tuvo que reembolsar.
+ */
+const PIDE_CANCELAR =
+  /\bcancel\w*\b|\bcancelaci[oó]n\b|\bclose\s+(?:the|your|our)?\s*(?:file|credit)\b|\bcerrar\s+(?:el\s+)?(?:expediente|cr[eé]dito)\b/i;
+
 export function revisarEnmienda(e: Enmienda, estado: EstadoEnmienda): ObservacionEnmienda[] {
   const out: ObservacionEnmienda[] = [];
   const donde = [e.narrativa ?? "", ...(e.condicionesAdicionales ?? [])].join(" \n ");
+
+  if (PIDE_CANCELAR.test(donde) && estado !== "ACEPTADA") {
+    out.push({
+      id: "ucp-10a",
+      que: "Lo que llegó pide cancelar el crédito, y un crédito no se cancela sin el acuerdo del beneficiario",
+      fuente: "UCP 600 10a · Laudo DOCDEX 358",
+      porQue:
+        "mientras el beneficiario no acepte, el crédito sigue vivo y una presentación conforme hay que honrarla: que el emisor diga que el beneficiario quiere cancelar no es que el beneficiario lo haya aceptado, y presentar documentos es rechazar la cancelación. Cerrar el expediente ahora deja sin examinar una presentación que puede llegar en plazo — y devolverla con un mensaje que no es un aviso del artículo 16 (c) precluye al emisor",
+    });
+  }
 
   if (CLAUSULA_TACITA.test(donde)) {
     out.push({

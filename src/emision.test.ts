@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { revisarCredito } from "./emision";
+import { revisarEnmienda } from "./enmienda-vigencia";
 import { parseMT700, SWIFT_CSU2025099 } from "./index";
 
 /**
@@ -392,6 +393,98 @@ describe("una cláusula que deja deducir del cobro (laudo DOCDEX 212)", () => {
     ).toBe("CONFLICTO");
   });
 });
+/**
+ * Una cláusula de pago que nombra menos documentos de los que el crédito exige (laudo DOCDEX 362)
+ *
+ * Un crédito de pago mixto en tres tramos donde el último, del 10 %, pedía *«an acceptance certificate and
+ * a performance bank guarantee»* y además decía que el banco pagaría **solo** contra factura y garantía. El
+ * beneficiario presentó la factura y la garantía, el emisor rechazó, hubo una medida judicial de por medio,
+ * y el panel: *«Usage of the word "only" and the missing requirement for an acceptance certificate gave
+ * rise to ambiguity as to the requirements for payment […] the risk of misinterpretation must be borne by
+ * the Respondent»*, y *«the Respondent bore responsibility for ambiguous instructions. Hence the Respondent
+ * should have honoured presentation of the invoice and bank guarantee alone»*.
+ */
+describe("el pago «solo contra» menos documentos de los que el crédito pide (laudo DOCDEX 362)", () => {
+  const con = (condicion: string, exigidos?: string[]) => {
+    const swift = SWIFT_CSU2025099.replace(/( {5}47A: Additional Conditions\n)/, `$1          +99)${condicion}\n`);
+    const p = parseMT700(swift)!;
+    const lc = exigidos ? { ...p.lc, documentosExigidos: exigidos } : p.lc;
+    return revisarCredito({ ...p, lc }).filter((o) => o.id.startsWith("emision-pago-contra-menos"));
+  };
+
+  const TRES = [
+    "1. SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS",
+    "2. PACKING LIST IN 3 ORIGINALS",
+    "3. CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE",
+  ];
+
+  it("sale como CONFLICTO y nombra el laudo", () => {
+    const [r] = con("PAYMENT WILL BE MADE ONLY AGAINST COMMERCIAL INVOICE AND CERTIFICATE OF ORIGIN.", TRES);
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 362");
+    expect(r?.sugerencia).toContain("lista más corta");
+  });
+
+  /* Y los tres frenos, que son lo que lo hace usable. */
+  it("si la cláusula nombra todo lo que el crédito pide, no se marca", () => {
+    expect(
+      con("PAYMENT WILL BE MADE ONLY AGAINST COMMERCIAL INVOICE, PACKING LIST AND CERTIFICATE OF ORIGIN.", TRES),
+    ).toEqual([]);
+  });
+
+  it("sin la palabra «only» tampoco: un pago mixto puede nombrar los documentos de cada tramo", () => {
+    expect(con("PAYMENT OF THE FINAL TRANCHE WILL BE MADE AGAINST COMMERCIAL INVOICE AND GUARANTEE.", TRES)).toEqual(
+      [],
+    );
+  });
+
+  it("y una cláusula que no nombra ningún documento concreto tampoco", () => {
+    expect(con("PAYMENT WILL BE MADE ONLY AGAINST PRESENTATION OF THE DOCUMENTS SPECIFIED ABOVE.", TRES)).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-pago-contra-menos"))).toEqual(
+      [],
+    );
+  });
+});
+
+/**
+ * Una cancelación necesita el sí del beneficiario (laudo DOCDEX 358)
+ *
+ * El emisor le dijo al banco designado *«that the beneficiary wished to cancel the credit and that the file
+ * should be closed»*, el designado presentó documentos conformes antes del vencimiento y el emisor los
+ * devolvió por tener el crédito por cancelado. El panel: *«a credit cannot be cancelled without the
+ * agreement of the beneficiary. A statement from the Respondent that the beneficiary wished to cancel the
+ * credit does not mean that the beneficiary has accepted such cancellation»*, y *«In view of the fact that
+ * the beneficiary presented documents to the Claimant, this clearly indicated that the request for
+ * cancellation by the Respondent had been rejected by the beneficiary»*.
+ */
+describe("una cancelación necesita el sí del beneficiario (laudo DOCDEX 358)", () => {
+  const con = (narrativa: string, estado: Parameters<typeof revisarEnmienda>[1] = "SIN_RESPUESTA") =>
+    revisarEnmienda({ numeroCredito: "LCMRDN25000471", narrativa } as never, estado).find((o) => o.id === "ucp-10a");
+
+  it("el pedido de cancelar sale con el artículo 10 (a) y el laudo", () => {
+    const r = con("THE BENEFICIARY WISHES TO CANCEL THIS CREDIT. PLEASE CLOSE YOUR FILE.");
+    expect(r?.fuente).toContain("10a");
+    expect(r?.fuente).toContain("DOCDEX 358");
+    expect(r?.porQue).toContain("precluye");
+  });
+
+  it("y «please close your file» solo también", () => {
+    expect(con("PLEASE CLOSE YOUR FILE AND RETURN THE CREDIT TO US.")).toBeDefined();
+  });
+
+  /* Con el beneficiario de acuerdo no hay nada que avisar: el artículo lo admite. */
+  it("aceptada por el beneficiario, no se avisa nada", () => {
+    expect(con("THE BENEFICIARY WISHES TO CANCEL THIS CREDIT.", "ACEPTADA")).toBeUndefined();
+  });
+
+  it("y una enmienda corriente no se confunde con una cancelación", () => {
+    expect(con("THE LATEST SHIPMENT DATE IS EXTENDED TO 31.05.2025.")).toBeUndefined();
+  });
+});
+
 
 
 
