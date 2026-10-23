@@ -361,6 +361,36 @@ describe("una cláusula que deja deducir del cobro (laudo DOCDEX 212)", () => {
       [],
     );
   });
+
+  /*
+   * Y la cláusula penal, que escribe el reclamo primero y la deducción después (laudo DOCDEX 385)
+   *
+   * Es **la tercera cara del consejo del 14 (h)** —después del calendario de embarques del 204 y de la
+   * deducción por instrucción del ordenante del 212— y acá el defecto era peor, porque dependía de una
+   * palabra: con «invoice value» adentro la cláusula mencionaba un documento y el motor se callaba; con
+   * «value of the goods» salía SE_DESCARTA, o sea «los bancos la tienen por no puesta». El panel decide lo
+   * contrario y cobra la penalidad: *«the penalty clause was not non-documentary due to its linkage to
+   * shipment date on the bill of lading»*, y *«as the penalty condition applied, the approval of the
+   * Claimant was not required»*.
+   */
+  const PENAL =
+    "IN CASE OF LATE SHIPMENT A PENALTY OF 10 PCT OF THE VALUE OF THE GOODS FOR A DELAY OF 1 OR MORE DAYS WILL BE DEDUCTED FROM THE PAYMENT.";
+
+  it("la cláusula penal sale como CONFLICTO y no se tiene por no puesta", () => {
+    const r = revisarCredito(conCondiciones(PENAL));
+    expect(r.find((o) => o.id.startsWith("emision-deduccion"))?.gravedad).toBe("CONFLICTO");
+    expect(
+      r.filter((o) => o.id.startsWith("emision-no-documentaria")),
+      "el panel la hace valer: aconsejar ignorarla es el consejo contrario",
+    ).toEqual([]);
+  });
+
+  it("y la misma cláusula con «invoice value» da lo mismo: no dependía de la palabra", () => {
+    const conFactura = PENAL.replace("THE VALUE OF THE GOODS", "THE INVOICE VALUE");
+    expect(
+      revisarCredito(conCondiciones(conFactura)).find((o) => o.id.startsWith("emision-deduccion"))?.gravedad,
+    ).toBe("CONFLICTO");
+  });
 });
 
 
