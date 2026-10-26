@@ -52,11 +52,26 @@ import type { DocumentRow, LcInfo, OperationDetail } from "./types";
  * cambia es el crédito que pide **únicamente** una copia o fotocopia, que es el caso de la Opinión.
  */
 export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null | undefined): boolean {
-  const linea = (documentosExigidos ?? []).find((d) =>
-    /bill of lading|b\/?ls?\b|air ?way ?bill|awb|sea ?way ?bill|consignment note|transport document|conocimiento/i.test(
-      d,
-    ),
-  );
+  /*
+   * Y la línea tiene que **ser** la del documento de transporte, no una que lo mencione.
+   *
+   * Buscar el nombre del transporte en cualquier parte de cualquier línea es la forma que este motor ya
+   * pagó siete veces —un documento cuyo texto nombra otro tipo se lo deja robar— y acá la consecuencia es
+   * la peor de todas: no cambia un FALTA, **silencia el plazo de presentación**, que es la discrepancia
+   * más corriente del negocio. Lo encontró el laudo DOCDEX 319, cuyo 46A pide «COPY OF AN UNPAID
+   * COMMERCIAL INVOICE **STATING B/L DATE**»: eso tiene «COPY», nombra «B/L» y no dice «original», así
+   * que el motor concluía que el crédito pedía una copia del documento de transporte —cuando ese crédito
+   * **no pide documento de transporte en absoluto**, que es justo lo que el panel resuelve— y la regla
+   * `plazo` salía en ATENCION en vez de medir nada.
+   *
+   * Y pega en redacción corriente, no solo en un standby: «COPY OF INVOICE SHOWING B/L NUMBER» o un
+   * certificado del beneficiario que diga que mandó **una copia** del conocimiento al ordenante tienen la
+   * misma forma. El del expediente real se salva por un pelo, porque dice «1/3 ORIGINAL BILL OF LADING».
+   *
+   * `claveDoc` ya contesta esto bien —clasifica por la **cabeza** de la línea, que es para lo que existe—
+   * así que la pregunta se hace con él en vez de con un patrón propio: un concepto, un comparador.
+   */
+  const linea = (documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
   if (!linea) return false;
   const pideCopia = /\b(copy|copies|photocopy|photocopies|non.?negotiable copy)\b/i.test(linea);
   const pideOriginal = /\b(original|originals|full set)\b/i.test(linea);
@@ -1087,6 +1102,29 @@ export function precheckPresentacion(input: {
   /* plazos: último embarque, presentación, vencimiento */
   const soloCopia = pideSoloCopiaDelTransporte(lc.documentosExigidos);
   /*
+   * Y el caso en que el artículo 14 (c) **no impone ningún plazo**, que es textual y no interpretativo.
+   *
+   * El inciso dice: «**A presentation including one or more original transport documents** under articles
+   * 19 a 25 must be made by or on behalf of the beneficiary not later than 21 calendar days after the date
+   * of shipment». Sin documento de transporte original en la presentación no hay plazo que correr: el único
+   * límite es el vencimiento, que mira `giro-vencimiento`.
+   *
+   * El motor sacaba **SIN_DATO** —«sin fecha real de BL: la cuenta no arranca»— y eso dice «no pude»
+   * cuando la verdad es «no aplica». Es la misma distinción que este repositorio persigue del otro lado:
+   * una regla ausente se lee como «no aplica» y hay que decir «no pude»; acá era al revés.
+   *
+   * Lo encontró el laudo DOCDEX 319, un standby sujeto a las UCP 600 que pide una copia de factura, una
+   * declaración del beneficiario y una carta de garantía, y ningún documento de transporte: *«Because no
+   * transport document is required for presentation, the transport articles of UCP 600 do not apply»*.
+   *
+   * **Las dos condiciones a la vez, y eso es a propósito**: que el crédito no lo pida y que no se haya
+   * presentado. Si el beneficiario presenta uno igual, el inciso habla de la presentación y no de lo que el
+   * crédito pidió, así que decidir ahí sería resolver si un documento desestimado por el 14 (g) «cuenta»
+   * para el 14 (c) — una pregunta que este laudo no contesta.
+   */
+  const sinTransporteExigidoNiPresentado =
+    !bl && !(lc.documentosExigidos ?? []).some((d) => claveDoc(d) === "BL");
+  /*
    * Y se le pasa la fecha de **emisión** del documento de transporte, porque el crédito puede contar
    * desde ella: *Fortis Bank v Indian Overseas Bank*, campo 48 «within 21 days from B/L Date». Ver
    * `baseDelPlazo`. Sin este dato el motor contaba siempre desde el a bordo y producía la tardía que
@@ -1094,7 +1132,16 @@ export function precheckPresentacion(input: {
    */
   const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque, bl ? val(bl, "fechaDocumento") : null);
   let diasParaPresentar: number | null = null;
-  if (soloCopia) {
+  if (sinTransporteExigidoNiPresentado) {
+    reglas.push({
+      id: "plazo",
+      fuente: "UCP 600 14c",
+      regla: "Plazo de presentación del artículo 14 (c)",
+      estado: "OK",
+      evidencia:
+        "el crédito no exige documento de transporte y la presentación no incluye ninguno, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento (laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»)",
+    });
+  } else if (soloCopia) {
     /*
      * El crédito pide solo una copia del documento de transporte: el plazo no se mide contra su fecha.
      *

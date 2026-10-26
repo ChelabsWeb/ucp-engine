@@ -4,6 +4,7 @@ import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { ablandarPorISBP } from "./isbp";
 import {
+  type DocAnalizado,
   dondeSePideElNumeroLC,
   ejemplaresDe,
   feeDiscrepancia,
@@ -699,8 +700,7 @@ describe("el número del crédito citado en el documento, y quién lo pide", () 
       empresaRazonSocial: "CEREALSUR S.A.",
       hoy: HOY,
     }).reglas;
-    for (const id of ["lc-num-BL", "lc-num-FACTURA"])
-      expect(reglas.find((r) => r.id === id)?.fuente, id).toBe("47A");
+    for (const id of ["lc-num-BL", "lc-num-FACTURA"]) expect(reglas.find((r) => r.id === id)?.fuente, id).toBe("47A");
   });
 
   /*
@@ -794,8 +794,78 @@ describe("la copia del documento de transporte y los plazos", () => {
     ["ORIGINAL HOUSE AIR WAYBILL CONSIGNED TO ISSUING BANK", false],
     /* Y una línea que no es de transporte no la activa. */
     ["COPY OF CERTIFICATE OF ORIGIN", false],
+    /*
+     * Y una línea que **menciona** el conocimiento sin ser la del conocimiento, tampoco.
+     *
+     * Buscar el nombre del transporte en cualquier parte de cualquier línea es la forma que este motor ya
+     * pagó siete veces, y acá la consecuencia es la peor: no cambia un FALTA, **silencia el plazo de
+     * presentación**. Lo encontró el laudo DOCDEX 319, cuyo 46A pide «COPY OF AN UNPAID COMMERCIAL INVOICE
+     * STATING B/L DATE» y no pide documento de transporte en absoluto.
+     */
+    ["COPY OF AN UNPAID COMMERCIAL INVOICE STATING B/L DATE", false],
+    ["COPY OF INVOICE SHOWING B/L NUMBER AND DATE", false],
   ])("«%s» → solo copia: %s", (linea, esperado) => {
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
+  });
+});
+
+/**
+ * Y el caso en que el artículo 14 (c) no impone ningún plazo, que es textual.
+ *
+ * El inciso habla de «**a presentation including one or more original transport documents**»: sin uno no
+ * hay plazo que correr, y el único límite es el vencimiento. El motor sacaba **SIN_DATO** —«sin fecha real
+ * de BL: la cuenta no arranca»—, que dice «no pude» cuando la verdad es «no aplica». Es la distinción que
+ * este repositorio persigue del otro lado, invertida.
+ *
+ * Lo encontró el laudo DOCDEX 319, un standby sujeto a las UCP 600: *«Because no transport document is
+ * required for presentation, the transport articles of UCP 600 do not apply»*.
+ */
+describe("el plazo del 14 (c) cuando la presentación no trae documento de transporte", () => {
+  const sinTransporte = (exigidos: string[], docs: DocAnalizado[]) =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: exigidos, plazoPresentacion: "" },
+      docs,
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "plazo");
+
+  it("sin documento de transporte exigido ni presentado, el inciso no impone plazo", () => {
+    const r = sinTransporte(
+      ["COPY OF AN UNPAID COMMERCIAL INVOICE STATING B/L DATE", "BENEFICIARY'S SIGNED STATEMENT"],
+      [{ tipo: "FACTURA", campos: FACTURA }],
+    );
+    expect(r?.estado, "no es «no pude»: es «no aplica»").toBe("OK");
+    expect(r?.fuente).toBe("UCP 600 14c");
+    expect(r?.evidencia).toContain("DOCDEX 319");
+  });
+
+  /*
+   * Y las dos condiciones hacen falta, cada una por su lado.
+   *
+   * Si el crédito lo pide, el plazo rige aunque el papel no esté —ahí lo que falta es el documento—. Y si
+   * el beneficiario presenta uno igual, el inciso habla de **la presentación**, así que decidir ahí sería
+   * resolver si un documento desestimado por el 14 (g) «cuenta» para el 14 (c), que este laudo no contesta.
+   */
+  /*
+   * Y la aserción va sobre la **evidencia** y no sobre la fuente, que es lo que corrigió el primer intento:
+   * «UCP 600 14c» es también la fuente del camino normal cuando el crédito no fija plazo en el campo 48, así
+   * que un test que mirara la fuente fallaría por un motivo que no tiene nada que ver con lo que mide.
+   */
+  it("si el crédito lo exige, la rama no corre aunque el papel no esté", () => {
+    const r = sinTransporte(["FULL SET OF ORIGINAL BILLS OF LADING"], [{ tipo: "FACTURA", campos: FACTURA }]);
+    expect(r?.evidencia ?? "").not.toContain("DOCDEX 319");
+  });
+
+  it("y si se presenta un documento de transporte, tampoco", () => {
+    const r = sinTransporte(
+      ["COPY OF AN UNPAID COMMERCIAL INVOICE STATING B/L DATE"],
+      [
+        { tipo: "FACTURA", campos: FACTURA },
+        { tipo: "BL", campos: BL },
+      ],
+    );
+    expect(r?.evidencia ?? "").not.toContain("DOCDEX 319");
   });
 });
 
@@ -1040,9 +1110,7 @@ describe("bl-consignee compara el consignatario que el crédito nombra (laudo DO
     const linea = "2. AIR WAYBILL CONSIGNED TO APPLICANT";
     expect(con(linea, "ORIENT FEED (PVT) LTD")?.estado, "cumple lo que el crédito pidió").toBe("OK");
     expect(con(linea, "OTRA EMPRESA SA")?.estado).toBe("DISCREPANCIA");
-    expect(con(linea, "ORIENT FEED (PVT) LTD", "—")?.estado, "sin ordenante legible no se dictamina").toBe(
-      "ATENCION",
-    );
+    expect(con(linea, "ORIENT FEED (PVT) LTD", "—")?.estado, "sin ordenante legible no se dictamina").toBe("ATENCION");
   });
 
   /* Y «to order» a secas no es un nombre: eso lo decide la rama del endoso en blanco. */
@@ -1246,4 +1314,3 @@ describe("el documento que el crédito admite reemplazar (laudo DOCDEX 372)", ()
     expect(r.find((y) => y.id === "46A+3")?.estado, "el certificado de origen no").toBe("FALTA");
   });
 });
-

@@ -65,6 +65,7 @@ export function diasPresentacion(plazo: string | null | undefined): number | nul
  * un conocimiento se emite el mismo día que el a bordo o después, nunca antes, así que contar desde la
  * emisión corre el límite para adelante. Cuando las dos fechas coinciden —la mayoría— no cambia nada.
  */
+/* Y lo que esta función NO decide: ver la asimetría escrita en `tenorDe` (Fortis contra R 568). */
 export function baseDelPlazo(plazo: string | null | undefined): "EMBARQUE" | "FECHA_DEL_BL" {
   if (!plazo) return "EMBARQUE";
   const t = plazo.toLowerCase().replace(/[^a-z0-9]+/g, " ");
@@ -375,7 +376,35 @@ export interface CobroEstimado {
   texto: string;
 }
 
-/** "90 DAYS AFTER B/L DATE" → { dias: 90, desde: 'BL' }; "AT SIGHT" → { dias: 0, desde: 'PRESENTACION' } */
+/**
+ * "90 DAYS AFTER B/L DATE" → { dias: 90, desde: 'BL' }; "AT SIGHT" → { dias: 0, desde: 'PRESENTACION' }
+ *
+ * ## Y «fecha del conocimiento» significa **otra cosa acá** que en `baseDelPlazo`, con autoridad por lado
+ *
+ * Es la asimetría más fácil de «unificar» por error de todo este archivo, así que va escrita en los dos
+ * lugares. La misma frase del crédito —«B/L date»— se resuelve a dos fechas distintas según qué se esté
+ * calculando, y cada lado tiene su autoridad:
+ *
+ * - **el plazo de presentación** del campo 48 cuenta desde la **emisión** del documento de transporte.
+ *   Lo decidió *Fortis Bank SA/NV v Indian Overseas Bank*, con USD 8,06 millones de condena: *«L/C 3
+ *   expressly referred to presentation within 21 days from the date of the bill of lading, not the date of
+ *   shipment»*, y el 20 (a) (ii) es *«a deeming provision for the date of shipment for the purpose of
+ *   sub-article 14 (c); it is not relevant to the construction of L/C3»*. Eso vive en `baseDelPlazo`.
+ *
+ * - **el vencimiento de un giro a plazo** cuenta desde la **anotación de a bordo**. Lo dice la Opinión
+ *   **R 568**, que el laudo DOCDEX 319 transcribe: *«For the purpose of fixing the maturity date of a draft
+ *   to be drawn under a credit which stipulates such draft to be drawn "X days after B/L date", **the date
+ *   of the on board notation, if any, should be considered the "B/L date" irrespective of whether the date
+ *   of the on board notation is later or earlier than the date of issuance of the bill of lading**»*.
+ *
+ * Por eso esta función manda «SHIPMENT DATE» y «B/L DATE» al mismo gatillo —para un vencimiento son lo
+ * mismo— y `baseDelPlazo` los separa. Las dos son correctas para su pregunta, y juntarlas rompería una.
+ *
+ * **Y el llamador es el que pone la fecha**: `cobroEstimado` recibe `fechaBL` y hay que pasarle el **a
+ * bordo**, no la emisión. El mismo laudo explica por qué las dos existen: *«There is nothing unusual in a
+ * dated on board notation pre-dating the issuance date of the bill of lading […] an intervening weekend or
+ * pressure of work might cause the bill of lading to be issued and dated some days later»*.
+ */
 export function tenorDe(
   giros: string | null | undefined,
   disponibleCon?: string | null,
