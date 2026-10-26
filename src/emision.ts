@@ -149,10 +149,41 @@ const SIN_SIGNIFICADO = [
     que: "«third party documents not acceptable» no tiene significado y se descarta",
   },
   {
-    re: /(freight\s+forwarder'?s?|house)\s+(b\/?l|bill of lading)\s+(is\s+)?not\s+acceptable/i,
-    que: "«freight forwarder's B/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta",
+    /*
+     * Y el patrón pedía «freight forwarder» o «house», así que **no reconocía la redacción más corta**.
+     *
+     * Medido contra seis formas reales: cuatro no matcheaban, incluidas las dos que tenemos de casos —el
+     * crédito del laudo DOCDEX 312, «BILL OF LADING ISSUED BY CARRIER OR AGENT **(FORWARDER BL NOT
+     * ACCEPTABLE)**», y el 47B-G de *Malayan Banking Berhad v Punjab National Bank*, «short form, blank
+     * back, stale, **freight forwarder, house of bill of lading is not acceptable**»—. Es la forma que ya
+     * apareció con el término de entrega escrito en palabras, con «METRIC TONS» y con el verbo del número
+     * del crédito: **el motor reconocía una redacción y no la otra.**
+     *
+     * Las dos alternativas van con huecos **cerrados** y no con un `{0,60}` abierto, por dos motivos: lo
+     * que costó `importeFluctuaPorElCredito` —dos huecos cuelgan el motor con un 47A largo— y que un hueco
+     * ancho puentearía otra exclusión. «FORWARDERS CERTIFICATE ACCEPTABLE, SHORT FORM BILL OF LADING NOT
+     * ACCEPTABLE» no es esta cláusula: ahí lo que se excluye es el conocimiento abreviado, y descartarlo
+     * como si no significara nada sería inventar.
+     */
+    re: /(?:freight\s+)?forwarder'?s?\s*(?:,\s*house\s+of)?\s*(?:b\/?ls?|bills?\s+of\s+lading)\s*(?:is|are)?\s*not\s+acceptable|house\s*(?:of)?\s*(?:b\/?ls?|bills?\s+of\s+lading)\s*(?:is|are)?\s*not\s+acceptable/i,
+    que: "«forwarder's B/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta: la Opinión TA 727rev decidió que «freight forwarder bills of lading» no tiene significado bajo las UCP 600 —ni para admitirlos ni para excluirlos—, la cláusula no excluye el artículo 14 (l) y «a document examiner is not expected to determine the status of the signing company» (laudo DOCDEX 312, unánime)",
   },
 ];
+
+/**
+ * La frase sin significado que una condición del 47A contiene, si contiene alguna.
+ *
+ * Lo necesita `verificaciones-manuales.ts`, y por el mismo motivo por el que ese módulo ya comparte
+ * `PARAMETROS_DEL_CREDITO`: **no decir dos cosas distintas sobre la misma cláusula en dos pantallas.**
+ * Antes de esto, un crédito con «forwarder's B/L not acceptable» salía de `revisarCredito` diciendo que la
+ * cláusula se descarta y del examen diciendo «es una condición documentaria que el motor no sabe
+ * verificar: leerla contra los papeles presentados». Y lo segundo es peor que una contradicción: le pide al
+ * examinador justo lo que el laudo DOCDEX 312 dice que no se le pide —*«a document examiner is not expected
+ * to determine the status of the signing company»*—.
+ */
+export function fraseSinSignificado(condicion: string): string | null {
+  return SIN_SIGNIFICADO.find((x) => x.re.test(condicion))?.que ?? null;
+}
 
 /** Condiciones que el banco pone para su propia comodidad y que no deberían estar. */
 const ADMINISTRATIVAS =
@@ -178,8 +209,22 @@ const ADMINISTRATIVAS =
  * laudo DOCDEX 204, cuyo 47A es un calendario de tres fechas y donde **dos de los seis rechazos** son
  * sobre él.
  */
+/*
+ * Y **los puertos escritos en el 47A** también configuran el crédito, que es la sexta cara de esta lista.
+ *
+ * El crédito del laudo DOCDEX 312 pone la ruta ahí y no en los campos 44E y 44F: *«Field 47A (Additional
+ * Conditions) stipulates: Port of Loading: Any Country T Port; Port of Discharge: Port M, Country M»*. El
+ * motor lo sacaba como condición **no documentaria tenida por no puesta** (14 h), y eso es el consejo
+ * contrario al que corresponde: el puerto de carga que el crédito fija es justamente lo que el inciso
+ * (a) (iii) de los artículos del transporte compara contra el documento. Aconsejarle a un banco que puede
+ * ignorarlo es ofrecerle que se quede sin la comparación de la ruta.
+ *
+ * **Y queda un hueco declarado, que no se arregla acá:** el examen tampoco los **lee** de ahí —`lc.puerto*`
+ * sale de los campos 44, no del 47A— así que en un crédito así la ruta no se compara con nada. Cablearlo es
+ * cambiar el intérprete de SWIFT, no una regla, y hay ciento cuatro casos midiendo el apareo actual.
+ */
 export const PARAMETROS_DEL_CREDITO =
-  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b/i;
+  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b/i;
 
 /**
  * ¿La condición menciona un documento que la acredite?
