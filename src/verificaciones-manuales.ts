@@ -1,5 +1,5 @@
 import type { TipoDocExterno } from "./consistencia";
-import { mencionaDocumento, PARAMETROS_DEL_CREDITO } from "./emision";
+import { fraseSinSignificado, mencionaDocumento, PARAMETROS_DEL_CREDITO } from "./emision";
 import { avisoAseguradora } from "./lc";
 import type { DocAnalizado } from "./presentacion";
 import type { LcInfo } from "./types";
@@ -161,11 +161,23 @@ export function verificacionesManuales(input: {
   });
   for (const [i, c] of sinVerificar.entries()) {
     const corto = c.length > 110 ? `${c.slice(0, 107)}…` : c;
+    /*
+     * Y una cláusula que **no significa nada** no se manda a leer contra los papeles.
+     *
+     * Sigue apareciendo en la lista, porque está escrita en el crédito y el examinador la va a ver igual;
+     * lo que cambia es qué dice el renglón. Mandarla a verificar es pedirle que determine algo que la
+     * práctica dice que no le toca determinar, y además contradecía lo que `revisarCredito` dice de la
+     * misma cláusula en la otra pantalla.
+     */
+    const vacia = fraseSinSignificado(c);
     lista.push({
       id: `47a-sin-verificar-${i}`,
       fuente: "47A",
-      que: `Que se cumpla la condición del crédito: «${corto}»`,
+      que: vacia
+        ? `Que se sepa que esta condición del crédito no agrega nada que examinar: «${corto}»`
+        : `Que se cumpla la condición del crédito: «${corto}»`,
       porQue:
+        vacia ??
         "es una condición documentaria que el motor no sabe verificar, así que no está examinada: leerla contra los papeles presentados",
       documentos: todos,
     });

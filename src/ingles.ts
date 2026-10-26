@@ -207,8 +207,8 @@ const REEMPLAZOS: [RegExp, string][] = [
     "'about' on the amount means ±10 %, not an approximation left to judgement",
   ],
   [
-    /^«freight forwarder's B\/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta$/g,
-    "'freight forwarder's B/L not acceptable' says nothing about how the document is to be issued and is disregarded",
+    /^«forwarder's B\/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta: la Opinión TA 727rev decidió que «freight forwarder bills of lading» no tiene significado bajo las UCP 600 —ni para admitirlos ni para excluirlos—, la cláusula no excluye el artículo 14 \(l\) y «a document examiner is not expected to determine the status of the signing company» \(laudo DOCDEX 312, unánime\)$/g,
+    "'forwarder's B/L not acceptable' says nothing about how the document is to be issued and is disregarded: ICC Opinion TA 727rev decided that \"freight forwarder bills of lading\" has no meaning under UCP 600 — neither to allow them nor to exclude them — the clause does not exclude sub-article 14 (l), and \"a document examiner is not expected to determine the status of the signing company\" (DOCDEX Decision 312, unanimous)",
   ],
   [
     /^«third party documents not acceptable» no tiene significado y se descarta$/g,
@@ -756,6 +756,19 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   // ── las condiciones del 47A que el examen no verifica ──
   [/^Que se cumpla la condición del crédito: «(.+)»$/g, "That the credit's condition is met: «$1»"],
+  /*
+   * Y la variante de la cláusula que no significa nada (laudo DOCDEX 312).
+   *
+   * Va a mano porque el control de literales **saltea las plantillas** —el literal lleva `${`— y acá no hay
+   * corpus que lo compense: `hallazgos-en-ingles.test.ts` recorre las **reglas** de los casos, no las
+   * verificaciones manuales. Es el mismo hueco que dejó quince avisos de `sinLeer` sin traducir, dos rondas
+   * seguidas, así que conviene la regla práctica: **un texto nuevo armado con plantilla necesita su entrada
+   * escrita a mano el mismo día.**
+   */
+  [
+    /^Que se sepa que esta condición del crédito no agrega nada que examinar: «(.+)»$/g,
+    "That it be known that this condition of the credit adds nothing to examine: «$1»",
+  ],
   [
     /^es una condición documentaria que el motor no sabe verificar, así que no está examinada: leerla contra los papeles presentados$/g,
     "it is a documentary condition the engine cannot check, so it has not been examined: read it against the documents presented",
