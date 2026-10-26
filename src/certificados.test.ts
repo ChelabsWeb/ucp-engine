@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
 import type { CamposDoc } from "./consistencia";
+import { ablandarPorISBP } from "./isbp";
 import { SWIFT_CSU2025099 } from "./fixtures";
 import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
@@ -850,6 +851,31 @@ describe("el número del crédito en un papel del 46A", () => {
     expect(r?.evidencia, "sin el número del crédito al lado no se puede verificar en el papel").toContain(
       "LCMRDN25000471",
     );
+  });
+
+  /*
+   * Y el ablandado de la ISBP **no llegaba hasta acá**, así que el mismo hecho tenía dos veredictos.
+   *
+   * `ablandarPorISBP` anclaba en `/^lc-num-/`, que no matchea `cert-lc-num-…`: un número que no es el del
+   * crédito salía en ATENCION sobre una factura y en DISCREPANCIA sobre un certificado. Es la contradicción
+   * que este repositorio ya pagó con el artículo 18 (a) (i) y el sello en otro idioma, y desde afuera se ve
+   * igual que un rechazo legítimo.
+   *
+   * Y el laudo DOCDEX 329 es lo que le da autoridad legible a ese ablandado, que hasta ahora colgaba de una
+   * paráfrasis de la ISBP 821 —no comprada—: *«the misquoting or absence of the L/C number and date were not
+   * grounds for discrepancy, **even if required by the credit**»*, por unanimidad y sobre cuatro Opiniones.
+   */
+  it("y el ablandado de la ISBP alcanza a los certificados, no solo a los cuatro de la matriz", () => {
+    const base = correr("779101LC26000047", PIDE_47A);
+    expect(base[0]?.estado, "el examen base lo marca, como la regla hermana").toBe("DISCREPANCIA");
+
+    const [r] = ablandarPorISBP(base);
+    expect(r?.estado, "y la práctica bancaria lo baja a verificar, igual que sobre una factura").toBe("ATENCION");
+    expect(r?.fuente, "con las dos autoridades, y una de ellas se puede leer").toContain("DOCDEX 329");
+    expect(r?.evidencia, "y dice que tampoco vale cuando el crédito pide citarlo").toMatch(
+      /tampoco cuando el crédito pide citarlo/,
+    );
+    expect(r?.evidencia, "sin perder los dos números, que es con lo que se discute").toContain("779101LC26000047");
   });
 
   it("el mismo número con otra puntuación es el mismo, y no genera ruido", () => {

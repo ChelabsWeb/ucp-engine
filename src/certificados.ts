@@ -308,7 +308,7 @@ export function reglasCertificados(input: {
         evidencia: numeroCitado
           ? `dice "${numeroCitado}"`
           : seLoPideAEste
-            ? `el crédito lo pide en el campo ${pedidoEn} y no se leyó en el documento: verificar a mano`
+            ? `el crédito lo pide en el campo ${pedidoEn} y no se leyó en el documento: verificar a mano. Si el papel de verdad no lo trae, su ausencia **no es motivo de rechazo aunque el crédito lo pida** (laudo DOCDEX 329, unánime), salvo que lo exija una regulación nacional o aduanera`
             : "el crédito no le pide a este documento que cite el número: su falta no es discrepancia",
       });
     }

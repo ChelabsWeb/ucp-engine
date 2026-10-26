@@ -653,7 +653,7 @@ export function precheckPresentacion(input: {
         regla: `${nombre}: cita el número de la LC`,
         estado: !n ? "ATENCION" : cita ? "OK" : "DISCREPANCIA",
         evidencia: !n
-          ? "no se leyó un número de LC en el documento: verificar a mano"
+          ? `no se leyó un número de LC en el documento: verificar a mano. Si el papel de verdad no lo trae, su ausencia **no es motivo de rechazo aunque el crédito lo pida** (laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA.774: el número está para rastrear documentos que se extravíen), salvo que lo exija una regulación nacional o aduanera${seLoPideAEste ? "" : "; y acá el crédito no lo pide"}`
           : cita
             ? `dice "${n}"`
             : `dice "${n}" y el crédito es "${lc.numero}": el documento pertenece a otro expediente o está mal tipeado`,

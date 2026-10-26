@@ -241,16 +241,48 @@ export function veredictoDeNombre(
  * regulatorias y el crédito lo indique. El examen base lo marcaba como discrepancia.
  *
  * No se borra el hallazgo: baja a «a verificar» y se le explica por qué.
+ *
+ * ## Y el ancla dejaba afuera la mitad de los papeles
+ *
+ * `/^lc-num-/` no matchea `cert-lc-num-…`, así que el ablandado cubría los **cuatro** documentos de la
+ * matriz y **ningún** certificado — y la regla de los certificados también rechaza por un número que no es
+ * el del crédito. O sea que el mismo hecho salía en ATENCION sobre una factura y en DISCREPANCIA sobre un
+ * certificado de origen, que es la contradicción que este repositorio ya pagó una vez con el artículo
+ * 18 (a) (i) y el sello en otro idioma. Es, además, el disfraz de siempre: desde afuera un certificado
+ * rechazado por su número se ve igual que un rechazo legítimo.
+ *
+ * ## Y ahora tiene una autoridad que se puede leer
+ *
+ * La consideración preliminar viii es de la **ISBP 821, que no está comprada**: lo que había acá era una
+ * paráfrasis de fuentes secundarias, y en este repositorio eso es lo más débil que puede sostener un
+ * veredicto. El laudo **DOCDEX 329** decide exactamente esto, por unanimidad y con el aviso de rechazo
+ * textual —«INVOICE NOT INDICATE LC NUMBER AND DATE»—:
+ *
+ * > Based on the statements in the referenced opinions, **the misquoting or absence of the L/C number and
+ * > date were not grounds for discrepancy, even if required by the credit. Provided that the Respondent can
+ * > relate the presentation of documents to the applicable credit, this was sufficient.**
+ *
+ * Y lo funda en cuatro Opiniones de la Banking Commission que dicen para qué está el número —R289: *«the
+ * requirement is only to assist in tracing documents should they go astray […] the absence of the reference
+ * number, which in itself neither adds nor detract from the purpose of the document, would seem an
+ * irrelevance, and not valid grounds for rejection»*; R578, R635 y TA.774 lo reiteran—. **Con la única
+ * excepción que ya estaba escrita acá:** *«The only exception would be if there was a need for the L/C
+ * number to appear on the documents as a requirement of national or customs regulations»*.
+ *
+ * Eso cierra la pregunta que el caso Voest-Alpine dejó abierta —si el error de tipeo deja de ser
+ * discrepancia **también cuando el crédito lo exige en el 47A**— y la cierra con un panel y un expediente
+ * en vez de con la espera de un libro: el crédito de este laudo lo pedía en el 47A con todas las letras
+ * («All required documents must indicate our L/C number and date») y el panel igual dijo que no.
  */
 export function ablandarPorISBP(reglas: ReglaPresentacion[]): ReglaPresentacion[] {
   return reglas.map((r) => {
     if (r.estado !== "DISCREPANCIA") return r;
-    if (!/^lc-num-/.test(r.id)) return r;
+    if (!/^(cert-)?lc-num-/.test(r.id)) return r;
     return {
       ...r,
       estado: "ATENCION",
-      fuente: "ISBP 821, consideración preliminar viii",
-      evidencia: `${r.evidencia} — por sí solo no justifica rechazo (edición 2023); sí hay que mirarlo si el país importador exige el dato`,
+      fuente: "ISBP 821, consideración preliminar viii · Laudo DOCDEX 329",
+      evidencia: `${r.evidencia} — por sí solo no justifica rechazo (edición 2023, y el laudo DOCDEX 329 por unanimidad: tampoco cuando el crédito pide citarlo); sí hay que mirarlo si el país importador exige el dato`,
     };
   });
 }
