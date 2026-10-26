@@ -537,6 +537,24 @@ const REEMPLAZOS: [RegExp, string][] = [
    * Estos son los hallazgos que más importa que estén en inglés: le dicen a un banco si tiene que
    * pagar, si puede pagar sin estar obligado, o si lo suyo es solo avisar.
    */
+  /*
+   * La frase **armada** del 7 (b), que ningún caso alcanzaba y por eso no tenía entrada.
+   *
+   * El prefijo lleva `$` y la cola lleva `^`, así que la concatenación de los dos no matchea ninguno de
+   * los dos: es, por tercera vez, que **un patrón anclado solo cubre al llamador que lo inspiró**. Lo
+   * destapó el ablandado del número del crédito del laudo DOCDEX 329: con el certificado de Voest-Alpine
+   * bajando de DISCREPANCIA a ATENCION, esa presentación quedó **sin ninguna discrepancia** —que es lo que
+   * el tribunal resolvió— y `papel.ts` pasó por primera vez a la rama del banco que **tiene que honrar**.
+   * Va antes que la entrada suelta, que si no se la come por el prefijo.
+   */
+  [
+    /^52A: el crédito lo emite este banco — y quedó irrevocablemente obligado desde que lo emitió \(7 b\)$/g,
+    "52A: this bank issued the credit — and it became irrevocably bound as of the time it issued it (7 b)",
+  ],
+  [
+    / — por sí solo no justifica rechazo \(edición 2023, y el laudo DOCDEX 329 por unanimidad: tampoco cuando el crédito pide citarlo\); sí hay que mirarlo si el país importador exige el dato$/g,
+    " — on its own it does not justify refusal (2023 edition, and DOCDEX Decision 329 unanimously: not even where the credit requires it to be quoted); it does need looking at if the importing country requires the data",
+  ],
   [/^52A: el crédito lo emite este banco$/g, "52A: this bank issued the credit"],
   [/^41A: el crédito está disponible con este banco$/g, "41A: the credit is available with this bank"],
   [/^57A: el crédito se avisa a través de este banco$/g, "57A: the credit is advised through this bank"],
@@ -1745,9 +1763,26 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/ · el crédito pide /g, " · the credit requires "],
   [/\bcita el número de la LC\b/g, "quotes the credit number"],
   [/\bel número de LC que cita es el del crédito\b/g, "the credit number it quotes is this credit's"],
+  /*
+   * La cola del aviso del número del crédito va **aparte del prefijo**, por lo que ya costó una vez.
+   *
+   * Un patrón anclado solo cubre al llamador que lo inspiró: la misma frase la dicen dos reglas —la de los
+   * documentos de la matriz y la de los certificados— con prefijos distintos, así que la parte del laudo
+   * DOCDEX 329 se traduce por su cuenta.
+   */
   [
-    /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano$/g,
+    /\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA\.774: el número está para rastrear documentos que se extravíen\), salvo que lo exija una regulación nacional o aduanera; y acá el crédito no lo pide/g,
+    ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous, on ICC Opinions R289, R578, R635 and TA.774: the number is there to trace documents should they go astray), unless a national or customs regulation requires it; and here the credit does not require it",
+  ],
+  [/\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA\.774: el número está para rastrear documentos que se extravíen\), salvo que lo exija una regulación nacional o aduanera/g, ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous, on ICC Opinions R289, R578, R635 and TA.774: the number is there to trace documents should they go astray), unless a national or customs regulation requires it"],
+  [/\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime\), salvo que lo exija una regulación nacional o aduanera/g, ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous), unless a national or customs regulation requires it"],
+  [
+    /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano/g,
     "the credit requires it in field $1 and none was read on the document: check by hand",
+  ],
+  [
+    /^no se leyó un número de LC en el documento: verificar a mano/g,
+    "no credit number was read on the document: check by hand",
   ],
   [
     / — eso es la zona que nombra el crédito y no un puerto: el documento tiene que indicar el puerto real de carga, que es lo que exige el inciso \(a\) \(iii\) y lo que el laudo DOCDEX 361 declara discrepancia válida \(ISBP 745 G5 \(g\)\)$/g,
