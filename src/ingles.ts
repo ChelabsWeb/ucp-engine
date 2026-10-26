@@ -1517,6 +1517,12 @@ const REEMPLAZOS: [RegExp, string][] = [
     / y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: /g,
     " and the credit does not say so anywhere: that indicates a different category of goods and ICC Opinion TA 756 holds it to be a discrepancy · invoice: ",
   ],
+  /* Laudo DOCDEX 351: la descripción que niega el nombre de la propia mercadería */
+  [/^la factura dice /g, "the invoice states "],
+  [
+    / sobre la mercadería que el crédito nombra, y el crédito no lo dice en ninguna parte: eso niega la naturaleza de la mercadería y el laudo DOCDEX 351 lo da por discrepancia, sin que importe si fue un error de tipeo · factura: /g,
+    " about the goods the credit names, and the credit does not say so anywhere: that negates the nature of the goods and DOCDEX Decision 351 holds it to be a discrepancy, regardless of whether it was a typing error · invoice: ",
+  ],
   /* Fortis Bank v IOB: el certificado del beneficiario que no repite el pro forma */
   [
     / y no repite (.+) del texto que el crédito le pide: cotejar el texto completo$/g,

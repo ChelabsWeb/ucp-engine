@@ -314,6 +314,46 @@ function nombreDelProducto(enCredito: string): string {
   return (enCredito.split(/[,;]|\s-\s/)[0] ?? "").replace(/^\s*\d[\d.,]*\s*[a-z]*\.?\s*(?:of\s+)?/i, "");
 }
 
+/**
+ * La descripción que **niega** el nombre de la propia mercadería (laudo DOCDEX 351).
+ *
+ * El 45A pedía «NSW BRINECURED F AND T OX HIDES» con los calificativos «NO TICKS, NO GRUBS, NO HUMPS», y
+ * la factura escribió **«NSW BRINECURED F AND T OX HIDES NO HIDES NO TICKS, NO GRUBS, NO HUMPS»**. El
+ * presentador sostuvo que era un error de edición y el panel le contestó que eso no cambia nada:
+ *
+ * > The words «NO HIDES» evidently **negate the nature of the goods** as described […] it appeared that «no
+ * > ox hides» were shipped or that the goods shipped were not the «ox hides» requested by the credit.
+ *
+ * > it did not actually matter whether the data in question was inserted intentionally or by an error,
+ * > being it a human error, typing error, typographical error, misspelling or the like.
+ *
+ * Es la **segunda señal mecánica** de un cambio de categoría, junto con los calificativos de la Opinión
+ * TA 756, y por eso vive al lado: la negación del nombre del producto no es un adjetivo más.
+ *
+ * ## Y el corte es angosto por un motivo concreto
+ *
+ * La negación tiene que aplicarse **al nombre del producto solo**, no a una frase más larga que empiece con
+ * una de sus palabras. Si no, un «NO FISH OIL ADDED» en un crédito de «FISH MEAL» saldría discrepante
+ * —«NO» + «FISH»— cuando lo que niega es el aceite y no el pescado. Así que detrás de la palabra negada
+ * tiene que venir un **borde**: el final, un signo de puntuación, u otra negación — que es exactamente la
+ * forma del laudo, «NO HIDES NO TICKS».
+ *
+ * Y los calificativos negados que el crédito sí pide —«NO TICKS, NO GRUBS, NO HUMPS»— no disparan nada,
+ * porque ninguna de esas palabras está en el nombre del producto. Es el mismo freno de la familia TA 756
+ * por otro camino: lo que el crédito nombra no se marca.
+ */
+function niegaElNombreDelProducto(enDocumento: string, enCredito: string): string | null {
+  const delNombre = propias(nombreDelProducto(enCredito));
+  if (delNombre.length === 0) return null;
+  /* La negación, su palabra, y el borde que impide que se coma la frase siguiente. */
+  const re = /\b(?:no|not|sin)\s+([a-z]+)(?=\s*$|\s*[,;.·]|\s+(?:no|not|sin)\b)/gi;
+  for (const m of enDocumento.matchAll(re)) {
+    const palabra = norm(m[1] ?? "");
+    if (palabra && delNombre.includes(palabra)) return m[0].trim();
+  }
+  return null;
+}
+
 function reemplazaUnaPalabraDelProducto(enDocumento: string, enCredito: string): boolean {
   /*
    * La cantidad del 45A **no es parte del nombre del producto**: ver `nombreDelProducto`.
@@ -623,15 +663,30 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
      * nombró. Sin ese freno el motor rechazaría justamente el caso bueno.
      */
     const cambiaLaCategoria = categoriaQueElCreditoNoPidio(merc, ctx, lc);
+    /*
+     * Y la otra señal mecánica del mismo borde: la descripción que **niega** el nombre del producto.
+     *
+     * El laudo DOCDEX 351 —por mayoría— da por válida la discrepancia de una factura que decía «OX HIDES
+     * NO HIDES»: *«The words "NO HIDES" evidently negate the nature of the goods as described»*. El freno
+     * es el mismo que el de los calificativos: si el crédito escribe esa misma negación en alguna parte,
+     * no hay nada que marcar.
+     */
+    const negada = niegaElNombreDelProducto(merc, ctx.mercaderiaCompleta ?? ctx.mercaderia);
+    const textoDelCredito = norm(
+      [ctx.mercaderiaCompleta ?? ctx.mercaderia, ...(lc?.condicionesAdicionales ?? [])].join(" "),
+    );
+    const niega = negada && !textoDelCredito.includes(norm(negada)) ? negada : null;
     out.push(
       regla(
         "ucp-18c",
         "UCP 600 18c",
         "La descripción de la mercadería en la factura se corresponde con la del crédito",
-        cambiaLaCategoria ? "DISCREPANCIA" : coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
+        cambiaLaCategoria || niega ? "DISCREPANCIA" : coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
         cambiaLaCategoria
           ? `la factura llama a la mercadería "${cambiaLaCategoria}" y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
-          : `factura: "${merc.slice(0, 70)}" · crédito 45A: "${ctx.mercaderia.slice(0, 70)}"`,
+          : niega
+            ? `la factura dice "${niega}" sobre la mercadería que el crédito nombra, y el crédito no lo dice en ninguna parte: eso niega la naturaleza de la mercadería y el laudo DOCDEX 351 lo da por discrepancia, sin que importe si fue un error de tipeo · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
+            : `factura: "${merc.slice(0, 70)}" · crédito 45A: "${ctx.mercaderia.slice(0, 70)}"`,
       ),
     );
   }

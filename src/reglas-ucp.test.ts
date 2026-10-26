@@ -2222,6 +2222,63 @@ describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
   });
 
   /*
+   * Y la segunda señal mecánica del mismo borde: la factura que **niega** el nombre del producto.
+   *
+   * El laudo DOCDEX 351 —por mayoría— da por válida la discrepancia de una factura que escribió «OX HIDES
+   * NO HIDES NO TICKS, NO GRUBS, NO HUMPS» bajo un crédito de «OX HIDES» con esos tres calificativos:
+   * *«The words "NO HIDES" evidently negate the nature of the goods as described»*. Y contesta el
+   * argumento del error de tipeo, que es lo que lo vuelve mecanizable: *«it did not actually matter
+   * whether the data in question was inserted intentionally or by an error»*.
+   */
+  const HIDES = "NSW BRINECURED F AND T OX HIDES NO TICKS, NO GRUBS, NO HUMPS";
+
+  it("«NO HIDES» sobre un crédito de hides es discrepancia y nombra el laudo", () => {
+    const r = con(HIDES, "NSW BRINECURED F AND T OX HIDES NO HIDES NO TICKS, NO GRUBS, NO HUMPS");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("DOCDEX 351");
+  });
+
+  /*
+   * Y los tres frenos, que son lo que impide que esta regla sea un generador de falsos positivos.
+   *
+   * El primero: los calificativos negados que el crédito **pide** —«NO TICKS, NO GRUBS, NO HUMPS»— no
+   * disparan nada. Y acá hay que ser preciso sobre **por qué**, porque el mutante lo corrigió: esta
+   * aserción pasa por el freno del texto del crédito, no por el del nombre del producto. Las dos cosas se
+   * prueban aparte, en el test siguiente.
+   */
+  it("los calificativos negados que el crédito pide no disparan nada", () => {
+    expect(con(HIDES, HIDES)?.estado).toBe("OK");
+  });
+
+  /*
+   * Y el freno que de verdad separa un calificativo de una negación del producto: **la palabra negada
+   * tiene que ser del nombre de la mercadería.**
+   *
+   * Acá el crédito **no** menciona los calificativos y la factura los agrega, que es el caso corriente y
+   * el que *Bulgrains* protege —agregar no es contradecir—. Sin esta condición, cualquier «NO <algo>» en
+   * una descripción saldría discrepante, y una factura de cueros que dice «NO TICKS» es lo más normal del
+   * mundo. **Lo encontró un mutante que no mordía**: el test de arriba pasaba por el otro freno, así que
+   * esta mitad de la regla estaba sin cubrir.
+   */
+  it("un calificativo negado que el crédito no pide tampoco dispara: no es el nombre del producto", () => {
+    expect(con("NSW BRINECURED F AND T OX HIDES", "NSW BRINECURED F AND T OX HIDES NO TICKS")?.estado).toBe("OK");
+  });
+
+  /*
+   * El segundo es el borde detrás de la palabra negada, y es el que más vale: sin él, un «NO FISH OIL
+   * ADDED» sobre un crédito de «FISH MEAL» saldría discrepante porque «FISH» está en el nombre del
+   * producto — cuando lo que se niega es el aceite. La negación tiene que aplicarse al nombre solo.
+   */
+  it("una negación que apunta a otra cosa no dispara, aunque empiece con una palabra del producto", () => {
+    expect(con("FISH MEAL 54 PCT MIN", "FISH MEAL 54 PCT MIN, NO FISH OIL ADDED")?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /* Y el tercero es el de la familia: si el crédito escribe esa misma negación, no hay nada que marcar. */
+  it("si el crédito escribe la misma negación, no es discrepancia", () => {
+    expect(con("COW HIDES, NO HIDES OF OTHER ORIGIN", "COW HIDES NO HIDES")?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
    * Y la cantidad del 45A no es parte del nombre del producto (laudo DOCDEX 203)
    *
    * Un 45A escribe «20000 PCS OF MEN'S PANT», y el motor contaba la cantidad como dos palabras del
