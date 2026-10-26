@@ -482,7 +482,31 @@ export interface DocSeguro {
 function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
-  // 18a-ii: la factura se emite a nombre del ordenante
+  /*
+   * 18a-ii: la factura se emite a nombre del ordenante.
+   *
+   * **Comparaba con el matcher de lugares, y es la cuarta regla de nombres de parte del motor.**
+   * *Bulgrains & Co Ltd v Shinhan Bank* obligó a que las tres que se conocían —`ucp-18a-i`,
+   * `fac-emisor` y `bl-notify`— pasaran por `veredictoDeNombre`, el único comparador de nombres; ésta
+   * quedó afuera, un párrafo más abajo, y el comentario de `NOTA_TIPEO_DE_NOMBRE` todavía dice «las dos
+   * reglas del 18 (a) (i)» porque nadie contó esta.
+   *
+   * Lo que costaba es del lado caro: `coincideLugar` da por coincidentes **«BULGRAINS & CO LTD» y
+   * «BULGRAINS CO LTD»**, que es palabra por palabra la diferencia que el High Court declaró *«a
+   * discrepancy as to name that was not clearly and demonstrably simply a typographical error and was
+   * material»*. O sea que la regla que verifica que la factura esté emitida a nombre del ordenante
+   * aceptaba justo el nombre que esa sentencia rechazó — y pagar contra una factura emitida a nombre de
+   * otra empresa es de las cosas más caras que puede dejar pasar un examen.
+   *
+   * Lo encontró el laudo DOCDEX 325, que es sobre esta regla: *«A notify party is not the debtor of an
+   * invoice […] Accordingly, the commercial invoice is not correctly made out in the name of the
+   * applicant»* — rechazo válido, por unanimidad.
+   *
+   * **Y lo que no cambia conviene tenerlo escrito**: dos direcciones distintas en el mismo nombre
+   * —«ORIENT FEED (PVT) LTD, NEGOMBO» contra «… GAMPAHA»— siguen dando DISCREPANCIA, igual que antes,
+   * porque las dos funciones las separan. Eso choca con el artículo 14 (j), vale para las cuatro reglas
+   * de nombres y está declarado como decisión abierta: no es de esta regla ni se arregla acá.
+   */
   const importador = val(fac, "importador");
   if (ctx.aplicante) {
     out.push(
@@ -491,7 +515,7 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
             "ucp-18a-ii",
             "UCP 600 18a-ii",
             "Factura emitida a nombre del ordenante",
-            coincideLugar(importador, ctx.aplicante) ? "OK" : "DISCREPANCIA",
+            veredictoDeNombre(importador, ctx.aplicante, creditoExigeIngles(lc)),
             `factura dice "${importador}" · el crédito nombra a "${ctx.aplicante}"`,
           )
         : sinLeer("ucp-18a-ii", "UCP 600 18a-ii", "Factura emitida a nombre del ordenante", "el comprador"),
