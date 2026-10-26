@@ -375,6 +375,12 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó si hay cláusula de mercadería defectuosa en el documento: verificar a mano$/g,
     "whether there is a clause stating the goods are defective was not read on the document: check by hand",
   ],
+  /* Laudo DOCDEX 319: el 14 (c) no impone plazo si la presentación no trae documento de transporte */
+  [/^Plazo de presentación del artículo 14 \(c\)$/g, "Presentation period under sub-article 14 (c)"],
+  [
+    /^el crédito no exige documento de transporte y la presentación no incluye ninguno, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento \(laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»\)$/g,
+    'the credit does not require a transport document and the presentation includes none, so the sub-article imposes no period — it speaks of "a presentation including one or more original transport documents" — and the only limit is the expiry date (DOCDEX Decision 319: "because no transport document is required for presentation, the transport articles of UCP 600 do not apply")',
+  ],
   [/^no se leyó el consignee$/g, "the consignee was not read"],
   [/^no se leyó el notify$/g, "the notify party was not read"],
   [/^no se leyó la marca de flete$/g, "the freight marking was not read"],

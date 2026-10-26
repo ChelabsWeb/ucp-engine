@@ -3,6 +3,7 @@ import { fmtFecha } from "./fechas";
 import { SWIFT_CSU2025099 } from "./fixtures";
 import {
   avisoAseguradora,
+  baseDelPlazo,
   cobroEstimado,
   diasParaPresentar,
   diasPresentacion,
@@ -161,6 +162,37 @@ describe("cobroEstimado (A6) — cuándo entra la plata", () => {
     expect(tenorDe("60 DAYS FROM SHIPMENT DATE")).toEqual({ dias: 60, desde: "BL" });
     expect(tenorDe(null)).toEqual({ dias: 0, desde: "PRESENTACION" });
     expect(sumarHabiles(new Date(2025, 3, 18), 1)).toEqual(new Date(2025, 3, 21)); // viernes → lunes
+  });
+
+  /*
+   * Y la asimetría más fácil de «unificar» por error del archivo, fijada con su autoridad por lado.
+   *
+   * La misma frase del crédito —«B/L date»— se resuelve a **dos fechas distintas** según qué se calcule:
+   *
+   * - el **plazo de presentación** del campo 48 cuenta desde la **emisión** del documento de transporte,
+   *   porque lo decidió *Fortis Bank SA/NV v Indian Overseas Bank* —USD 8,06 millones—: «L/C 3 expressly
+   *   referred to presentation within 21 days from the date of the bill of lading, **not the date of
+   *   shipment**»;
+   * - el **vencimiento de un giro a plazo** cuenta desde la **anotación de a bordo**, porque lo dice la
+   *   Opinión **R 568**, que el laudo DOCDEX 319 transcribe: «the date of the on board notation, if any,
+   *   should be considered the "B/L date" **irrespective of whether the date of the on board notation is
+   *   later or earlier than the date of issuance** of the bill of lading».
+   *
+   * Por eso `tenorDe` manda «SHIPMENT DATE» y «B/L DATE» al mismo gatillo y `baseDelPlazo` los separa. Las
+   * dos son correctas para su pregunta, y el día que alguien las junte este test dice cuál rompió.
+   */
+  it("«B/L date» es la emisión para el plazo del 48 y el a bordo para el vencimiento del giro", () => {
+    expect(baseDelPlazo("21 DAYS FROM B/L DATE"), "Fortis: el plazo cuenta desde la emisión").toBe("FECHA_DEL_BL");
+    expect(baseDelPlazo("21 DAYS FROM SHIPMENT DATE"), "y «shipment date» sí es el a bordo").toBe("EMBARQUE");
+
+    /* R 568: para el vencimiento las dos frases son el mismo gatillo, y el llamador pasa el a bordo. */
+    expect(tenorDe("90 DAYS AFTER B/L DATE")).toEqual({ dias: 90, desde: "BL" });
+    expect(tenorDe("90 DAYS FROM SHIPMENT DATE")).toEqual({ dias: 90, desde: "BL" });
+
+    const aBordo = "2025-04-08";
+    const r = cobroEstimado({ ...base, giros: "90 DAYS AFTER B/L DATE" }, pres, aBordo);
+    expect(r?.desde, "el vencimiento se cuenta desde la fecha que recibe, que tiene que ser el a bordo").toBe("BL");
+    expect(r?.fecha).toEqual(new Date(2025, 6, 7));
   });
 });
 
