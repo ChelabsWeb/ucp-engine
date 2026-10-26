@@ -64,6 +64,25 @@ describe("factura — artículo 18", () => {
     expect(r?.estado).toBe("OK");
   });
 
+  /*
+   * Y la cuarta regla de nombres de parte del motor, que había quedado con el matcher de lugares.
+   *
+   * *Bulgrains & Co Ltd v Shinhan Bank* obligó a que las tres que se conocían pasaran por
+   * `veredictoDeNombre`; ésta quedó afuera, un párrafo más abajo en el mismo archivo. Lo que costaba es
+   * del lado caro: `coincideLugar` da por coincidentes «BULGRAINS & CO LTD» y «BULGRAINS CO LTD», que es
+   * palabra por palabra la diferencia que el High Court declaró material — así que la regla que verifica
+   * que la factura esté a nombre del ordenante aceptaba justo el nombre que esa sentencia rechazó.
+   *
+   * Lo encontró el laudo DOCDEX 325, que es sobre esta regla.
+   */
+  it("18a-ii: el nombre del ordenante pasa por el comparador de nombres y no por el de lugares", () => {
+    const r = buscar(
+      [{ tipo: "FACTURA", campos: doc({ importador: campo("ORIENT FEED AND CO (PVT) LTD") }) }],
+      "ucp-18a-ii",
+    );
+    expect(r?.estado, "«ORIENT FEED AND CO» no es «ORIENT FEED»: es la forma de Bulgrains").toBe("DISCREPANCIA");
+  });
+
   it("18a-iii: una factura en euros contra un crédito en dólares es discrepancia", () => {
     const r = buscar([{ tipo: "FACTURA", campos: doc({ moneda: campo("EUR") }) }], "ucp-18a-iii");
     expect(r?.estado).toBe("DISCREPANCIA");

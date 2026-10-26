@@ -304,6 +304,77 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^la ventana real es más corta que el plazo escrito: conviene correr el vencimiento$/g,
     "the real window is shorter than the period written: better to move the expiry date",
   ],
+  /*
+   * Los avisos de `sinLeer`, los dieciséis, y por qué estaban sin cubrir.
+   *
+   * `sinLeer` arma su evidencia con una plantilla —«no se leyó ${que} en el documento: verificar a mano»—
+   * y el control de literales **saltea todo literal con `${`** a propósito. La compensación declarada son
+   * los escenarios armados, pero una regla que ningún caso dispara no aparece en ninguno: así que de los
+   * dieciséis avisos había **uno** traducido, el del título de la factura, porque fue el único que un caso
+   * tocó. Lo destapó el laudo DOCDEX 325, que es el primer caso con una factura sin comprador.
+   *
+   * Van enteros y anclados en vez de armados por partes, que es lo que ya costó cuatro entradas muertas.
+   */
+  [
+    /^no se leyó el comprador en el documento: verificar a mano$/g,
+    "the buyer was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó el emisor en el documento: verificar a mano$/g,
+    "the issuer was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó el importe asegurado en el documento: verificar a mano$/g,
+    "the insured amount was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó el tramo cubierto en el documento: verificar a mano$/g,
+    "the covered leg was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó esa indicación en el documento: verificar a mano$/g,
+    "that indication was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la anotación de a bordo en el documento: verificar a mano$/g,
+    "the on board notation was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la fecha de emisión en el documento: verificar a mano$/g,
+    "the date of issuance was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la fecha del recibo en el documento: verificar a mano$/g,
+    "the receipt date was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la fecha del seguro en el documento: verificar a mano$/g,
+    "the insurance date was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la fecha en el documento: verificar a mano$/g,
+    "the date was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la marca de flete en el documento: verificar a mano$/g,
+    "the freight marking was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la moneda del seguro en el documento: verificar a mano$/g,
+    "the insurance currency was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó la moneda en el documento: verificar a mano$/g,
+    "the currency was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó quién emite la factura en el documento: verificar a mano$/g,
+    "who issued the invoice was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó si hay cláusula de mercadería defectuosa en el documento: verificar a mano$/g,
+    "whether there is a clause stating the goods are defective was not read on the document: check by hand",
+  ],
   [/^no se leyó el consignee$/g, "the consignee was not read"],
   [/^no se leyó el notify$/g, "the notify party was not read"],
   [/^no se leyó la marca de flete$/g, "the freight marking was not read"],
