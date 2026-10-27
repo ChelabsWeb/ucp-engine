@@ -143,6 +143,19 @@ function deduceDelCobro(c: string): boolean {
   return DEDUCE_RECLAMO.test(c) || RECLAMO_SE_DEDUCE.test(c) || DEDUCE_POR_EL_ORDENANTE.test(c);
 }
 
+/**
+ * La cláusula que prohíbe los errores de tipeo, que apaga el párrafo A23 de la ISBP.
+ *
+ * Dos direcciones y **solo una se marca**: «typographical errors are not to be considered as
+ * discrepancies» es la mitad benévola —lo que la ISBP ya dice— y no se toca; «is prohibited showing any
+ * typing error» es la que convierte una palabra mal escrita en un rechazo.
+ *
+ * Sin huecos abiertos y con la ventana acotada, por lo que costó `importeFluctuaPorElCredito`: un 47A
+ * largo con un patrón de backtracking catastrófico colgó el motor diecisiete minutos.
+ */
+const TIPEO_PROHIBIDO =
+  /\b(?:typograph\w*|spelling|typing)\b[^.;]{0,80}?\b(?:is\s+prohibited|are\s+prohibited|prohibited|not\s+acceptable|not\s+allowed)\b|\b(?:is\s+prohibited|are\s+prohibited|prohibited|not\s+acceptable|not\s+allowed)\b[^.;]{0,80}?\b(?:typograph\w*|spelling|typing)\s+error/i;
+
 /** Frases que la práctica manda descartar porque no significan nada. */
 const SIN_SIGNIFICADO = [
   {
@@ -716,6 +729,56 @@ export function revisarCredito(p: LcSwift): Observacion[] {
           "El crédito fija un calendario de embarques: transcribirlo al calendario de cuotas del crédito, porque una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y las siguientes",
           `47A+${i + 1}`,
           "al transcribirlo, mirar si cada renglón es un período con inicio y fin o una fecha límite acumulada: «al menos 40 % antes del 31.08» no exige nada entre el 31.07 y el 31.08, y tomarlo por un período inventa una discrepancia (laudo DOCDEX 204)",
+        ),
+      );
+    }
+    /*
+     * La cláusula que **prohíbe los errores de tipeo**, que es la que apaga el párrafo A23 de la ISBP.
+     *
+     * El laudo **DOCDEX 249** es el caso, y es incómodo: el crédito se enmendó para decir
+     * *«Typographical and/or spelling errors, not be considered as discrepancies except in value, unit
+     * price, goods description and quantity. **But for bills of lading, certificate of origin and all
+     * certificates issued by S.G.S. or [beneficiary] is prohibited showing any typing error**»*. Los
+     * papeles decían «avarage» por «average», «ninty» por «ninety» y «discharing» por «discharging»; el
+     * emisor rechazó, después se desdijo y pagó, y **el ordenante** fue al DOCDEX a sostener que las
+     * discrepancias valían. El panel, unánime, le dio la razón:
+     *
+     * > The fact that the amendment actually **overrides the general provision in ISBP paragraph 28**, by
+     * > expressly excluding acceptance of typographical/spelling errors as such in some documents, is a
+     * > mere consequence which cannot be derogated if the amendment is accepted by the beneficiary.
+     *
+     * > the issuing bank is **forced to reject documents for reasons not affecting any significant data**
+     * > in the credit: **words differently typed are usually not to be considered discrepancies, because
+     * > they do not change their meaning** and become «discrepancies» due to the amendment in hand.
+     *
+     * > The Panel expresses its **strong disapproval** of the effects of the amendment, which was handled
+     * > in such a way as to **damage the correct flow of the banking operation and as a specious attempt
+     * > to prevent issuing banks from paying**. […] the Panel **does not have the authority to detract
+     * > from the terms and conditions of the credit**.
+     *
+     * Y deja la salida escrita: *«The issuing bank can avoid possible disagreeable consequences on its
+     * part by simply refusing its agreement to the amendment request»* — o sea que el lugar donde esto se
+     * arregla es **antes de pasar la enmienda**, que es exactamente lo que esta revisión existe para
+     * decir.
+     *
+     * Sale en **CONFLICTO** por lo mismo que la cláusula de deducción del laudo DOCDEX 212: una
+     * presentación conforme en lo que importa **puede ser rechazada**. Y el motor no la puede aplicar
+     * —los tipeos de ese expediente están en el texto libre de un certificado y de un conocimiento, que
+     * ningún campo lleva— así que lo único honesto es decirlo antes.
+     *
+     * **El freno es la dirección de la frase**, y hace toda la diferencia: la mitad benévola —«los
+     * errores de tipeo no se consideran discrepancias»— es corriente e inofensiva, y es la que la ISBP
+     * ya dice. Lo que se marca es la **prohibición**.
+     */
+    if (TIPEO_PROHIBIDO.test(c)) {
+      out.push(
+        obs(
+          `emision-prohibe-tipeo-${i}`,
+          "CONFLICTO",
+          "Laudo DOCDEX 249 · ISBP 645 ¶28 (hoy A23)",
+          "El crédito prohíbe los errores de tipeo en algunos documentos, y eso apaga la tolerancia del párrafo A23 de la ISBP: una palabra mal escrita que no cambia el significado pasa a ser discrepancia",
+          `47A+${i + 1}`,
+          "sacarla. El panel del laudo DOCDEX 249 la hizo valer —«the Panel does not have the authority to detract from the terms and conditions of the credit»— y al mismo tiempo expresó su «strong disapproval» por «a specious attempt to prevent issuing banks from paying»: el emisor puede evitarlo negándose a cursar la enmienda, que es el único momento en que se arregla",
         ),
       );
     }

@@ -73,7 +73,26 @@ export const corto = (s: string, n = 60) => {
  * la abreviatura del crédito letra por letra, con su error de tipeo incluido.
  */
 export function emisorQueNombra(exigencia: string): string | undefined {
-  const m = /issued by\s+((?:[^,;.]|\.(?=\S))+)/i.exec(exigencia);
+  /*
+   * El punto de una abreviatura **no** termina el nombre del emisor, ni aunque le siga un espacio.
+   *
+   * La captura ya admitía el punto pegado a la letra siguiente —«GOVT.VETERINERY», que es como lo
+   * escribe el crédito real— y seguía cortando cuando el punto cerraba la abreviatura antes de un
+   * espacio. Con eso, un 46A que dice «ISSUED BY **S.G.S. OR** [beneficiario]» daba como emisor
+   * exigido **«S.G.S»** y se perdía la alternativa entera: el certificado emitido por el beneficiario
+   * —que el crédito admite expresamente— salía en **DISCREPANCIA** con «lo emite el beneficiario y el
+   * crédito nombra a un tercero».
+   *
+   * Lo encontró el laudo DOCDEX 249, cuyo 46A enmendado dice exactamente eso. Y es la **quinta** vez
+   * que el punto de una abreviatura rompe algo en este motor: «GOVT.» en esta misma función,
+   * `parseFecha("JUL.16")`, la forma societaria partida en «S.p.A.» y el mes con el día primero.
+   *
+   * El corte es el mismo de siempre, angosto: el punto es parte del nombre cuando **viene detrás de
+   * una letra sola** —«S.», «A.», la «S» final de «S.G.S.»— y sigue cerrando la captura cuando viene
+   * detrás de una palabra, que es donde de verdad termina una frase: «ISSUED BY CALISET. THE
+   * CERTIFICATE MUST…» se corta en «CALISET».
+   */
+  const m = /issued by\s+((?:[^,;.]|\.(?=\S)|(?<=(?:^|[^a-z])[a-z])\.)+)/i.exec(exigencia);
   const crudo = m?.[1]?.trim();
   if (!crudo) return undefined;
   /*
