@@ -1,7 +1,7 @@
 import { claveDoc } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { comparaISBP } from "./isbp";
-import { diasPresentacion, limitePresentacion, plazoHastaElVencimiento } from "./lc";
+import { diasPresentacion, importeFluctuaPorElCredito, limitePresentacion, plazoHastaElVencimiento } from "./lc";
 import { modoDeHonrar } from "./mt750";
 import { A_LA_ORDEN_DE, CONSIGNADO_A, EXIGE_ENDOSO_EN_BLANCO, hastaLaDescripcion } from "./presentacion";
 import type { LcSwift } from "./swift-lc";
@@ -825,12 +825,51 @@ export function revisarCredito(p: LcSwift): Observacion[] {
         ),
       );
     }
+    /*
+     * La cláusula que hace **fluctuar el importe del crédito** sin enmienda, que el motor aconsejaba
+     * ignorar mientras su propio examen la hacía valer.
+     *
+     * Es la **séptima cara** del consejo del 14 (h), y la primera que contradice al propio motor:
+     * `importeFluctuaPorElCredito` existe desde *Korea Exchange Bank v Standard Chartered Bank* [2005]
+     * SGHC 220 —USD 1.961.430,67— y ablanda `fac-monto` y `giro-saldo` porque esa sentencia dice que la
+     * cláusula es **esencial**: *«the importance of the price clause and the automatic fluctuation
+     * clause to the working of the credit is obvious. Without it, the credit would be unworkable»*. Y
+     * la revisión del crédito sacaba la misma cláusula como condición no documentaria **tenida por no
+     * puesta**, que es exactamente el argumento que el emisor de ese pleito intentó y perdió.
+     *
+     * El laudo **DOCDEX 281** lo confirma desde el otro lado, con un crédito de fuel oil de USD 14
+     * millones: *«Such wording must be considered **automatic and unlimited** and, in any case, the
+     * amount to be drawn **should not be determined by a statement from the applicant** of the
+     * credit»*. El emisor había pagado USD 412.488,20 menos y el panel lo obligó a pagar el total.
+     *
+     * Sale como **AVISO** y no como CONFLICTO: el crédito está bien armado —es el instrumento normal de
+     * un granel o un combustible— y lo que hace falta es **saberlo**, porque un banco que lea el 32B
+     * como un techo produce un rechazo que no existe. Y lo que el motor **no** hace es subir el techo:
+     * eso depende de una cotización que no tiene.
+     */
+    if (importeFluctuaPorElCredito({ condicionesAdicionales: [c] } as LcInfo)) {
+      out.push(
+        obs(
+          `emision-importe-fluctuante-${i}`,
+          "AVISO",
+          "Laudo DOCDEX 281 · Korea Exchange Bank v Standard Chartered Bank [2005] SGHC 220",
+          "El crédito deja fluctuar su importe con el precio y sin enmienda, así que el 32B y el 39A dejan de ser el techo del giro",
+          `47A+${i + 1}`,
+          "está bien dicho y conviene saberlo: el panel del laudo DOCDEX 281 la llama «automatic and unlimited» y obligó al emisor a pagar los USD 412.488,20 que había retenido, y en Korea Exchange Bank v SCB el rechazo por «Amount Overdrawn» se declaró inválido. Lo que no se puede es dejar que el importe a girar lo fije una declaración del ordenante: si se quiere un techo, va escrito en el crédito",
+        ),
+      );
+    }
     if (
       !mencionaDocumento(c) &&
       !/fee|charge|sanction|discrepan/i.test(c) &&
       !esParametroDelCredito(c) &&
       /* Y una cláusula de deducción **no** se tiene por no puesta: el laudo DOCDEX 212 la hace valer. */
-      !deduceDelCobro(c)
+      !deduceDelCobro(c) &&
+      /*
+       * Ni la que hace fluctuar el importe: el examen la hace valer desde *Korea Exchange Bank v SCB* y
+       * el laudo DOCDEX 281 la llama «automatic and unlimited». Ver la observación de arriba.
+       */
+      !importeFluctuaPorElCredito({ condicionesAdicionales: [c] } as LcInfo)
     ) {
       out.push(
         obs(

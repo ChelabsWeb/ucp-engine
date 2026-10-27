@@ -1989,6 +1989,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\bel endoso va al dorso y el motor no tiene campo para leerlo \(laudo DOCDEX 363\), así que hay que verificarlo en el papel\b/g,
     "the endorsement is on the reverse and the engine has no field to read it (DOCDEX Decision 363), so it must be checked on the document itself",
   ],
+  /* El importe que el 47A deja fluctuar sin enmienda (KEB v SCB y laudo DOCDEX 281). */
+  [
+    /^El crédito deja fluctuar su importe con el precio y sin enmienda, así que el 32B y el 39A dejan de ser el techo del giro$/g,
+    "the credit lets its amount fluctuate with the price and without an amendment, so fields 32B and 39A are no longer the ceiling of a drawing",
+  ],
+  [
+    /^está bien dicho y conviene saberlo: el panel del laudo DOCDEX 281 la llama «automatic and unlimited» y obligó al emisor a pagar los USD 412\.488,20 que había retenido, y en Korea Exchange Bank v SCB el rechazo por «Amount Overdrawn» se declaró inválido\. Lo que no se puede es dejar que el importe a girar lo fije una declaración del ordenante: si se quiere un techo, va escrito en el crédito$/g,
+    "it is correctly worded and worth knowing: the DOCDEX 281 panel called it «automatic and unlimited» and ordered the issuing bank to pay the USD 412,488.20 it had withheld, and in Korea Exchange Bank v SCB a refusal for «Amount Overdrawn» was held invalid. What cannot be done is to let a statement from the applicant set the amount to be drawn: if a ceiling is wanted, it must be written into the credit",
+  ],
   /* El 48 que fija el plazo hasta el vencimiento (Deutsche Bank v CIMB), que no es un 48 vacío. */
   [
     /^El crédito fija el plazo de presentación hasta su vencimiento, así que los 21 días del artículo 14 \(c\) no corren: el único límite es el 31D$/g,

@@ -372,6 +372,24 @@ describe("el importe que el crédito deja fluctuar solo (Korea Exchange Bank v S
   });
 
   /*
+   * Y **«sin otra enmienda» dice lo mismo que «automáticamente»** (laudo DOCDEX 281).
+   *
+   * La prueba pedía la palabra «automatic», y la cláusula del laudo no la usa: *«The value of the L/C may
+   * escalate deescalate in relation to above price clause **without any further amendment on our part**»*.
+   * El panel la lee igual que el fallo lee la otra —*«Such wording must be considered automatic and
+   * unlimited»*— y obligó al emisor a pagar los USD 412.488,20 que había retenido.
+   *
+   * Octava vez que el motor reconocía una redacción y no la otra, y sobre la cláusula que decide cuánto
+   * se puede girar.
+   */
+  it.each([
+    "K) THE VALUE OF THE L/C MAY ESCALATE DEESCALATE IN RELATION TO ABOVE PRICE CLAUSE WITHOUT ANY FURTHER AMENDMENT ON OUR PART",
+    "THE AMOUNT OF THE CREDIT MAY ESCALATE OR DE-ESCALATE WITH THE PRICE WITHOUT FURTHER AMENDMENT",
+  ])("reconoce «%s»", (c) => {
+    expect(con(c)).toBe(true);
+  });
+
+  /*
    * Los dos frenos, que son la mitad de la regla.
    *
    * Una tolerancia corriente **no** es esto —si lo fuera, cualquier crédito con 39A dejaría de poder

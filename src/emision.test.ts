@@ -447,6 +447,63 @@ describe("el pago «solo contra» menos documentos de los que el crédito pide (
 });
 
 /**
+ * La cláusula que hace fluctuar el importe (laudo DOCDEX 281 y Korea Exchange Bank v SCB)
+ *
+ * La revisión del crédito la sacaba como condición no documentaria **tenida por no puesta**, que es la
+ * séptima cara del consejo del 14 (h) y la primera que contradice al propio motor: `importeFluctuaPorElCredito`
+ * existe desde *Korea Exchange Bank v Standard Chartered Bank* [2005] SGHC 220 y ablanda `fac-monto` y
+ * `giro-saldo` porque esa sentencia dice que sin la cláusula *«the credit would be unworkable»*.
+ *
+ * Y el laudo DOCDEX 281 agrega la redacción que el motor **no reconocía**: la prueba pedía la palabra
+ * «automatic» y esta cláusula dice «without any further amendment on our part». El panel: *«Such wording
+ * must be considered automatic and unlimited»*.
+ */
+describe("el importe que el 47A deja fluctuar (laudo DOCDEX 281)", () => {
+  const con = (condicion: string) => {
+    const swift = SWIFT_CSU2025099.replace(/( {5}47A: Additional Conditions\n)/, `$1          +99)${condicion}\n`);
+    return revisarCredito(parseMT700(swift)!).filter(
+      (o) => o.id.startsWith("emision-importe-fluctuante") || o.id.startsWith("emision-no-documentaria"),
+    );
+  };
+
+  const DEL_LAUDO =
+    "K) THE VALUE OF THE L/C MAY ESCALATE DEESCALATE IN RELATION TO ABOVE PRICE CLAUSE WITHOUT ANY FURTHER AMENDMENT ON OUR PART";
+
+  it("sale como AVISO y nombra las dos autoridades", () => {
+    const r = con(DEL_LAUDO).find((o) => o.id.startsWith("emision-importe-fluctuante"));
+    expect(r?.gravedad).toBe("AVISO");
+    expect(r?.fuente).toContain("DOCDEX 281");
+    expect(r?.fuente).toContain("Korea Exchange Bank");
+  });
+
+  it("y ya no se aconseja tenerla por no puesta", () => {
+    expect(con(DEL_LAUDO).filter((o) => o.id.startsWith("emision-no-documentaria"))).toEqual([]);
+  });
+
+  it("y la redacción de la sentencia también entra", () => {
+    const r = con(
+      "THE AMOUNT OF THIS LETTER OF CREDIT SHALL AUTOMATICALLY FLUCTUATE TO COVER ANY INCREASE/DECREASE ACCORDING TO THE PRICE CLAUSE",
+    ).find((o) => o.id.startsWith("emision-importe-fluctuante"));
+    expect(r?.gravedad).toBe("AVISO");
+  });
+
+  /* El freno: el precio de la mercadería que fluctúa no es el importe del crédito. */
+  it("pero una cláusula sobre el precio y no sobre el importe no se marca", () => {
+    expect(
+      con("THE PRICE SHALL AUTOMATICALLY FLUCTUATE WITH THE PLATTS QUOTATION ON THE B/L DATE").filter((o) =>
+        o.id.startsWith("emision-importe-fluctuante"),
+      ),
+    ).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-importe-fluctuante")),
+    ).toEqual([]);
+  });
+});
+
+/**
  * Un 48 que fija el plazo hasta el vencimiento no es un 48 vacío (laudo DOCDEX 262)
  *
  * `diasPresentacion` devuelve null cuando el campo no trae un número, así que un crédito que dice

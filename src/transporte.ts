@@ -369,8 +369,26 @@ export function leerFirma(texto: string): FirmaDeTransporte {
    * del texto y volvería a dar por buena la firma de R834.
    */
   const RELLENO = "(?:THE|A|AN|AND|OR|ITS|AGENTS?|AS|FOR|ON|BEHALF|OF|DULY|AUTHORI[SZ]ED|SIGNATORY)";
+  /*
+   * Y **«SIGNED BY THE MASTER» también declara una capacidad**, que es la redacción de medio
+   * fletamento.
+   *
+   * El ancla admitía `AS`, `FOR` y `ON BEHALF OF`, así que un bloque que dice «SIGNED BY THE MASTER OF
+   * THE VESSEL X» salía **sin capacidad reconocida**: ATENCION sobre una firma que el artículo 22
+   * admite sin discusión. Lo encontró el laudo **DOCDEX 247**, donde el panel razona con esa misma
+   * redacción —*«is signed by the master of that named vessel with additional means of authentication
+   * provided by the seal of the vessel and the name of the master»*— y declara el documento aceptable.
+   *
+   * **No afloja el anclaje que R 834 / TA 793rev obliga a tener**, y por eso entra como una cuarta
+   * forma de anclar y no como una mención suelta: «SIGNED BY» es el verbo que *atribuye* la firma, no
+   * una mención del otro lado del texto. El bloque de R 834 —«ROH as agent on behalf of HAP, the
+   * Carrier» con el nombre de un capitán al lado— sigue saliendo como agente del transportista,
+   * porque ahí no hay ningún «signed by the master».
+   */
   const cap = (palabras: string) =>
-    new RegExp(`\\b(?:AS|FOR|ON BEHALF OF)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`).test(t);
+    new RegExp(
+      `\\b(?:AS|FOR|ON BEHALF OF|SIGNED BY|FIRMADO POR)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`,
+    ).test(t);
 
   if (cap("CARRIER|CARRIERS")) return { capacidad: "TRANSPORTISTA", porAgente };
   /*
