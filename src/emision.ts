@@ -861,6 +861,58 @@ export function revisarCredito(p: LcSwift): Observacion[] {
    * no hay reembolso entre bancos que regular y el artículo no se aplica. Marcarlo igual sería ruido
    * en todos los créditos normales.
    */
+  /*
+   * La cláusula que pretende quitarle al beneficiario el derecho a volver a presentar.
+   *
+   * El laudo **DOCDEX 337** —unánime— es un crédito cuyo campo 78 decía *«All documents accepted on first
+   * presentation which comply with L/C terms and conditions, we will remit the proceeds»*, y el emisor la
+   * usó para rechazar documentos **corregidos y vueltos a presentar dentro del plazo**: *«our credit field
+   * 78 point 2 […] state "on first presentation", means the docs must complying on first presentation.
+   * Therefore the docs is still discrepancies although the revised docs presented to us»*.
+   *
+   * El panel la desarma por dos caminos, y los dos valen guardados. El primero es la Opinión
+   * **R715 / TA677rev**, que el laudo transcribe:
+   *
+   * > **It is not for an issuing bank to dictate what a beneficiary or other presenter may or may not do in
+   * > order to achieve a complying presentation.** In the normal course of events, it is within the rights
+   * > of a presenter to request the return of discrepant documents and have them corrected, where possible.
+   * > It is also their right to replace discrepant documents with corrected ones. **Until the documents are
+   * > honoured or negotiated they remain the property of the presenter.** […] The other clauses specified in
+   * > the query **represent bad practice and issuing banks should refrain from including such terms and
+   * > conditions in their credit.**
+   *
+   * El segundo es el artículo 1: las UCP obligan *«unless expressly modified or excluded by the credit»*, y
+   * una desviación así —*«a very detrimental deviation from the principles of UCP 600 and international
+   * standard banking practice towards the beneficiary and/or the nominated bank»*— tendría que estar
+   * *«very clearly and expressly stated»* para valer. Metida en el campo 78 y en forma vaga, **no es una
+   * modificación expresa**. Y el panel cierra con el 7 (c): el emisor tenía que reembolsar igual al
+   * designado que honró una presentación conforme.
+   *
+   * Sale como **CONFLICTO y no como aviso** por lo que el propio expediente muestra: la cláusula es
+   * ineficaz y aun así el emisor rechazó dos juegos con ella, y el cobro se demoró meses. Es el mismo
+   * trato que la cláusula de deducción del laudo 212 y el pago «solo contra» del 362 — una presentación
+   * puede cumplir y no cobrarse igual.
+   *
+   * **Y mira el campo 78 además del 47A**, que es donde esta cláusula vive: el laudo es exactamente el
+   * caso de una condición escondida en las instrucciones al banco. El guardián del lado del examen es el
+   * de *Korea Exchange Bank v SCB*, que ya dejó escrito que una re-presentación es una presentación.
+   */
+  {
+    const donde78 = [p.extra.instruccionesAlBanco ?? "", ...(p.lc.condicionesAdicionales ?? [])].join(" \n ");
+    if (/\bon\s+first\s+presentation\b|\bfirst\s+presentation\s+only\b/i.test(donde78)) {
+      out11.push(
+        obs(
+          "emision-primera-presentacion",
+          "CONFLICTO",
+          "UCP 600 1 · Opinión R715/TA677rev · Laudo DOCDEX 337",
+          "El crédito ata el pago a que los documentos cumplan «on first presentation»",
+          "campo 78 o 47A",
+          "sacarla: el beneficiario tiene derecho a pedir los documentos de vuelta, corregirlos y volver a presentarlos hasta el vencimiento, y la Opinión R715/TA677rev dice que no le toca al emisor dictar qué puede hacer para lograr una presentación conforme. Una desviación tan perjudicial tendría que estar expresa y clarísima para valer como modificación de las UCP (art. 1), y el laudo DOCDEX 337 resolvió que escrita así no lo es — pero el emisor de ese expediente rechazó dos juegos corregidos invocándola, y el cobro se demoró meses",
+        ),
+      );
+    }
+  }
+
   if (p.extra.bancoReembolsador?.trim()) {
     const donde = [
       p.extra.instruccionesAlBanco ?? "",
