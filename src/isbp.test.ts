@@ -29,6 +29,44 @@ describe("A1 — abreviaturas de uso común", () => {
     expect(comparaISBP("54 MT", "54 METRIC TONS")).toBe("IGUAL");
     expect(comparaISBP("1000 KGS", "1000 KILOGRAMS")).toBe("IGUAL");
   });
+
+  /*
+   * Una forma societaria escrita con puntos es **una** palabra, y esto rechazaba una factura.
+   *
+   * El punto caía en el filtro de puntuación de `normISBP`, así que «S.p.A.» llegaba como tres
+   * palabras de una letra. Contra un crédito SWIFT —que las escribe sin puntos— eso es un nombre de
+   * cinco palabras contra uno de tres: DISTINTO, y `fac-emisor` y `ucp-18a-i` **rechazan**. Es el
+   * laudo DOCDEX 260, cuya factura dice «DiNinni Piombino S.p.A.» contra un 59 que dice «DININNI
+   * PIOMBINO SPA», y donde ni el emisor —que levantó dos discrepancias— ni el panel vieron nada en
+   * el nombre.
+   *
+   * Que la lista de arriba tenga `s a` dice que esto ya se había encontrado en su forma de dos
+   * letras y se tapó a mano.
+   */
+  it("una forma societaria con puntos es la misma que sin puntos", () => {
+    expect(comparaISBP("DiNinni Piombino S.p.A.", "DININNI PIOMBINO SPA")).toBe("IGUAL");
+    expect(comparaISBP("CEREALSUR S.R.L.", "CEREALSUR SRL")).toBe("IGUAL");
+    expect(comparaISBP("ROTTERDAM GRAIN N.V.", "ROTTERDAM GRAIN NV")).toBe("IGUAL");
+    expect(comparaISBP("MOLSUR U.S.A. INC", "MOLSUR USA INC")).toBe("IGUAL");
+    /* y sin el punto final, que es como se escribe la mitad de las veces */
+    expect(normISBP("PIOMBINO S.P.A")).toBe("piombino spa");
+  });
+
+  /*
+   * El corte es angosto: el punto que separa **dos palabras de verdad** no se toca.
+   *
+   * «GOVT.VETERINERY AUTHORITY» es el emisor exigido del crédito real, y juntarlo en una sola
+   * palabra rompería la comparación en vez de arreglarla. Lo que distingue un caso del otro es que
+   * en una tirada de abreviatura las letras están **sueltas**: el «t.v» del medio de
+   * «govt.veterinery» viene pegado a letras por los dos lados.
+   */
+  it("y no junta dos palabras que un punto separa", () => {
+    expect(normISBP("GOVT.VETERINERY AUTHORITY IN URUGUAY")).toBe("govt veterinery authority in uruguay");
+    expect(normISBP("CO.,LTD")).toBe("co ltd");
+    expect(normISBP("CERTIFICATE NO.4471")).toBe("certificate no 4471");
+    /* y un número con separadores sigue siendo cosa de `numeros.ts`, no de acá */
+    expect(normISBP("53.960,00 KGS")).toBe("53 960 00 kg");
+  });
 });
 
 describe("A23 — errores de ortografía y de tipeo", () => {

@@ -61,12 +61,34 @@ const ABREVIATURAS: [RegExp, string][] = [
  * - «BULGRAINS & CO LTD» contra «BULGRAINS CO LTD» pasa a **DISTINTO**, porque falta una palabra
  *   entera. No es un error de tipeo: es otro nombre.
  */
+/**
+ * Una abreviatura escrita con puntos es **una** palabra: «S.p.A.» es «SPA» y no «s p a».
+ *
+ * Sin esto el punto caía en el `[^a-z0-9]+` de abajo y una forma societaria quedaba partida en
+ * letras sueltas. Contra un crédito SWIFT, que las escribe sin puntos porque así las transmite el
+ * mensaje, eso es un nombre de tres palabras contra uno de una: `comparaISBP` devuelve DISTINTO y
+ * `fac-emisor` y `ucp-18a-i` **rechazan la factura**. Medido con el laudo DOCDEX 260, cuya factura
+ * dice «DiNinni Piombino S.p.A.» contra un 59 que dice «DININNI PIOMBINO SPA» — y ahí ni el banco
+ * emisor, que levantó dos discrepancias, ni el panel vieron nada en el nombre.
+ *
+ * Que la lista de abreviaturas ya tuviera `s a` dice que esto se encontró una vez en su forma de
+ * dos letras y se tapó a mano. Es la **tercera** vez que el punto de una abreviatura rompe algo en
+ * este motor: antes fue el emisor exigido que se cortaba en «GOVT.» y `parseFecha("JUL.16")`.
+ *
+ * El corte es angosto a propósito: una **tirada de letras sueltas separadas por puntos** que no
+ * esté pegada a otra palabra. Así «S.P.A.», «S.R.L.», «N.V.», «U.S.A.» y «J.P.» se juntan, y
+ * «GOVT.VETERINERY» —donde el punto separa dos palabras de verdad— no se toca, porque el «t.v» de
+ * la mitad viene pegado a letras por los dos lados.
+ */
+const ABREVIATURA_CON_PUNTOS = /(?<![a-z0-9])[a-z](?:\.[a-z])+\.?(?![a-z0-9])/g;
+
 export function normISBP(s: string): string {
   let t = s
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/&/g, " and ")
+    .replace(ABREVIATURA_CON_PUNTOS, (m) => m.replace(/\./g, ""))
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
   for (const [re, canon] of ABREVIATURAS) t = t.replace(re, canon);
