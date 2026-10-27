@@ -38,6 +38,47 @@ export function esStandby(input: { formaCredito?: string | null; reglasAplicable
   return /\bSTANDBY\b/.test(forma) || /\bSTANDBY\b/.test(reglas) || /\bISP\b/.test(reglas);
 }
 
+/**
+ * ¿Este standby **sí** mueve mercadería? Porque la premisa de arriba no es universal.
+ *
+ * «Un standby no mueve mercadería» alcanzaba para el caso que originó este módulo —una garantía de
+ * cumplimiento de obra, donde el motor afirmaba «la cantidad admite ±5 %» sobre una carga que no existe—
+ * y es **falsa** para la otra familia de standby que las UCP 600 rigen: el que garantiza el **pago de
+ * embarques que de verdad ocurrieron**.
+ *
+ * El laudo **DOCDEX 330** es ese caso, y el panel no se limitó a decirlo: **examinó la carga**. Aplicó el
+ * artículo **18 (c)** a la factura —*«According to UCP 600 sub-article 18 (c), the description of the
+ * goods, services or performance in a commercial invoice must correspond with that appearing in the
+ * credit»*— y declaró **válida** la discrepancia del aeropuerto de salida del air waybill contra el campo
+ * 44E, por el artículo **14 (d)**. Si el filtro de la carga corriera sobre ese crédito, el motor no podría
+ * ver ninguna de las dos.
+ *
+ * Así que la premisa pasa de supuesta a **medida**, que es lo que el propio encabezado de este módulo pide
+ * —«decidir hasta dónde es precisamente lo que no se puede hacer a ciegas»—: el standby mueve mercadería
+ * cuando el crédito **pide documentos de embarque** o **nombra una ruta**. Un standby de garantía de
+ * cumplimiento no hace ninguna de las dos cosas, así que el arreglo original sigue en pie.
+ */
+export function standbyConMercaderia(lc: {
+  documentosExigidos?: string[] | null;
+  puertoEmbarque?: string | null;
+  puertoDestino?: string | null;
+}): boolean {
+  const nombraRuta = [lc.puertoEmbarque, lc.puertoDestino].some((p) => p && p !== "—" && p.trim() !== "");
+  if (nombraRuta) return true;
+  /*
+   * Los nombres van acá y no por `claveDoc` para no traer `consistencia.ts` a este módulo, que es el más
+   * chico del motor y el que se lee cuando alguien duda de qué se puede afirmar de un standby. Y van
+   * anclados a nombres de documento de embarque, no a cualquier mención: el standby del laudo 319 pide
+   * «copy of an unpaid commercial invoice **stating B/L date**» y eso no es pedir un conocimiento — es la
+   * misma trampa que silenciaba el plazo de presentación.
+   */
+  return (lc.documentosExigidos ?? []).some((d) =>
+    /^\s*(?:\d{1,2}[.)]\s*)?(?:copy|copies|photocopy|full set|original|non.?negotiable)?[^,;]{0,40}\b(?:bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awb|sea\s*way\s*bill|consignment\s+note|multimodal|packing\s+list|insurance\s+(?:policy|certificate))\b/i.test(
+      d,
+    ),
+  );
+}
+
 /** Qué reglamento dice regir el crédito, cuando nombra uno que no son las UCP. */
 export function reglamentoAjeno(reglasAplicables?: string | null): "ISP98" | "URDG" | null {
   const r = (reglasAplicables ?? "").toUpperCase();

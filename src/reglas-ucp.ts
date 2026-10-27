@@ -23,8 +23,8 @@ import {
 } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
-import type { DocAnalizado, EstadoRegla, ReglaPresentacion } from "./presentacion";
-import { esStandby, noAplicaAStandby } from "./standby";
+import { type DocAnalizado, type EstadoRegla, pideSoloCopiaDelTransporte, type ReglaPresentacion } from "./presentacion";
+import { esStandby, noAplicaAStandby, standbyConMercaderia } from "./standby";
 import {
   articuloDelModo,
   buqueDeLaAnotacion,
@@ -1671,6 +1671,58 @@ function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPres
 
 /* ──────────────────── documento de transporte (arts. 20, 26, 27) ──────────────────── */
 
+/**
+ * La ruta comparada por el **artículo 14 (d)**, para cuando el crédito pide solo una copia.
+ *
+ * El párrafo A6 de la ISBP 745 dice que una copia no es un documento de transporte a los efectos de los
+ * artículos 19 a 25, así que el inciso (a) (iii) de esos artículos no la gobierna. Lo que queda es la regla
+ * general: los datos del documento **no pueden entrar en conflicto** con los del crédito.
+ *
+ * El laudo DOCDEX 330 lo aplica y **declara válida** la discrepancia: el crédito decía «44E: Boston
+ * Massachussets» y los air waybills decían Washington-Dulles y JFK. *«Since both the standby letter of
+ * credit and the air waybill copies indicated an "airport of departure", these must be compared against
+ * UCP 600 sub-article 14 (d) and must not be in conflict. For the documents presented, it appeared that
+ * they were. The goods were not dispatched from Boston, Massachusetts but rather from Washington and
+ * J.F.K.»*
+ *
+ * El veredicto sale de `veredictoLugar`, el mismo que usan los incisos (a) (iii), para que una copia y un
+ * original no den respuestas distintas sobre el mismo par de lugares — incluida la licencia de la zona
+ * geográfica y el freno del laudo DOCDEX 361 sobre el puerto de carga que repite la zona.
+ */
+function reglasRutaPorCatorceD(ctx: ContextoCredito, bl: DocAnalizado): ReglaPresentacion[] {
+  const out: ReglaPresentacion[] = [];
+  const pares: [string, string | null | undefined, string | null | undefined, boolean][] = [
+    ["carga", ctx.puertoEmbarque, val(bl, "puertoEmbarque"), true],
+    ["destino", ctx.puertoDestino, val(bl, "puertoDestino"), false],
+  ];
+  for (const [que, delCredito, enDoc, esLaCarga] of pares) {
+    if (!delCredito) continue;
+    if (!enDoc) {
+      out.push(
+        regla(
+          `ucp-14d-ruta-${que}`,
+          "UCP 600 14d · ISBP 745 A6",
+          `El lugar de ${que === "carga" ? "salida" : "destino"} de la copia no contradice al del crédito`,
+          "ATENCION",
+          `no se leyó el lugar de ${que === "carga" ? "salida" : "destino"} en el documento: verificar a mano`,
+        ),
+      );
+      continue;
+    }
+    const v = veredictoLugar(enDoc, delCredito, esLaCarga);
+    out.push(
+      regla(
+        `ucp-14d-ruta-${que}`,
+        "UCP 600 14d · ISBP 745 A6",
+        `El lugar de ${que === "carga" ? "salida" : "destino"} de la copia no contradice al del crédito (${delCredito})`,
+        v.estado,
+        `el documento dice "${enDoc}"${v.nota}`,
+      ),
+    );
+  }
+  return out;
+}
+
 function reglasTransporte(
   ctx: ContextoCredito,
   bl: DocAnalizado,
@@ -2595,7 +2647,41 @@ export function reglasUCP(input: {
           : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
       ),
     );
-    out.push(...reglaFirmaTransporte(bl, clase.modo));
+    /*
+     * Y si el crédito pide **solo una copia** del documento de transporte, los artículos 19 a 25 no lo
+     * gobiernan: lo que queda es comparar los datos por el 14 (d).
+     *
+     * Lo dice el párrafo **A6 de la ISBP 745** —que el laudo DOCDEX 330 cita— y el panel lo aplica con
+     * todas las letras: *«Copies of transport documents are not transport documents for the purpose of
+     * UCP 600 articles 19-25 […] since the standby letter of credit required a copy of the air waybill,
+     * the UCP 600 transport articles did not apply. Consequently article 19 did not apply. Since both the
+     * standby letter of credit and the air waybill copies indicated an "airport of departure", **these
+     * must be compared against UCP 600 sub-article 14 (d)** and must not be in conflict»*.
+     *
+     * Con eso el panel declaró **válida** la discrepancia del aeropuerto de salida. O sea que lo que cambia
+     * no es el veredicto sino **el artículo que lo sostiene**, y eso no es cosmético: la fuente es lo que
+     * viaja en el aviso del artículo 16, y un aviso que invoca el artículo equivocado es un aviso que el
+     * presentador puede discutir — ya es la tercera vez que este motor lo arregla, después de la familia de
+     * los puertos y de los nombres del artículo 14.
+     *
+     * Y de paso dejan de salir las exigencias **del artículo**: pedirle a una copia la anotación de
+     * despacho del 23 (a) (ii) o el bloque de firma del 23 (a) (i) es pedirle lo que el párrafo A6 dice que
+     * no se le pide. El motor ya hacía esto mismo con los plazos —ver `pideSoloCopiaDelTransporte`— y le
+     * faltaba el resto del capítulo.
+     */
+    const soloLaCopia = pideSoloCopiaDelTransporte(exigidos);
+    if (soloLaCopia) {
+      out.push(
+        regla(
+          "ucp-transporte-copia",
+          "ISBP 745 A6 · Laudo DOCDEX 330",
+          "El crédito pide una copia del documento de transporte, así que los artículos 19 a 25 no lo gobiernan",
+          "OK",
+          "una copia no es un documento de transporte a los efectos de los artículos 19 a 25, así que sus exigencias no se le piden y los datos se comparan por el artículo 14 (d)",
+        ),
+      );
+      out.push(...reglasRutaPorCatorceD(ctx, bl));
+    } else out.push(...reglaFirmaTransporte(bl, clase.modo));
 
     /*
      * 22 (b): el banco no examina los contratos de fletamento, aunque el crédito exija presentarlos.
@@ -2605,7 +2691,7 @@ export function reglasUCP(input: {
      * artículo, no se examina. Presentarlo sigue siendo obligatorio: lo que no se revisa es su
      * contenido.
      */
-    if (exigidos.some((d) => /charter\s*part/i.test(d) && /contract|contrato/i.test(d))) {
+    if (!soloLaCopia && exigidos.some((d) => /charter\s*part/i.test(d) && /contract|contrato/i.test(d))) {
       out.push(
         regla(
           "ucp-22b",
@@ -2627,7 +2713,9 @@ export function reglasUCP(input: {
      * que casi siempre sí corresponde. Lo que se arriesga está acotado: las comprobaciones del 20
      * que un aéreo no pasa dan ATENCION —«verificar a mano»— y no discrepancia.
      */
-    if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
+    if (soloLaCopia) {
+      /* ya se comparó por el 14 (d): los artículos no gobiernan una copia (ISBP 745 A6) */
+    } else if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
       out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
     } else if (clase.modo === "AEREO") {
       out.push(...reglasAereo(ctx, bl));
@@ -2662,7 +2750,17 @@ export function reglasUCP(input: {
    * «[OK] UCP 600 30b · Sin tolerancia en el crédito, la cantidad admite ±5 %». Decir «cumple»
    * sobre una cantidad que no existe es peor que no decir nada.
    */
-  if (esStandby({ formaCredito: ctx.formaCredito, reglasAplicables: ctx.reglasAplicables })) {
+  /*
+   * Y el filtro **no corre** cuando el standby sí mueve mercadería (ver `standbyConMercaderia`).
+   *
+   * El laudo DOCDEX 330 es un standby de pago sobre once embarques de langosta: el panel aplicó el
+   * artículo 18 (c) a la factura y declaró **válida** la discrepancia del aeropuerto de salida contra el
+   * campo 44E. Con el filtro corriendo sobre ese crédito el motor no podía ver ninguna de las dos.
+   */
+  if (
+    esStandby({ formaCredito: ctx.formaCredito, reglasAplicables: ctx.reglasAplicables }) &&
+    !standbyConMercaderia(input.lc)
+  ) {
     return out.filter((r) => !noAplicaAStandby(r.fuente));
   }
   return out;
