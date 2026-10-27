@@ -270,6 +270,49 @@ describe("veredictoDeNombre", () => {
 });
 
 /**
+ * La banda del artículo 14 (j): si lo que difiere es la dirección, no se rechaza.
+ *
+ * El motor no pide la dirección en ningún campo —`exportador` es una razón social— pero el papel la
+ * imprime debajo del nombre y una extracción la trae adentro. Ahí los dos nombres coinciden palabra por
+ * palabra y lo que sobra es la calle o la ciudad, y el veredicto salía DISCREPANCIA.
+ *
+ * Lo decide el laudo **DOCDEX 265**, unánime: el sello del beneficiario mostraba en la factura, el
+ * packing y el endoso del conocimiento una dirección distinta de la del crédito —«WIEN» en alemán contra
+ * «Vienna» en inglés— y el panel *«finds no requirement in this L/C or in UCP 500 for the beneficiary's
+ * address on the documents to be identical in street number, street name, city, state, country or
+ * language to that in the L/C»*.
+ *
+ * El par de *Orient Feed* es el que el laudo DOCDEX 325 había dejado **medido y sin arreglar**.
+ */
+describe("14 (j) — la dirección no tiene que coincidir", () => {
+  it("dos direcciones distintas sobre el mismo nombre dejan de rechazar", () => {
+    expect(veredictoDeNombre("ORIENT FEED (PVT) LTD, NEGOMBO", "ORIENT FEED (PVT) LTD, GAMPAHA")).toBe("ATENCION");
+    expect(veredictoDeNombre("STEYR TRADING GMBH, 1070 WIEN", "STEYR TRADING GMBH, VIENNA")).toBe("ATENCION");
+    expect(veredictoDeNombre("STEYR TRADING WIEN", "STEYR TRADING VIENNA")).toBe("ATENCION");
+  });
+
+  it("y nunca llega a OK, porque el motor no sabe qué parte del texto es la dirección", () => {
+    /* Si esto debería ser OK es la decisión del dueño que el laudo DOCDEX 325 dejó anotada. */
+    expect(veredictoDeNombre("STEYR TRADING GMBH, 1070 WIEN", "STEYR TRADING GMBH, VIENNA")).not.toBe("OK");
+  });
+
+  it("una forma societaria distinta NO es una dirección", () => {
+    /* El freno que salva a *Bulgrains v Shinhan Bank*: lo que difiere trae «co» y «ltd». */
+    expect(veredictoDeNombre("BULGRAINS & CO LTD", "BULGRAINS CO LTD")).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("ACME TRADING LTD", "ACME TRADING SA")).toBe("DISCREPANCIA");
+  });
+
+  it("ni una palabra distinta en el medio del nombre", () => {
+    expect(veredictoDeNombre("ACME TRADING LTD", "ACME HOLDINGS LTD")).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("ALTRA DITTA SRL", "STEYR TRADING GMBH")).toBe("DISCREPANCIA");
+  });
+
+  it("y el prefijo común tiene que traer al menos dos palabras", () => {
+    expect(veredictoDeNombre("STEYR WIEN", "STEYR VIENNA")).toBe("DISCREPANCIA");
+  });
+});
+
+/**
  * El término de entrega escrito en palabras (laudo DOCDEX 208)
  *
  * `terminoDeEntrega` solo reconocía los códigos de tres letras, así que devolvía null para
