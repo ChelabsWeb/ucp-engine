@@ -2200,7 +2200,24 @@ function reglasSeguro(
                 "DISCREPANCIA",
                 `seguro ${fSeg} · embarque ${fEmb}`,
               )
-      : sinLeer("ucp-28e", "UCP 600 28e", "El seguro no está fechado después del embarque", "la fecha del seguro"),
+      : /*
+         * Y cuando falta un dato, el aviso dice **cuál**.
+         *
+         * Decía siempre «no se leyó la fecha del seguro», y esta rama se alcanza también cuando el
+         * seguro **sí** trae su fecha y lo que no se pudo leer es la del embarque. Con eso el hallazgo
+         * mandaba a mirar un campo que estaba bien — es la misma forma que el `bl-notify` que rechazaba
+         * comparando contra una cadena vacía y lo delataba en su propia evidencia.
+         *
+         * Lo encontró el laudo DOCDEX 259, cuyo conocimiento está fechado «7 LUG. 2005» —julio en
+         * italiano, que el motor no lee— así que la fecha del embarque no se puede leer y la del seguro
+         * sí.
+         */
+        sinLeer(
+          "ucp-28e",
+          "UCP 600 28e",
+          "El seguro no está fechado después del embarque",
+          a ? "la fecha de embarque" : b ? "la fecha del seguro" : "ni la fecha del seguro ni la del embarque",
+        ),
   );
 
   // 28f-i: el importe asegurado va en la misma moneda que el crédito

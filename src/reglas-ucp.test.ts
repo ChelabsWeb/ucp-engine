@@ -182,6 +182,22 @@ describe("seguro — artículo 28", () => {
     expect(r?.estado).toBe("OK");
   });
 
+  /*
+   * Y cuando falta una de las dos fechas, el aviso dice **cuál**.
+   *
+   * Decía siempre «no se leyó la fecha del seguro», y esta rama se alcanza también cuando el seguro sí
+   * la trae y lo que no se pudo leer es la del embarque: con eso mandaba a mirar un campo que estaba
+   * bien. Lo encontró el laudo DOCDEX 259, cuyo conocimiento está fechado «7 LUG. 2005» —julio en
+   * italiano— así que la fecha del embarque no se lee y la del seguro sí.
+   */
+  it("28e: con la fecha del seguro leída y la del embarque no, el aviso nombra la del embarque", () => {
+    const r = buscar([{ tipo: "FACTURA", campos: doc({ incoterm: campo("CIF MONTEVIDEO") }) }], "ucp-28e", {
+      campos: doc({ fechaSeguro: campo("08-APR-2025") }),
+    });
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("la fecha de embarque");
+  });
+
   it("28c: una nota de cobertura no se acepta", () => {
     const r = buscar([facturaCIF], "ucp-28c", { campos: doc({ tipoSeguro: campo("COVER NOTE") }) });
     expect(r?.estado).toBe("DISCREPANCIA");

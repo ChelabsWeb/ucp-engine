@@ -108,6 +108,14 @@ describe("el buque que nombra la anotación de a bordo", () => {
     ["SHIPPED ON BOARD 20-AUG-2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
     ["CLEAN ON BOARD AT MONTEVIDEO, URUGUAY ON 20-AUG-2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
     ["LADEN ON BOARD THE VESSEL ON 20/08/2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
+    /*
+     * «GOODS ON BOARD» es la anotación del conocimiento del laudo DOCDEX 259, y «GOODS» no estaba en
+     * la lista: el motor sacaba un aviso pidiendo verificar si era un buque de pre-acarreo sobre la
+     * redacción más corriente que hay. Las palabras que nombran la carga no nombran nada que no
+     * sepamos.
+     */
+    ["GOODS ON BOARD - 7 JUL. 2005", "MSC LIVORNO", "GENOA, ITALY"],
+    ["CARGO LADEN ON BOARD IN CONTAINERS ON 20-AUG-2026", "STELLA AUSTRAL", "MONTEVIDEO, URUGUAY"],
   ])("«%s» no nombra nada que no sepamos", (anotacion, buque, puerto) => {
     expect(buqueDeLaAnotacion(anotacion, buque, puerto).sobra).toEqual([]);
   });

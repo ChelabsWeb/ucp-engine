@@ -206,3 +206,59 @@ describe("el mes abreviado con punto", () => {
     expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([2025, 3, 10]);
   });
 });
+
+/**
+ * Y el mismo punto en el **otro orden**, que es como escribe Europa.
+ *
+ * El arreglo de arriba entró solo para «mes día»: pedía el punto seguido de un **dígito**. Con el día
+ * primero el punto va seguido de un **espacio** —«7 LUG. 2005»— y seguía dando null. Lo encontró el
+ * laudo DOCDEX 259, cuyo conocimiento está fechado así, y donde el emisor rechazó justamente porque
+ * «the on board date cannot be identified».
+ *
+ * Es la cuarta vez que el punto de una abreviatura rompe algo en este motor y la sexta que el motor
+ * reconocía una redacción y no la otra.
+ */
+describe("el mes abreviado con punto, con el día primero", () => {
+  it.each([
+    ["7 JUL. 2005", 2005, 6, 7],
+    ["07 JUL. 2005", 2005, 6, 7],
+    ["3 NOV. 2026", 2026, 10, 3],
+    ["1 SEPT. 2026", 2026, 8, 1],
+  ])("lee «%s»", (texto, y, m, d) => {
+    const f = parseFecha(texto);
+    expect(f).not.toBeNull();
+    expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([y, m, d]);
+  });
+
+  it("y la lee dentro de la anotación de a bordo del laudo DOCDEX 259", () => {
+    const f = parseFecha("GOODS ON BOARD - 7 JUL. 2005");
+    expect([f?.getFullYear(), f?.getMonth(), f?.getDate()]).toEqual([2005, 6, 7]);
+  });
+
+  /*
+   * Lo que sigue sin tocarse: el punto que cierra una abreviatura que no es un mes no inventa una
+   * fecha, porque igual hay que matchear un patrón de fecha completo.
+   */
+  it("y una abreviatura que no es un mes no se vuelve fecha", () => {
+    expect(parseFecha("CERTIFICATE NO. 4471")).toBeNull();
+    expect(parseFecha("GOVT. VETERINERY AUTHORITY")).toBeNull();
+    expect(parseFecha("16.11.2026")?.getMonth()).toBe(10);
+  });
+
+  /*
+   * Y el mes en un idioma que el motor no tiene **sigue sin leerse**, que es una decisión y no un
+   * descuido: «LUG» es julio en italiano y el conocimiento de ese laudo lo usa.
+   *
+   * Una tabla de meses en italiano y portugués inventaría fechas de embarque. «SET» es septiembre en
+   * los dos idiomas y es una palabra inglesa corriente en un packing list —«1 SET 2005 PCS» se leería
+   * como el 1 de septiembre de 2005— y «OUT» es octubre en portugués. Es la misma trampa que la «T»
+   * de «TOTAL» leída como tonelada. El test afirma el estado de hoy para que quien lo cambie venga a
+   * leer el motivo.
+   */
+  it("pero un mes en un idioma que el motor no tiene sigue sin leerse", () => {
+    expect(parseFecha("7 LUG. 2005")).toBeNull();
+    expect(parseFecha("7 LUG 2005")).toBeNull();
+    /* y por eso tampoco se lee «1 SET 2005», que en un packing list es una cantidad */
+    expect(parseFecha("1 SET 2005")).toBeNull();
+  });
+});
