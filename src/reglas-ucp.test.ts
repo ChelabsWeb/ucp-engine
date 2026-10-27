@@ -2510,7 +2510,8 @@ describe("el punto de miles o decimal en la cantidad (R 218)", () => {
  * se extiende: el panel tenía esa misma lista delante y resolvió que LI/LO no entra.
  */
 describe("costos adicionales al flete (laudo DOCDEX 384)", () => {
-  const PROHIBE = "3. FULL SET OF BILLS OF LADING MARKED LINER TERMS AND FREIGHT PREPAID. CHARGES ADDITIONAL TO FREIGHT ARE NOT ACCEPTABLE.";
+  const PROHIBE =
+    "3. FULL SET OF BILLS OF LADING MARKED LINER TERMS AND FREIGHT PREPAID. CHARGES ADDITIONAL TO FREIGHT ARE NOT ACCEPTABLE.";
   const con = (flete: string, exigencia = PROHIBE) =>
     reglasUCP({
       lc: { ...LC, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia] },
@@ -2556,4 +2557,3 @@ describe("costos adicionales al flete (laudo DOCDEX 384)", () => {
     expect(con("")?.estado).toBe("ATENCION");
   });
 });
-

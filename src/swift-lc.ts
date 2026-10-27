@@ -498,7 +498,25 @@ export function parseMT700(textoSwift: string): LcSwift | null {
   const { moneda, monto } = montoSwift(texto(cs, "32B"));
 
   // tolerancia: 39A "10/10" (más/menos) → la mayor; si no, buscarla en 47A ("TOLERANCE OF 10 PCT MORE OR LESS")
-  const condiciones = listaSwift(campo(cs, "47A"));
+  /*
+   * Las condiciones adicionales salen del **47A y del 47B**, que son el mismo campo con dos etiquetas.
+   *
+   * El 47B ya estaba en `CONOCIDOS` —se agregó para que el tokenizador no lo pegara al campo anterior—
+   * pero **su contenido no lo leía nadie**: `condicionesAdicionales` salía solo del 47A, así que un
+   * crédito que escribe ahí sus condiciones las tenía parseadas y tiradas. Es la misma forma que el campo
+   * 48 que el intérprete descartaba cuando no traía un número: el dato llega y se pierde.
+   *
+   * Y no es hipotético. El crédito del laudo **DOCDEX 246** pone ahí la exigencia de dos embarques —*«Read
+   * two shipments are required as follows: 1st shipment covering 1x20 FCL container…»*— y el de *Malayan
+   * Banking Berhad v Punjab National Bank* su cláusula **47B-G**, la que excluye el conocimiento del
+   * transitario. Con el 47B sin leer, esas cláusulas no pasan por `revisarCredito`, no salen como
+   * verificación manual y `PARAMETROS_DEL_CREDITO` no las ve: el crédito queda examinado como si no las
+   * tuviera.
+   *
+   * Lo encontró el primer caso del banco de pruebas que escribió una condición en el 47B en vez de
+   * normalizarla al 47A, que es lo que las reconstrucciones venían haciendo sin notarlo.
+   */
+  const condiciones = [...listaSwift(campo(cs, "47A")), ...listaSwift(campo(cs, "47B"))];
   let tolerancia: number | null = null;
   const t39 = /(\d{1,2})\s*\/\s*(\d{1,2})/.exec(texto(cs, "39A"));
   if (t39) tolerancia = Math.max(Number(t39[1]), Number(t39[2])) / 100;

@@ -736,9 +736,7 @@ export function precheckPresentacion(input: {
      * hay discrepancia, hay a lo sumo algo que mirar.
      */
     /* «TO ORDER OF» sin el «THE» es la misma exigencia, y la mitad de los créditos la escribe así. */
-    const ordenDe = hastaLaDescripcion(
-      /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null,
-    );
+    const ordenDe = hastaLaDescripcion(/TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null);
     /*
      * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
      *
@@ -1164,8 +1162,7 @@ export function precheckPresentacion(input: {
    * crédito pidió, así que decidir ahí sería resolver si un documento desestimado por el 14 (g) «cuenta»
    * para el 14 (c) — una pregunta que este laudo no contesta.
    */
-  const sinTransporteExigidoNiPresentado =
-    !bl && !(lc.documentosExigidos ?? []).some((d) => claveDoc(d) === "BL");
+  const sinTransporteExigidoNiPresentado = !bl && !(lc.documentosExigidos ?? []).some((d) => claveDoc(d) === "BL");
   /*
    * Y se le pasa la fecha de **emisión** del documento de transporte, porque el crédito puede contar
    * desde ella: *Fortis Bank v Indian Overseas Bank*, campo 48 «within 21 days from B/L Date». Ver

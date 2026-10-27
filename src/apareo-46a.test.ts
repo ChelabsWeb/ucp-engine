@@ -225,4 +225,3 @@ describe("la carta de indemnidad (laudo DOCDEX 372)", () => {
     expect(claveDoc("COMMERCIAL INVOICE AND LOI ACCEPTABLE INSTEAD OF SHIPPING DOCUMENTS")).toBe("INVOICE");
   });
 });
-

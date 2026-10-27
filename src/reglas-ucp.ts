@@ -23,7 +23,12 @@ import {
 } from "./isbp";
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
-import { type DocAnalizado, type EstadoRegla, pideSoloCopiaDelTransporte, type ReglaPresentacion } from "./presentacion";
+import {
+  type DocAnalizado,
+  type EstadoRegla,
+  pideSoloCopiaDelTransporte,
+  type ReglaPresentacion,
+} from "./presentacion";
 import { esStandby, noAplicaAStandby, standbyConMercaderia } from "./standby";
 import {
   articuloDelModo,
@@ -790,7 +795,12 @@ function reglasCostosAdicionales(lc: LcInfo, bl: DocAnalizado | undefined): Regl
   const fl = val(bl, "flete");
   if (!fl)
     return [
-      sinLeer("isbp-e27", "ISBP 821 E27", "El documento de transporte no indica costos adicionales al flete", "la marca de flete"),
+      sinLeer(
+        "isbp-e27",
+        "ISBP 821 E27",
+        "El documento de transporte no indica costos adicionales al flete",
+        "la marca de flete",
+      ),
     ];
   const indica = INDICA_COSTOS_EXTRA.test(fl);
   return [

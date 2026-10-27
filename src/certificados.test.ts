@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
 import type { CamposDoc } from "./consistencia";
-import { ablandarPorISBP } from "./isbp";
 import { SWIFT_CSU2025099 } from "./fixtures";
+import { ablandarPorISBP } from "./isbp";
 import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
 import type { LcInfo } from "./types";

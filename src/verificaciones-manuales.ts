@@ -1,5 +1,5 @@
 import type { TipoDocExterno } from "./consistencia";
-import { fraseSinSignificado, mencionaDocumento, PARAMETROS_DEL_CREDITO } from "./emision";
+import { esParametroDelCredito, fraseSinSignificado, mencionaDocumento } from "./emision";
 import { avisoAseguradora } from "./lc";
 import type { DocAnalizado } from "./presentacion";
 import type { LcInfo } from "./types";
@@ -155,7 +155,7 @@ export function verificacionesManuales(input: {
   const sinVerificar = (input.lc.condicionesAdicionales ?? []).filter((c) => {
     // la del aviso a la aseguradora ya salió arriba, con el plazo adentro
     if (aviso && c === aviso.texto) return false;
-    if (PARAMETROS_DEL_CREDITO.test(c)) return false;
+    if (esParametroDelCredito(c)) return false;
     if (!mencionaDocumento(c)) return false;
     return !LAS_QUE_EL_EXAMEN_MIRA.some((re) => re.test(c));
   });
