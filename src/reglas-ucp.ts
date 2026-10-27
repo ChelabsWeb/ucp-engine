@@ -2562,8 +2562,26 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
        * y darlo por conforme sería volver al silencio que esta regla vino a tapar. Lo dice y lo
        * mira una persona.
        *
-       * Lo que todavía no se mira es la SUMA de los giros anteriores contra el total; eso necesita
-       * `anteriores`, y mientras no esté, un parcial corto se informa como parcial y nada más.
+       * Y la suma de los giros anteriores contra el total son **dos preguntas distintas**, no una, y
+       * el laudo **DOCDEX 224** cierra una de las dos:
+       *
+       * - **pasarse** del total sigue abierto y sigue importando —la tolerancia del 30 (b) no es un
+       *   permiso para girar de más, y del lado del importe eso ya lo mira `giro-saldo`—;
+       * - y **quedarse corto en el agregado NO se mira, y no por falta de dato**. El panel lo dice
+       *   sobre un crédito con parciales permitidos, cantidades globales por mercadería con ±20 % y
+       *   un último embarque que dejó el total un 3 % por debajo del mínimo:
+       *
+       *     «a bank acting under the L/C **is not concerned with any shortfall of the aggregate
+       *     quantity of partial deliveries actually effected** (even if the last delivery […] is shown
+       *     therein as having been effected on the latest date of shipment pursuant to the L/C) […]
+       *     such definite undertaking or any payment thereunder **is not expressly nor impliedly
+       *     conditional upon any minimum aggregate quantity stipulated in the L/C**, because neither
+       *     the present L/C nor the UCP 500 stipulate or imply this.»
+       *
+       *   Y el fundamento es el que gobierna la rama de arriba: *«The L/C neither expresses nor implies
+       *   any minimum quantities for any partial shipments»*. Así que esto **no es una capacidad que
+       *   falte: es una que no hay que construir**, y conviene que esté dicho antes de que alguien
+       *   cablee `anteriores` acá pensando que completa la regla.
        */
       const parcialesOk = Boolean(
         ctx.parciales &&
@@ -2588,6 +2606,29 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
        *
        * Tampoco se elige la lectura que conviene: elegirla sería decidir sobre una ambigüedad del papel
        * con una corazonada, y `numeros.ts` existe porque este repositorio ya pagó eso una vez.
+       *
+       * **Y hay una salida que dos paneles enmarcan, y conviene leerlos juntos antes de intentarla.**
+       *
+       * El laudo **DOCDEX 224** resuelve exactamente esta ambigüedad —una factura con las cantidades en
+       * puntuación europea y los importes en americana— **haciendo la cuenta del propio papel**: divide
+       * cada subtotal inequívoco por su precio unitario y con eso establece que «420,671 cbm» quiere
+       * decir 420 cbm 671/1000. Su conclusión es la regla general: *«A differing use of both commas and
+       * full stops to denote decimal places of figures on the same document […] is acceptable, **if the
+       * true meaning of each figure can be easily established on the basis of such document**»*.
+       *
+       * O sea que la ambigüedad **se puede resolver**, y con los campos que el motor ya tiene:
+       * `cantidad` × `precioUnitario` contra `montoTotal`. Lo que frena implementarlo hoy no es la
+       * autoridad sino el expediente: la factura de ese laudo tiene **dos mercaderías con dos precios
+       * unitarios** y `precioUnitario` es un campo solo, así que el caso que trajo el método no lo puede
+       * ejercitar — y agregar máquina que su propio caso no mide es lo que el laudo DOCDEX 267 dejó
+       * escrito que no se hace.
+       *
+       * Y el contrapeso, que es el que marca hasta dónde llega: el laudo **DOCDEX 310** dice que un
+       * examinador **no está obligado a calcular** para encontrar una discrepancia —*«Banks are not
+       * required to count the number of units or items not stipulated or required»*, y *«the difference
+       * could only be found if the examiner performed a detailed calculation in the document»*—. Los dos
+       * juntos dan la línea: **la aritmética del papel sirve para deshacer una ambigüedad a favor del
+       * documento, y no para ir a buscar una discrepancia.**
        */
       const otraLectura = /^\d+[.,]\d{3}$/.test((cantFac ?? "").trim())
         ? Number.parseFloat((cantFac ?? "").trim().replace(",", "."))
