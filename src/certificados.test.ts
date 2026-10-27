@@ -288,6 +288,45 @@ describe("el emisor que el crédito nombra, cuando el papel lo escribe de otra f
     expect(emisorQueNombra("CERTIFICATE ISSUED BY CHAMBER OF COMMERCE, MONTEVIDEO")).toBe("CHAMBER OF COMMERCE");
   });
 
+  /*
+   * Y el punto que **cierra** la abreviatura antes de un espacio, que se comía la alternativa entera.
+   *
+   * El 46A enmendado del laudo DOCDEX 249 pide el certificado de calidad «ISSUED BY S.G.S. OR [el
+   * beneficiario]», y la captura devolvía **«S.G.S»**: admitía el punto pegado a la letra siguiente
+   * —«GOVT.VETERINERY»— y no el que cierra la abreviatura. Con la alternativa perdida, el certificado
+   * emitido por el beneficiario —que el crédito **admite expresamente**— salía en DISCREPANCIA con «lo
+   * emite el beneficiario y el crédito nombra a un tercero».
+   *
+   * Quinta vez que el punto de una abreviatura rompe algo en este motor.
+   */
+  it("ni el punto que cierra la abreviatura, que se llevaba la alternativa del emisor", () => {
+    expect(
+      emisorQueNombra(
+        "CERTIFICATE OF QUALITY ISSUED BY S.G.S. OR EASTERN ORE EXPORTS PVT LTD AT LOADING PORT SHOWING ACTUAL RESULTS",
+      ),
+    ).toBe("S.G.S. OR EASTERN ORE EXPORTS PVT LTD AT LOADING PORT");
+    expect(emisorQueNombra("CERTIFICATE ISSUED BY A. SMITH AND CO LTD")).toBe("A. SMITH AND CO LTD");
+  });
+
+  /* Y el punto que sí termina una frase sigue terminándola: detrás de una palabra, no de una letra. */
+  it("y el punto detrás de una palabra sigue cerrando el nombre", () => {
+    expect(emisorQueNombra("CERTIFICATE ISSUED BY CALISET. THE CERTIFICATE MUST SHOW THE RESULTS")).toBe("CALISET");
+  });
+
+  /*
+   * Y el certificado que el crédito admite del beneficiario, con la alternativa entera, cumple.
+   *
+   * Es el caso del laudo DOCDEX 249: sin el arreglo de arriba, esto es una DISCREPANCIA sobre el papel
+   * que el crédito pidió.
+   */
+  it("un emisor que es la segunda alternativa del crédito cumple, aunque sea el beneficiario", () => {
+    const r = conEmisor(
+      "CEREALSUR S.A",
+      "CERTIFICATE OF QUALITY ISSUED BY S.G.S. OR CEREALSUR S.A AT LOADING PORT SHOWING ACTUAL RESULTS",
+    );
+    expect(r?.estado).toBe("OK");
+  });
+
   it("escrito igual, cumple", () => {
     expect(conEmisor("GOVT.VETERINERY AUTHORITY IN URUGUAY")?.estado).toBe("OK");
   });

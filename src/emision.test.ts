@@ -447,6 +447,65 @@ describe("el pago «solo contra» menos documentos de los que el crédito pide (
 });
 
 /**
+ * La cláusula que prohíbe los errores de tipeo (laudo DOCDEX 249)
+ *
+ * El crédito se enmendó para decir *«Typographical and/or spelling errors, not be considered as
+ * discrepancies except in value, unit price, goods description and quantity. But for bills of lading,
+ * certificate of origin and all certificates issued by S.G.S. or [beneficiary] is prohibited showing any
+ * typing error»*, y el panel la hizo valer: *«the amendment actually overrides the general provision in ISBP
+ * paragraph 28»*, aunque *«words differently typed are usually not to be considered discrepancies»*. Y
+ * expresó su *«strong disapproval»* de *«a specious attempt to prevent issuing banks from paying»*.
+ */
+describe("la cláusula que prohíbe los errores de tipeo (laudo DOCDEX 249)", () => {
+  const con = (condicion: string) => {
+    const swift = SWIFT_CSU2025099.replace(/( {5}47A: Additional Conditions\n)/, `$1          +99)${condicion}\n`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id.startsWith("emision-prohibe-tipeo"));
+  };
+
+  it("sale como CONFLICTO y nombra el laudo", () => {
+    const [r] = con(
+      "TYPOGRAPHICAL AND/OR SPELLING ERRORS, NOT BE CONSIDERED AS DISCREPANCIES EXCEPT IN VALUE, UNIT PRICE, GOODS DESCRIPTION AND QUANTITY. BUT FOR BILLS OF LADING, CERTIFICATE OF ORIGIN AND ALL CERTIFICATES IS PROHIBITED SHOWING ANY TYPING ERROR",
+    );
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 249");
+    expect(r?.que).toContain("A23");
+  });
+
+  it.each([
+    "TYPING ERRORS ARE PROHIBITED ON ALL DOCUMENTS",
+    "SPELLING ERRORS NOT ACCEPTABLE",
+    "TYPOGRAPHICAL ERRORS IN ANY DOCUMENT ARE NOT ALLOWED",
+  ])("«%s» también", (c) => {
+    expect(con(c)).toHaveLength(1);
+  });
+
+  /*
+   * **El freno es la dirección de la frase.** La mitad benévola es corriente, inofensiva y es lo que la
+   * ISBP ya dice: marcarla sería ruido en cualquier crédito bien redactado.
+   */
+  it.each([
+    "TYPOGRAPHICAL AND/OR SPELLING ERRORS ARE NOT TO BE CONSIDERED AS DISCREPANCIES",
+    "MINOR TYPING MISTAKES SHALL BE ACCEPTABLE",
+  ])("«%s» no se marca", (c) => {
+    expect(con(c)).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-prohibe-tipeo")),
+    ).toEqual([]);
+  });
+
+  /* Un 47A largo no puede colgar el motor: es lo que costó `importeFluctuaPorElCredito`. */
+  it("y no se cuelga con una condición larga", () => {
+    const largo = `${"PROHIBITED ".repeat(900)}END`;
+    const t0 = Date.now();
+    con(largo);
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
+});
+
+/**
  * El endoso que el beneficiario no puede hacer (laudo DOCDEX 288)
  *
  * El crédito pedía el conocimiento «issued to the order of Bank V» —el banco emisor— «blank endorsed», el

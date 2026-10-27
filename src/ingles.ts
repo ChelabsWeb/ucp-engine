@@ -1975,6 +1975,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\by además endosado en blanco, y así solo lo puede endosar esa parte: el beneficiario no tiene cómo cumplirlo\b/g,
     "and blank endorsed as well, and made out that way only that party can endorse it: the beneficiary has no way to comply",
   ],
+  /* El laudo DOCDEX 249: la cláusula que apaga la tolerancia al tipeo de la ISBP. */
+  [
+    /^El crédito prohíbe los errores de tipeo en algunos documentos, y eso apaga la tolerancia del párrafo A23 de la ISBP: una palabra mal escrita que no cambia el significado pasa a ser discrepancia$/g,
+    "the credit prohibits typing errors in some documents, which switches off the tolerance of ISBP paragraph A23: a misspelled word that does not change the meaning becomes a discrepancy",
+  ],
+  [
+    /^sacarla\. El panel del laudo DOCDEX 249 la hizo valer —«the Panel does not have the authority to detract from the terms and conditions of the credit»— y al mismo tiempo expresó su «strong disapproval» por «a specious attempt to prevent issuing banks from paying»: el emisor puede evitarlo negándose a cursar la enmienda, que es el único momento en que se arregla$/g,
+    "remove it. The DOCDEX 249 panel enforced it — «the Panel does not have the authority to detract from the terms and conditions of the credit» — while expressing its «strong disapproval» of «a specious attempt to prevent issuing banks from paying»: the issuing bank can avoid this by refusing to pass the amendment on, which is the only moment at which it can be fixed",
+  ],
   [
     /^pedirlo a la orden del embarcador y endosado en blanco, o a la orden de esa parte sin exigir endoso: el panel del laudo DOCDEX 288 llamó a esto una irregularidad encapsulada y obligó al emisor a retirar el rechazo y pagar el crédito más la estadía$/g,
     "ask for it to the order of the shipper and blank endorsed, or to the order of that party without requiring an endorsement: the DOCDEX 288 panel called this an encapsulated irregularity and ordered the issuing bank to withdraw its refusal and pay the credit amount plus demurrage",
