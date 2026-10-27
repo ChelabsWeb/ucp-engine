@@ -39,6 +39,49 @@ const ABREVIATURAS: [RegExp, string][] = [
 ];
 
 /**
+ * Las formas societarias que `ABREVIATURAS` ya canoniza, más las que no necesitan canonizarse.
+ *
+ * Se usa para saber qué **no** puede ser una dirección: si lo que separa dos nombres incluye una de
+ * éstas, lo que cambió es la empresa y no dónde está. Sale de la misma lista de arriba a propósito —dos
+ * copias de la misma pregunta es cómo se desincronizan dos respuestas— más las formas que ya llegan
+ * normalizadas en una sola palabra.
+ */
+const FORMAS_SOCIETARIAS = new Set([
+  "ltd",
+  "co",
+  "corp",
+  "inc",
+  "sa",
+  "pvt",
+  "pte",
+  "bros",
+  "assn",
+  "gmbh",
+  "ag",
+  "nv",
+  "bv",
+  "srl",
+  "spa",
+  "llc",
+  "plc",
+  "kg",
+  "oy",
+  "ab",
+  "as",
+  "aps",
+  "sas",
+  "sarl",
+  "sl",
+  "lda",
+  "ltda",
+  "sdn",
+  "bhd",
+  "jsc",
+  "ooo",
+  "zoo",
+]);
+
+/**
  * Texto comparable: sin acentos, sin puntuación y con las abreviaturas unificadas (A1).
  *
  * **El ampersand vale como la palabra «and» en vez de desaparecer**, y eso lo decidió una sentencia.
@@ -249,6 +292,49 @@ export function veredictoDeNombre(
    */
   const ordenadas = (t: string) => normISBP(t).split(" ").filter(Boolean).sort().join(" ");
   if (ordenadas(enDocumento) === ordenadas(enCredito)) return "OK";
+  /*
+   * Y si lo que difiere es **la dirección**, el artículo 14 (j) dice que no tiene que coincidir.
+   *
+   * «Cuando las direcciones del beneficiario y del ordenante aparecen en cualquier documento exigido,
+   * NO necesitan ser las mismas que las del crédito.» El motor no pide la dirección en ningún campo
+   * —`exportador` es una razón social— pero el papel la imprime debajo del nombre y una extracción la
+   * trae adentro: ahí los dos nombres coinciden palabra por palabra y lo que sobra es la calle o la
+   * ciudad, y el veredicto salía DISCREPANCIA.
+   *
+   * Lo decide el laudo **DOCDEX 265**, unánime: el sello del beneficiario mostraba en la factura, el
+   * packing y el endoso del conocimiento una dirección distinta de la del crédito —«WIEN» en alemán
+   * contra «Vienna» en inglés— y el panel *«finds no requirement in this L/C or in UCP 500 for the
+   * beneficiary's address on the documents to be identical in street number, street name, city, state,
+   * country or language to that in the L/C»*.
+   *
+   * **Sale ATENCION y no OK, y esa mitad es deliberada**: el motor no sabe cuál parte del texto es la
+   * dirección, así que afirmar que los dos papeles nombran a la misma empresa sería decidir con un dato
+   * que no tiene. Lo que sí puede hacer es dejar de rechazar y poner los dos nombres delante de una
+   * persona. Si esto debería ser OK es la decisión del dueño que el laudo DOCDEX 325 dejó anotada.
+   *
+   * Los tres frenos, y el primero es el que salva a *Bulgrains*:
+   *
+   * - lo que difiere **no puede contener una forma societaria** —«BULGRAINS & CO LTD» contra
+   *   «BULGRAINS CO LTD» difiere en «and co ltd» contra «co ltd», y ahí hay dos, así que ese par sigue
+   *   siendo DISCREPANCIA, que es lo que el High Court resolvió—;
+   * - el prefijo común tiene que traer **al menos dos palabras**, para que «ACME» contra «ACME LTD
+   *   VIENNA» no entre por acá;
+   * - y lo que difiere no puede ser **solo números**: un número distinto es un dato distinto (A23).
+   */
+  const pa = normISBP(enDocumento).split(" ").filter(Boolean);
+  const pb = normISBP(enCredito).split(" ").filter(Boolean);
+  let i = 0;
+  while (i < pa.length && i < pb.length && pa[i] === pb[i]) i++;
+  const colas = [...pa.slice(i), ...pb.slice(i)];
+  const esFormaSocietaria = (w: string) => FORMAS_SOCIETARIAS.has(w);
+  if (
+    i >= 2 &&
+    colas.length > 0 &&
+    !colas.some(esFormaSocietaria) &&
+    colas.some((w) => /[a-z]/.test(w) && !/^\d+$/.test(w))
+  ) {
+    return "ATENCION";
+  }
   return "DISCREPANCIA";
 }
 
