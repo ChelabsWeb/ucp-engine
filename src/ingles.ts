@@ -375,6 +375,16 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó si hay cláusula de mercadería defectuosa en el documento: verificar a mano$/g,
     "whether there is a clause stating the goods are defective was not read on the document: check by hand",
   ],
+  /* Laudo DOCDEX 337: la cláusula que pretende quitar el derecho a volver a presentar */
+  [
+    /^El crédito ata el pago a que los documentos cumplan «on first presentation»$/g,
+    "The credit ties payment to the documents complying «on first presentation»",
+  ],
+  [/^campo 78 o 47A$/g, "field 78 or 47A"],
+  [
+    /^sacarla: el beneficiario tiene derecho a pedir los documentos de vuelta, corregirlos y volver a presentarlos hasta el vencimiento, y la Opinión R715\/TA677rev dice que no le toca al emisor dictar qué puede hacer para lograr una presentación conforme\. Una desviación tan perjudicial tendría que estar expresa y clarísima para valer como modificación de las UCP \(art\. 1\), y el laudo DOCDEX 337 resolvió que escrita así no lo es — pero el emisor de ese expediente rechazó dos juegos corregidos invocándola, y el cobro se demoró meses$/g,
+    "remove it: the beneficiary is entitled to ask for the documents back, correct them and present them again until expiry, and ICC Opinion R715/TA677rev holds that it is not for the issuing bank to dictate what it may do to achieve a complying presentation. So detrimental a deviation would have to be expressly and very clearly stated to count as a modification of the UCP (art. 1), and DOCDEX Decision 337 held that drafted this way it is not — yet the issuing bank in that file refused two corrected sets relying on it, and payment was delayed for months",
+  ],
   /* Laudo DOCDEX 330: una copia no la gobiernan los artículos del transporte (ISBP 745 A6) */
   [
     /^El crédito pide una copia del documento de transporte, así que los artículos 19 a 25 no lo gobiernan$/g,
