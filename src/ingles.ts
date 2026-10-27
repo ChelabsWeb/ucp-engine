@@ -208,7 +208,7 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [
     /^«forwarder's B\/L not acceptable» no dice nada sobre cómo debe emitirse el documento y se descarta: la Opinión TA 727rev decidió que «freight forwarder bills of lading» no tiene significado bajo las UCP 600 —ni para admitirlos ni para excluirlos—, la cláusula no excluye el artículo 14 \(l\) y «a document examiner is not expected to determine the status of the signing company» \(laudo DOCDEX 312, unánime\)$/g,
-    "'forwarder's B/L not acceptable' says nothing about how the document is to be issued and is disregarded: ICC Opinion TA 727rev decided that \"freight forwarder bills of lading\" has no meaning under UCP 600 — neither to allow them nor to exclude them — the clause does not exclude sub-article 14 (l), and \"a document examiner is not expected to determine the status of the signing company\" (DOCDEX Decision 312, unanimous)",
+    '\'forwarder\'s B/L not acceptable\' says nothing about how the document is to be issued and is disregarded: ICC Opinion TA 727rev decided that "freight forwarder bills of lading" has no meaning under UCP 600 — neither to allow them nor to exclude them — the clause does not exclude sub-article 14 (l), and "a document examiner is not expected to determine the status of the signing company" (DOCDEX Decision 312, unanimous)',
   ],
   [
     /^«third party documents not acceptable» no tiene significado y se descarta$/g,
@@ -351,10 +351,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó la fecha del seguro en el documento: verificar a mano$/g,
     "the insurance date was not read on the document: check by hand",
   ],
-  [
-    /^no se leyó la fecha en el documento: verificar a mano$/g,
-    "the date was not read on the document: check by hand",
-  ],
+  [/^no se leyó la fecha en el documento: verificar a mano$/g, "the date was not read on the document: check by hand"],
   [
     /^no se leyó la marca de flete en el documento: verificar a mano$/g,
     "the freight marking was not read on the document: check by hand",
@@ -1883,9 +1880,15 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\(BL\)/g, "(B/L)"],
 
   // ── plantillas de regla ──
-  [/^El documento de transporte va consignado a quien el crédito nombra \(/g, "The transport document is consigned to the party the credit names ("],
+  [
+    /^El documento de transporte va consignado a quien el crédito nombra \(/g,
+    "The transport document is consigned to the party the credit names (",
+  ],
   [/^el crédito lo consigna a /g, "the credit consigns it to "],
-  [/ y no se leyó ese nombre en el crédito: verificar a mano$/g, " and that name was not read in the credit: check by hand"],
+  [
+    / y no se leyó ese nombre en el crédito: verificar a mano$/g,
+    " and that name was not read in the credit: check by hand",
+  ],
   [/^el documento dice /g, "the document states "],
   [/ · el crédito pide /g, " · the credit requires "],
   [/\bcita el número de la LC\b/g, "quotes the credit number"],
@@ -1901,8 +1904,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA\.774: el número está para rastrear documentos que se extravíen\), salvo que lo exija una regulación nacional o aduanera; y acá el crédito no lo pide/g,
     ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous, on ICC Opinions R289, R578, R635 and TA.774: the number is there to trace documents should they go astray), unless a national or customs regulation requires it; and here the credit does not require it",
   ],
-  [/\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA\.774: el número está para rastrear documentos que se extravíen\), salvo que lo exija una regulación nacional o aduanera/g, ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous, on ICC Opinions R289, R578, R635 and TA.774: the number is there to trace documents should they go astray), unless a national or customs regulation requires it"],
-  [/\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime\), salvo que lo exija una regulación nacional o aduanera/g, ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous), unless a national or customs regulation requires it"],
+  [
+    /\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime, sobre las Opiniones R289, R578, R635 y TA\.774: el número está para rastrear documentos que se extravíen\), salvo que lo exija una regulación nacional o aduanera/g,
+    ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous, on ICC Opinions R289, R578, R635 and TA.774: the number is there to trace documents should they go astray), unless a national or customs regulation requires it",
+  ],
+  [
+    /\. Si el papel de verdad no lo trae, su ausencia \*\*no es motivo de rechazo aunque el crédito lo pida\*\* \(laudo DOCDEX 329, unánime\), salvo que lo exija una regulación nacional o aduanera/g,
+    ". If the document genuinely does not bear it, its absence **is not grounds for refusal even where the credit requires it** (DOCDEX Decision 329, unanimous), unless a national or customs regulation requires it",
+  ],
   [
     /^el crédito lo pide en el campo (47A|46A) y no se leyó en el documento: verificar a mano/g,
     "the credit requires it in field $1 and none was read on the document: check by hand",

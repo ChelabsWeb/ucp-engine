@@ -191,4 +191,3 @@ describe("los códigos del campo 41", () => {
     expect(modoDeHonrar(null, null)).toBeNull();
   });
 });
-

@@ -279,10 +279,7 @@ describe("un calendario de embarques (laudo DOCDEX 204)", () => {
  */
 describe("un documento que el ordenante presenta él mismo (laudo DOCDEX 209)", () => {
   const con = (exigencia: string) => {
-    const swift = SWIFT_CSU2025099.replace(
-      /( {5}46A: Documents Required\n)/,
-      `$1          +99)${exigencia}\n`,
-    );
+    const swift = SWIFT_CSU2025099.replace(/( {5}46A: Documents Required\n)/, `$1          +99)${exigencia}\n`);
     return revisarCredito(parseMT700(swift)!).filter((o) => o.id.startsWith("emision-presenta-ordenante"));
   };
 
@@ -388,9 +385,9 @@ describe("una cláusula que deja deducir del cobro (laudo DOCDEX 212)", () => {
 
   it("y la misma cláusula con «invoice value» da lo mismo: no dependía de la palabra", () => {
     const conFactura = PENAL.replace("THE VALUE OF THE GOODS", "THE INVOICE VALUE");
-    expect(
-      revisarCredito(conCondiciones(conFactura)).find((o) => o.id.startsWith("emision-deduccion"))?.gravedad,
-    ).toBe("CONFLICTO");
+    expect(revisarCredito(conCondiciones(conFactura)).find((o) => o.id.startsWith("emision-deduccion"))?.gravedad).toBe(
+      "CONFLICTO",
+    );
   });
 });
 /**
@@ -443,9 +440,9 @@ describe("el pago «solo contra» menos documentos de los que el crédito pide (
   });
 
   it("y el crédito real del expediente no gana ninguna observación", () => {
-    expect(revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-pago-contra-menos"))).toEqual(
-      [],
-    );
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-pago-contra-menos")),
+    ).toEqual([]);
   });
 });
 
@@ -526,9 +523,9 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
   });
 
   it("y un designado distinto del librado tampoco", () => {
-    expect(con("          BANCO LITORAL (URUGUAY) S.A.\n          BY NEGOTIATION", "          MERIDIAN BANK PLC")).toEqual(
-      [],
-    );
+    expect(
+      con("          BANCO LITORAL (URUGUAY) S.A.\n          BY NEGOTIATION", "          MERIDIAN BANK PLC"),
+    ).toEqual([]);
   });
 
   it("y sin negociación tampoco: el párrafo habla de créditos disponibles por negociación", () => {
@@ -586,9 +583,3 @@ describe("el artículo 6 (b) se lee del campo 41", () => {
     expect(con("          MERIDIAN BANK PLC", "SIGHT")).toEqual([]);
   });
 });
-
-
-
-
-
-

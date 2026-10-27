@@ -423,4 +423,3 @@ describe("una fecha abreviada no abre un ítem", () => {
     expect(items[1]).toBe("PACKING LIST IN 3 COPIES");
   });
 });
-

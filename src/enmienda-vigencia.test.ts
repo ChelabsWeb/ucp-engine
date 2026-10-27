@@ -134,9 +134,11 @@ describe("lo demás del artículo", () => {
  */
 describe("el artículo 9 (e): avisar una enmienda es una opción (laudo DOCDEX 365)", () => {
   const con = (papel: Parameters<typeof revisarEnmienda>[2]) =>
-    revisarEnmienda({ ...BASE, narrativa: "THE LATEST SHIPMENT DATE IS EXTENDED TO 31.05.2025." }, "SIN_RESPUESTA", papel).find(
-      (o) => o.id === "ucp-9e",
-    );
+    revisarEnmienda(
+      { ...BASE, narrativa: "THE LATEST SHIPMENT DATE IS EXTENDED TO 31.05.2025." },
+      "SIN_RESPUESTA",
+      papel,
+    ).find((o) => o.id === "ucp-9e");
 
   it("al avisador se le dice, con el artículo y el laudo", () => {
     const r = con("AVISADOR");
@@ -161,4 +163,3 @@ describe("el artículo 9 (e): avisar una enmienda es una opción (laudo DOCDEX 3
     expect(con(undefined)).toBeUndefined();
   });
 });
-

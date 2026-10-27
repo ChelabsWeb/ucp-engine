@@ -1,8 +1,8 @@
 import { claveDoc } from "./consistencia";
-import { comparaISBP } from "./isbp";
-import { modoDeHonrar } from "./mt750";
 import { parseFecha } from "./fechas";
+import { comparaISBP } from "./isbp";
 import { diasPresentacion, limitePresentacion } from "./lc";
+import { modoDeHonrar } from "./mt750";
 import type { LcSwift } from "./swift-lc";
 import type { LcInfo } from "./types";
 
@@ -223,8 +223,36 @@ const ADMINISTRATIVAS =
  * sale de los campos 44, no del 47A— así que en un crédito así la ruta no se compara con nada. Cablearlo es
  * cambiar el intérprete de SWIFT, no una regla, y hay ciento cuatro casos midiendo el apareo actual.
  */
+/**
+ * El calendario de embarques, que es lo que el artículo 32 gobierna.
+ *
+ * Vive en una constante porque la pregunta se hacía en **dos lugares** —`PARAMETROS_DEL_CREDITO`, para no
+ * aconsejar que se tenga por no puesto, y la regla `emision-calendario`, para avisar del artículo 32— y
+ * las dos copias se desincronizaron apenas apareció una redacción nueva: el crédito del laudo DOCDEX 246
+ * dice *«1st shipment covering 1x20 FCL container **to be shipped not later than** 12 March 2004»* y solo
+ * una de las dos la reconoció. Dos copias de la misma pregunta es cómo se desincronizan dos respuestas, y
+ * en ésta la consecuencia es la peor: el artículo 32 es el de la consecuencia más dura de las UCP.
+ *
+ * Es además la quinta vez que **el motor reconocía una redacción y no la otra** —el término de entrega en
+ * palabras, «METRIC TONS», el verbo del número del crédito, el «forwarder B/L» sin «freight»— y acá sobre
+ * la cláusula cuyo incumplimiento deja el crédito sin disponibilidad para esa cuota y las siguientes.
+ */
+export const CALENDARIO_DE_EMBARQUES =
+  /\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during|not later than|no later than)\b|\b(shipments?|embarques?)\s+(are|is)\s+required\b/i;
+
 export const PARAMETROS_DEL_CREDITO =
-  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b/i;
+  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b/i;
+
+/**
+ * ¿Esta cláusula del 47A **configura** el crédito en vez de pedir un papel?
+ *
+ * Se pregunta por acá y no contra el patrón suelto para que el calendario de embarques entre por un solo
+ * lugar: antes la lista de parámetros tenía su propia copia del patrón del calendario y la regla del
+ * artículo 32 tenía otra, y al aparecer una redacción nueva solo una de las dos la reconoció.
+ */
+export function esParametroDelCredito(condicion: string): boolean {
+  return PARAMETROS_DEL_CREDITO.test(condicion) || CALENDARIO_DE_EMBARQUES.test(condicion);
+}
 
 /**
  * ¿La condición menciona un documento que la acredite?
@@ -619,7 +647,7 @@ export function revisarCredito(p: LcSwift): Observacion[] {
      * abierta entre R313, que trata una serie de fechas límite como sujeta al artículo de cuotas, y la
      * ISBP 745, que lo restringió a períodos. Este laudo apoya la línea de la ISBP.
      */
-    if (/\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during)\b/i.test(c)) {
+    if (CALENDARIO_DE_EMBARQUES.test(c)) {
       out.push(
         obs(
           `emision-calendario-${i}`,
@@ -646,7 +674,7 @@ export function revisarCredito(p: LcSwift): Observacion[] {
     if (
       !mencionaDocumento(c) &&
       !/fee|charge|sanction|discrepan/i.test(c) &&
-      !PARAMETROS_DEL_CREDITO.test(c) &&
+      !esParametroDelCredito(c) &&
       /* Y una cláusula de deducción **no** se tiene por no puesta: el laudo DOCDEX 212 la hace valer. */
       !deduceDelCobro(c)
     ) {
