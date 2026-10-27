@@ -375,6 +375,27 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó si hay cláusula de mercadería defectuosa en el documento: verificar a mano$/g,
     "whether there is a clause stating the goods are defective was not read on the document: check by hand",
   ],
+  /* Laudo DOCDEX 330: una copia no la gobiernan los artículos del transporte (ISBP 745 A6) */
+  [
+    /^El crédito pide una copia del documento de transporte, así que los artículos 19 a 25 no lo gobiernan$/g,
+    "The credit calls for a copy of the transport document, so articles 19 to 25 do not govern it",
+  ],
+  [
+    /^una copia no es un documento de transporte a los efectos de los artículos 19 a 25, así que sus exigencias no se le piden y los datos se comparan por el artículo 14 \(d\)$/g,
+    "a copy is not a transport document for the purpose of articles 19 to 25, so their requirements are not asked of it and the data is compared under sub-article 14 (d)",
+  ],
+  [
+    /^El lugar de (salida|destino) de la copia no contradice al del crédito$/g,
+    "The place of $1 on the copy does not conflict with the credit's",
+  ],
+  [
+    /^El lugar de (salida|destino) de la copia no contradice al del crédito \((.+)\)$/g,
+    "The place of $1 on the copy does not conflict with the credit's ($2)",
+  ],
+  [
+    /^no se leyó el lugar de (salida|destino) en el documento: verificar a mano$/g,
+    "the place of $1 was not read on the document: check by hand",
+  ],
   /* Laudo DOCDEX 319: el 14 (c) no impone plazo si la presentación no trae documento de transporte */
   [/^Plazo de presentación del artículo 14 \(c\)$/g, "Presentation period under sub-article 14 (c)"],
   [
