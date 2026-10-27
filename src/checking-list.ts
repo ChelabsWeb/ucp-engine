@@ -315,8 +315,12 @@ export interface PlazoDeAviso {
  * `habilesRestantes` cuenta el día de hoy: si hoy es el último día, devuelve 0, no 1. Y los
  * feriados bancarios no se conocen, así que un 1 puede ser en realidad un 0.
  */
-export function plazoDeAviso(fechaPresentacion: Date, hoy: Date): PlazoDeAviso {
-  const limite = sumarHabiles(fechaPresentacion, 5);
+export function plazoDeAviso(fechaPresentacion: Date, hoy: Date, feriados: Date[] = []): PlazoDeAviso {
+  const limite = sumarHabiles(fechaPresentacion, 5, feriados);
+  const esFeriado = (x: Date) =>
+    feriados.some(
+      (f) => f.getFullYear() === x.getFullYear() && f.getMonth() === x.getMonth() && f.getDate() === x.getDate(),
+    );
   const dia = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const h = dia(hoy);
   const l = dia(limite);
@@ -328,7 +332,7 @@ export function plazoDeAviso(fechaPresentacion: Date, hoy: Date): PlazoDeAviso {
     while (cursor.getTime() < h.getTime()) {
       cursor.setDate(cursor.getDate() + 1);
       const dow = cursor.getDay();
-      if (dow !== 0 && dow !== 6) pasados += 1;
+      if (dow !== 0 && dow !== 6 && !esFeriado(cursor)) pasados += 1;
     }
     return { limite, habilesRestantes: -pasados, vencido: true };
   }
@@ -338,7 +342,7 @@ export function plazoDeAviso(fechaPresentacion: Date, hoy: Date): PlazoDeAviso {
   while (cursor.getTime() < l.getTime()) {
     cursor.setDate(cursor.getDate() + 1);
     const dow = cursor.getDay();
-    if (dow !== 0 && dow !== 6) quedan += 1;
+    if (dow !== 0 && dow !== 6 && !esFeriado(cursor)) quedan += 1;
   }
   return { limite, habilesRestantes: quedan, vencido: false };
 }

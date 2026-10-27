@@ -1,3 +1,4 @@
+import { corto as cortoDeTexto } from "./certificados";
 import {
   ABRE_DESCRIPCION,
   type CamposDoc,
@@ -408,7 +409,16 @@ export function precheckPresentacion(input: {
     usados.add(j);
     return lista[j];
   };
-  const corto = (t: string) => (t.length > 40 ? `${t.slice(0, 37)}…` : t);
+  /*
+   * Y el recorte sale de `certificados.ts`, que es donde ya estaba arreglado.
+   *
+   * Había **dos copias** de la misma pregunta: una cortaba en el espacio y la otra por el carácter
+   * exacto, y la segunda volvió a producir el mismo síntoma que la primera ya había corregido —una
+   * sílaba suelta que el control de traducción lee como castellano—. Acá fue «CON», de «CONFIRMING», en
+   * la línea del 46A del laudo DOCDEX 322; allá había sido «AL», de la misma palabra. Dos copias de la
+   * misma pregunta es cómo se desincronizan dos respuestas, así que queda una.
+   */
+  const corto = (t: string) => cortoDeTexto(t, 40);
   const norm = (s: string) =>
     s
       .normalize("NFD")

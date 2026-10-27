@@ -417,14 +417,36 @@ export function tenorDe(
   return { dias: dias > 0 && dias <= 360 ? dias : 0, desde: desdeBL ? "BL" : "PRESENTACION" };
 }
 
-/** Suma días hábiles (lunes a viernes; los feriados bancarios no se modelan). */
-export function sumarHabiles(d: Date, dias: number): Date {
+/**
+ * Suma días hábiles: fines de semana siempre, y **los feriados cuando el banco los carga**.
+ *
+ * Los feriados no se modelaban, y eso le pegaba al reloj más caro del producto: el artículo 16 (d) dice
+ * «no later than the close of the fifth **banking day** following the day of presentation», y un feriado
+ * no es un día hábil. Sin ellos el motor **adelanta el cierre del plazo** y le dice a un banco que quedó
+ * precluido por el 16 (f) cuando no lo estaba — que es el falso positivo más caro que puede producir,
+ * porque la conclusión es «tenés que honrar igual».
+ *
+ * Lo encontró el laudo **DOCDEX 322**, donde el propio expediente razona con el calendario: *«as 1 May
+ * 2012 and 3 May 2012 were holidays, the last day for checking documents and advising of discrepancies
+ * fell on 4 May 2012. Hence the Respondent's refusal notice sent on 4 May 2012 is in compliance with UCP
+ * 600»* — y el iniciador no lo discutió. Con los dos feriados cargados el aviso está en plazo; sin ellos
+ * el motor lo daba por vencido.
+ *
+ * Los feriados **llegan vacíos por omisión**, así que esto no cambia nada donde no se cargan: es el mismo
+ * trato que ya tenía `vencimientoEfectivo` para el artículo 29 (a), y la misma advertencia vale —un
+ * feriado de más corre el cierre para adelante y uno de menos lo adelanta—.
+ */
+export function sumarHabiles(d: Date, dias: number, feriados: Date[] = []): Date {
   const r = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const esFeriado = (x: Date) =>
+    feriados.some(
+      (f) => f.getFullYear() === x.getFullYear() && f.getMonth() === x.getMonth() && f.getDate() === x.getDate(),
+    );
   let quedan = dias;
   while (quedan > 0) {
     r.setDate(r.getDate() + 1);
     const dow = r.getDay();
-    if (dow !== 0 && dow !== 6) quedan -= 1;
+    if (dow !== 0 && dow !== 6 && !esFeriado(r)) quedan -= 1;
   }
   return r;
 }
