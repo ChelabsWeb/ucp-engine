@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
+import { veredictoDeNombre } from "./isbp";
 import {
   esMensajeSwift,
   fechaSwift,
@@ -325,6 +326,59 @@ describe("el beneficiario, que es quien cobra", () => {
     expect(p.lc.beneficiario).toBe("CEREALSUR S.A");
     expect(p.lc.beneficiarioDireccion).toContain("CERRITO 820");
     expect(p.lc.beneficiarioDireccion).not.toContain("CEREALSUR");
+  });
+});
+
+/**
+ * Lo que cuesta leer el 59 **por posición**, medido.
+ *
+ * Una línea de un campo SWIFT corta a los 35 caracteres, así que un nombre largo y su calle pueden
+ * quedar **en la misma línea**: ahí la razón social que el parser entrega lleva la dirección adentro,
+ * y las tres reglas que comparan el nombre del beneficiario contra un documento —`fac-emisor`,
+ * `ucp-18a-i` y la del endoso— reciben un nombre que ningún papel va a repetir.
+ *
+ * El caso que lo hizo concreto es el laudo DOCDEX 260: su 59 aparece transcripto como «DININNI
+ * PIOMBINO SPA VIA FIORE, I/A 25128 Anatolia, ITALY…», y **«DININNI PIOMBINO SPA VIA FIORE, I/A» mide
+ * exactamente 35 caracteres**. El caso del banco de pruebas no se modeló así —montar un hallazgo
+ * sobre una inferencia de dónde cortaba el mensaje no prueba nada— pero la consecuencia se mide acá.
+ *
+ * **Esto es el hueco del Standards Release 2026**, que convierte el ordenante y el beneficiario en
+ * cinco campos estructurados: hasta que el parser los lea por subcampo, el nombre sale por posición.
+ * El test afirma el estado de hoy para que quien lo arregle venga a leer el motivo, no para
+ * defenderlo.
+ */
+describe("el 59 que trae la calle pegada al nombre (hueco del SR2026)", () => {
+  const credito = (linea1: string) =>
+    parseMT700(`:27:1/1\n:40A:IRREVOCABLE\n:20:X\n:31D:050805ITALY\n:59:${linea1}\n25128 ANATOLIA, ITALY`)!;
+
+  it("la razón social sale con la dirección adentro", () => {
+    expect("DININNI PIOMBINO SPA VIA FIORE, I/A".length).toBe(35);
+    expect(credito("DININNI PIOMBINO SPA VIA FIORE, I/A").lc.beneficiario).toBe("DININNI PIOMBINO SPA VIA FIORE, I/A");
+  });
+
+  it("no inventa una discrepancia, y eso es lo bueno de la noticia", () => {
+    const pegado = credito("DININNI PIOMBINO SPA VIA FIORE, I/A").lc.beneficiario ?? "";
+    /*
+     * La calle pegada **no** hace rechazar la factura: `comparaISBP` tiene la banda de «uno contenido
+     * en el otro con datos de más», y el nombre del papel es un trozo contiguo del nombre pegado.
+     */
+    expect(veredictoDeNombre("DiNinni Piombino S.p.A.", pegado)).toBe("OK");
+  });
+
+  it("lo que se pierde es poder de distinguir: la calle sola pasa por beneficiario", () => {
+    const pegado = credito("DININNI PIOMBINO SPA VIA FIORE, I/A").lc.beneficiario ?? "";
+    const limpio = credito("DININNI PIOMBINO SPA").lc.beneficiario ?? "";
+    /*
+     * Esa misma banda es la que se ensancha: con la calle adentro, **cualquier trozo contiguo** del
+     * nombre pegado cumple, y la calle es uno. Con el 59 bien cortado, no.
+     *
+     * Es un falso negativo y no un falso positivo —del lado más barato de los dos— pero es real: la
+     * regla del 18 (a) (i) deja de poder decir que la factura **no** está emitida por el beneficiario.
+     */
+    expect(veredictoDeNombre("VIA FIORE", limpio)).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("VIA FIORE", pegado)).toBe("OK");
+    /* y un nombre que no comparte nada sigue rechazándose por los dos caminos */
+    expect(veredictoDeNombre("ALTRA DITTA SRL", pegado)).toBe("DISCREPANCIA");
   });
 });
 
