@@ -573,6 +573,29 @@ export function reglasCertificados(input: {
        * eso, para que el examinador pueda levantarla si tiene el dato en la mano. Afinar más esto
        * necesita el texto de la ISBP 821, que no está comprada: inventar la práctica bancaria que
        * falta sería peor que dejar el veredicto donde estaba.
+       *
+       * **Y «anterior» es estricto: el día del embarque no cuenta.** La comparación era `<=`, así
+       * que un certificado fechado **el mismo día** que el a bordo salía en OK. El laudo **DOCDEX
+       * 231** lo decide **tres veces** —tres créditos distintos del mismo expediente, los tres con
+       * la discrepancia declarada válida— y lo funda en el idioma antes que en el reglamento:
+       *
+       *   «UCP 500 and ISBP are silent as to the meaning of the word "prior". "Prior" has a clear
+       *   meaning. Each dictionary says in similar words that it means earlier than, or before
+       *   something else […] **Prior to a certain date excludes, therefore, that certain date.**»
+       *
+       *   «anything that must happen prior to that date **must bear a date which is at least one day
+       *   before the date of shipment**. The discrepancy is valid.»
+       *
+       * Y lo apoya en el párrafo **195 de la ISBP**, que es el que usa las dos palabras juntas: *«An
+       * insurance document should be issued or endorsed so that the right to receive payment under
+       * it passes **upon, or prior to**, the release of the documents»* — si «prior» incluyera el día,
+       * «upon» no haría falta.
+       *
+       * **Medido antes de cambiarlo: no mueve ninguno de los 129 casos del banco de pruebas**, así
+       * que no agrega un falso positivo a nada ya medido. Y deja la rama simétrica con su espejo: el
+       * laudo DOCDEX 318 ya trataba el mismo día como discrepancia del lado del destino, por una
+       * razón física —la mercadería no puede llegar el día que se embarca— y del lado de acá la
+       * razón es la palabra que el crédito escribió.
        */
       const delHecho = fechaDelHecho(c.campos);
       // si declara cuándo ocurrió, manda esa fecha; si no, queda la de emisión
@@ -583,12 +606,14 @@ export function reglasCertificados(input: {
               `cert-previo-${sufijo}`,
               "ISBP 821 A12b",
               `${nombre}: acredita un hecho anterior al embarque`,
-              relevante <= fe ? "OK" : "DISCREPANCIA",
+              relevante < fe ? "OK" : "DISCREPANCIA",
               relevante !== fd
                 ? `el hecho que acredita es del ${fmtFecha(relevante)} · embarque ${fechaEmbarque} (documento ${f})`
-                : relevante <= fe
+                : relevante < fe
                   ? `documento ${f} · embarque ${fechaEmbarque}`
-                  : `documento ${f} · embarque ${fechaEmbarque} — y no dice cuándo ocurrió lo que acredita`,
+                  : relevante.getTime() === fe.getTime()
+                    ? `documento ${f} · embarque ${fechaEmbarque} — el mismo día no es «anterior»: el laudo DOCDEX 231 pide al menos un día antes`
+                    : `documento ${f} · embarque ${fechaEmbarque} — y no dice cuándo ocurrió lo que acredita`,
             )
           : regla(
               `cert-previo-${sufijo}`,

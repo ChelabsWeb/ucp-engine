@@ -631,6 +631,33 @@ describe("un certificado que acredita un hecho anterior al embarque", () => {
     const r = correr("12-abr-25", "INSPECTION CARRIED OUT ON 11-abr-25");
     expect(r?.estado).toBe("DISCREPANCIA");
   });
+
+  /*
+   * Y el mismo día **no** es «anterior», que es lo que decide el laudo DOCDEX 231.
+   *
+   * Lo resuelve tres veces —tres créditos distintos del mismo expediente, los tres con la
+   * discrepancia declarada válida— y lo funda en el idioma antes que en el reglamento: *«UCP 500 and
+   * ISBP are silent as to the meaning of the word "prior". "Prior" has a clear meaning […] Prior to a
+   * certain date excludes, therefore, that certain date»*, y *«anything that must happen prior to that
+   * date must bear a date which is at least one day before the date of shipment»*.
+   *
+   * Más el párrafo 195 de la ISBP, que es el que usa las dos palabras juntas —«upon, or prior to»—: si
+   * «prior» incluyera el día, «upon» no haría falta.
+   */
+  it("el mismo día del embarque no es «anterior» (laudo DOCDEX 231)", () => {
+    const r = correr("08-abr-25");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toMatch(/el mismo día no es/i);
+  });
+
+  it("y el día anterior sí, que es el borde exacto", () => {
+    expect(correr("07-abr-25")?.estado).toBe("OK");
+  });
+
+  it("y con el hecho declarado el mismo día, tampoco alcanza", () => {
+    const r = correr("12-abr-25", "INSPECTION CARRIED OUT ON 08-abr-25");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
 });
 
 describe("el certificado de origen y dónde está escrito el origen", () => {
