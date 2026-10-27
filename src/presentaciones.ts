@@ -303,7 +303,7 @@ export function reglasDeGiro(input: {
    * En *Fortis Bank v Indian Overseas Bank* el emisor pagó USD 8,06 millones por eso.
    */
   if (input.hoy && input.actual.fecha instanceof Date && !Number.isNaN(input.actual.fecha.getTime())) {
-    const { habilesRestantes, vencido } = plazoDeAviso(input.actual.fecha, input.hoy);
+    const { habilesRestantes, vencido } = plazoDeAviso(input.actual.fecha, input.hoy, input.feriados ?? []);
     const dias = Math.abs(habilesRestantes);
     out.push(
       regla(

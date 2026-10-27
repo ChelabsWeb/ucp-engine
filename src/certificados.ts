@@ -56,7 +56,7 @@ const val = (c: { valor: string; confianza: number } | undefined): string | null
  * leerse mal, esa «AL» suelta hacía que el control de traducción la tomara por la preposición
  * castellana en medio de una cita del crédito que está en inglés.
  */
-const corto = (s: string, n = 60) => {
+export const corto = (s: string, n = 60) => {
   if (s.length <= n) return s;
   const cortado = s.slice(0, n - 1);
   const espacio = cortado.lastIndexOf(" ");
