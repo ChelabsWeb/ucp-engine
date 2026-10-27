@@ -74,9 +74,34 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
    */
   const linea = (documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
   if (!linea) return false;
-  const pideCopia = /\b(copy|copies|photocopy|photocopies|non.?negotiable copy)\b/i.test(linea);
-  const pideOriginal = /\b(original|originals|full set)\b/i.test(linea);
-  return pideCopia && !pideOriginal;
+  if (/\b(original|originals|full set)\b/i.test(linea)) return false;
+  /*
+   * Y una **copia en lugar del original** no es lo mismo que **N ejemplares** del documento.
+   *
+   * Lo encontró la auditoría de las observaciones `NO_VERIFICABLE`, que es el método que este repositorio
+   * se dejó escrito para después de tocar el motor: el 46A de la Opinión TA 961rev pide «CMR ROAD
+   * CONSIGNMENT NOTE **IN 2 COPIES**», y eso son dos ejemplares del CMR —un CMR se emite en varias hojas
+   * por diseño— y no una fotocopia en vez del original. El motor lo tomaba por lo segundo, así que ese
+   * caso tenía **el plazo de presentación silenciado** desde que esta función existe, y desde el laudo
+   * DOCDEX 330 perdió además el capítulo entero de los artículos 19 a 25.
+   *
+   * El corte es la **posición**: en una sustitución la palabra encabeza la exigencia —«COPY OF THE AIR
+   * WAYBILL», «PHOTOCOPY OF CMR», «NON-NEGOTIABLE COPY OF BILL OF LADING»— y en un conteo va detrás del
+   * nombre y con un número adelante. Es lo que distingue el párrafo A6 de la ISBP, que habla de un crédito
+   * que **admite presentar una copia en vez de un original**.
+   */
+  /*
+   * Los nombres van alineados con los que `clavePorTexto` reconoce como documento de transporte —de ahí
+   * salió el primer intento de este corte, que se quedó sin «CMR» y le apagó la rama al laudo DOCDEX 322
+   * en la misma corrida en que se la devolvía a TA 961rev—. La lista vive acá y no importada porque este
+   * módulo se sincroniza con romai y no conviene cargarlo de dependencias nuevas, pero es la misma.
+   */
+  const NOMBRE_TRANSPORTE =
+    /\b(bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awbs?|air\s+consignment\s+notes?|sea\s*way\s*bills?|consignment\s+notes?|cmr|rail\s*way\s*bills?|cartas?\s+de\s+porte|inland\s+waterway|multimodal|combined\s+transport|intermodal|through\s+bill|courier\s+receipt|post\s+receipt|transport\s+document|conocimiento)\b/i;
+  const COPIA = /\b(photocopy|photocopies|copy|copies)\b/i;
+  const iCopia = linea.search(COPIA);
+  const iNombre = linea.search(NOMBRE_TRANSPORTE);
+  return iCopia >= 0 && iNombre >= 0 && iCopia < iNombre;
 }
 
 /*
@@ -1126,6 +1151,13 @@ export function precheckPresentacion(input: {
    * Lo encontró el laudo DOCDEX 319, un standby sujeto a las UCP 600 que pide una copia de factura, una
    * declaración del beneficiario y una carta de garantía, y ningún documento de transporte: *«Because no
    * transport document is required for presentation, the transport articles of UCP 600 do not apply»*.
+   *
+   * **Y un borde del corpus, medido en la auditoría de las observaciones:** tres casos del banco de pruebas
+   * —DOCDEX 208, TA 756 y TA 873rev— entran por esta rama porque su 46A **reconstruido** no pide documento
+   * de transporte: son Opiniones sobre la factura y la fuente no transcribe el 46A completo. La regla es
+   * correcta sobre los datos que recibe, pero en esos tres la afirmación «el crédito no exige documento de
+   * transporte» descansa en la reconstrucción y no en la Opinión. Vale saberlo antes de leer esos exámenes
+   * como si dijeran algo del crédito real.
    *
    * **Las dos condiciones a la vez, y eso es a propósito**: que el crédito no lo pida y que no se haya
    * presentado. Si el beneficiario presenta uno igual, el inciso habla de la presentación y no de lo que el

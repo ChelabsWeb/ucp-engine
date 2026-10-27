@@ -804,6 +804,23 @@ describe("la copia del documento de transporte y los plazos", () => {
      */
     ["COPY OF AN UNPAID COMMERCIAL INVOICE STATING B/L DATE", false],
     ["COPY OF INVOICE SHOWING B/L NUMBER AND DATE", false],
+    /*
+     * Y **N ejemplares no son una copia en lugar del original**, que es lo que encontró la auditoría de
+     * las observaciones `NO_VERIFICABLE`.
+     *
+     * El 46A de la Opinión TA 961rev pide «CMR ROAD CONSIGNMENT NOTE **IN 2 COPIES**» —un CMR se emite en
+     * varias hojas por diseño— y el motor lo tomaba por una sustitución: ese caso tenía **el plazo de
+     * presentación silenciado** desde que esta función existe, y con la rama del laudo DOCDEX 330 perdió
+     * además el capítulo entero de los artículos 19 a 25, en silencio. El corte es la posición: en una
+     * sustitución la palabra encabeza la exigencia; en un conteo va detrás del nombre.
+     */
+    ["CMR ROAD CONSIGNMENT NOTE IN 2 COPIES", false],
+    ["AIR WAYBILL IN 3 COPIES", false],
+    ["BILL OF LADING, 2 COPIES", false],
+    /* Y las sustituciones de los tres laudos que la rama cita siguen reconociéndose. */
+    ["PHOTOCOPY OF CMR ISSUED TO PORT L AS CONSIGNEE", true],
+    ["COPY OF THE AIR WAYBILL", true],
+    ["PHOTO COPY B/L (TELEX/TELEFAX ACCEPTABLE)", true],
   ])("«%s» → solo copia: %s", (linea, esperado) => {
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
   });
