@@ -447,6 +447,67 @@ describe("el pago «solo contra» menos documentos de los que el crédito pide (
 });
 
 /**
+ * El endoso que el beneficiario no puede hacer (laudo DOCDEX 288)
+ *
+ * El crédito pedía el conocimiento «issued to the order of Bank V» —el banco emisor— «blank endorsed», el
+ * beneficiario presentó el juego *«precisely as stated in the credit»* sin el endoso, y el emisor rechazó.
+ * Unánime, con los dos respondentes en silencio: *«A bill of lading issued to the order of a party can only
+ * be endorsed by the party stated in the "consignee" field of the bill of lading. Only when the B/L is made
+ * out to order of the shipper is the shipper able to endorse in blank»*, y el emisor tiene que retirar el
+ * rechazo y pagar el crédito **más la estadía**.
+ *
+ * La otra forma de la misma irregularidad la trae la Opinión TA 814rev4: *«A bill of lading that is straight
+ * consigned to the applicant cannot be endorsed»*.
+ */
+describe("el endoso que el beneficiario no puede hacer (laudo DOCDEX 288)", () => {
+  const con = (linea46a: string) => {
+    const p = parseMT700(SWIFT_CSU2025099)!;
+    return revisarCredito({ ...p, lc: { ...p.lc, documentosExigidos: [linea46a] } }).filter((o) =>
+      o.id.startsWith("emision-endoso-imposible"),
+    );
+  };
+
+  it("a la orden del banco emisor y endosado en blanco sale como CONFLICTO", () => {
+    const [r] = con(
+      "FULL SET 3/3 SHIPPED ON BOARD OCEAN BILLS OF LADING ISSUED TO THE ORDER OF BANK V, BLANK ENDORSED, MARKED FREIGHT PREPAID AND NOTIFY APPLICANT",
+    );
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("DOCDEX 288");
+    expect(r?.que).toContain("BANK V");
+    expect(r?.sugerencia).toContain("estadía");
+  });
+
+  it("y consignado derecho al ordenante también, que es la mitad de TA 814rev4", () => {
+    const [r] = con("FULL SET OF BILLS OF LADING CONSIGNED TO APPLICANT, BLANK ENDORSED");
+    expect(r?.gravedad).toBe("CONFLICTO");
+  });
+
+  /* Los frenos: el crédito bien redactado es justamente el que el panel señala como el bueno. */
+  it.each([
+    "FULL SET OF ORIGINAL BILLS OF LADING MADE OUT TO ORDER AND BLANK ENDORSED",
+    "FULL SET OF BILLS OF LADING TO THE ORDER OF SHIPPER AND BLANK ENDORSED",
+    "FULL SET OF BILLS OF LADING TO THE ORDER OF THE BENEFICIARY, BLANK ENDORSED",
+  ])("«%s» no se marca", (linea) => {
+    expect(con(linea)).toEqual([]);
+  });
+
+  it("ni un crédito que consigna a un tercero sin pedir endoso", () => {
+    expect(con("FULL SET OF BILLS OF LADING ISSUED TO THE ORDER OF BANK V, MARKED FREIGHT PREPAID")).toEqual([]);
+  });
+
+  it("ni cuando el nombre que el crédito pone es el del beneficiario escrito de otra manera", () => {
+    /* El 59 del crédito real dice «CEREALSUR S.A»; acá va sin el punto y con la forma entera. */
+    expect(con("FULL SET OF BILLS OF LADING TO THE ORDER OF CEREALSUR SA, BLANK ENDORSED")).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id.startsWith("emision-endoso-imposible")),
+    ).toEqual([]);
+  });
+});
+
+/**
  * Una cancelación necesita el sí del beneficiario (laudo DOCDEX 358)
  *
  * El emisor le dijo al banco designado *«that the beneficiary wished to cancel the credit and that the file
