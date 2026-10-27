@@ -7,6 +7,7 @@ import {
   emisorAdmitido,
   esCertificadoDeOrigen,
   exigePrevioAlEmbarque,
+  NOMBRA_AL_EMISOR,
 } from "./isbp";
 import {
   type DocAnalizado,
@@ -92,7 +93,24 @@ export function emisorQueNombra(exigencia: string): string | undefined {
    * detrás de una palabra, que es donde de verdad termina una frase: «ISSUED BY CALISET. THE
    * CERTIFICATE MUST…» se corta en «CALISET».
    */
-  const m = /issued by\s+((?:[^,;.]|\.(?=\S)|(?<=(?:^|[^a-z])[a-z])\.)+)/i.exec(exigencia);
+  /*
+   * Y **«signed by X» nombra al emisor igual que «issued by X»**, que es la redacción con la que un
+   * crédito pide la firma de una persona.
+   *
+   * El 46A del laudo **DOCDEX 216** dice «the relevant original acknowledging receipt **signed by ship
+   * master** must be presented for negotiation», y la captura solo leía «issued by»: el certificado
+   * salía **sin una sola regla** —ni emisor, ni fecha, ni número— porque nadie veía que el crédito
+   * había nombrado quién firma. Es la novena vez que el motor reconoce una redacción y no la otra, y
+   * acá cuesta una **encontrada**: el panel declaró el rechazo **válido**.
+   *
+   * «SIGNED COMMERCIAL INVOICE» no entra, porque pide la preposición: lo que se busca es a **quién**
+   * nombra, no que el papel esté firmado. Y el verbo vive en `NOMBRA_AL_EMISOR` porque `emisorAdmitido`
+   * hace la misma pregunta.
+   */
+  const m = new RegExp(
+    `(?:${NOMBRA_AL_EMISOR.source})\\s+((?:[^,;.]|\\.(?=\\S)|(?<=(?:^|[^a-z])[a-z])\\.)+)`,
+    "i",
+  ).exec(exigencia);
   const crudo = m?.[1]?.trim();
   if (!crudo) return undefined;
   /*
@@ -102,8 +120,19 @@ export function emisorQueNombra(exigencia: string): string | undefined {
    * entera, que después no coincidía con nada y mandaba a discrepancia un certificado correcto.
    */
   const cabeza = cabezaDeExigencia(crudo.toLowerCase());
-  if (!cabeza || cabeza === crudo.toLowerCase()) return crudo;
-  return crudo.slice(0, cabeza.length).trim() || crudo;
+  const hastaLaCabeza =
+    !cabeza || cabeza === crudo.toLowerCase() ? crudo : crudo.slice(0, cabeza.length).trim() || crudo;
+  /*
+   * Y el nombre tampoco se lleva **la instrucción** que sigue.
+   *
+   * «SIGNED BY SHIP MASTER **MUST BE PRESENTED FOR NEGOTIATION**» daba «SHIP MASTER MUST BE PRESENTED»,
+   * que no es el nombre de nadie: lo que viene detrás de «must», «shall» o «to be» le habla al banco,
+   * no describe al emisor. Es el mismo corte que `ABRE_DESCRIPCION` hace con «stating» y «showing», y
+   * va acá y no allá porque allá gobierna el apareo de los ciento veinticuatro créditos del banco.
+   */
+  const i = /\b(?:must|shall|should|to\s+be|which|is\s+to)\b/i.exec(hastaLaCabeza)?.index;
+  const recortado = (i === undefined ? hastaLaCabeza : hastaLaCabeza.slice(0, i)).replace(/[\s,;.]+$/, "").trim();
+  return recortado || hastaLaCabeza;
 }
 
 /**
@@ -377,6 +406,37 @@ export function reglasCertificados(input: {
           (o) =>
             /\bbeneficiar/i.test(o) || (input.beneficiario ? comparaISBP(o, input.beneficiario) !== "DISTINTO" : false),
         );
+        /*
+         * Y **firmar «por» la persona que el crédito nombró no es ser esa persona** (laudo DOCDEX 216).
+         *
+         * El crédito pedía el recibo «signed by ship master» y el papel traía el sello de una naviera
+         * con «FOR THE MASTER OF "VESSEL G"» debajo. El emisor rechazó y el panel declaró el rechazo
+         * **válido**, por unanimidad:
+         *
+         * > according to any practice, national or international, **a person signing for himself would
+         * > not write that he was signing "For" himself** — or that a person signing "For" someone, is
+         * > not that someone himself.
+         *
+         * Y lo funda en la propia mecánica de las UCP: *«in Article 23 an agent may sign "For" a carrier
+         * if the agent states in which capacity he is signing (as agent), i.e., **the carrier and the
+         * agent are two different persons**»*, más la Opinión 470/TA.122, que había decidido lo mismo.
+         *
+         * **El alcance es angosto y es toda la decisión**: solo cuando el crédito nombra a una **persona
+         * física** —el capitán del buque—. Una **empresa** se firma justamente así, «for and on behalf of
+         * SGS Ltd», porque una sociedad no tiene mano: ahí el «for» es la forma normal y marcarlo sería
+         * rechazar cualquier certificado de cualquier laboratorio del mundo. Lo que el panel razona es
+         * que una persona no firma «por» sí misma.
+         *
+         * Y no toca el documento de transporte, que tiene su propia regla: el artículo 22 admite al
+         * agente **por eso mismo**, porque son dos personas distintas y el inciso lo dice.
+         */
+        const PERSONA_QUE_FIRMA = /\b(?:ship\s+)?master\b|\bcaptain\b|\bcapt\b/i;
+        const firmaPorOtro =
+          Boolean(emisor) &&
+          PERSONA_QUE_FIRMA.test(nombrado) &&
+          /\b(?:for|on\s+behalf\s+of)\s+(?:and\s+)?(?:on\s+behalf\s+of\s+)?(?:the\s+)?(?:ship\s+)?(?:master|captain|capt)\b/i.test(
+            emisor!,
+          );
         const loEmiteElBeneficiario =
           distinto &&
           !nombraAlBeneficiario &&
@@ -389,20 +449,22 @@ export function reglasCertificados(input: {
                 `cert-emisor-${sufijo}`,
                 "ISBP 821 Q3",
                 `${nombre}: lo emite ${corto(nombrado, 40)}`,
-                loEmiteElBeneficiario
+                firmaPorOtro || loEmiteElBeneficiario
                   ? "DISCREPANCIA"
                   : !distinto || (nombraAlBeneficiario && esElBeneficiario)
                     ? "OK"
                     : porFuncion
                       ? "ATENCION"
                       : "DISCREPANCIA",
-                loEmiteElBeneficiario
-                  ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
-                  : !distinto
-                    ? `el documento lo emite "${emisor}"`
-                    : porFuncion
-                      ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
-                      : `el documento lo emite "${emisor}"`,
+                firmaPorOtro
+                  ? `lo firma otro «por» la persona que el crédito nombra: dice "${emisor}" y el crédito lo pide firmado por ${corto(nombrado, 40)} — quien firma «por» alguien no es ese alguien (laudo DOCDEX 216 y Opinión 470/TA.122)`
+                  : loEmiteElBeneficiario
+                    ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
+                    : !distinto
+                      ? `el documento lo emite "${emisor}"`
+                      : porFuncion
+                        ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
+                        : `el documento lo emite "${emisor}"`,
               )
             : regla(
                 `cert-emisor-${sufijo}`,

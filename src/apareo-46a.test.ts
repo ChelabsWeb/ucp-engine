@@ -102,6 +102,28 @@ const BATERIA: [linea: string, clave: string][] = [
   ["BENEFICIARY DRAFT DRAWN ON ISSUING BANK AT 90 DAYS FROM INVOICE DATE", "GIRO"],
   ["BILL OF EXCHANGE AT SIGHT DRAWN ON THE APPLICANT", "GIRO"],
 
+  /*
+   * ── el papel del beneficiario, que no siempre se llama «certificate» ──
+   *
+   * «BENEFICIARY'S CERTIFIED COPY OF CABLE … **ADVISING** NAME OF VESSEL, SHIPMENT DATE, QUANTITY,
+   * **WEIGHT**, VALUE…» es cómo se pide el aviso de embarque, y el patrón pedía la palabra
+   * «certificate»: con eso la cabeza de la línea era la línea entera y **la palabra «WEIGHT» de su
+   * propio texto se lo llevaba al certificado de peso**. Décima vez que un documento cuyo texto
+   * menciona otro tipo se lo deja robar (laudo DOCDEX 235), y la redacción está en el crédito real.
+   */
+  [
+    "BENEFICIARY'S CERTIFIED COPY OF CABLE DISPATCHED TO THE APPLICANT ADVISING NAME OF VESSEL, SHIPMENT DATE, QUANTITY, WEIGHT, VALUE OF SHIPMENT GOODS AND THIS L/C NO.",
+    "BENEFICIARIO:beneficiary s certified copy of cable di",
+  ],
+  [
+    "BENEFICIARY'S STATEMENT ADVISING THE GROSS WEIGHT OF EACH PACKAGE",
+    "BENEFICIARIO:beneficiary s statement advising the gro",
+  ],
+  /* Y las pruebas de más arriba siguen mandando: el origen se queda con su línea antes de llegar acá. */
+  ["CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY", "ORIGEN"],
+  /* Y un certificado de peso de verdad sigue siendo PESO. */
+  ["WEIGHT CERTIFICATE ISSUED BY AN INDEPENDENT SURVEYOR", "PESO"],
+
   /* ── el aviso de embarque, que se escribe «advice» más seguido que «notice» ── */
   ["SHIPMENT ADVICE SENT TO THE INSURERS WITHIN 5 DAYS AFTER SHIPMENT DATE", "AVISO_EMBARQUE"],
   ["SHIPMENT ADVICE QUOTING THE BILL OF LADING NUMBER AND THE INVOICE VALUE", "AVISO_EMBARQUE"],

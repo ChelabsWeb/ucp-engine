@@ -1385,8 +1385,17 @@ export function normalizarLC(raw: unknown): { campos: CamposDoc; requisitos: Req
  * exigido, el calificativo del párrafo Q5 y, desde el laudo DOCDEX 204, el consignatario que el 46A
  * nombra— y van cinco veces que una captura de nombre se lleva la frase entera por tener su propio corte.
  */
+/*
+ * Y «advising» abre la descripción igual que «stating» y «showing», que es lo que faltaba.
+ *
+ * El aviso de embarque se pide así: «BENEFICIARY'S CERTIFIED COPY OF CABLE DISPATCHED TO THE APPLICANT
+ * **ADVISING** NAME OF VESSEL, SHIPMENT DATE, QUANTITY, **WEIGHT**, VALUE…». Sin ese corte la cabeza de
+ * la línea era la línea entera, y entonces la palabra «WEIGHT» de su propio texto se la llevaba al
+ * certificado de peso: dos líneas del 46A colapsaban en una clave y un solo papel las cumplía las dos.
+ * Lo encontró el laudo DOCDEX 235, y la redacción está en el crédito real del expediente.
+ */
 export const ABRE_DESCRIPCION =
-  /\bin\s+lieu\b|\binstead\s+of\b|\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting)\b/;
+  /\bin\s+lieu\b|\binstead\s+of\b|\b(for|covering|certifying|confirming|stating|showing|indicating|including|evidencing|issued by|made out|marked|plus|dated|drawn|accompanied|declaring|mentioning|quoting|advising)\b/;
 
 /*
  * Las dos mitades se buscan sobre el texto **en minúsculas**, y el original se corta en ese índice.
@@ -1785,7 +1794,29 @@ function clavePorTexto(s: string): string {
    * «BENEFICIARY'S SIGNED CERTIFICATE OF SITE ACCEPTANCE TEST» sigue siendo `ACEPTACION` y un
    * «CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY» sigue siendo `ORIGEN`.
    */
-  if (/beneficiary.{0,25}certificate|certificado del beneficiario/.test(s)) return `BENEFICIARIO:${s.slice(0, 40)}`;
+  /*
+   * Y **«BENEFICIARY'S CERTIFIED COPY OF…» es un papel del beneficiario**, aunque no diga
+   * «certificate».
+   *
+   * El patrón pedía esa palabra, así que el aviso de embarque —«BENEFICIARY'S CERTIFIED COPY OF
+   * CABLE DISPATCHED TO THE APPLICANT […] ADVISING NAME OF VESSEL, SHIPMENT DATE, QUANTITY,
+   * **WEIGHT**, VALUE…»— no daba `BENEFICIARIO` ni por la cabeza ni por la línea entera, y entonces
+   * **la palabra «WEIGHT» de su propio texto se lo llevaba al certificado de peso**. Es la décima vez
+   * que un documento cuyo texto menciona otro tipo se lo deja robar, y el daño es el de siempre: dos
+   * líneas del 46A colapsan en una clave, un solo papel las cumple las dos, y las reglas del
+   * certificado de peso corren sobre el papel equivocado.
+   *
+   * Lo encontró el laudo DOCDEX 235, cuyo 46A pide las dos cosas —el certificado de calidad y el
+   * aviso por cable—, y **la redacción es de las más corrientes que hay**: el crédito real del
+   * expediente tiene un aviso de embarque de esta misma forma.
+   *
+   * Entran las tres formas con que un crédito le pide al beneficiario un papel propio —«certificate»,
+   * «certified» y «statement»/«declaration»— y las pruebas de más arriba siguen mandando, así que un
+   * «CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY» sigue siendo `ORIGEN`.
+   */
+  if (/beneficiary.{0,25}(?:certificate|certified|statement|declaration)|certificado del beneficiario/.test(s)) {
+    return `BENEFICIARIO:${s.slice(0, 40)}`;
+  }
   /*
    * El courier y el correo van acá, y el lugar no es un detalle.
    *
