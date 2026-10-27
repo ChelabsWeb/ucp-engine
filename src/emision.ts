@@ -525,15 +525,44 @@ export function revisarCredito(p: LcSwift): Observacion[] {
       ),
     );
   } else if (dias === null) {
+    /*
+     * Y con el 48 en blanco hay **dos** respuestas, porque el 14 (c) no se aplica a todo crédito.
+     *
+     * El inciso habla de «a presentation including one or more original transport documents under
+     * articles 19 a 25»: un crédito que no exige documento de transporte no tiene plazo que correr y su
+     * único límite es el vencimiento. Eso ya estaba resuelto **en el examen** desde el laudo DOCDEX 319
+     * —ver la rama de `sinTransporteExigidoNiPresentado` en `presentacion.ts`— y acá seguía saliendo «rigen
+     * 21 días desde el embarque», que es el consejo contrario sobre el mismo campo.
+     *
+     * **Las dos mitades del motor diciendo cosas distintas, y la segunda vez sobre el campo 48**: la
+     * primera fue el laudo DOCDEX 262, donde el examen sabía desde *Deutsche Bank v CIMB* que un 48 «within
+     * letter of credit validity» pone el límite en el 31D y la revisión seguía aconsejando los 21 días. Lo
+     * encontró el inventario congelado de emisión con el crédito del laudo DOCDEX 215, que se cobra contra
+     * un cargo receipt y no pide ningún documento de transporte.
+     *
+     * No es cosmético: aconsejarle a un banco que fije un plazo que el artículo no le impone lo lleva a
+     * escribir en el 48 un límite más corto que el que el crédito tiene, y eso produce tardías que no
+     * existen — el mismo daño, por la puerta de la redacción en vez de la del examen.
+     */
+    const pideTransporte = (lc.documentosExigidos ?? []).some((d) => claveDoc(d) === "BL");
     out.push(
-      obs(
-        "emision-sin-plazo",
-        "AVISO",
-        "UCP 600 14c",
-        "El crédito no fija plazo de presentación: rigen 21 días desde el embarque",
-        "campo 48",
-        "fijarlo si se quiere otro, y verificar que entre antes del vencimiento",
-      ),
+      pideTransporte
+        ? obs(
+            "emision-sin-plazo",
+            "AVISO",
+            "UCP 600 14c",
+            "El crédito no fija plazo de presentación: rigen 21 días desde el embarque",
+            "campo 48",
+            "fijarlo si se quiere otro, y verificar que entre antes del vencimiento",
+          )
+        : obs(
+            "emision-sin-plazo-sin-transporte",
+            "AVISO",
+            "UCP 600 14c · laudo DOCDEX 319",
+            "El crédito no exige documento de transporte, así que el artículo 14 (c) no impone plazo: el único límite es el vencimiento",
+            "campo 48",
+            "está bien así y conviene saberlo: el inciso habla de «a presentation including one or more original transport documents», y escribir un plazo en días acortaría la ventana que el crédito hoy tiene hasta el 31D",
+          ),
     );
   } else if (venc && ultimoEmbarque) {
     const lim = limitePresentacion(lc, null, lc.limiteEmbarque);
