@@ -201,9 +201,25 @@ describe("Q3 a Q5 y L3 — quién puede emitir un certificado", () => {
  * Co Ltd» salían IGUAL — dos nombres que un tribunal inglés declaró materialmente distintos. Ahora el
  * signo vale como la palabra «and», que es lo que deja separado el caso bueno del malo.
  */
-describe("el ampersand en el nombre de una parte (Bulgrains v Shinhan)", () => {
+/*
+ * El ampersand, con las dos autoridades que lo enmarcan.
+ *
+ * La mitad de arriba —que «&» y «and» nombran a la misma empresa— descansaba en el razonamiento de
+ * *Bulgrains & Co Ltd v Shinhan Bank*, que es lo que **la otra** mitad decide. Desde el laudo **DOCDEX
+ * 215** hay una autoridad de la ICC que dice la primera en una línea, sobre el nombre del propio banco
+ * emisor escrito con ampersand en el giro y con «and» en el crédito: *«There is no inconsistency between
+ * the word "and" and "&"»* — seis motivos de rechazo y ninguno válido.
+ *
+ * El par importa y conviene no separarlo: lo que falta en Bulgrains no es el ampersand, son **las
+ * palabras**, y por eso ese sigue siendo DISTINTO.
+ */
+describe("el ampersand en el nombre de una parte (Bulgrains v Shinhan, y el laudo DOCDEX 215)", () => {
   it("«&» y «and» nombran a la misma empresa", () => {
     expect(comparaISBP("SMITH & CO LTD", "SMITH AND CO LTD")).toBe("IGUAL");
+  });
+
+  it("y el nombre del banco del laudo DOCDEX 215, que es donde lo dice un panel de la ICC", () => {
+    expect(comparaISBP("BANK I AND C, COUNTRY C", "BANK I & C, COUNTRY C")).toBe("IGUAL");
   });
 
   it("pero un «&» que falta no es un error de tipeo: es otro nombre", () => {

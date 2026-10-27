@@ -238,6 +238,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The credit sets no period for presentation: 21 days after shipment apply",
   ],
   [
+    /^El crédito no exige documento de transporte, así que el artículo 14 \(c\) no impone plazo: el único límite es el vencimiento$/g,
+    "The credit does not require a transport document, so article 14 (c) imposes no period: the only limit is the expiry date",
+  ],
+  [
+    /^está bien así y conviene saberlo: el inciso habla de «a presentation including one or more original transport documents», y escribir un plazo en días acortaría la ventana que el crédito hoy tiene hasta el 31D$/g,
+    "this is fine as it stands and worth knowing: the sub-article refers to «a presentation including one or more original transport documents», and writing a period in days would shorten the window the credit currently has until field 31D",
+  ],
+  [
     /^El crédito parece estar disponible por giro sobre el ordenante$/g,
     "The credit appears to be available by a draft drawn on the applicant",
   ],
