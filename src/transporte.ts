@@ -237,6 +237,20 @@ const PALABRAS_DE_LA_ANOTACION = new Set([
   "MV",
   "SS",
   "MS",
+  /*
+   * Y las palabras que nombran **la carga** y no un buque ni un lugar.
+   *
+   * «GOODS ON BOARD - 7 LUG. 2005» es la anotación del conocimiento del laudo DOCDEX 259, y sin
+   * «GOODS» en esta lista el motor la leía como una anotación que nombra algo que no es el buque: salía
+   * un aviso pidiendo verificar si era un buque de pre-acarreo, sobre la redacción más corriente que
+   * hay. Un aviso que grita sobre casos buenos enseña a ignorar los avisos.
+   */
+  "GOODS",
+  "CARGO",
+  "CARGA",
+  "MERCADERIA",
+  "CONTAINER",
+  "CONTAINERS",
 ]);
 
 /* Los meses, que son parte de la fecha y no nombran nada. */

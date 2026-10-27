@@ -351,6 +351,20 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó la fecha del seguro en el documento: verificar a mano$/g,
     "the insurance date was not read on the document: check by hand",
   ],
+  /*
+   * Las dos variantes del mismo aviso, que nacieron el día que dejó de culpar al campo equivocado.
+   *
+   * Van enteras y ancladas por el mismo motivo que las demás: el aviso del 28 (e) se alcanza cuando
+   * falta **cualquiera** de las dos fechas, y antes decía siempre «la del seguro».
+   */
+  [
+    /^no se leyó la fecha de embarque en el documento: verificar a mano$/g,
+    "the shipment date was not read on the document: check by hand",
+  ],
+  [
+    /^no se leyó ni la fecha del seguro ni la del embarque en el documento: verificar a mano$/g,
+    "neither the insurance date nor the shipment date was read on the document: check by hand",
+  ],
   [/^no se leyó la fecha en el documento: verificar a mano$/g, "the date was not read on the document: check by hand"],
   [
     /^no se leyó la marca de flete en el documento: verificar a mano$/g,
@@ -1205,6 +1219,9 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^No es una nota de cobertura \(cover note\)$/g, "It is not a cover note"],
   [/^El seguro no está fechado después del embarque$/g, "The insurance document is not dated after shipment"],
   [/^la fecha del seguro$/g, "the date of the insurance document"],
+  /* Las dos variantes que `sinLeer` recibe desde el 28 (e), que se nombran como fragmento. */
+  [/^la fecha de embarque$/g, "the shipment date"],
+  [/^ni la fecha del seguro ni la del embarque$/g, "neither the insurance date nor the shipment date"],
   [/^la moneda del seguro$/g, "the currency of the insurance document"],
   [
     /^Cobertura de al menos el 110 % del valor de la mercadería$/g,
@@ -1674,6 +1691,17 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\bes un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 \/ TA 629 declara inválido el rechazo por esto\. Verificar en el papel el lugar de recepción\b/g,
     "this is a multimodal transport document, so that box shows the port of loading of the ocean leg and the place named in the credit may appear in the place of receipt box, which the engine does not read: ICC Opinion R 638 / TA 629 holds a refusal on this ground to be invalid. Check the place of receipt on the document itself",
   ],
+  /*
+   * La anotación de a bordo a la que no se le pudo leer la fecha, que no es lo mismo que no tenerla.
+   *
+   * Lo encontró el corpus de inglés del banco de pruebas con el laudo DOCDEX 259, cuyo conocimiento
+   * está fechado «7 LUG. 2005» —julio en italiano, que el motor no lee—. Es la **cuarta** vez que una
+   * plantilla queda sin traducir porque ningún caso la disparaba: el control de literales saltea todo
+   * lo que lleva `${`, a propósito, y la compensación son los escenarios armados.
+   *
+   * Va **antes** de la entrada de R 641 / TA 650rev porque esa es más larga y empieza igual.
+   */
+  [/\bno se le leyó una fecha\b/g, "no date could be read from it"],
   /* R 641 / TA 650rev: la anotación sin fecha */
   [
     /\bno se le leyó una fecha: la Opinión R 641 \/ TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión\. Verificar en el papel si está preimpresa o agregada\b/g,

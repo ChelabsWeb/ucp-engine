@@ -7,6 +7,34 @@
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
+/**
+ * El punto de un mes abreviado, que se comía la fecha entera — y en los dos órdenes.
+ *
+ * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —lo transcribe
+ * así la Opinión R 350— y daba **null**: con el punto pegado al día no hay espacio entre el mes y el
+ * número, y el patrón de «mes día año» pide uno.
+ *
+ * Eso se arregló **solo para el orden mes-día**, con el punto seguido de un dígito. Y Europa escribe
+ * el día primero: el conocimiento del laudo **DOCDEX 259** está fechado **«7 LUG. 2005»**, donde el
+ * punto va seguido de un **espacio**, así que seguía dando null. Es la misma forma que ya costó cuatro
+ * veces en este motor —el emisor que se cortaba en «GOVT.», la forma societaria partida en «S.p.A.» y
+ * la casilla de a bordo— y la sexta vez que el motor reconocía una redacción y no la otra.
+ *
+ * Y pega donde más cuesta: esa fecha es la del embarque, que decide el último embarque del 44C y el
+ * plazo de presentación del 48. Sin ella el examen sale diciendo «no se le leyó una fecha» sobre una
+ * anotación que la tiene — que es exactamente la discrepancia que ese emisor levantó y el panel
+ * rechazó.
+ *
+ * Sigue siendo angosto: **letra, punto, y después un dígito o un espacio**. No toca «16.11.2026» —ahí
+ * el punto va entre dígitos— ni ninguna fecha numérica, y lo único que puede hacer es **agregar**
+ * candidatos a fecha, nunca cambiar uno que ya se leía.
+ *
+ * Vive acá y no dentro de las dos funciones porque estaba escrito **dos veces**, y dos copias de la
+ * misma pregunta es cómo se desincronizan dos respuestas: el arreglo de R 350 entró en las dos, y el
+ * día que una se tocara sin la otra el defecto volvería por la mitad.
+ */
+const PUNTO_DE_MES = /([a-z])\.(?=[\d\s])/g;
+
 /** Días de `a` hasta `b` (positivo si b es posterior). Ignora horas. */
 /** "Hoy" en Montevideo, como Date a medianoche local. En Vercel el server corre en UTC:
  *  después de las 21:00 UY `new Date()` ya es mañana (re-auditoría M-8) — y en un
@@ -94,22 +122,7 @@ function fechaExacta(s: string): Date | null {
     .toLowerCase()
     .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
     .replace(/,/g, " ")
-    /*
-     * El punto de un mes abreviado, que se comía la fecha entera.
-     *
-     * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —lo
-     * transcribe así la Opinión R 350— y daba **null**: con el punto pegado al día no hay espacio
-     * entre el mes y el número, y el patrón de «mes día año» pide uno. «JUL 16, 2026» sí se leía.
-     *
-     * Es la misma forma que el emisor que se cortaba en «GOVT.» —el punto de una abreviatura tomado
-     * por otra cosa— y pega donde más cuesta: esa fecha es la del embarque, que decide el último
-     * embarque del 44C y el plazo de presentación del 48. Sin ella el examen sale diciendo «no se le
-     * leyó una fecha» sobre una anotación que la tiene.
-     *
-     * El reemplazo es angosto a propósito: **letra, punto, dígito**. No toca «16.11.2026» —ahí el
-     * punto va entre dígitos— ni ninguna fecha numérica.
-     */
-    .replace(/([a-z])\.(?=\d)/g, "$1 ")
+    .replace(PUNTO_DE_MES, "$1 ")
     .replace(/\s+/g, " ");
   let m: RegExpExecArray | null;
   // dd-mmm-yy · dd-mmm-yyyy · dd mmm yyyy · dd/mmm/yyyy (ES o EN)
@@ -184,22 +197,7 @@ export function parseFecha(s: string): Date | null {
     .toLowerCase()
     .replace(/(\d)(st|nd|rd|th)\b/g, "$1")
     .replace(/,/g, " ")
-    /*
-     * El punto de un mes abreviado, que se comía la fecha entera.
-     *
-     * «JUL.16, 2026» es cómo viene impresa la casilla «Laden on board» de un conocimiento —lo
-     * transcribe así la Opinión R 350— y daba **null**: con el punto pegado al día no hay espacio
-     * entre el mes y el número, y el patrón de «mes día año» pide uno. «JUL 16, 2026» sí se leía.
-     *
-     * Es la misma forma que el emisor que se cortaba en «GOVT.» —el punto de una abreviatura tomado
-     * por otra cosa— y pega donde más cuesta: esa fecha es la del embarque, que decide el último
-     * embarque del 44C y el plazo de presentación del 48. Sin ella el examen sale diciendo «no se le
-     * leyó una fecha» sobre una anotación que la tiene.
-     *
-     * El reemplazo es angosto a propósito: **letra, punto, dígito**. No toca «16.11.2026» —ahí el
-     * punto va entre dígitos— ni ninguna fecha numérica.
-     */
-    .replace(/([a-z])\.(?=\d)/g, "$1 ")
+    .replace(PUNTO_DE_MES, "$1 ")
     .replace(/\s+/g, " ");
   for (const c of candidatos(t)) {
     const f = fechaExacta(c);
