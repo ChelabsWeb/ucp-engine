@@ -3,6 +3,7 @@ import { parseFecha } from "./fechas";
 import { comparaISBP } from "./isbp";
 import { diasPresentacion, limitePresentacion } from "./lc";
 import { modoDeHonrar } from "./mt750";
+import { A_LA_ORDEN_DE, CONSIGNADO_A, EXIGE_ENDOSO_EN_BLANCO, hastaLaDescripcion } from "./presentacion";
 import type { LcSwift } from "./swift-lc";
 import type { LcInfo } from "./types";
 
@@ -572,6 +573,65 @@ export function revisarCredito(p: LcSwift): Observacion[] {
         );
       }
     }
+  });
+
+  /*
+   * El endoso que el beneficiario **no puede hacer**, porque el crédito consignó el documento a otro.
+   *
+   * El laudo **DOCDEX 288** —unánime, UCP 600, con los dos respondentes en silencio— es un crédito que
+   * pedía el conocimiento «to the order of» el **banco emisor** y además «blank endorsed». El
+   * beneficiario presentó el juego exactamente como el crédito lo pedía, sin el endoso, y el emisor lo
+   * rechazó por eso. El panel:
+   *
+   * > **A bill of lading issued to the order of a party can only be endorsed by the party stated in the
+   * > «consignee» field of the bill of lading. Only when the B/L is made out to order of the shipper is
+   * > the shipper able to endorse in blank** before presentation under the credit.
+   *
+   * > By stating in the credit that the B/L is to be made out to order of the issuing bank and to be
+   * > endorsed in blank by the beneficiary, Respondent 2 **violated the principle that the issuing bank
+   * > is responsible for the wording and contents of the credit and that all details must be precise so
+   * > that the credit may be deemed workable.** It is important to underline that **a documentary credit
+   * > is a payment instrument and not an instrument to refuse payment.** This responsibility of the
+   * > issuing bank prevails **whether an inaccuracy is made deliberately or by mistake**.
+   *
+   * > By issuing a credit with an **encapsulated irregularity** that required an endorsement that can
+   * > only be made by the issuing bank, the issuing bank has an obligation to **withdraw the refusal and
+   * > to pay immediately the credit amount and demurrage**.
+   *
+   * Y la otra mitad la dice la Opinión **TA 814rev4**, que ya está en el repositorio: *«A bill of lading
+   * that is straight consigned to the applicant cannot be endorsed»*. O sea que la irregularidad es la
+   * misma por los dos caminos —a la orden de un tercero, o consignado derecho a alguien— y en los dos el
+   * beneficiario no tiene cómo cumplir.
+   *
+   * **El examen no puede arreglar esto, y hace bien**: `bl-consignee` ya decide que manda lo que el
+   * crédito nombra, así que el documento que lo obedece no sale discrepante. Lo que faltaba es decirlo
+   * **antes de emitirlo**, que es el único momento en que se arregla — al beneficiario de este laudo le
+   * costó un DOCDEX, meses y la estadía de la mercadería.
+   *
+   * Dos frenos: «TO ORDER» a secas y «TO ORDER OF SHIPPER» **no disparan**, porque ahí el embarcador sí
+   * puede endosar —es el caso que el propio panel señala como el bueno— y tampoco dispara si el nombre
+   * que el crédito pone es el del beneficiario escrito de otra manera.
+   */
+  (lc.documentosExigidos ?? []).forEach((d, i) => {
+    if (claveDoc(d) !== "BL" || !EXIGE_ENDOSO_EN_BLANCO.test(d)) return;
+    const aLaOrdenDe = hastaLaDescripcion(A_LA_ORDEN_DE.exec(d)?.[1] ?? null);
+    const crudo = hastaLaDescripcion(CONSIGNADO_A.exec(d)?.[1] ?? null);
+    const consignadoA = crudo && !/^ORDER\b/i.test(crudo) ? crudo : null;
+    const quien = aLaOrdenDe ?? consignadoA;
+    if (!quien) return;
+    /* El embarcador sí puede endosar en blanco: ése es el crédito bien redactado. */
+    if (/\b(?:SHIPPER|SHIPPERS|BENEFICIARY|BENEFICIARYS|OURSELVES|SELLER)\b/i.test(quien)) return;
+    if (lc.beneficiario && comparaISBP(quien, lc.beneficiario) !== "DISTINTO") return;
+    out.push(
+      obs(
+        `emision-endoso-imposible-${i}`,
+        "CONFLICTO",
+        "Laudo DOCDEX 288 · Opinión TA 814rev4",
+        `El crédito pide el documento de transporte a nombre de "${quien}" y además endosado en blanco, y así solo lo puede endosar esa parte: el beneficiario no tiene cómo cumplirlo`,
+        `46A+${i + 1}`,
+        "pedirlo a la orden del embarcador y endosado en blanco, o a la orden de esa parte sin exigir endoso: el panel del laudo DOCDEX 288 llamó a esto una irregularidad encapsulada y obligó al emisor a retirar el rechazo y pagar el crédito más la estadía",
+      ),
+    );
   });
 
   /* ── el campo 47A: las condiciones adicionales ── */

@@ -1960,6 +1960,25 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^decir en un solo lugar contra qué documentos se paga cada tramo: el riesgo de una instrucción ambigua lo lleva el emisor, y el panel hizo pagar contra la lista más corta$/g,
     "state in one place which documents each tranche is paid against: the risk of an ambiguous instruction falls on the issuing bank, and the panel made it pay against the shorter list",
   ],
+  /*
+   * El endoso imposible del laudo DOCDEX 288, en dos entradas.
+   *
+   * El texto lleva el nombre que el crédito puso, así que va partido en prefijo y cola: un patrón
+   * anclado a una sola de las dos mitades dejaría la otra sin traducir, que es el defecto que ya costó
+   * tres veces acá.
+   */
+  [
+    /\bEl crédito pide el documento de transporte a nombre de\b/g,
+    "the credit requires the transport document to be made out to",
+  ],
+  [
+    /\by además endosado en blanco, y así solo lo puede endosar esa parte: el beneficiario no tiene cómo cumplirlo\b/g,
+    "and blank endorsed as well, and made out that way only that party can endorse it: the beneficiary has no way to comply",
+  ],
+  [
+    /^pedirlo a la orden del embarcador y endosado en blanco, o a la orden de esa parte sin exigir endoso: el panel del laudo DOCDEX 288 llamó a esto una irregularidad encapsulada y obligó al emisor a retirar el rechazo y pagar el crédito más la estadía$/g,
+    "ask for it to the order of the shipper and blank endorsed, or to the order of that party without requiring an endorsement: the DOCDEX 288 panel called this an encapsulated irregularity and ordered the issuing bank to withdraw its refusal and pay the credit amount plus demurrage",
+  ],
   [
     /^no está en el paquete, y el crédito admite presentar otros documentos en lugar de éste: verificar que la alternativa esté presentada \(laudo DOCDEX 372\)/g,
     "not in the package, and the credit allows other documents to be presented in lieu of this one: check that the alternative was presented (DOCDEX Decision 372)",

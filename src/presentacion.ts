@@ -127,7 +127,20 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
  * del repositorio que sabe dónde termina el nombre de un documento, más las palabras con que un 46A sigue
  * describiendo a quién consignar.
  */
-function hastaLaDescripcion(nombre: string | null): string | null {
+/**
+ * Las tres cosas que un 46A dice sobre a nombre de quién va el documento de transporte.
+ *
+ * Viven acá porque acá se examinan, y van exportadas porque **la revisión del crédito pregunta lo
+ * mismo**: el laudo DOCDEX 288 declaró irregular un crédito que pide el conocimiento a la orden del
+ * banco emisor **y** endosado en blanco, porque solo el consignatario puede endosarlo. Escribir una
+ * segunda copia de estos patrones en `emision.ts` sería la forma de que el examen y la revisión
+ * terminen diciendo cosas distintas sobre la misma línea.
+ */
+export const EXIGE_ENDOSO_EN_BLANCO = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BLANK\b/i;
+export const A_LA_ORDEN_DE = /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i;
+export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0-9 .,'&()-]+)/i;
+
+export function hastaLaDescripcion(nombre: string | null): string | null {
   if (!nombre) return null;
   const low = nombre.toLowerCase();
   const cortes = [ABRE_DESCRIPCION.exec(low)?.index, /\b(?:notify|blank|endorsed|and|or)\b/.exec(low)?.index]
@@ -736,7 +749,7 @@ export function precheckPresentacion(input: {
      * hay discrepancia, hay a lo sumo algo que mirar.
      */
     /* «TO ORDER OF» sin el «THE» es la misma exigencia, y la mitad de los créditos la escribe así. */
-    const ordenDe = hastaLaDescripcion(/TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null);
+    const ordenDe = hastaLaDescripcion(A_LA_ORDEN_DE.exec(reglaBL)?.[1] ?? null);
     /*
      * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
      *
@@ -761,7 +774,7 @@ export function precheckPresentacion(input: {
      *   quedaba sin examinar y salía con «el crédito no dice a nombre de quién»;
      * - si no se leyó el consignatario, se sale a verificar. El silencio no gana una discrepancia.
      */
-    const exigeEndosoEnBlanco = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BLANK\b/i.test(reglaBL);
+    const exigeEndosoEnBlanco = EXIGE_ENDOSO_EN_BLANCO.test(reglaBL);
     /*
      * **A quién** lo consigna, cuando el crédito lo nombra derecho en vez de pedirlo a la orden.
      *
@@ -770,9 +783,7 @@ export function precheckPresentacion(input: {
      * se lleva la frase entera. Y «TO ORDER» a secas no es un nombre: eso lo resuelve la rama del endoso
      * en blanco.
      */
-    const crudoConsignadoA = hastaLaDescripcion(
-      /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0-9 .,'&()-]+)/i.exec(reglaBL)?.[1] ?? null,
-    );
+    const crudoConsignadoA = hastaLaDescripcion(CONSIGNADO_A.exec(reglaBL)?.[1] ?? null);
     const consignadoA = crudoConsignadoA && !/^ORDER\b/i.test(crudoConsignadoA) ? crudoConsignadoA : null;
     if (!ordenDe && exigeEndosoEnBlanco && !consignadoA) {
       const aLaOrden = consig ? /\bORDER\b|\bORDEN\b/i.test(consig) : null;
