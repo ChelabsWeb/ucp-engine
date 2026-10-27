@@ -967,6 +967,51 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
     const c = d.campos[k];
     return c && c.valor.trim() && c.confianza >= min ? c.valor : null;
   };
+  /**
+   * Cómo se compara **el nombre del bulto**, que no es lo mismo que la clase de bulto.
+   *
+   * «PACKAGES» y «CLL» nombran lo mismo —CLL es *colli*— y el motor los daba por distintos: una
+   * DISCREPANCIA de severidad ALTA entre el packing list y el conocimiento sobre dos palabras que
+   * dicen «unidad». Lo decide el laudo **DOCDEX 241**: *«"CLL", as we understand it, is an
+   * abbreviation of "colli", which also means a unit […] Whether the units stated are "CLL" or
+   * "package", they all contain the number "19" and would thus **not be inconsistent on their
+   * faces**»*, con el párrafo 24 de la ISBP —*«The requirement is not that the data content be
+   * identical, merely that the documents not be inconsistent»*— y el artículo 21 de las UCP 500, hoy
+   * el 14 (f): el crédito no fijó el contenido del packing list.
+   *
+   * **La lista es corta y cerrada a propósito, y lo que la justifica es el caso de al lado**: la
+   * única discrepancia legítima del expediente real es exactamente un `tipoBulto` que no coincide
+   * —«BAGS» en la factura y el packing, «CARTONS» en el conocimiento— y eso tiene que seguir
+   * rechazando. Lo que se unifica son las palabras que significan «un bulto, sin decir de qué clase»;
+   * las que **nombran la clase** —bags, cartons, drums, pallets, cases, bales, containers— no entran
+   * nunca. Y **«pieces» tampoco**, que es el error que esto invitaría a cometer: en el propio laudo
+   * los 19 CLL contienen 1.997 PCS.
+   */
+  const GENERICOS_DE_BULTO = new Set([
+    "cll",
+    "colli",
+    "collo",
+    "colis",
+    "package",
+    "packages",
+    "pkg",
+    "pkgs",
+    "pkge",
+    "bulto",
+    "bultos",
+    "paquete",
+    "paquetes",
+    "unit",
+    "units",
+    "unidad",
+    "unidades",
+  ]);
+  const unidadDeBulto = (texto: string): string => {
+    const t = normTexto(texto).trim();
+    if (GENERICOS_DE_BULTO.has(t)) return "bulto";
+    return t.replace(/s$/, "");
+  };
+
   const cruce = (
     campo: string,
     k: keyof CamposDoc,
@@ -992,7 +1037,7 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
   cruce(
     "Tipo de bulto",
     "tipoBulto",
-    (a, b) => normTexto(a).replace(/s$/, "") === normTexto(b).replace(/s$/, ""),
+    (a, b) => unidadDeBulto(a) === unidadDeBulto(b),
     "ALTA",
     "Los documentos de un mismo embarque no pueden contradecirse (UCP 600 art. 14d): el banco lo marca como discrepancia. Unificar la descripción de los bultos antes de presentar.",
   );

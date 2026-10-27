@@ -127,6 +127,43 @@ describe("el buque que nombra la anotación de a bordo", () => {
   });
 });
 /**
+ * «SIGNED BY THE MASTER», que es el laudo DOCDEX 247
+ *
+ * El ancla de `leerFirma` admitía `AS`, `FOR` y `ON BEHALF OF`, así que un bloque que dice «signed by the
+ * master of the vessel X» —la redacción de medio fletamento— salía **sin capacidad reconocida**: ATENCION
+ * sobre una firma que el artículo 22 admite sin discusión. El panel del laudo razona con esa misma frase
+ * —*«is signed by the master of that named vessel with additional means of authentication provided by the
+ * seal of the vessel and the name of the master»*— y declara el documento aceptable.
+ *
+ * Lo que **no** se aflojó es el anclaje que la Opinión R 834 / TA 793rev obliga a tener: «SIGNED BY» entra
+ * como una cuarta forma de **atribuir** la firma, no como una mención suelta.
+ */
+describe("«signed by the master» declara una capacidad (laudo DOCDEX 247)", () => {
+  it.each(["SIGNED BY THE MASTER OF THE VESSEL MT SIAM PIONEER", "SIGNED BY MASTER", "SIGNED BY THE CAPTAIN"])(
+    "«%s» es el capitán",
+    (texto) => {
+      expect(leerFirma(texto).capacidad).toBe("CAPITAN");
+    },
+  );
+
+  it("y «signed by the carrier» es el transportista", () => {
+    expect(leerFirma("SIGNED BY THE CARRIER MAERSK LINE").capacidad).toBe("TRANSPORTISTA");
+  });
+
+  /*
+   * Los dos frenos que R 834 / TA 793rev obliga a conservar: una mención suelta del capitán no salva la
+   * firma, y el bloque de esa Opinión —que nombra un capitán y declara otra capacidad— no cambia.
+   */
+  it("pero una mención suelta sigue sin ser una capacidad", () => {
+    expect(leerFirma("JOHN SMITH, MASTER").capacidad).toBeNull();
+  });
+
+  it("y la firma de R 834 no cambia", () => {
+    expect(leerFirma("ROH AS AGENT ON BEHALF OF HAP - THE CARRIER, CAPT. J SMITH").capacidad).not.toBe("CAPITAN");
+  });
+});
+
+/**
  * «CAPT.» abreviado, que es el laudo DOCDEX 284.
  *
  * El fletamento del laudo está firmado «FOR AND/OR ON BEHALF OF CAPT. P / MASTER OF VESSEL D / FOR

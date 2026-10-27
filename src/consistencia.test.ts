@@ -489,6 +489,65 @@ describe("compararEntreDocumentos — el BL dice cartons, el packing bags (caso 
     expect(c[0].titulo).toContain('bill of lading dice "CARTONS"');
     expect(c[0].titulo).toContain('packing list dice "Bags"');
   });
+  /*
+   * Y **los genéricos del bulto no se contradicen entre sí** (laudo DOCDEX 241).
+   *
+   * «PACKAGES» en el packing y «CLL» en el aéreo salían como DISCREPANCIA de severidad ALTA sobre dos
+   * palabras que dicen lo mismo: *«"CLL", as we understand it, is an abbreviation of "colli", which also
+   * means a unit […] Whether the units stated are "CLL" or "package", they all contain the number "19"
+   * and would thus not be inconsistent on their faces»*.
+   *
+   * El test de arriba es la otra mitad y es la que manda: «BAGS» contra «CARTONS» es la única
+   * discrepancia legítima del expediente real y tiene que seguir rechazando.
+   */
+  it.each([
+    ["PACKAGES", "CLL"],
+    ["PKGS", "COLLI"],
+    ["BULTOS", "PACKAGE"],
+    ["UNITS", "CLL"],
+  ])("«%s» y «%s» nombran el mismo bulto y no se cruzan", (a, b) => {
+    const c = compararEntreDocumentos([
+      {
+        tipo: "PACKING",
+        campos: { ...docBase(), bultos: { valor: "19", confianza: 1 }, tipoBulto: { valor: a, confianza: 1 } },
+      },
+      {
+        tipo: "BL",
+        campos: { ...docBase(), bultos: { valor: "19", confianza: 1 }, tipoBulto: { valor: b, confianza: 1 } },
+      },
+    ]);
+    expect(c.map((x) => x.campo)).toEqual([]);
+  });
+
+  /* Y las palabras que nombran **la clase** del bulto siguen contradiciéndose, incluso contra un genérico. */
+  it.each([
+    ["BAGS", "CARTONS"],
+    ["DRUMS", "PALLETS"],
+    ["PACKAGES", "BAGS"],
+    ["CLL", "DRUMS"],
+  ])("«%s» y «%s» sí se cruzan", (a, b) => {
+    const c = compararEntreDocumentos([
+      {
+        tipo: "PACKING",
+        campos: { ...docBase(), bultos: { valor: "19", confianza: 1 }, tipoBulto: { valor: a, confianza: 1 } },
+      },
+      {
+        tipo: "BL",
+        campos: { ...docBase(), bultos: { valor: "19", confianza: 1 }, tipoBulto: { valor: b, confianza: 1 } },
+      },
+    ]);
+    expect(c.map((x) => x.campo)).toEqual(["Tipo de bulto"]);
+  });
+
+  /* Y «pieces» no es un bulto: en el propio laudo los 19 CLL contienen 1.997 PCS. */
+  it("«PACKAGES» y «PIECES» sí se cruzan", () => {
+    const c = compararEntreDocumentos([
+      { tipo: "PACKING", campos: { ...docBase(), tipoBulto: { valor: "PACKAGES", confianza: 1 } } },
+      { tipo: "BL", campos: { ...docBase(), tipoBulto: { valor: "PIECES", confianza: 1 } } },
+    ]);
+    expect(c.map((x) => x.campo)).toEqual(["Tipo de bulto"]);
+  });
+
   it("cantidad se cruza EN KILOS y la LC no entra en el cruce de shipper (revisión 8-sep)", () => {
     const lc = {
       ...docBase(),

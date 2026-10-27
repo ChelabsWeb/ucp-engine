@@ -295,8 +295,28 @@ export function importeFluctuaPorElCredito(lc: LcInfo | null | undefined): boole
      * cuelga con un crédito verboso es peor que uno que no mira la cláusula, así que acá no hay
      * huecos: tres pruebas chicas y una comparación de posiciones.
      */
-    if (!/\bautomatic(?:ally)?\b/.test(t)) return false;
-    const VARIA = /\b(?:fluctuat\w*|adjust\w*|vary|varied|revis\w*|increas\w*|decreas\w*|reduc\w*)\b/;
+    /*
+     * Y **«sin otra enmienda» dice lo mismo que «automáticamente»**, que lo decidió un panel.
+     *
+     * La prueba pedía la palabra «automatic», y la cláusula del laudo **DOCDEX 281** no la usa: *«The
+     * value of the L/C may escalate deescalate in relation to above price clause **without any further
+     * amendment on our part**»*. El panel la lee exactamente como la sentencia lee la otra —*«Such
+     * wording must be considered **automatic and unlimited**»*— y obligó al emisor a pagar los USD
+     * 412.488,20 que había retenido.
+     *
+     * O sea que el motor reconocía la redacción de *Korea Exchange Bank v SCB* y no la de este laudo,
+     * sobre la cláusula que esa misma sentencia llama esencial: sin ella *«the credit would be
+     * unworkable»*. Es la **octava** vez que el motor reconoce una redacción y no la otra.
+     */
+    /*
+     * En inglés y nada más, como el resto de esta función: el sujeto que se busca abajo —«the amount of
+     * the credit»— también lo es, y una alternativa en castellano que no puede dispararse nunca es el
+     * defecto que este repositorio ya pagó con cuatro entradas del diccionario escritas con comillas.
+     */
+    const SIN_ENMIENDA = /\bwithout\s+(?:any\s+)?(?:further\s+|additional\s+)?amendment\b/;
+    if (!/\bautomatic(?:ally)?\b/.test(t) && !SIN_ENMIENDA.test(t)) return false;
+    const VARIA =
+      /\b(?:fluctuat\w*|adjust\w*|vary|varied|revis\w*|increas\w*|decreas\w*|reduc\w*|escalat\w*|deescalat\w*|de-escalat\w*)\b/;
     if (!VARIA.test(t)) return false;
     const elImporte =
       /\b(?:amount|value)\s+(?:of\s+)?(?:this\s+|the\s+)?(?:letter of credit|documentary credit|credit|l\/c|lc)\b/.exec(
