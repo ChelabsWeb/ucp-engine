@@ -309,6 +309,60 @@ describe("el emisor que el crédito nombra, cuando el papel lo escribe de otra f
   });
 
   /* Y el punto que sí termina una frase sigue terminándola: detrás de una palabra, no de una letra. */
+  /*
+   * Y **«signed by X» nombra al emisor igual que «issued by X»** (laudo DOCDEX 216).
+   *
+   * El 46A de ese laudo dice «the relevant original acknowledging receipt **signed by ship master** must be
+   * presented for negotiation», y las dos funciones que preguntan quién emite buscaban «issued by»: el
+   * certificado salía **sin una sola regla**. Novena vez que el motor reconoce una redacción y no la otra.
+   */
+  it("«signed by» nombra al emisor, y el nombre no se lleva la instrucción", () => {
+    expect(
+      emisorQueNombra(
+        "THE RELEVANT ORIGINAL ACKNOWLEDGING RECEIPT SIGNED BY SHIP MASTER MUST BE PRESENTED FOR NEGOTIATION",
+      ),
+    ).toBe("SHIP MASTER");
+    expect(emisorQueNombra("CERTIFICATE ISSUED AND SIGNED BY SGS")).toBe("SGS");
+  });
+
+  /* Y «SIGNED COMMERCIAL INVOICE» no nombra a nadie: lo que se busca es la preposición. */
+  it("pero «signed» sin preposición no nombra a nadie", () => {
+    expect(emisorQueNombra("SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS")).toBeUndefined();
+  });
+
+  /*
+   * Y **firmar «por» la persona que el crédito nombró no es ser esa persona** (laudo DOCDEX 216).
+   *
+   * *«according to any practice, national or international, a person signing for himself would not write
+   * that he was signing "For" himself — or that a person signing "For" someone, is not that someone
+   * himself»*, con la Opinión 470/TA.122 detrás. El rechazo del emisor **valía**.
+   */
+  it("un papel firmado «for the master» no está firmado por el capitán", () => {
+    const r = conEmisor(
+      'ABC SHIPPING INC. FOR THE MASTER OF "VESSEL G"',
+      "ACKNOWLEDGING RECEIPT SIGNED BY SHIP MASTER MUST BE PRESENTED FOR NEGOTIATION",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("DOCDEX 216");
+  });
+
+  it("y firmado por el capitán mismo cumple", () => {
+    const r = conEmisor(
+      'CAPT. J SMITH, MASTER OF "VESSEL G"',
+      "ACKNOWLEDGING RECEIPT SIGNED BY SHIP MASTER MUST BE PRESENTED FOR NEGOTIATION",
+    );
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
+   * **El freno, y es toda la decisión**: una **empresa** se firma justamente así, «for and on behalf of»,
+   * porque una sociedad no tiene mano. Marcarlo rechazaría cualquier certificado de cualquier laboratorio.
+   */
+  it("pero una empresa firmada «for and on behalf of» sí cumple", () => {
+    const r = conEmisor("FOR AND ON BEHALF OF SGS THAILAND LTD", "CERTIFICATE OF QUALITY ISSUED BY S.G.S. THAILAND");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+  });
+
   it("y el punto detrás de una palabra sigue cerrando el nombre", () => {
     expect(emisorQueNombra("CERTIFICATE ISSUED BY CALISET. THE CERTIFICATE MUST SHOW THE RESULTS")).toBe("CALISET");
   });

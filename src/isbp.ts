@@ -573,6 +573,17 @@ export type EmisorAdmitido = "CUALQUIERA" | "CUALQUIERA_MENOS_BENEFICIARIO" | "E
  * exportador o al fabricante, se acepta emitido por una cámara de comercio si menciona a
  * alguno de ellos (L3c-i).
  */
+/**
+ * Los verbos con los que un crédito dice **quién** emite o firma un documento.
+ *
+ * Vive acá y se usa en los dos lados porque `emisorAdmitido` y `emisorQueNombra` preguntan lo mismo
+ * —dónde describe el crédito al emisor— y **dos copias de la misma pregunta es cómo se desincronizan
+ * dos respuestas**: con «signed by» en una sola, el laudo DOCDEX 216 salía con el certificado
+ * clasificado como «cualquiera lo puede emitir» y el nombre que el crédito puso no se comparaba con
+ * nada.
+ */
+export const NOMBRA_AL_EMISOR = /\b(?:issued|signed)\s+(?:and\s+signed\s+)?by\b|\bemitido por\b|\bfirmado por\b/;
+
 export function emisorAdmitido(textoExigencia: string): EmisorAdmitido {
   const t = normISBP(textoExigencia);
   /*
@@ -597,13 +608,13 @@ export function emisorAdmitido(textoExigencia: string): EmisorAdmitido {
    * Es el mismo arreglo que ya se hizo para el nombre del emisor: cortar donde empieza la
    * descripción.
    */
-  const tramoCrudo = /\b(?:issued by|emitido por)\b(.*)$/.exec(t)?.[1] ?? "";
+  const tramoCrudo = new RegExp(`(?:${NOMBRA_AL_EMISOR.source})(.*)$`).exec(t)?.[1] ?? "";
   const tramoDelEmisor = cabezaDeExigencia(tramoCrudo.trim());
   const donde = `${cabezaDeExigencia(t)} ${tramoDelEmisor}`;
   if (/\b(independent|official|qualified|competent|first class|well known|local)\b/.test(donde)) {
     return "CUALQUIERA_MENOS_BENEFICIARIO";
   }
-  if (/\bissued by\b|\bemitido por\b/.test(t)) return "EL_QUE_NOMBRA_EL_CREDITO";
+  if (NOMBRA_AL_EMISOR.test(t)) return "EL_QUE_NOMBRA_EL_CREDITO";
   return "CUALQUIERA";
 }
 
