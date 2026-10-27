@@ -881,18 +881,39 @@ export function precheckPresentacion(input: {
         consig && aQuien
           ? norm(consig).includes(norm(aQuien)) || norm(aQuien).includes(norm(consig.replace(/to the order of/i, "")))
           : false;
+      /*
+       * **«Endorsed to the order of X» no es «consigned to the order of X»**, y confundirlos rechazaba
+       * el documento que el crédito pidió.
+       *
+       * Si el crédito dice «FULL SET OF CLEAN ON BOARD OCEAN BILL OF LADING **ENDORSED** TO THE ORDER OF
+       * THE ISSUING BANK», el nombre pertenece al **endoso** y no al casillero del consignatario: el
+       * conocimiento va «TO ORDER» —que es lo único que permite endosarlo, y lo dice la Opinión
+       * TA 814rev4— y el endoso va al dorso. El motor comparaba el casillero contra el nombre del banco
+       * y daba **DISCREPANCIA** sobre un conocimiento correcto.
+       *
+       * Lo encontró el laudo DOCDEX 262, cuyo 46A lo escribe así y donde el emisor levantó cuatro
+       * motivos y **ninguno** fue éste.
+       *
+       * Y lo que corresponde es avisar y no dictaminar, porque **no hay campo para el endoso del dorso**
+       * —el hueco que dejó declarado el laudo DOCDEX 363— así que el motor no puede saber si está hecho.
+       */
+      const porEndoso = /\bENDORSED\s+(?:TO\s+(?:THE\s+)?ORDER\s+OF|IN\s+FAVOU?R\s+OF)\b/i.test(reglaBL);
+      const aLaOrdenSinNombre = Boolean(consig) && /\bORDER\b|\bORDEN\b/i.test(consig!) && !ok;
       reglas.push({
         id: "bl-consignee",
         fuente: "46A",
         regla: esRol
           ? `BL consignado a la orden del banco emisor${delRol ? ` ("${delRol}")` : ""}`
           : `BL consignado "to the order of ${ordenDe}"`,
-        estado: !consig || (esRol && !delRol) ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+        estado:
+          !consig || (esRol && !delRol) || (porEndoso && aLaOrdenSinNombre) ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
         evidencia: !consig
           ? "no se leyó el consignee"
           : esRol && !delRol
             ? `dice "${consig}" y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano`
-            : `dice "${consig}"`,
+            : porEndoso && aLaOrdenSinNombre
+              ? `dice "${consig}", que es lo que permite endosarlo, y el crédito pide el **endoso** a la orden de ${aQuien || ordenDe}: el endoso va al dorso y el motor no tiene campo para leerlo (laudo DOCDEX 363), así que hay que verificarlo en el papel`
+              : `dice "${consig}"`,
       });
     }
     /*
