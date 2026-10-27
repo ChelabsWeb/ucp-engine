@@ -1,7 +1,7 @@
 import { claveDoc } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { comparaISBP } from "./isbp";
-import { diasPresentacion, limitePresentacion } from "./lc";
+import { diasPresentacion, limitePresentacion, plazoHastaElVencimiento } from "./lc";
 import { modoDeHonrar } from "./mt750";
 import { A_LA_ORDEN_DE, CONSIGNADO_A, EXIGE_ENDOSO_EN_BLANCO, hastaLaDescripcion } from "./presentacion";
 import type { LcSwift } from "./swift-lc";
@@ -493,7 +493,38 @@ export function revisarCredito(p: LcSwift): Observacion[] {
   }
 
   const dias = diasPresentacion(lc.plazoPresentacion);
-  if (dias === null) {
+  /*
+   * Y un 48 que fija el plazo **hasta el vencimiento** no es un 48 vacío.
+   *
+   * `diasPresentacion` devuelve null cuando el campo no trae un número, así que un crédito que dice
+   * «DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY» caía en el aviso de abajo y la
+   * revisión decía **«el crédito no fija plazo de presentación: rigen 21 días desde el embarque»** —
+   * que es exactamente la lectura que el Commercial Court inglés declaró inválida en *Deutsche Bank AG
+   * v CIMB Bank Berhad* [2017] EWHC 3380 (Comm), con **USD 9.959.452,57** de condena: *«It is
+   * irreconcilably inconsistent to say both that the beneficiary must act within 21 days and that he
+   * may act at any time until expiry»*.
+   *
+   * El examen ya lo sabía —`plazoHastaElVencimiento` existe por esa sentencia y pone el límite en el
+   * 31D— así que las **dos mitades del motor decían cosas distintas del mismo campo**. Es la misma forma
+   * que la cláusula del transitario y la del calendario de embarques, que ya costaron una vuelta cada
+   * una: una pregunta, una respuesta.
+   *
+   * Lo encontró el laudo DOCDEX 262, cuyo expediente no cierra con veintiún días: el conocimiento es
+   * del 2 de mayo y el banco designado negoció el 6 de junio sin que nadie levantara el plazo.
+   */
+  const hastaElVencimiento = plazoHastaElVencimiento(lc.plazoPresentacion);
+  if (dias === null && hastaElVencimiento) {
+    out.push(
+      obs(
+        "emision-plazo-hasta-el-vencimiento",
+        "AVISO",
+        "UCP 600 14c · Deutsche Bank AG v CIMB Bank Berhad [2017] EWHC 3380 (Comm)",
+        "El crédito fija el plazo de presentación hasta su vencimiento, así que los 21 días del artículo 14 (c) no corren: el único límite es el 31D",
+        "campo 48",
+        "está bien dicho y conviene saberlo: un banco que cuente veintiún días desde el embarque sobre este crédito produce una tardía que no existe, y es lo que costó USD 9.959.452,57 en Deutsche Bank v CIMB. Si lo que se quiere es un plazo más corto, hay que escribirlo en días",
+      ),
+    );
+  } else if (dias === null) {
     out.push(
       obs(
         "emision-sin-plazo",

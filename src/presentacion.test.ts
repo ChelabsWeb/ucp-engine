@@ -1074,6 +1074,32 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
     );
     expect(r?.estado).toBe("OK");
   });
+
+  /*
+   * Y **«endorsed to the order of X» no es «consigned to the order of X»**, que es lo que rechazaba el
+   * documento pedido.
+   *
+   * Ahí el nombre pertenece al **endoso**: el conocimiento va «TO ORDER» —lo único que permite
+   * endosarlo, y lo dice la Opinión TA 814rev4— y el endoso va al dorso, que el motor no lee (el hueco
+   * que declaró el laudo DOCDEX 363). Lo encontró el laudo DOCDEX 262, cuyo 46A lo escribe así y donde
+   * el emisor levantó cuatro motivos y ninguno fue éste.
+   */
+  const POR_ENDOSO = "2. FULL SET OF CLEAN ON BOARD OCEAN BILL OF LADING ENDORSED TO THE ORDER OF THE ISSUING BANK.";
+
+  it("el conocimiento a la orden, bajo un crédito que pide el endoso, va a verificar y no a discrepancia", () => {
+    const r = con(POR_ENDOSO, "TO ORDER");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("endoso va al dorso");
+  });
+
+  it("y si el papel ya nombra al banco, cumple igual", () => {
+    expect(con(POR_ENDOSO, "TO THE ORDER OF TEST BANK")?.estado).toBe("OK");
+  });
+
+  /* El freno: con «CONSIGNED» el casillero sí es lo que se compara, y un «TO ORDER» pelado no alcanza. */
+  it("pero con «consigned to the order of» el casillero sigue decidiendo", () => {
+    expect(con(EXIGENCIA, "TO ORDER")?.estado).toBe("DISCREPANCIA");
+  });
 });
 
 /**

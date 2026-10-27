@@ -447,6 +447,51 @@ describe("el pago «solo contra» menos documentos de los que el crédito pide (
 });
 
 /**
+ * Un 48 que fija el plazo hasta el vencimiento no es un 48 vacío (laudo DOCDEX 262)
+ *
+ * `diasPresentacion` devuelve null cuando el campo no trae un número, así que un crédito que dice
+ * «DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY» caía en `emision-sin-plazo` y la revisión
+ * decía «el crédito no fija plazo de presentación: rigen 21 días desde el embarque» — que es palabra por
+ * palabra la lectura que el Commercial Court inglés declaró inválida en *Deutsche Bank AG v CIMB Bank
+ * Berhad* [2017] EWHC 3380 (Comm), con USD 9.959.452,57 de condena.
+ *
+ * El examen ya lo sabía: `plazoHastaElVencimiento` existe por esa sentencia. Las dos mitades del motor
+ * decían cosas distintas del mismo campo.
+ */
+describe("el campo 48 que fija el plazo hasta el vencimiento (laudo DOCDEX 262)", () => {
+  const con = (texto48: string) => {
+    const p = parseMT700(SWIFT_CSU2025099)!;
+    return revisarCredito({ ...p, lc: { ...p.lc, plazoPresentacion: texto48 } }).filter(
+      (o) => o.id.startsWith("emision-plazo-hasta-el-vencimiento") || o.id.startsWith("emision-sin-plazo"),
+    );
+  };
+
+  it.each([
+    "DOCUMENTS TO BE PRESENTED WITHIN LETTER OF CREDIT VALIDITY",
+    "WITHIN THE VALIDITY OF THE CREDIT",
+    "DOCUMENTS TO BE PRESENTED NOT LATER THAN THE EXPIRY DATE",
+  ])("«%s» no sale como «sin plazo»", (texto) => {
+    const [r] = con(texto);
+    expect(r?.id).toContain("plazo-hasta-el-vencimiento");
+    expect(r?.gravedad).toBe("AVISO");
+    expect(r?.fuente).toContain("CIMB");
+  });
+
+  it("y un 48 vacío de verdad sigue avisando que rigen los 21 días", () => {
+    const [r] = con("");
+    expect(r?.id).toBe("emision-sin-plazo");
+  });
+
+  it("y el crédito real, que fija el plazo en días, no saca ninguno de los dos", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter(
+        (o) => o.id.startsWith("emision-plazo-hasta-el-vencimiento") || o.id.startsWith("emision-sin-plazo"),
+      ),
+    ).toEqual([]);
+  });
+});
+
+/**
  * La cláusula que prohíbe los errores de tipeo (laudo DOCDEX 249)
  *
  * El crédito se enmendó para decir *«Typographical and/or spelling errors, not be considered as

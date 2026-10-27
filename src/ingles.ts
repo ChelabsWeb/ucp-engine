@@ -1975,6 +1975,29 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\by además endosado en blanco, y así solo lo puede endosar esa parte: el beneficiario no tiene cómo cumplirlo\b/g,
     "and blank endorsed as well, and made out that way only that party can endorse it: the beneficiary has no way to comply",
   ],
+  /*
+   * El conocimiento «TO ORDER» bajo un crédito que pide el **endoso** a la orden de alguien.
+   *
+   * Partido en cola y prefijo porque el texto lleva el nombre de la parte en el medio: un patrón
+   * anclado a una sola mitad deja la otra sin traducir, que es el defecto que ya costó cuatro veces.
+   */
+  [
+    /\bque es lo que permite endosarlo, y el crédito pide el \*\*endoso\*\* a la orden de\b/g,
+    "which is what makes it endorsable, and the credit requires the **endorsement** to the order of",
+  ],
+  [
+    /\bel endoso va al dorso y el motor no tiene campo para leerlo \(laudo DOCDEX 363\), así que hay que verificarlo en el papel\b/g,
+    "the endorsement is on the reverse and the engine has no field to read it (DOCDEX Decision 363), so it must be checked on the document itself",
+  ],
+  /* El 48 que fija el plazo hasta el vencimiento (Deutsche Bank v CIMB), que no es un 48 vacío. */
+  [
+    /^El crédito fija el plazo de presentación hasta su vencimiento, así que los 21 días del artículo 14 \(c\) no corren: el único límite es el 31D$/g,
+    "the credit sets the presentation period as running until its expiry, so the 21 days of article 14 (c) do not apply: the only limit is field 31D",
+  ],
+  [
+    /^está bien dicho y conviene saberlo: un banco que cuente veintiún días desde el embarque sobre este crédito produce una tardía que no existe, y es lo que costó USD 9\.959\.452,57 en Deutsche Bank v CIMB\. Si lo que se quiere es un plazo más corto, hay que escribirlo en días$/g,
+    "it is correctly worded and worth knowing: a bank counting twenty-one days from shipment under this credit produces a late presentation that does not exist, which is what cost USD 9,959,452.57 in Deutsche Bank v CIMB. If a shorter period is wanted, it must be stated in days",
+  ],
   /* El laudo DOCDEX 249: la cláusula que apaga la tolerancia al tipeo de la ISBP. */
   [
     /^El crédito prohíbe los errores de tipeo en algunos documentos, y eso apaga la tolerancia del párrafo A23 de la ISBP: una palabra mal escrita que no cambia el significado pasa a ser discrepancia$/g,
