@@ -129,6 +129,25 @@ export interface LimitePresentacion {
   plazoNoLeido: boolean;
   /** BL + plazo, SIN acotar (para explicar la CRÍTICA cuando cae después del vencimiento) */
   porPlazo: Date;
+  /**
+   * El límite del plazo cayó en día cerrado y se corrió al primer día hábil siguiente (art. 29 a).
+   *
+   * El inciso extiende **dos** cosas y el motor extendía una: «If the expiry date of a credit **or the
+   * last day for presentation** falls on a day when the bank to which presentation is to be made is
+   * closed […] the expiry date **or the last day for presentation**, as the case may be, will be extended
+   * to the first following banking day.» `vencimientoEfectivo` llevaba la mitad del vencimiento y el
+   * límite del campo 48 se calculaba a secas.
+   *
+   * No es un borde: un plazo de veintiún días cae sábado o domingo **dos de cada siete veces**, y lo que
+   * producía era rechazar por tardía una presentación en plazo. Lo encontró el laudo **DOCDEX 286**, cuyo
+   * panel escribe la cuenta en un cuadro: «docs must be presented at the latest by 18.10.2008 — **this
+   * date is a Saturday in Country S (banks are closed)** — presentation date to the Initiator by
+   * beneficiaries 20.10.2008 Monday».
+   *
+   * Va como bandera y no disuelto en la fecha para que el hallazgo pueda decirlo: un límite corrido que
+   * no se explica es un límite que nadie puede auditar.
+   */
+  corridoPorDiaCerrado: boolean;
   /** el límite operativo: min(BL + plazo, vencimiento) */
   limite: Date;
   /** true si BL + plazo cae después del vencimiento: la ventana real es más corta que el plazo */
@@ -142,6 +161,8 @@ export function limitePresentacion(
   fechaEmbarqueEstimada: string | null | undefined,
   /** la fecha de **emisión** del documento de transporte, cuando el crédito cuenta desde ella (Fortis) */
   fechaEmisionDelTransporte?: string | null,
+  /** los feriados de la plaza para el artículo 29 (a); los fines de semana se cuentan siempre */
+  feriados: Date[] = [],
 ): LimitePresentacion | null {
   if (!lc) return null;
   // UCP 600 art. 14c: si el crédito no dice, la presentación es dentro de los 21 días
@@ -170,7 +191,38 @@ export function limitePresentacion(
    */
   const dias = hastaVenc ? Math.max(diffDias(bl, venc), 0) : (explicito ?? UCP_DIAS_PRESENTACION);
   const porPlazo = new Date(bl.getFullYear(), bl.getMonth(), bl.getDate() + dias);
-  const recortado = porPlazo > venc;
+  /*
+   * Con el plazo hasta el vencimiento no se corre acá: ahí el límite **es** el 31D, y esa mitad del
+   * artículo 29 (a) la lleva `vencimientoEfectivo`. Correrlo dos veces lo movería de más.
+   */
+  const cerrado = (d: Date) =>
+    d.getDay() === 0 ||
+    d.getDay() === 6 ||
+    feriados.some(
+      (f) => f.getFullYear() === d.getFullYear() && f.getMonth() === d.getMonth() && f.getDate() === d.getDate(),
+    );
+  let corridoPorDiaCerrado = false;
+  if (!hastaVenc) {
+    while (cerrado(porPlazo)) {
+      porPlazo.setDate(porPlazo.getDate() + 1);
+      corridoPorDiaCerrado = true;
+    }
+  }
+  /*
+   * Y el vencimiento se corre con el mismo criterio **para esta comparación**, porque el inciso mueve las
+   * dos cosas y moverlas por separado inventa un recorte.
+   *
+   * Lo encontró el banco de pruebas en la misma vuelta: con el límite corrido y el vencimiento crudo, el
+   * crédito del laudo DOCDEX 246 —44C 20-mar-04, 31D 10-abr-04, plazo 21 días— pasaba a decir que el plazo
+   * «no entra antes del vencimiento», y las dos fechas caían **el mismo sábado**: se mueven juntas y no hay
+   * recorte ninguno. Es la misma fecha efectiva que calcula `vencimientoEfectivo` para el artículo 29 (a),
+   * y acá se repite en vez de importarse porque este archivo no depende de `presentaciones.ts`.
+   *
+   * El 29 (c) no entra: el último día de embarque **no** se corre, y eso lo lleva `limiteEmbarque`.
+   */
+  const vencEfectivo = new Date(venc.getFullYear(), venc.getMonth(), venc.getDate());
+  while (cerrado(vencEfectivo)) vencEfectivo.setDate(vencEfectivo.getDate() + 1);
+  const recortado = porPlazo > vencEfectivo;
   return {
     fechaBL: bl,
     base: deEmision ? "FECHA_DEL_BL" : "EMBARQUE",
@@ -188,7 +240,8 @@ export function limitePresentacion(
      */
     plazoNoLeido: explicito == null && !hastaVenc && /[a-z0-9]/i.test(lc.plazoPresentacion ?? ""),
     porPlazo,
-    limite: recortado ? venc : porPlazo,
+    corridoPorDiaCerrado,
+    limite: recortado ? vencEfectivo : porPlazo,
     recortadoPorVencimiento: recortado,
   };
 }

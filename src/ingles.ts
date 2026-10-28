@@ -1099,6 +1099,10 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^documento (.+) · embarque (.+) — el mismo día no es «anterior»: el laudo DOCDEX 231 pide al menos un día antes$/g,
     "document $1 · shipment $2 — the same day is not «prior»: DOCDEX decision 231 requires at least one day before",
   ],
+  [
+    / — el límite caía en un día en que el banco está cerrado y se corre al primer día hábil siguiente \(art\. 29 a\)/g,
+    " — the deadline fell on a day when the bank is closed and is extended to the first following banking day (art. 29 a)",
+  ],
   [/^documento (.+) · embarque (.+)$/g, "document $1 · shipment $2"],
   [/^nota de peso (.+) kg · el packing (.+) kg$/g, "weight note $1 kg · packing list $2 kg"],
   [/^nota de peso (.+) kg · el conocimiento (.+) kg$/g, "weight note $1 kg · bill of lading $2 kg"],

@@ -211,6 +211,8 @@ export function examinarPresentacion(input: {
      * reloj del aviso, que es el 14 (b) y el 16 (d).
      */
     presentadaEl: input.presentacion?.presentadaAlDesignadoEl ?? input.presentacion?.fecha ?? null,
+    /* y los feriados, para correr el último día de presentación del artículo 29 (a) */
+    feriados: input.feriados,
     docs: examinables,
     /*
      * Los certificados y el seguro también satisfacen su línea del 46A.

@@ -421,6 +421,13 @@ export function precheckPresentacion(input: {
    * pregunta es cuántos días quedan para hacerlo.
    */
   presentadaEl?: Date | null;
+  /**
+   * Los feriados de la plaza, para correr el último día de presentación (art. 29 a).
+   *
+   * Llegan vacíos por omisión, así que donde nadie los carga la cuenta no cambia —los fines de semana se
+   * cuentan siempre, igual que en `vencimientoEfectivo`—. En romai no se pasan.
+   */
+  feriados?: Date[];
 }): ResultadoPresentacion {
   const { lc, op, hoy } = input;
   // un documento analizado por tipo: el primero (la ficha los pasa del más nuevo al más viejo)
@@ -1201,7 +1208,13 @@ export function precheckPresentacion(input: {
    * `baseDelPlazo`. Sin este dato el motor contaba siempre desde el a bordo y producía la tardía que
    * dos instancias inglesas rechazaron.
    */
-  const lim = limitePresentacion(lc, op.blReal, op.fechaEmbarque, bl ? val(bl, "fechaDocumento") : null);
+  const lim = limitePresentacion(
+    lc,
+    op.blReal,
+    op.fechaEmbarque,
+    bl ? val(bl, "fechaDocumento") : null,
+    input.feriados ?? [],
+  );
   let diasParaPresentar: number | null = null;
   if (sinTransporteExigidoNiPresentado) {
     reglas.push({
@@ -1258,6 +1271,13 @@ export function precheckPresentacion(input: {
      * como conformidad, y encima sobre la discrepancia más corriente del negocio.
      */
     const porElVencimiento = lim.hastaElVencimiento;
+    /*
+     * Y si el límite cayó en día cerrado, la evidencia lo dice: el artículo 29 (a) lo corre al primer
+     * día hábil siguiente y un límite corrido que no se explica es un límite que nadie puede auditar.
+     */
+    const corrido = lim.corridoPorDiaCerrado
+      ? " — el límite caía en un día en que el banco está cerrado y se corre al primer día hábil siguiente (art. 29 a)"
+      : "";
     reglas.push({
       id: "plazo",
       fuente: lim.plazoPorDefectoUCP ? "UCP 600 14c" : "48",
@@ -1288,8 +1308,8 @@ export function precheckPresentacion(input: {
               ? `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — así lo resolvió Fortis Bank v Indian Overseas Bank (Court of Appeal de Inglaterra)`
               : `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
             : yaPresentada
-              ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}`
-              : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`,
+              ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}${corrido}`
+              : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}${corrido}`,
     });
   } else {
     reglas.push({

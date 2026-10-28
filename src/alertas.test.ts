@@ -328,12 +328,18 @@ describe("plazo de presentación al banco (Etapa 2, UCP 600 14c)", () => {
     expect(as[0].detalle).not.toContain("Packing list");
   });
 
-  it("BL real y el plazo ya pasó → CRÍTICA", () => {
+  /*
+   * El 22 de agosto de 2026 es **sábado**, así que el último día de presentación es el lunes 24: el
+   * artículo 29 (a) extiende «the expiry date **or the last day for presentation**» al primer día hábil
+   * siguiente, y el motor extendía solo el vencimiento. Este test decía 22 y ahora dice 24, que es la
+   * fecha que un banco le daría al beneficiario. Lo encontró el laudo DOCDEX 286.
+   */
+  it("BL real y el plazo ya pasó → CRÍTICA, con el límite corrido al día hábil (art. 29 a)", () => {
     const as = deLC(
       generarAlertasDeOperacion(conLC({ blReal: "01-ago-26", fechaEmbarque: "01-ago-26" }), new Date(2026, 7, 25)),
     );
     expect(as[0].severidad).toBe("CRITICA");
-    expect(as[0].titulo).toContain("vencido el 22-ago");
+    expect(as[0].titulo).toContain("vencido el 24-ago");
   });
 
   it("lejos del límite, con BL real, no molesta", () => {
@@ -349,7 +355,7 @@ describe("plazo de presentación al banco (Etapa 2, UCP 600 14c)", () => {
     const as = deLC(generarAlertasDeOperacion(conLC({ fechaEmbarque: "20-ago-26" }), HOY));
     expect(as).toHaveLength(1);
     expect(as[0].severidad).toBe("ALTA");
-    expect(as[0].titulo).toContain("recorta el plazo de 21 a 16 días");
+    expect(as[0].titulo).toContain("recorta el plazo de 21 a 18 días");
     // estimado 10-ago + 21 = 31-ago ≤ 05-sep → nada (todavía no hay BL firme)
     expect(deLC(generarAlertasDeOperacion(conLC({ fechaEmbarque: "10-ago-26" }), HOY))).toHaveLength(0);
   });
