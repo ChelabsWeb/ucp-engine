@@ -708,6 +708,31 @@ describe("cantidades que no se miden en kilos", () => {
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "53,96", "TON"))).toBe(false);
     expect(hayCantidadDistinta(doc("FACTURA", "53960", "KGS"), doc("PACKING", "48", "TON"))).toBe(true);
   });
+
+  /*
+   * Y el papel que **no declara unidad** no entra al cruce, con el laudo DOCDEX 227 detrás.
+   *
+   * Ese expediente es exactamente esta forma: el packing muestra la cantidad en kilos sin decir que son
+   * kilos —152.409,60, la suma de los ocho contenedores— y la factura 152,4096 en toneladas. El emisor
+   * levantó la diferencia y el panel, unánime: *«**Omission of the unit of quantity in this particular case
+   * is not a discrepancy, as the unit of quantity can be ascertained from the invoice**»*, después de sumar
+   * los contenedores y comprobar que es el mismo peso.
+   *
+   * El motor tiene **dos** frenos apilados y los dos hacen falta: sin unidad declarada la cifra no se
+   * convierte a kilos, y el filtro de magnitudes distintas descarta la entrada. Lo que no se puede hacer es
+   * prestarle la unidad del otro papel: ahí 152.409,60 «toneladas» contra 152,4096 da un desvío de mil
+   * veces, que es la clase de error que este repositorio ya pagó con «53,960» y con «630.000 Kos».
+   *
+   * Se prueba acá porque el banco de pruebas no lo puede medir: `cruce-cantidad` tiene severidad MEDIA y
+   * sale en ATENCION, así que no produce una discrepancia y el tablero no lo ve.
+   */
+  it("un papel sin unidad no entra al cruce, aunque el número sea el mismo peso (laudo DOCDEX 227)", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "152.4096", "MTS"), doc("PACKING", "152409.60", ""))).toBe(false);
+  });
+
+  it("y tampoco cuando el número sin unidad de verdad difiere: no se le presta la unidad del otro papel", () => {
+    expect(hayCantidadDistinta(doc("FACTURA", "152.4096", "MTS"), doc("PACKING", "99999", ""))).toBe(false);
+  });
 });
 
 describe("el esquema que se le manda al modelo", () => {
