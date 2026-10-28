@@ -2231,9 +2231,20 @@ export function cantidadesDelCredito(
    * Los calificativos son los del comercio de graneles —metric, long, short, dry, wet, air dry— y van
    * opcionales, así que «57 MTS» sigue leyéndose igual. Y se agregan las abreviaturas compuestas que
    * aparecen en los contratos de concentrados: WMT, DMT, ADMT.
+   *
+   * **Y el metro cúbico escrito en palabras, que es la undécima vez de la misma familia.** La lista tenía
+   * `m3` y `cbm` y no «cubic meters»: el 45A del laudo **DOCDEX 224** dice «1500 CUBIC METERS PLUS OR
+   * MINUS 20 PCT» y con eso `cantidadDelCredito` devolvía null, así que **el artículo 30 (b) no corría** —el
+   * tope de la cantidad del crédito quedaba sin examinar, que es exactamente lo que el laudo DOCDEX 206
+   * había destapado con «METRIC TONS»—. Y pega donde más se usa: en madera, en graneles y en todo lo que
+   * se vende por volumen la cantidad va siempre en metros cúbicos.
+   *
+   * **El patrón es angosto a propósito: «meters» solo no entra.** Un metro suelto es largo —«LENGTH 4 M AND
+   * UP», que está en el 45A de ese mismo crédito— y tomarlo por la cantidad del embarque sería peor que no
+   * mirar, que es el motivo por el que `cantidadDelCredito` exige la unidad desde que nació.
    */
   const re =
-    /(\d+(?:[.,]\d+)*)\s*(?:(?:metric|long|short|dry|wet|air[\s-]?dry|imperial)\s+)?(kgs?|kilos?|kilogramos?|w?d?mts?|admts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|m3|cbm)\b/gi;
+    /(\d+(?:[.,]\d+)*)\s*(?:(?:metric|long|short|dry|wet|air[\s-]?dry|imperial)\s+)?(kgs?|kilos?|kilogramos?|w?d?mts?|admts?|tms?|tns?|tons?|tonnes?|toneladas?|lbs?|pounds?|bags?|bultos?|cartons?|cajas?|drums?|tambores?|pallets?|pal[eé]s?|units?|unidades?|pcs?|piezas?|cabezas?|heads?|litros?|lt?rs?|liters?|litres?|cubic\s*met(?:er|re)s?|m3|cbm)\b/gi;
   return [...t.matchAll(re)]
     .map((m) => ({ valor: parseNumero(m[1] ?? ""), unidad: (m[2] ?? "").trim(), en: m.index ?? 0, crudo: m[0] }))
     .filter((x): x is { valor: number; unidad: string; en: number; crudo: string } => x.valor !== null);

@@ -159,9 +159,21 @@ function emisoresAdmitidos(nombrado: string): string[] {
  * La lista es corta y se queda corta a propósito: cada palabra describe una función pública o
  * gremial, no una marca. Ante la duda, no estar en la lista deja el veredicto tajante, que es el
  * comportamiento que había.
+ *
+ * **Y dos palabras que faltaban, las dos de redacción corriente y las dos del laudo DOCDEX 224.** Su 46A
+ * pide el certificado de origen «ISSUED BY AUTHORIZED ORGANISATION» y el de inspección «ISSUED BY
+ * REPRESENTATIVES OF THE BUYER», y ninguna de las dos estaba: el motor las trataba como **nombres propios**
+ * y sacaba **DISCREPANCIA** sobre una cámara de comercio y sobre el representante del comprador — o sea
+ * sobre los dos papeles que el crédito pidió. «Authorized organisation» es como media cámara de comercio
+ * del mundo aparece descripta en un 46A, y `agent` ya estaba en la lista, que es exactamente la misma idea
+ * que `representative`.
+ *
+ * El cambio **solo puede ablandar**: mueve veredictos de DISCREPANCIA a ATENCION con los dos nombres a la
+ * vista, nunca al revés. Y las dos grafías entran, porque un 46A las escribe como las escribe el banco que
+ * lo redacta.
  */
 function describeUnaFuncion(nombrado: string): boolean {
-  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health|carrier|shipper|master|manufacturer|producer|supplier|surveyor|laboratory|lab|agent|agents|forwarder|forwarders|insurer|underwriters?|inspector|inspection|company|beneficiary|exporter|packer|mill|factory|third party)\b/i.test(
+  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health|carrier|shipper|master|manufacturer|producer|supplier|surveyor|laboratory|lab|agent|agents|forwarder|forwarders|insurer|underwriters?|inspector|inspection|company|beneficiary|exporter|packer|mill|factory|third party|organisation|organization|organisations|organizations|representative|representatives|representante|representantes)\b/i.test(
     nombrado,
   );
 }
