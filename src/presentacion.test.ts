@@ -858,20 +858,26 @@ describe("el plazo del 14 (c) cuando la presentación no trae documento de trans
   });
 
   /*
-   * Y las dos condiciones hacen falta, cada una por su lado.
+   * **Y la condición es una sola: lo que decide es la presentación.**
    *
-   * Si el crédito lo pide, el plazo rige aunque el papel no esté —ahí lo que falta es el documento—. Y si
-   * el beneficiario presenta uno igual, el inciso habla de **la presentación**, así que decidir ahí sería
-   * resolver si un documento desestimado por el 14 (g) «cuenta» para el 14 (c), que este laudo no contesta.
+   * Este test afirmaba lo contrario —que si el crédito lo pide, el plazo rige aunque el papel no esté— y el
+   * laudo **DOCDEX 238** contesta esa mitad sobre un crédito que **sí** exige el juego de conocimientos y
+   * una presentación que trajo una carta de indemnidad en su lugar: *«The Article is only relevant **when
+   * transport documents are presented**»*. Con la condición vieja el motor producía una tardía de tres meses
+   * sobre ese expediente.
+   *
+   * Lo que sigue abierto es la otra celda —el crédito no lo pide y el beneficiario presenta uno igual— y eso
+   * lo fija el test de abajo.
    */
   /*
    * Y la aserción va sobre la **evidencia** y no sobre la fuente, que es lo que corrigió el primer intento:
    * «UCP 600 14c» es también la fuente del camino normal cuando el crédito no fija plazo en el campo 48, así
    * que un test que mirara la fuente fallaría por un motivo que no tiene nada que ver con lo que mide.
    */
-  it("si el crédito lo exige, la rama no corre aunque el papel no esté", () => {
+  it("y si el crédito lo exige pero el papel no está, la rama corre igual (laudo DOCDEX 238)", () => {
     const r = sinTransporte(["FULL SET OF ORIGINAL BILLS OF LADING"], [{ tipo: "FACTURA", campos: FACTURA }]);
-    expect(r?.evidencia ?? "").not.toContain("DOCDEX 319");
+    expect(r?.estado, "no es «no pude»: es «no aplica»").toBe("OK");
+    expect(r?.evidencia ?? "").toContain("y el 238");
   });
 
   it("y si se presenta un documento de transporte, tampoco", () => {
