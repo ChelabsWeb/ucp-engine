@@ -53,13 +53,47 @@ describe("limitePresentacion — BL + plazo, nunca después del vencimiento (UCP
     expect(l.recortadoPorVencimiento).toBe(false);
     expect(diasParaPresentar(l, new Date(2026, 7, 25))).toBe(6);
   });
+  /*
+   * Y el vencimiento de este LC —05-sep-26— es **sábado**, así que el límite operativo es el lunes 7: el
+   * artículo 29 (a) corre las **dos** fechas que nombra, y compararlas con una corrida y la otra cruda
+   * inventa un recorte. Es la misma fecha efectiva que calcula `vencimientoEfectivo` y que usa
+   * `giro-vencimiento`.
+   */
   it("sin BL real usa el embarque estimado y lo marca", () => {
     const l = limitePresentacion(LC, null, "20-ago-26")!;
     expect(l.esEstimada).toBe(true);
-    expect(l.porPlazo).toEqual(new Date(2026, 8, 10)); // 10-sep: cae después del 05-sep
+    expect(l.porPlazo).toEqual(new Date(2026, 8, 10)); // 10-sep: cae después del vencimiento
     expect(l.recortadoPorVencimiento).toBe(true);
-    expect(l.limite).toEqual(new Date(2026, 8, 5)); // el vencimiento manda
+    expect(l.limite).toEqual(new Date(2026, 8, 7)); // el vencimiento manda, corrido al lunes (art. 29 a)
   });
+  /*
+   * El artículo 29 (a) extiende **dos** cosas y el motor extendía una: «the expiry date **or the last day
+   * for presentation** […] will be extended to the first following banking day». Lo encontró el laudo
+   * DOCDEX 286, cuyo límite del 48 cayó un sábado y cuya presentación del lunes el panel declara en plazo.
+   *
+   * Un plazo de veintiún días cae sábado o domingo **dos de cada siete veces**, así que no es un borde: lo
+   * que producía era rechazar por tardía una presentación en plazo.
+   */
+  it("el límite que cae sábado se corre al lunes (art. 29 a)", () => {
+    /* 01-ago-26 + 21 = 22-ago-26, que es sábado */
+    const l = limitePresentacion(LC, "01-ago-26", null)!;
+    expect(l.corridoPorDiaCerrado).toBe(true);
+    expect(l.limite).toEqual(new Date(2026, 7, 24)); // lunes 24
+  });
+
+  it("y un límite en día hábil no se mueve", () => {
+    const l = limitePresentacion(LC, "10-ago-26", null)!;
+    expect(l.corridoPorDiaCerrado).toBe(false);
+    expect(l.limite).toEqual(new Date(2026, 7, 31)); // lunes 31, que ya era hábil
+  });
+
+  it("y los feriados que el banco carga también lo corren", () => {
+    /* 10-ago-26 + 21 = lunes 31; con el 31 feriado, el límite es el martes 1 de setiembre */
+    const l = limitePresentacion(LC, "10-ago-26", null, null, [new Date(2026, 7, 31)])!;
+    expect(l.corridoPorDiaCerrado).toBe(true);
+    expect(l.limite).toEqual(new Date(2026, 8, 1));
+  });
+
   it("falta la LC, la fecha o el vencimiento → null", () => {
     expect(limitePresentacion(null, "10-ago-26", null)).toBeNull();
     expect(limitePresentacion(LC, null, null)).toBeNull();
