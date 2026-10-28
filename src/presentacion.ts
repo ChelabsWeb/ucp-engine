@@ -1196,12 +1196,27 @@ export function precheckPresentacion(input: {
    * transporte» descansa en la reconstrucción y no en la Opinión. Vale saberlo antes de leer esos exámenes
    * como si dijeran algo del crédito real.
    *
-   * **Las dos condiciones a la vez, y eso es a propósito**: que el crédito no lo pida y que no se haya
-   * presentado. Si el beneficiario presenta uno igual, el inciso habla de la presentación y no de lo que el
-   * crédito pidió, así que decidir ahí sería resolver si un documento desestimado por el 14 (g) «cuenta»
-   * para el 14 (c) — una pregunta que este laudo no contesta.
+   * **Y lo que decide es la PRESENTACIÓN, no lo que el crédito pidió.** Acá había dos condiciones —que el
+   * crédito no lo pidiera **y** que no se hubiera presentado— y el laudo **DOCDEX 238** contesta la mitad
+   * que el 319 había dejado abierta, sobre un crédito que **sí** exige el juego de conocimientos y una
+   * presentación que trajo una carta de indemnidad en su lugar:
+   *
+   *   «The time limit mentioned in Article 43 was not relevant for two reasons: (1) **The Article is only
+   *   relevant when transport documents are presented**; and (2) the credit expressly stated that the
+   *   negotiation was to be effected on or after 81 days from B/L date.»
+   *
+   * O sea que el inciso se lee como está escrito —«a presentation **including** one or more original
+   * transport documents»— y la exigencia del crédito no entra en la cuenta. Con la condición vieja el motor
+   * producía una **tardía de tres meses** sobre ese expediente, que es el lado que rechaza lo conforme: un
+   * crédito de petróleo con sustitución por carta de indemnidad fija la negociación a los 81 días del
+   * conocimiento justamente porque el precio sale de un promedio mensual.
+   *
+   * **La celda que sigue abierta es la otra**: que el crédito **no** lo pida y el beneficiario presente uno
+   * igual. Ahí decidir sería resolver si un documento desestimado por el 14 (g) «cuenta» para el 14 (c), y
+   * eso ningún panel lo contestó — así que esa combinación sigue midiendo el plazo, que es el
+   * comportamiento conservador.
    */
-  const sinTransporteExigidoNiPresentado = !bl && !(lc.documentosExigidos ?? []).some((d) => claveDoc(d) === "BL");
+  const sinTransportePresentado = !bl;
   /*
    * Y se le pasa la fecha de **emisión** del documento de transporte, porque el crédito puede contar
    * desde ella: *Fortis Bank v Indian Overseas Bank*, campo 48 «within 21 days from B/L Date». Ver
@@ -1216,14 +1231,14 @@ export function precheckPresentacion(input: {
     input.feriados ?? [],
   );
   let diasParaPresentar: number | null = null;
-  if (sinTransporteExigidoNiPresentado) {
+  if (sinTransportePresentado) {
     reglas.push({
       id: "plazo",
       fuente: "UCP 600 14c",
       regla: "Plazo de presentación del artículo 14 (c)",
       estado: "OK",
       evidencia:
-        "el crédito no exige documento de transporte y la presentación no incluye ninguno, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento (laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»)",
+        "la presentación no incluye ningún documento de transporte original, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento (laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»; y el 238, sobre un crédito que sí lo exige y una presentación que trajo una carta de indemnidad en su lugar: «the Article is only relevant when transport documents are presented»)",
     });
   } else if (soloCopia) {
     /*

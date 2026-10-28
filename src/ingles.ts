@@ -425,11 +425,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó el lugar de (salida|destino) en el documento: verificar a mano$/g,
     "the place of $1 was not read on the document: check by hand",
   ],
-  /* Laudo DOCDEX 319: el 14 (c) no impone plazo si la presentación no trae documento de transporte */
+  /* Laudos DOCDEX 319 y 238: el 14 (c) no impone plazo si la presentación no trae documento de transporte */
   [/^Plazo de presentación del artículo 14 \(c\)$/g, "Presentation period under sub-article 14 (c)"],
   [
-    /^el crédito no exige documento de transporte y la presentación no incluye ninguno, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento \(laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»\)$/g,
-    'the credit does not require a transport document and the presentation includes none, so the sub-article imposes no period — it speaks of "a presentation including one or more original transport documents" — and the only limit is the expiry date (DOCDEX Decision 319: "because no transport document is required for presentation, the transport articles of UCP 600 do not apply")',
+    /^la presentación no incluye ningún documento de transporte original, así que el inciso no impone plazo —habla de «a presentation including one or more original transport documents»— y el único límite es el vencimiento \(laudo DOCDEX 319: «because no transport document is required for presentation, the transport articles of UCP 600 do not apply»; y el 238, sobre un crédito que sí lo exige y una presentación que trajo una carta de indemnidad en su lugar: «the Article is only relevant when transport documents are presented»\)$/g,
+    'the presentation includes no original transport document, so the sub-article imposes no period — it speaks of "a presentation including one or more original transport documents" — and the only limit is the expiry date (DOCDEX Decision 319: "because no transport document is required for presentation, the transport articles of UCP 600 do not apply"; and Decision 238, on a credit that does require one and a presentation that brought a letter of indemnity instead: "the Article is only relevant when transport documents are presented")',
   ],
   [/^no se leyó el consignee$/g, "the consignee was not read"],
   [/^no se leyó el notify$/g, "the notify party was not read"],
