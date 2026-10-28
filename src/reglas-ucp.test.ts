@@ -2502,9 +2502,25 @@ describe("el punto de miles o decimal en la cantidad (R 218)", () => {
   /*
    * Y los dos frenos. Si la otra lectura **tampoco** entra, la discrepancia es real y se mantiene: no se
    * usa la ambigüedad como excusa para no concluir nunca.
+   *
+   * **Y el freno tuvo que mudarse de ejemplo, que es lo que el laudo DOCDEX 224 dejó a la vista.** Este
+   * test afirmaba DISCREPANCIA sobre «500.000 ADMT» contra 1000 ADMT, y la otra lectura de eso —500— es un
+   * **parcial corto del 50 %** que el 43P admite: con la cantidad escrita sin ambigüedad el motor sale en
+   * ATENCION por la rama de los parciales, así que exigir DISCREPANCIA acá hacía que **la ambigüedad
+   * volviera al motor más duro que la claridad**. El test pasaba y lo que afirmaba era inconsistente con su
+   * rama hermana.
+   *
+   * El freno sigue en pie y ahora está escrito donde vale: cuando la otra lectura es un **exceso**, que no
+   * es ninguna de las dos cosas que el 43P y la tolerancia cubren.
    */
-  it("pero si la otra lectura tampoco entra, sigue siendo discrepancia", () => {
-    expect(conCantidad("1000 ADMT OF PULP", "500.000", "ADMT")?.estado).toBe("DISCREPANCIA");
+  it("si la otra lectura es un exceso, sigue siendo discrepancia", () => {
+    expect(conCantidad("1000 ADMT OF PULP", "2000.000", "ADMT")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y si la otra lectura es un parcial corto, avisa: el 43P lo admite (laudo DOCDEX 224)", () => {
+    const r = conCantidad("1000 ADMT OF PULP", "500.000", "ADMT");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("puede ser de miles o decimal");
   });
 
   it("y una cantidad sin ambigüedad se compara como siempre", () => {

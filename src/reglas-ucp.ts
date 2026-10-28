@@ -2633,10 +2633,27 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
       const otraLectura = /^\d+[.,]\d{3}$/.test((cantFac ?? "").trim())
         ? Number.parseFloat((cantFac ?? "").trim().replace(",", "."))
         : null;
-      const laOtraEntra =
-        !dentro && otraLectura !== null && enKgFac !== null
-          ? Math.abs((aKg(otraLectura, uniFac ?? "") ?? otraLectura) - par.b) / par.b <= tol + 1e-9
-          : false;
+      const otraEnKg = otraLectura !== null ? (aKg(otraLectura, uniFac ?? "") ?? otraLectura) : null;
+      const otraDentro =
+        !dentro && otraEnKg !== null && enKgFac !== null ? Math.abs(otraEnKg - par.b) / par.b <= tol + 1e-9 : false;
+      /*
+       * Y la otra lectura puede no entrar en la tolerancia y **tampoco rechazar**, que es lo que el laudo
+       * DOCDEX 224 destapó y es peor que el caso de arriba.
+       *
+       * Su factura dice «268,616 CBM» contra un crédito de 1500 m³ ±20 %, con el 43P en «allowed» y siendo
+       * el quinto de cinco embarques parciales. Leída como miles son 268.616 m³ y el desvío es de
+       * **+17.800 %**: el motor sacaba **DISCREPANCIA por exceso** sobre un giro que, leído como decimal, es
+       * un parcial corto de los que el 43P admite y la rama de abajo deja pasar. O sea que el artefacto de
+       * lectura no solo inventaba un número: se llevaba el veredicto al lado **contrario** del que
+       * corresponde, porque `corto` y `dentro` se calculan sobre una sola de las dos lecturas.
+       *
+       * El panel declara ese motivo inválido por el fondo —ni la puntuación mezclada ni el faltante del
+       * agregado son discrepancia— así que lo que el motor no puede hacer es rechazar. Queda en ATENCION
+       * con las dos cifras a la vista, igual que arriba.
+       */
+      const otraEsParcialCorto =
+        !dentro && otraEnKg !== null && parcialesOk ? otraEnKg < par.b && !(Math.abs(otraEnKg - par.b) / par.b <= tol) : false;
+      const laOtraEntra = otraDentro || otraEsParcialCorto;
       /* el giro corto bajo 43P no es ninguna de las dos cosas: ver el comentario de arriba */
       const porParcial = parcialesOk && corto && !dentro;
       out.push(
