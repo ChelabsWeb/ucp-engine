@@ -837,7 +837,17 @@ export function precheckPresentacion(input: {
       reglas.push({
         id: "bl-consignee",
         fuente: "46A",
-        regla: `El documento de transporte va consignado a quien el crédito nombra (${consignadoA})`,
+        /*
+         * El nombre va **entre comillas**, como en la evidencia de dos renglones más abajo y como en
+         * todo el resto del motor cuando muestra un dato copiado de un papel.
+         *
+         * No es cosmético: `textoEnIngles` protege lo entrecomillado y el control de inglés del banco
+         * de pruebas revisa el nombre de cada regla, así que un nombre propio interpolado **sin**
+         * comillas hace que la heurística lo lea como castellano — pasó con «EXPORTADORA DEL OESTE
+         * S.A.» y con «LOS ANGELES», y volvió a pasar acá con el ordenante de la Opinión R 775. Es la
+         * tercera vez de la misma familia y el arreglo es el mismo que las dos anteriores.
+         */
+        regla: `El documento de transporte va consignado a quien el crédito nombra ("${consignadoA}")`,
         estado: !consig || !aQuien ? "ATENCION" : veredictoDeNombre(consig, aQuien),
         evidencia: !consig
           ? `el crédito lo consigna a "${consignadoA}" y no se leyó el consignatario: verificar a mano`
