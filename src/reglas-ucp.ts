@@ -2641,11 +2641,27 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
        * true meaning of each figure can be easily established on the basis of such document**»*.
        *
        * O sea que la ambigüedad **se puede resolver**, y con los campos que el motor ya tiene:
-       * `cantidad` × `precioUnitario` contra `montoTotal`. Lo que frena implementarlo hoy no es la
-       * autoridad sino el expediente: la factura de ese laudo tiene **dos mercaderías con dos precios
-       * unitarios** y `precioUnitario` es un campo solo, así que el caso que trajo el método no lo puede
-       * ejercitar — y agregar máquina que su propio caso no mide es lo que el laudo DOCDEX 267 dejó
-       * escrito que no se hace.
+       * `cantidad` × `precioUnitario` contra `montoTotal`. Lo que frenaba implementarlo era el
+       * expediente —la factura de ese laudo tiene **dos mercaderías con dos precios unitarios** y
+       * `precioUnitario` es un campo solo, así que el caso que trajo el método no lo puede ejercitar—.
+       *
+       * **Y desde la Opinión R 775 / TA 754rev lo que lo frena es la autoridad, así que la pregunta
+       * está cerrada: esa regla no hay que escribirla.** El párrafo 24 de la ISBP 681, que la Opinión
+       * transcribe: *«Detailed mathematical calculations in documents will not be checked by banks.
+       * Banks are only obliged to check total values against the credit and other required
+       * documents»*. El emisor de ese expediente rechazó una factura de 27.181 pcs × 1,874 EUR que
+       * declaraba 50.937 en vez de 50.937,194, y el panel lo desarma con la razón mecánica que cierra
+       * la puerta: *«multiplying the quantity by the unit price **is not the only means** of concluding
+       * a mathematical calculation … **dividing the total amount by the quantity** would give you a
+       * unit price … 1.87399286 which, when rounded up, would be 1.874 — the unit price stated in the
+       * invoice»*. La misma factura falla por un camino y cumple por el otro, así que elegir el camino
+       * sería elegir el veredicto.
+       *
+       * **Medido con el mutante, que es lo que vuelve la decisión defendible:** esa regla escrita como
+       * la escribiría cualquiera —comparar el producto contra el total con medio centavo de
+       * tolerancia— produce **tres inventadas** en el banco de pruebas de cotejo: el caso de esta
+       * Opinión, el del laudo DOCDEX 224 y *Deutsche Bank v CIMB*. Tres falsos positivos y ninguna
+       * discrepancia legítima.
        *
        * Y el contrapeso, que es el que marca hasta dónde llega: el laudo **DOCDEX 310** dice que un
        * examinador **no está obligado a calcular** para encontrar una discrepancia —*«Banks are not
