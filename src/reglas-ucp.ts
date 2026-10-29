@@ -2259,7 +2259,31 @@ function reglasSeguro(
   })();
   const pct = pctDelCredito ?? 110;
   if (montoSeg !== null && base !== null && base > 0) {
-    const minimo = (base * pct) / 100;
+    /*
+     * El mínimo se compara **a dos decimales**, y eso lo decide una Opinión y no una tolerancia.
+     *
+     * El 110 % de una factura de USD 93.420,02 son USD 102.762,022, y un certificado por
+     * USD 102.762,02 salía en DISCREPANCIA por dos milésimas — con la evidencia mostrando los dos
+     * números **iguales**, porque se imprimen a dos decimales. Un rechazo cuya propia evidencia se
+     * contradice es el peor que el motor puede producir, y es exactamente el que la Opinión
+     * R 768 / TA 687rev declara inválido con esas mismas cifras:
+     *
+     *   «It is insurance industry practice that insurance documents will evidence coverage to a
+     *   maximum of two decimal places. This practice recognizes that in the event of a claim the
+     *   insurance company or its agent will not be in a position to effect payment that would
+     *   include a currency unit that went to a third decimal point. … for the purposes of
+     *   determination of compliance of an insurance document calculation to two decimal places
+     *   represents international standard banking practice.»
+     *
+     * Se trunca y no se redondea porque el inciso pide un **mínimo**: truncar solo puede ablandar, y
+     * el redondeo hacia arriba podría exigir un centavo que la aseguradora no puede emitir. Con las
+     * dos presentaciones de la Opinión las dos formas dan lo mismo (102.762,022 y 18.880,323), así
+     * que la elección se decide por la dirección del error y no por sus cifras.
+     *
+     * La Opinión reconoce que BHD, KWD, OMR y TND se cotizan a tres decimales y **igual** fija dos
+     * para examinar un documento de seguro, así que no hay tabla de monedas que mantener.
+     */
+    const minimo = Math.floor(((base * pct) / 100) * 100 + 1e-6) / 100;
     const fmt = (n: number) => n.toLocaleString("es-UY", { maximumFractionDigits: 2 });
     out.push(
       regla(
