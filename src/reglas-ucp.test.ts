@@ -167,6 +167,40 @@ describe("seguro — artículo 28", () => {
     expect(r?.estado).toBe("OK");
   });
 
+  /*
+   * Las dos presentaciones de la Opinión R 768 / TA 687rev, con sus cifras.
+   *
+   * El emisor rechazó las dos exigiendo la tercera decimal —«The correct insurance amount should be
+   * at least USD 102,762.022, which must not be rounded down from 3 places of decimals»— y la ICC
+   * declaró que no hay discrepancia: dos decimales son la práctica bancaria estándar para examinar
+   * un documento de seguro. Antes del arreglo las dos salían en DISCREPANCIA **con la evidencia
+   * mostrando los dos importes iguales**, porque se imprimen a dos decimales.
+   */
+  it("28f-ii: el mínimo se compara a dos decimales (Opinión R 768)", () => {
+    const factura = (total: string): DocAnalizado => ({
+      tipo: "FACTURA",
+      campos: doc({ montoTotal: campo(total), moneda: campo("USD"), fechaEmbarque: campo("08-APR-2025") }),
+    });
+    const primera = buscar([factura("93.420,02")], "ucp-28f-ii", {
+      campos: doc({ montoAsegurado: campo("102.762,02") }),
+    });
+    expect(primera?.estado).toBe("OK");
+    const segunda = buscar([factura("17.163,93")], "ucp-28f-ii", {
+      campos: doc({ montoAsegurado: campo("18.880,32") }),
+    });
+    expect(segunda?.estado).toBe("OK");
+  });
+
+  /* Y el freno: truncar a dos decimales no puede perdonar un centavo entero. */
+  it("28f-ii: un centavo por debajo del mínimo sigue siendo discrepancia", () => {
+    const factura: DocAnalizado = {
+      tipo: "FACTURA",
+      campos: doc({ montoTotal: campo("93.420,02"), moneda: campo("USD"), fechaEmbarque: campo("08-APR-2025") }),
+    };
+    const r = buscar([factura], "ucp-28f-ii", { campos: doc({ montoAsegurado: campo("102.762,01") }) });
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
   it("28f-i: el seguro en otra moneda que el crédito es discrepancia", () => {
     const r = buscar([facturaCIF], "ucp-28f-i", { campos: doc({ monedaAsegurada: campo("EUR") }) });
     expect(r?.estado).toBe("DISCREPANCIA");
