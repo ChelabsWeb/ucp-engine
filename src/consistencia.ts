@@ -871,6 +871,10 @@ export const PROMPT_DOC =
   "clausulaDefecto = cualquier anotación sobre el estado defectuoso de la mercadería o del embalaje ('BAGS TORN', " +
   "'STAINED'), vacío si el documento está limpio. " +
   "juegoOriginales = cuántos originales se emitieron, tal cual ('3/3', 'THREE (3)', 'ZERO (0)'). " +
+  "firmaTransporte = el bloque de firma entero y textual: quién firma y en qué calidad ('ABC SHIPPING LTD AS AGENT " +
+  "FOR THE CARRIER XYZ LINES', 'SIGNED BY THE MASTER', 'FOR AND ON BEHALF OF THE CARRIER'). Copiá la calidad tal " +
+  "cual está impresa y NO la deduzcas: qué artículo admite qué calidad lo decide la regla, y un bloque que no se " +
+  "entiende no se puede convertir en uno que sí. " +
   "emisor = quién EMITE y firma el documento, cuando no es el exportador: la cámara de comercio de un " +
   "certificado de origen, el ministerio de un sanitario, la empresa inspectora de un análisis. Copiá el " +
   "nombre tal cual figura al pie o en el membrete; si no se lee, dejalo vacío — no pongas el exportador. " +
@@ -2114,8 +2118,8 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
      *
      * En un BL el importador es el notify party —lo dice el propio prompt— así que pedir los dos es
      * leer el mismo dato dos veces, y el código ya prefiere `notify` con `importador` de respaldo.
-     * El lugar importa: la gramática de la extracción tiene un tope de campos verificado en
-     * veintitrés, y el que entró en su lugar decide con qué artículo se examina el documento.
+     * El lugar importa: la gramática de la extracción tiene un tope de campos, y el que entró en su
+     * lugar decide con qué artículo se examina el documento.
      */
     "consignatario",
     "notify",
@@ -2137,6 +2141,29 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "charterParty",
     "onDeck",
     "clausulaDefecto",
+    /*
+     * El vigesimocuarto, y entró el 29-oct-2026 **con el tope medido contra la API y no supuesto**.
+     *
+     * La regla del inciso (a) (i) —`ucp-firma-transporte`, con qué capacidad se firmó— necesitaba
+     * este campo, y durante semanas quedó fuera de la lista porque el único número medido era
+     * veintitrés y nadie tenía crédito en la cuenta para probar veinticuatro. El test de más abajo
+     * existía para que esa decisión no se tomara por olvido, y nombraba sus tres salidas; ésta es la
+     * primera.
+     *
+     * **El borde real, medido tres veces con un papel escaneado de verdad:** veinticuatro campos
+     * compilan —23,3 s contra 22,6 s con veintitrés, o sea que el costo es ruido— y **veinticinco
+     * revientan** con `400 invalid_request_error: "The compiled grammar is too large, which would
+     * cause performance issues"`. El fallo es inmediato (uno a dos segundos) y no un timeout, así que
+     * es un tope duro de la API y no una cuestión de carga.
+     *
+     * Y lo que esto cierra es el defecto que este repositorio persigue: la regla **funcionaba con el
+     * campo cargado a mano y no se alcanzaba desde la pantalla**, que deriva sus casillas de esta
+     * lista. Ahora la casilla aparece sola.
+     *
+     * Ojo con el número: la gramática crece con los **nombres** y no solo con la cantidad, así que
+     * veinticuatro es el tope para *estos* nombres. Un campo nuevo se mide igual que se midió éste.
+     */
+    "firmaTransporte",
     "juegoOriginales",
   ],
   LC: [

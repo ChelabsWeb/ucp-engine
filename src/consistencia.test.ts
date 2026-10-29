@@ -748,42 +748,55 @@ describe("el esquema que se le manda al modelo", () => {
     }
   });
 
-  it("ningún tipo se pasa de los veintitrés campos que la gramática admite", () => {
-    // Treinta y seis, aun todos obligatorios, ya no entra. Este test es el que avisa si alguien
-    // agrega un campo de más sin tener la clave de API a mano para probarlo.
+  /*
+   * El tope es **veinticuatro**, y desde el 29-oct-2026 está medido por los dos lados.
+   *
+   * Antes el único número medido era veintitrés y el comentario de este test decía que existía para
+   * avisar «si alguien agrega un campo de más sin tener la clave de API a mano para probarlo». Con
+   * crédito en la cuenta se midió, con un packing list escaneado de verdad y tres corridas:
+   *
+   *   23 campos → OK en 22,6 s   ·   24 campos → OK en 23,3 s   ·   25 campos → 400
+   *
+   * y el 400 es `invalid_request_error: "The compiled grammar is too large, which would cause
+   * performance issues"`, inmediato (uno a dos segundos) y no un timeout: es un tope duro de la API
+   * y no una cuestión de carga. El costo de pasar de veintitrés a veinticuatro es ruido.
+   *
+   * **La gramática crece con los nombres y no solo con la cantidad**, así que veinticuatro es el tope
+   * para *estos* nombres de campo. Un campo nuevo se mide igual que se midió éste, y este test sigue
+   * siendo el que avisa.
+   */
+  it("ningún tipo se pasa de los veinticuatro campos que la gramática admite", () => {
     for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
-      expect(campos.length, `${tipo} tiene ${campos.length} campos`).toBeLessThanOrEqual(23);
+      expect(campos.length, `${tipo} tiene ${campos.length} campos`).toBeLessThanOrEqual(24);
     }
-    expect(CAMPOS_SEGURO.length).toBeLessThanOrEqual(23);
+    expect(CAMPOS_SEGURO.length).toBeLessThanOrEqual(24);
   });
 
   /*
-   * `firmaTransporte` existe y **no se le pide al modelo todavía**, a propósito y con un costo.
+   * `firmaTransporte` **se le pide al documento de transporte**, y la decisión que lo frenaba está
+   * tomada con una medición.
    *
-   * La regla del inciso (a) (i) —con qué capacidad se firmó el documento de transporte— necesita ese
-   * campo, y agregarlo a `CAMPOS_POR_TIPO.BL` lo dejaría en veinticuatro: uno más que el único número
-   * medido contra la API. El test de arriba existe exactamente para frenar eso, y su comentario lo
-   * dice con todas las letras —«avisa si alguien agrega un campo de más sin tener la clave de API a
-   * mano para probarlo»—, así que no se pasa por encima.
+   * Este test decía lo contrario: que el campo estaba en el esquema y a propósito afuera de
+   * `CAMPOS_POR_TIPO`, porque agregarlo lo dejaba en veinticuatro y el único número medido era
+   * veintitrés. Nombraba tres salidas —medir veinticuatro cuando hubiera crédito, sacar de `BL` un
+   * campo que valiera menos, o dejar la firma como verificación manual— y el 29-oct-2026 se tomó la
+   * primera: **veinticuatro compilan y veinticinco no** (ver el test de arriba).
    *
-   * La consecuencia hay que decirla, porque es el defecto que este repositorio persigue: **la regla
-   * funciona con el campo cargado a mano y no se puede alcanzar desde la pantalla**, que deriva sus
-   * casillas de `CAMPOS_POR_TIPO`. Ese es el estado real hasta que se decida una de tres cosas:
-   * medir veinticuatro campos contra la API cuando haya crédito, sacar de `BL` un campo que valga
-   * menos que la firma, o dejar la firma como verificación manual.
-   *
-   * Este test está para que esa decisión no se tome por olvido. Si alguien agrega el campo a `BL`,
-   * se pone rojo y hay que venir a leer esto; si alguien saca el campo del esquema, también. Y al
-   * agregarlo hay que escribir además su línea en el prompt de extracción: la de este campo se dejó
-   * afuera a propósito, porque describirle al modelo un campo que el esquema no le pide es ruido.
+   * Se reescribe al revés en vez de borrarse, porque lo que hay que seguir vigilando es que el campo
+   * no se caiga de ningún lado: la regla `ucp-firma-transporte` lo lee, el prompt lo explica y la
+   * pantalla deriva su casilla de esta lista. Hasta ayer **la regla funcionaba con el campo cargado a
+   * mano y no se alcanzaba desde la pantalla**, que es el defecto que este repositorio persigue; si
+   * alguien saca el campo de cualquiera de los tres lugares, vuelve.
    */
-  it("`firmaTransporte` está en el esquema y todavía no se le pide a ningún documento", () => {
+  it("`firmaTransporte` está en el esquema y se le pide al documento de transporte", () => {
     expect(Object.keys(SCHEMA_DOC.properties), "la regla del inciso (a) (i) lo necesita").toContain("firmaTransporte");
-    for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
-      expect(
-        campos,
-        `${tipo} pide firmaTransporte: serían 24 campos y el tope medido es 23 — leer el comentario de arriba`,
-      ).not.toContain("firmaTransporte");
+    expect(
+      CAMPOS_POR_TIPO.BL,
+      "sin esto la regla del inciso (a) (i) no se alcanza desde la pantalla, que deriva sus casillas de esta lista",
+    ).toContain("firmaTransporte");
+    // y no se le pide a los demás: un bloque de firma de transporte no existe en una factura
+    for (const tipo of ["FACTURA", "PACKING", "LC"] as const) {
+      expect(CAMPOS_POR_TIPO[tipo], `${tipo} no tiene bloque de firma de transporte`).not.toContain("firmaTransporte");
     }
   });
 

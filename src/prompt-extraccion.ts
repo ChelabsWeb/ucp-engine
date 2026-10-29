@@ -38,7 +38,11 @@ export const PROMPT_EXAMEN =
   "- buque: the vessel name, including any qualifier such as 'INTENDED VESSEL'.\n" +
   "- charterParty: any indication that the document is subject to a charter party. Leave empty if there is none.\n" +
   "- onDeck: any clause about the goods being carried on deck, transcribed in full — 'shipped on deck' and 'may be carried on deck' are different things.\n" +
-  "- clausulaDefecto: any clause or notation expressly declaring the goods or their packaging defective (torn, stained, wet, rusty, short…). Leave empty if the document carries none; do NOT write 'clean' yourself.\n\n" +
+  "- clausulaDefecto: any clause or notation expressly declaring the goods or their packaging defective (torn, stained, wet, rusty, short…). Leave empty if the document carries none; do NOT write 'clean' yourself.\n" +
+  "- firmaTransporte: the signature block, verbatim and whole — who signed and in what capacity, e.g. " +
+  "'ABC SHIPPING LTD AS AGENT FOR THE CARRIER XYZ LINES', 'SIGNED BY THE MASTER', 'FOR AND ON BEHALF OF THE CARRIER'. " +
+  "Transcribe the capacity exactly as printed and do NOT infer one: which article admits which capacity is the rule's job, " +
+  "and a block that is not understood must not be turned into one that is.\n\n" +
   "Insurance document fields (UCP 600 article 28):\n" +
   "- tipoSeguro: what the document calls itself — 'INSURANCE POLICY', 'INSURANCE CERTIFICATE', 'COVER NOTE', 'DECLARATION UNDER OPEN COVER'.\n" +
   "- emisorSeguro: the insurance company or underwriter that issued and signed it.\n" +
