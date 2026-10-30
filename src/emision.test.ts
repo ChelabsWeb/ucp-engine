@@ -261,6 +261,38 @@ describe("un calendario de embarques (laudo DOCDEX 204)", () => {
       ),
     ).toEqual([]);
   });
+
+  /*
+   * **El calendario escrito en varios renglones, que es la redacción de la Opinión R 690 / TA 633.**
+   *
+   * Su 47A va en cuatro líneas —un encabezado y tres tramos que dicen «to be shipped **latest until**
+   * 30.07.2007»— y el patrón reconocía el encabezado y ninguno de los tres. Con eso el mismo calendario
+   * salía **avisado por el artículo 32 en su primera línea y descartado por el 14 (h) en las otras
+   * tres**: dos reglas del motor diciendo cosas opuestas sobre la misma cláusula, que es justo lo que el
+   * laudo DOCDEX 204 cerró. Sobrevivió porque el calendario de ese laudo va en un renglón.
+   *
+   * El freno es el test de arriba: un crédito sin calendario no gana ningún aviso.
+   */
+  const TRAMOS_DE_R690 = [
+    "SHIPMENT SCHEDULE:",
+    "5.000 METRES OF 813X12.5 MM TO SZAZHALOMBATTA TO BE SHIPPED LATEST UNTIL 30.07.2007",
+    "19.000 METRES OF 813X12.5 MM TO SZAZHALOMBATTA TO BE SHIPPED LATEST UNTIL 30.09.2007",
+    "14.500 METRES OF 813X12.5 MM TO PILISVOROSVAR TO BE SHIPPED LATEST UNTIL 13.02.2008",
+  ];
+
+  it("ningún tramo escrito con «latest until» se tiene por no puesto", () => {
+    /*
+     * **Van separados y eso es la mitad del test.** La primera versión los juntaba en una sola condición
+     * y pasaba por el encabezado: el mutante —sacar «latest until» del patrón— la dejaba en verde. El 47A
+     * de verdad los trae en renglones distintos, que es por qué el defecto existía.
+     */
+    const entrada = conCondiciones(...TRAMOS_DE_R690);
+    expect(noDocumentarias(entrada), "las cuatro líneas son el artículo 32, no el 14 (h)").toEqual([]);
+    expect(
+      revisarCredito(entrada).filter((o) => o.id.startsWith("emision-calendario")).length,
+      "y el aviso del artículo 32 sigue saliendo",
+    ).toBeGreaterThan(0);
+  });
 });
 /**
  * Un documento que **el ordenante presenta él mismo** (laudo DOCDEX 209)
