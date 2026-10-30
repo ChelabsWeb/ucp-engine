@@ -1221,6 +1221,42 @@ describe("el certificado sin fecha de emisión (DOCDEX 213)", () => {
   });
 
   /*
+   * **Y el número de la factura ata igual que el del conocimiento** (Opinión R 727 / TA 747rev).
+   *
+   * Esa Opinión transcribe el párrafo 183 de la ISBP 681 —de los que no se pueden comprar— y enumera
+   * las vías del vínculo: *«or by any other reference indicating a relation to the goods in a required
+   * document … such as by reference to the invoice number or data contained in the transport or
+   * delivery document»*. El motor ataba por el buque, el número del conocimiento y la fecha de
+   * embarque, y le faltaba ésta.
+   */
+  it("sin fecha pero citando el número de la factura, cumple (Opinión R 727)", () => {
+    const r = reglasCertificados({
+      lc: LC,
+      docs: [
+        { tipo: "BL", campos: doc({ buque: campo(BUQUE), fechaEmbarque: campo("09-dic-97") }) },
+        { tipo: "FACTURA", campos: doc({ numeroDoc: campo("AB-7781-1997") }) },
+      ],
+      hoy: new Date(1998, 0, 15),
+      certificados: [
+        {
+          exigencia: "+3)PROVISIONAL WEIGHT AND MOISTURE CERTIFICATE",
+          campos: doc({ mercaderia: campo("PROVISIONAL WEIGHT AS PER INVOICE NO. AB-7781-1997") }),
+        },
+      ],
+    }).find((x) => x.id.startsWith("cert-vinculo"));
+    expect(r?.estado).toBe("OK");
+  });
+
+  /* Y el freno: el número del crédito NO ata, porque casi todos los certificados lo citan. */
+  it("citar el número del crédito no alcanza como vínculo", () => {
+    const r = conCertificado({
+      mercaderia: campo("PROVISIONAL WEIGHT"),
+      numeroLC: campo(LC.numero ?? "ECB-889174"),
+    });
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  /*
    * Con fecha no se emite nada acá: la fecha es la primera de las dos cosas que el panel admite, y las
    * reglas que la miran son otras (el 14 i, el A12b, el cruce del 14 d).
    */
