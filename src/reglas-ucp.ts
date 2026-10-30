@@ -5,7 +5,10 @@ import {
   cantidadesDelCredito,
   claveDoc,
   coincideLugar,
+  listaEntreComillas,
+  palabrasQueFaltanDelProForma,
   parseNumero,
+  textoDeLaExigencia,
   unidadNormal,
 } from "./consistencia";
 import { fmtFecha, parseFecha } from "./fechas";
@@ -719,8 +722,60 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
       ),
     );
   }
+  /*
+   * Y lo que el 46A le pide **declarar** a la factura, que es otra cosa que la descripción.
+   *
+   * El laudo **DOCDEX 363** declara **relevante** esa discrepancia: el 46A le pedía a la factura una
+   * declaración y el papel no la traía. Era una discrepancia válida que el motor no podía ver, porque
+   * no había campo donde entrara el texto libre de una factura — y el mismo laudo declara **inválida**
+   * la otra mitad, la del endoso del dorso del conocimiento, así que **el mismo campo que falta cuesta
+   * la discrepancia que valía y protege de la que no**.
+   *
+   * El cotejo es el mismo que el del certificado del beneficiario y usa el mismo comparador: señala
+   * **qué palabra falta** y **no concluye nunca**. El límite es el de *Fortis Bank v Indian Overseas
+   * Bank* escrito en `cert-benef`: el texto que el crédito pide viene mezclado con la parte
+   * administrativa de la línea del 46A, así que rechazar por una diferencia de palabras sería
+   * temerario. Lo que sí puede hacer es decirle al examinador dónde mirar — y en ese pleito lo que
+   * decidió fue **una palabra**, «OUR» por «ISSUING BANK'S».
+   *
+   * **El disparador es angosto a propósito, y el motivo está medido.** `textoDeLaExigencia` devuelve
+   * todo lo que sigue al nombre del documento, y en un 46A corriente eso es el destinatario —«SIGNED
+   * COMMERCIAL INVOICE ISSUED TO [el ordenante]»—, que no es una declaración: con el patrón abierto la
+   * regla le pediría a la factura «declarar» el nombre del ordenante en casi todos los créditos. Así
+   * que se pide un verbo de declaración **seguido de «that»**, que es la forma del pro forma y la del
+   * expediente de ese laudo. Un hueco es mejor que un falso positivo en la mitad de los créditos.
+   */
+  if (fac) {
+    /* `claveDoc` devuelve la **clave** del apareo y no el tipo: la de la factura comercial es `INVOICE`. */
+    const linea = (lc?.documentosExigidos ?? []).find((d) => claveDoc(d) === "INVOICE");
+    const pide = linea && PIDE_DECLARAR.test(linea) ? textoDeLaExigencia(linea) : "";
+    if (pide) {
+      const declara = val(fac, "declaracion");
+      const faltan = palabrasQueFaltanDelProForma(pide, declara ?? "");
+      out.push(
+        regla(
+          "ucp-14a-fac-declara",
+          "UCP 600 14a",
+          "La factura declara lo que el crédito le pide",
+          "ATENCION",
+          !declara
+            ? `el crédito le pide a la factura declarar "${pide.slice(0, 70)}": leer el texto de la factura y cotejarlo`
+            : faltan.length > 0
+              ? `la factura dice "${declara.slice(0, 70)}" y no repite ${listaEntreComillas(faltan)} del texto que el crédito le pide: cotejar el texto completo`
+              : `la factura dice "${declara.slice(0, 70)}" y repite las palabras del texto que el crédito le pide: cotejar el texto completo`,
+        ),
+      );
+    }
+  }
   return out;
 }
+
+/**
+ * Cuándo una línea del 46A le pide a la factura **declarar** algo.
+ *
+ * Angosto a propósito: un verbo de declaración seguido de «that». Ver el comentario de la regla.
+ */
+const PIDE_DECLARAR = /\b(?:stating|certifying|declaring|evidencing|confirming)\s+that\b/i;
 
 /* ─────────── qué documento es este (ISBP 821 C1) ─────────── */
 

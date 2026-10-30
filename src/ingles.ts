@@ -1071,6 +1071,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     "$1: states what the credit requires ($2-day period)",
   ],
   [/^(.+): declara lo que el crédito pide$/g, "$1: states what the credit requires"],
+  /* La factura, que es la otra mitad del mismo cotejo (laudo DOCDEX 363) */
+  [/^La factura declara lo que el crédito le pide$/g, "The invoice states what the credit requires of it"],
+  [/^el crédito le pide a la factura declarar /g, "the credit requires the invoice to state "],
+  /* sin ancla: es **cola** de una frase que empieza con el texto que el crédito pide (ver la nota de los patrones partidos) */
+  [/: leer el texto de la factura y cotejarlo/g, ": read the invoice text and compare it"],
+  [/^la factura dice /g, "the invoice says "],
+  [/ y no repite /g, " and does not repeat "],
+  [/ del texto que el crédito le pide: cotejar el texto completo$/g, " of the text the credit requires: compare the whole text"],
+  [/ y repite las palabras del texto que el crédito le pide: cotejar el texto completo$/g, " and repeats the words of the text the credit requires: compare the whole text"],
   [/^(.+): el archivo parece traer más de un documento$/g, "$1: the file seems to hold more than one document"],
   [/^(.+): indica origen (.+)$/g, "$1: states origin $2"],
   // las citas ya salieron del texto —son huecos— así que el patrón no lleva las comillas
