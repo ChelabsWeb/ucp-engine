@@ -8,6 +8,7 @@ import {
   dondeSePideElNumeroLC,
   ejemplaresDe,
   feeDiscrepancia,
+  admiteCopiaDelTransporte,
   pideSoloCopiaDelTransporte,
   precheckPresentacion,
 } from "./presentacion";
@@ -823,6 +824,30 @@ describe("la copia del documento de transporte y los plazos", () => {
     ["PHOTO COPY B/L (TELEX/TELEFAX ACCEPTABLE)", true],
   ])("«%s» → solo copia: %s", (linea, esperado) => {
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
+  });
+});
+
+/*
+ * El tercer estado: el crédito que **admite** original **o** copia (Opinión R 455).
+ *
+ * `pideSoloCopiaDelTransporte` contesta «únicamente una copia» y esto contesta la alternativa, que no
+ * la contestaba nadie. El panel decide que admitir alcanza: *«Requesting **or allowing** a copy
+ * overrides the sub-Article 23(a)(iv) requirement regarding the presentation of a sole original or a
+ * full set thereof»*.
+ */
+describe("admiteCopiaDelTransporte — original o copia, a elección (Opinión R 455)", () => {
+  it.each([
+    ["BILL OF LADING - ORIGINAL OR COPY", true],
+    ["BILL OF LADING, COPY OR ORIGINAL", true],
+    ["FULL SET OF ORIGINAL BILLS OF LADING OR COPIES THEREOF", true],
+    /* Y lo que NO es una alternativa: el juego completo a secas, la copia sola, y un conteo. */
+    ["FULL SET OF 3/3 ORIGINAL BILLS OF LADING", false],
+    ["COPY OF THE AIR WAYBILL", false],
+    ["CMR ROAD CONSIGNMENT NOTE IN 2 COPIES", false],
+    /* Ni una línea que no sea la del transporte. */
+    ["COPY OF AN UNPAID COMMERCIAL INVOICE OR ORIGINAL THEREOF", false],
+  ])("«%s» → admite copia: %s", (linea, esperado) => {
+    expect(admiteCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
   });
 });
 

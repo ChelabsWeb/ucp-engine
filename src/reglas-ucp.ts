@@ -29,6 +29,7 @@ import { mismaMoneda } from "./numeros";
 import {
   type DocAnalizado,
   type EstadoRegla,
+  admiteCopiaDelTransporte,
   pideSoloCopiaDelTransporte,
   type ReglaPresentacion,
 } from "./presentacion";
@@ -776,6 +777,24 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
  * Angosto a propósito: un verbo de declaración seguido de «that». Ver el comentario de la regla.
  */
 const PIDE_DECLARAR = /\b(?:stating|certifying|declaring|evidencing|confirming)\s+that\b/i;
+
+/**
+ * Un documento de transporte que se declara **copia**.
+ *
+ * El patrón estaba escrito dentro de `ucp-20a-iv` y ahora lo necesitan dos lugares: esa regla y la
+ * rama de la Opinión R 455, que apaga el capítulo del transporte cuando el crédito admite original o
+ * copia **y lo presentado es la copia**. Dos copias de la misma pregunta es cómo se desincronizan dos
+ * respuestas.
+ */
+const ES_COPIA = /\bcopy\b|no negociable|non.?negotiable|\bzero\b|\b0\b/i;
+
+/** Si el documento de transporte presentado se declara copia, por su título o por sus originales. */
+function esCopiaElDocumento(bl: DocAnalizado | undefined): boolean {
+  if (!bl) return false;
+  const juego = val(bl, "juegoOriginales");
+  const titulo = val(bl, "tipoTransporte");
+  return Boolean((juego && ES_COPIA.test(juego)) || (titulo && ES_COPIA.test(titulo)));
+}
 
 /* ─────────── qué documento es este (ISBP 821 C1) ─────────── */
 
@@ -1969,7 +1988,7 @@ function reglasTransporte(
   // "COPY NON NEGOTIABLE", o con cero originales emitidos, no es el documento que el crédito pide.
   const juego = val(bl, "juegoOriginales");
   if (juego) {
-    const esCopia = /\bcopy\b|no negociable|non.?negotiable|\bzero\b|\b0\b/i.test(juego);
+    const esCopia = ES_COPIA.test(juego);
     out.push(
       regla(
         "ucp-20a-iv",
@@ -2849,7 +2868,23 @@ export function reglasUCP(input: {
      * no se le pide. El motor ya hacía esto mismo con los plazos —ver `pideSoloCopiaDelTransporte`— y le
      * faltaba el resto del capítulo.
      */
-    const soloLaCopia = pideSoloCopiaDelTransporte(exigidos);
+    /*
+     * Y el crédito que **admite** original o copia, con una copia presentada, va por la misma rama.
+     *
+     * La Opinión **R 455** lo decide: *«Requesting **or allowing** a copy overrides the sub-Article
+     * 23(a)(iv) requirement regarding the presentation of a sole original or a full set thereof»*, y
+     * sobre la firma: *«a copy need not be signed. Where the agent or the carrier provides a true
+     * non-negotiable copy of the bill of lading **it will bear no signatures or other markings of
+     * authentication**»*. Su 46A dice «Bill of lading - original or copy» y el emisor rechazó por tres
+     * cosas que son la misma: que la copia no nombra al transportista, que no está firmada y que no es
+     * el juego completo. Ninguna vale.
+     *
+     * **Y mira la presentación y no solo el crédito**, que es la mitad que lo hace correcto: si el
+     * crédito admite las dos cosas y el beneficiario presenta un **original**, los artículos se aplican
+     * enteros. Es la misma forma que el laudo DOCDEX 238 dejó escrita para el plazo del 14 (c).
+     */
+    const laCopiaPresentada = admiteCopiaDelTransporte(exigidos) && esCopiaElDocumento(bl);
+    const soloLaCopia = pideSoloCopiaDelTransporte(exigidos) || laCopiaPresentada;
     if (soloLaCopia) {
       out.push(
         regla(
