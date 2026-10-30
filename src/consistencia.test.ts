@@ -821,9 +821,16 @@ describe("el esquema que se le manda al modelo", () => {
    * performance issues"`, inmediato (uno a dos segundos) y no un timeout: es un tope duro de la API
    * y no una cuestión de carga. El costo de pasar de veintitrés a veinticuatro es ruido.
    *
-   * **La gramática crece con los nombres y no solo con la cantidad**, así que veinticuatro es el tope
-   * para *estos* nombres de campo. Un campo nuevo se mide igual que se midió éste, y este test sigue
-   * siendo el que avisa.
+   * **Y el tope es la CANTIDAD de campos, no el tamaño de los nombres.** Eso se midió aparte el mismo
+   * día, porque la primera versión de este comentario afirmaba lo contrario —«la gramática crece con
+   * los nombres»— y era una conjetura escrita como un hecho. Con esquemas sintéticos de nombres de
+   * **un carácter**:
+   *
+   *   24 campos de 1 carácter → OK   ·   25 campos de 1 carácter → 400
+   *
+   * y los veinticuatro reales, que suman 265 caracteres de nombre, también entran. O sea que acortar
+   * nombres **no compra lugar** y cada campo nuevo cuesta exactamente un lugar. Un campo nuevo se mide
+   * igual que se midió éste, y este test sigue siendo el que avisa.
    */
   it("ningún tipo se pasa de los veinticuatro campos que la gramática admite", () => {
     for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
