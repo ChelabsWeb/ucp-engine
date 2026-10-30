@@ -413,6 +413,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^una copia no es un documento de transporte a los efectos de los artículos 19 a 25, así que sus exigencias no se le piden y los datos se comparan por el artículo 14 \(d\)$/g,
     "a copy is not a transport document for the purpose of articles 19 to 25, so their requirements are not asked of it and the data is compared under sub-article 14 (d)",
   ],
+  /* Opinión R 640: un recibo de agente de carga tampoco los gobierna */
+  [
+    /^El crédito admite el recibo de un agente de carga, que los artículos 19 a 25 no gobiernan$/g,
+    "The credit allows a forwarding agent's receipt, which articles 19 to 25 do not govern",
+  ],
+  [
+    /^un recibo de agente de carga acredita que la mercadería se recibió y no que se haya embarcado entre dos lugares, así que las exigencias de los artículos no se le piden —el lugar de entrega incluido— y los datos se comparan por el artículo 14 \(d\)$/g,
+    "a forwarding agent's receipt evidences that the goods were received and not that shipment occurred between two places, so the articles' requirements are not asked of it — the place of delivery included — and the data is compared under sub-article 14 (d)",
+  ],
   [
     /^El lugar de (salida|destino) de la copia no contradice al del crédito$/g,
     "The place of $1 on the copy does not conflict with the credit's",

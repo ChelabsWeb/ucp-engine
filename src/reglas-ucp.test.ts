@@ -107,6 +107,77 @@ describe("la copia que el crédito admite (Opinión R 455)", () => {
   });
 });
 
+/*
+ * El recibo de un agente de carga, que tampoco lo gobiernan los artículos (Opinión R 640 / TA 641).
+ *
+ * El 46A ofrece tres alternativas —«package of consignment notes (originals), or set of bills of lading
+ * (originals) or forwarding agent's "goods receipt"»— y el confirmador rechazó el recibo porque *«does
+ * not evidence shipment to Russia»*. El panel: *«A forwarding agent's "goods receipt" is not a transport
+ * document covered by the content of UCP 600 articles 19-25 … **there is no requirement for the document
+ * to evidence a place of delivery, merely the receipt of goods**»*. **No hay discrepancia.**
+ *
+ * Lo que el motor hacía era pedirle cinco cosas del capítulo, todas en ATENCION: no rechazaba, pero
+ * cinco avisos sobre un papel que un panel declara conforme es ruido, y el ruido enseña a ignorar.
+ */
+describe("el recibo del agente de carga (Opinión R 640)", () => {
+  const TRES_ALTERNATIVAS =
+    "PACKAGE OF CONSIGNMENT NOTES (ORIGINALS), OR SET OF BILLS OF LADING (ORIGINALS) OR FORWARDING AGENT'S GOODS RECEIPT - 1 ORIGINAL";
+  const correrCon = (exigidos: string[], titulo: string) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: exigidos },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ tipoTransporte: campo(titulo), puertoEmbarque: campo("GDYNIA") }) }],
+      hoy: HOY,
+    });
+
+  it("con el recibo presentado, el capítulo no lo gobierna y no se le pide el lugar de entrega", () => {
+    const r = correrCon([TRES_ALTERNATIVAS], "GOODS RECEIPT");
+    expect(r.find((x) => x.id === "ucp-transporte-recibo-de-agente")?.estado).toBe("OK");
+    expect(r.find((x) => x.id === "ucp-20a-iii-puertoDestino")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-20a-ii")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-firma-transporte")).toBeUndefined();
+  });
+
+  it.each(["FORWARDER'S CERTIFICATE OF RECEIPT", "FREIGHT FORWARDER'S RECEIPT", "FCR"])(
+    "y «%s» entra por la misma rama",
+    (titulo) => {
+      expect(
+        correrCon([TRES_ALTERNATIVAS], titulo).find((x) => x.id === "ucp-transporte-recibo-de-agente")?.estado,
+      ).toBe("OK");
+    },
+  );
+
+  /*
+   * Los dos frenos, y los dos son la mitad de la decisión.
+   *
+   * El primero: con la alternativa admitida y un **conocimiento** presentado, los artículos se aplican
+   * enteros — igual que la rama de la copia de R 455. El segundo: un crédito que **solo** pide el
+   * conocimiento no se ablanda porque llegue un recibo, y entonces la ruta se sigue comparando.
+   */
+  it("con un conocimiento presentado bajo el mismo crédito, los artículos se aplican enteros", () => {
+    const r = correrCon([TRES_ALTERNATIVAS], "OCEAN BILL OF LADING");
+    expect(r.find((x) => x.id === "ucp-transporte-recibo-de-agente")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-20a-iii-puertoDestino")).toBeDefined();
+  });
+
+  it("si el crédito no admite el recibo, el capítulo corre igual sobre lo que llegue", () => {
+    const r = correrCon(["FULL SET OF ORIGINAL BILLS OF LADING"], "GOODS RECEIPT");
+    expect(r.find((x) => x.id === "ucp-transporte-recibo-de-agente")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-20a-iii-puertoDestino")).toBeDefined();
+  });
+
+  /*
+   * **Y el borde del artículo 25, que es el que no se puede pisar.** Un «courier receipt» y un «post
+   * receipt» **sí** son documentos de transporte y tienen su propio artículo: si entraran por esta
+   * rama, el motor dejaría de examinar el artículo 25 entero.
+   */
+  it.each(["COURIER RECEIPT", "POST RECEIPT"])("y «%s» sigue siendo un documento de transporte", (titulo) => {
+    const r = correrCon(["COURIER RECEIPT EVIDENCING DISPATCH"], titulo);
+    expect(r.find((x) => x.id === "ucp-transporte-recibo-de-agente")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-transporte-clase")?.evidencia).toContain("courier");
+  });
+});
+
 describe("factura — lo que el crédito le pide declarar (DOCDEX 363)", () => {
   const conLinea = (linea: string, declara?: string) =>
     reglasUCP({
