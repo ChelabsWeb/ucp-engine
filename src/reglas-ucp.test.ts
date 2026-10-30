@@ -2396,6 +2396,43 @@ describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
   });
 
   /*
+   * **El otro ejemplo del párrafo C5, que es el que faltaba (Opinión R 584 / TA 564rev).**
+   *
+   * El párrafo da dos y la lista nació del segundo. El primero es *«a credit requires shipment of
+   * "Suede Shoes", but the invoice describes the goods as "Imitation Suede Shoes"»*, y la Opinión es su
+   * expediente: crédito «Men's suede jackets, plain suede fabric», factura con «(imitation suede with
+   * 100 per cent polyester knitted backing)» en el medio, y la Banking Commission dando el rechazo por
+   * válido — *«The word "imitation" indicates a different category or classification of the goods»*.
+   *
+   * El paréntesis en el medio importa: lo que la factura de esa Opinión agrega **no va al principio**,
+   * así que un patrón anclado al arranque de la descripción no lo vería.
+   */
+  it("«imitation» en el medio de la descripción es discrepancia (R 584)", () => {
+    const r = con(
+      "MEN'S SUEDE JACKETS, PLAIN SUEDE FABRIC",
+      "MEN'S SUEDE JACKETS (IMITATION SUEDE WITH 100 PER CENT POLYESTER KNITTED BACKING) PLAIN SUEDE FABRIC",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("imitation");
+  });
+
+  it("y si el crédito ya la pide de imitación, no es discrepancia", () => {
+    expect(
+      con("IMITATION SUEDE JACKETS", "MEN'S IMITATION SUEDE JACKETS, PLAIN FABRIC")?.estado,
+    ).not.toBe("DISCREPANCIA");
+  });
+
+  /*
+   * **Y los parientes que NO entran, que es la mitad que sostiene la lista.** «Synthetic», «artificial»,
+   * «faux» y «replica» suenan a lo mismo y no están en el párrafo C5 ni en ninguna Opinión. Lo que hace
+   * defendible esta lista es que la escribió la ICC; el día que haya expediente, entra con él y este
+   * test se reescribe al revés con la autoridad.
+   */
+  it.each(["SYNTHETIC", "ARTIFICIAL", "FAUX", "REPLICA"])("y «%s» no está en la lista, a propósito", (w) => {
+    expect(con("SUEDE JACKETS", `${w} SUEDE JACKETS`)?.estado).not.toBe("DISCREPANCIA");
+  });
+
+  /*
    * Y la segunda señal mecánica del mismo borde: la factura que **niega** el nombre del producto.
    *
    * El laudo DOCDEX 351 —por mayoría— da por válida la discrepancia de una factura que escribió «OX HIDES

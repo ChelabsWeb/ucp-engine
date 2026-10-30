@@ -212,6 +212,28 @@ function esZonaDeLugares(texto: string): boolean {
  */
 const CAMBIAN_LA_CATEGORIA: [RegExp, string][] = [
   [/\bsecond\s*hand\b/i, "second hand"],
+  /*
+   * **«Imitation» es el otro ejemplo del párrafo C5, y faltaba.** La lista nació de la Opinión TA 756
+   * —«SECOND HAND HYDRAULIC DRILLING RIG»— que es el **segundo** de los dos ejemplos que el párrafo da;
+   * el primero es *«a credit requires shipment of "Suede Shoes", but the invoice describes the goods as
+   * "Imitation Suede Shoes"»*, y está transcripto en el laudo DOCDEX 351, que ya era un caso del banco
+   * de pruebas. O sea que el texto de la autoridad estaba en el repositorio y la lista no lo
+   * implementaba.
+   *
+   * La Opinión **R 584 / TA 564rev** es el expediente: crédito «Men's suede jackets, plain suede fabric»
+   * y factura «Men's suede jackets **(imitation suede with 100 per cent polyester knitted backing)**
+   * plain suede fabric», con el emisor rechazando y el beneficiario alegando que el paréntesis lo exigía
+   * su cámara de comercio. *«The word "imitation" indicates a different category or classification of the
+   * goods, which is not apparent in the goods description within the credit. The addition of the word
+   * "imitation" is grounds for refusal.»*
+   *
+   * **Y no se agregan parientes sin autoridad.** «Synthetic», «artificial», «faux» y «replica» suenan a
+   * lo mismo y ninguna está en el párrafo ni en una Opinión: esta lista es corta y cerrada justamente
+   * porque lo que la sostiene no es una interpretación sino las palabras con que el comercio clasifica,
+   * escritas por la ICC. El día que aparezca el expediente, entra con él.
+   */
+  [/\bimitation\b/i, "imitation"],
+  [/\bimitaci[oó]n\b/i, "imitación"],
   [/\bused\b/i, "used"],
   [/\bre(?:conditioned|furbished|manufactured|built)\b/i, "reconditioned"],
   [/\bdamaged\b/i, "damaged"],
