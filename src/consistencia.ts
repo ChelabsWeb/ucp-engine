@@ -131,6 +131,20 @@ export interface CamposDoc {
   bultos?: CampoDoc; // "1360"
   tipoBulto?: CampoDoc; // "bags" / "cartons" / "pallets"
   pesoBruto?: CampoDoc; // "54.040 KGS"
+  /*
+   * El peso neto, que entró el 30-oct-2026 y lo pedía un caso con nombre.
+   *
+   * El 46A del laudo **DOCDEX 332 / TA 832rev2** pide el packing list «SHOWING NET AND GROSS
+   * WEIGHT»: era un dato **exigido por el crédito** que el examen no leía, y la observación de ese
+   * caso lo tenía declarado con las dos cosas que había que decidir juntas. Las dos están decididas:
+   *
+   * - **el tope del esquema**, que era el freno, está medido en veinticuatro y `PACKING` tenía doce;
+   * - y **no se escribe una regla de bruto contra neto**, que es la otra mitad de esa observación: un
+   *   documento de línea pone **una sola cifra bajo el rótulo de los dos**, así que exigir
+   *   bruto > neto marcaría redacción corriente. El campo sirve para **mostrar** el dato y para el
+   *   cotejo del artículo 14 (d), no para concluir sobre el desglose.
+   */
+  pesoNeto?: CampoDoc; // "53.960 KGS" — y nunca se deduce del bruto
   consignatario?: CampoDoc; // "TO THE ORDER OF MERIDIAN BANK PLC"
   /* pre-check UCP 600 (oportunidades A1): lo que el banco mira en cada documento */
   numeroLC?: CampoDoc; // "LCMRDN25000471" citado en el documento (47A: "all documents should indicate the LC number")
@@ -732,6 +746,7 @@ export const SCHEMA_DOC = {
     bultos: campoSchema,
     tipoBulto: campoSchema,
     pesoBruto: campoSchema,
+    pesoNeto: campoSchema,
     consignatario: campoSchema,
     numeroLC: campoSchema,
     fechaDocumento: campoSchema,
@@ -821,6 +836,9 @@ export const PROMPT_DOC =
   "Ojo con el bloque de totales: el peso NETO, el peso BRUTO y el total de bultos suelen ir en renglones " +
   "seguidos del mismo bloque ('TOTAL NET WEIGHT' / 'TOTAL GROSS WEIGHT' / 'TOTAL BAGS'). Son tres campos " +
   "distintos —cantidad, pesoBruto y bultos—: leé el bloque entero y llenálos a los tres, no solo el primero. " +
+  "pesoNeto = el peso neto tal cual lo imprime el papel, con su unidad ('53.960,00 Kgs'). Si el documento pone " +
+  "UNA sola cifra bajo el rótulo de los dos pesos, copiála en los dos campos y NO la repartas; si solo imprime el " +
+  "bruto, dejá pesoNeto VACÍO — nunca lo deduzcas restando la tara ni lo copies del bruto por tu cuenta. " +
   "El peso neto nunca va en pesoBruto. " +
   "bultos = número TOTAL de bultos del documento (en una factura suele venir como 'TOTAL BAGS: 1.360' o " +
   "'TOTAL CARTONS: 680'; si hay varios contenedores, la suma; si es una hoja parcial —'sheet 1 of 2'— bajá la confianza a < 0.6); " +
@@ -1063,6 +1081,29 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
     },
     "ALTA",
     "El peso bruto del BL tiene que coincidir con el del packing list / weight note.",
+    0.6,
+  );
+  /*
+   * El neto, con **la misma tolerancia que el bruto** y por la misma autoridad.
+   *
+   * El medio por mil no es una corazonada: la Opinión **TA 832rev2** resolvió que 360 kilos sobre 630
+   * toneladas —0,057 %— no son un conflicto, y el laudo **DOCDEX 241** que 700 gramos sobre 1.627
+   * kilos —0,043 %— tampoco, ahí por mayoría de dos a uno. Con dos autoridades del mismo lado y un
+   * panel dividido, apretar esta tolerancia sería decidir lo que tres expertos de la ICC no pudieron.
+   *
+   * Y lo que **no** hay es una regla de bruto contra neto, por el motivo escrito en `CamposDoc`: una
+   * sola cifra bajo el rótulo de los dos es redacción corriente de línea.
+   */
+  cruce(
+    "Peso neto",
+    "pesoNeto",
+    (a, b) => {
+      const x = parseNumero(a),
+        y = parseNumero(b);
+      return x != null && y != null && Math.abs(x - y) / Math.max(x, 1) < 0.005;
+    },
+    "ALTA",
+    "El peso neto tiene que ser el mismo en la factura y en el packing list / weight note.",
     0.6,
   );
   // cantidad EN KILOS: la LC dice "57 MTS" y el packing "53.960 KGS" (revisión 8-sep: comparar crudo daba contradicción falsa)
@@ -2076,6 +2117,8 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
   FACTURA: [
     // El primero: si se titula «proforma» no satisface la exigencia de factura comercial.
     "tipoDocumento",
+    /* El neto, que es lo que hace alcanzable el cruce del 14 (d): ver el comentario de `PACKING`. */
+    "pesoNeto",
     "exportador",
     "importador",
     "montoTotal",
@@ -2103,6 +2146,16 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "bultos",
     "tipoBulto",
     "pesoBruto",
+    /*
+     * El neto va **acá y en la factura, y no en el conocimiento**, y el motivo no es de criterio.
+     *
+     * `BL` quedó en veinticuatro campos, que es el tope medido contra la API, así que no entra. La
+     * consecuencia hay que decirla porque es justo el par del laudo que pidió este campo: el cruce
+     * del 14 (d) sobre el peso **neto entre el packing y el conocimiento sigue sin poder correr**, y
+     * el que sí corre es packing contra factura. Para el otro hay que sacar un campo de `BL` o subir
+     * el tope, y las dos cosas se miden, no se suponen.
+     */
+    "pesoNeto",
     "mercaderia",
     "numeroDoc",
     "fechaDocumento",
