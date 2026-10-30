@@ -251,8 +251,24 @@ const ADMINISTRATIVAS =
  * palabras, «METRIC TONS», el verbo del número del crédito, el «forwarder B/L» sin «freight»— y acá sobre
  * la cláusula cuyo incumplimiento deja el crédito sin disponibilidad para esa cuota y las siguientes.
  */
+/**
+ * El vocabulario de un calendario de embarques.
+ *
+ * **«latest until» entró por la Opinión R 690 / TA 633, y lo que faltaba no era cosmético.** El 47A de
+ * ese crédito escribe el calendario en cuatro renglones —un encabezado «SHIPMENT SCHEDULE:» y tres
+ * tramos que dicen «… to be shipped **latest until** 30.07.2007»— y el patrón solo reconocía el
+ * encabezado. Con eso el **mismo calendario** salía avisado por `emision-calendario` en su primera
+ * línea y **descartado por `emision-no-documentaria` en las otras tres**: el artículo 32 y el 14 (h)
+ * diciendo cosas opuestas sobre la misma cláusula, que es exactamente lo que el laudo DOCDEX 204 vino a
+ * cerrar. Sobrevivió porque ese laudo tiene su calendario **en un renglón** y éste en cuatro.
+ *
+ * Y es la clase de redacción que no se puede no reconocer: el aviso del artículo 32 es el que manda a
+ * transcribir el calendario de cuotas, y la consecuencia de no transcribirlo es la más dura que tienen
+ * las UCP —una cuota no embarcada en su período deja el crédito sin disponibilidad para esa y para las
+ * siguientes—.
+ */
 export const CALENDARIO_DE_EMBARQUES =
-  /\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during|not later than|no later than)\b|\b(shipments?|embarques?)\s+(are|is)\s+required\b/i;
+  /\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during|not later than|no later than|latest (until|by|on))\b|\b(shipments?|embarques?)\s+(are|is)\s+required\b/i;
 
 export const PARAMETROS_DEL_CREDITO =
   /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b/i;
