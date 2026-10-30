@@ -1014,6 +1014,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^El peso bruto del BL tiene que coincidir con el del packing list \/ weight note\.$/g,
     "The gross weight on the bill of lading must agree with that of the packing list or weight note.",
   ],
+  [/^Peso neto$/g, "Net weight"],
+  [
+    /^El peso neto tiene que ser el mismo en la factura y en el packing list \/ weight note\.$/g,
+    "The net weight must be the same on the invoice and on the packing list or weight note.",
+  ],
   /* El cruce de la ruta entre documentos (DOCDEX 290) */
   [/^Ruta de embarque$/g, "Shipment route"],
   [/^Ruta de embarque invertida: /g, "Shipment route reversed: "],

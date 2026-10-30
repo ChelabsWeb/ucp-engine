@@ -466,6 +466,66 @@ describe("BL como documento externo (caso CSU2025099)", () => {
   });
 });
 
+/*
+ * El peso neto, que entró el 30-oct-2026 porque un caso lo pedía con nombre.
+ *
+ * El 46A del laudo DOCDEX 332 / TA 832rev2 pide el packing list «SHOWING NET AND GROSS WEIGHT» y el
+ * esquema no tenía el campo: era un dato **exigido por el crédito** que el examen no leía. Lo que la
+ * observación de ese caso dejó escrito es qué hacer con él —mostrarlo y cruzarlo, **no** concluir
+ * sobre el desglose— y eso es lo que estos tests fijan.
+ */
+describe("compararEntreDocumentos — el peso neto", () => {
+  const conNeto = (neto: string, bruto: string) => ({
+    ...docBase(),
+    pesoNeto: { valor: neto, confianza: 0.9 },
+    pesoBruto: { valor: bruto, confianza: 0.9 },
+  });
+
+  it("dos netos distintos entre la factura y el packing se contradicen", () => {
+    const c = compararEntreDocumentos([
+      { tipo: "FACTURA", campos: conNeto("53.960,00 KGS", "54.040,00 KGS") },
+      { tipo: "PACKING", campos: conNeto("52.000,00 KGS", "54.040,00 KGS") },
+    ]);
+    const neto = c.find((x) => x.campo === "Peso neto");
+    expect(neto?.severidad).toBe("ALTA");
+    expect(neto?.titulo).toContain('"52.000,00 KGS"');
+  });
+
+  /*
+   * Y la tolerancia es la misma que la del bruto, por las mismas dos autoridades: la Opinión
+   * TA 832rev2 resolvió que 360 kilos sobre 630 toneladas no son un conflicto, y el laudo DOCDEX 241
+   * que 700 gramos sobre 1.627 kilos tampoco —ahí por mayoría de dos a uno—. Con un panel dividido,
+   * apretar esto sería decidir lo que tres expertos de la ICC no pudieron.
+   */
+  it("una diferencia de medio por mil no es contradicción (TA 832rev2 · DOCDEX 241)", () => {
+    const c = compararEntreDocumentos([
+      { tipo: "FACTURA", campos: conNeto("630.000 KGS", "630.360 KGS") },
+      { tipo: "PACKING", campos: conNeto("630.360 KGS", "630.360 KGS") },
+    ]);
+    expect(c.map((x) => x.campo)).not.toContain("Peso neto");
+  });
+
+  /*
+   * **Y no hay regla de bruto contra neto**, que es la otra mitad de lo que ese caso dejó escrito: un
+   * documento de línea pone **una sola cifra bajo el rótulo de los dos**, así que exigir bruto mayor
+   * que neto marcaría redacción corriente. Este test lo fija por los dos lados: el mismo número en
+   * los dos campos no produce nada, y un neto **mayor** que el bruto tampoco — eso es un papel raro y
+   * lo mira una persona, no una regla que rechace.
+   */
+  it("una sola cifra bajo los dos rótulos no produce nada, y un neto mayor que el bruto tampoco", () => {
+    const igual = compararEntreDocumentos([
+      { tipo: "FACTURA", campos: conNeto("54.040,00 KGS", "54.040,00 KGS") },
+      { tipo: "PACKING", campos: conNeto("54.040,00 KGS", "54.040,00 KGS") },
+    ]);
+    expect(igual).toHaveLength(0);
+    const alReves = compararEntreDocumentos([
+      { tipo: "FACTURA", campos: conNeto("54.040,00 KGS", "53.000,00 KGS") },
+      { tipo: "PACKING", campos: conNeto("54.040,00 KGS", "53.000,00 KGS") },
+    ]);
+    expect(alReves).toHaveLength(0);
+  });
+});
+
 describe("compararEntreDocumentos — el BL dice cartons, el packing bags (caso CSU2025099)", () => {
   const blC = {
     ...docBase(),

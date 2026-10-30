@@ -27,6 +27,9 @@ export const PROMPT_EXAMEN =
   "- referenciaProforma: on an invoice, the sentence quoting the proforma ('goods shipped as per proforma invoice no. …').\n" +
   "- flete: on a transport document, 'FREIGHT PREPAID' or 'FREIGHT COLLECT'; on an invoice, the freight line if itemised.\n" +
   "- hsCode: the tariff heading (HS CODE) as written.\n" +
+  "- pesoNeto: the net weight as the paper prints it, with its unit ('53,960.00 Kgs'). " +
+  "If the document shows ONE figure under the heading of both weights, copy it into both fields and do not split it; " +
+  "if it prints only the gross, leave pesoNeto empty — never derive it by subtracting tare, and never copy the gross into it.\n" +
   "- montoTotal: the invoice grand total, the one amount the buyer owes.\n" +
   "- precioUnitario: the unit price that goes with that total — the one that multiplied by the quantity gives it. " +
   "An invoice often prints several unit prices, one per term of delivery (FOB, plus freight, CFR). " +
