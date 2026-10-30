@@ -173,6 +173,49 @@ describe("quién puede emitir cada certificado", () => {
     expect(r.find((x) => x.id.startsWith("cert-emisor-"))?.estado).toBe("OK");
   });
 
+  /*
+   * **Y un nombre que no se pudo leer no es un nombre distinto** (Opinión TA 886rev).
+   *
+   * Un sello solo en chino se normaliza a la cadena vacía y `comparaISBP` devuelve DISTINTO, así que
+   * esta regla daba **DISCREPANCIA**: rechazaba **por no haber podido leer**, que es una afirmación
+   * distinta de la que hacía. El párrafo A21 (e) admite el nombre de una entidad y los sellos en otro
+   * idioma, y lo que vuelve válida la discrepancia es la cláusula del crédito que exige los documentos
+   * en inglés — no el alfabeto.
+   *
+   * Es la quinta regla de nombres del motor y la única que se había quedado sin esta rama, porque
+   * compara con `comparaISBP` crudo: el crédito puede nombrar varios emisores alternativos y `distinto`
+   * recorre las opciones, así que no pasa por `veredictoDeNombre`, que es donde vive la decisión.
+   */
+  it("un emisor que no se pudo leer sale a verificar y no rechaza (TA 886rev)", () => {
+    const r = correr([
+      {
+        exigencia: "CERTIFICATE OF ANALYSIS ISSUED BY CALISET",
+        campos: doc({ emisor: campo("上海广大科技有限公司") }),
+        nombreArchivo: "Analysis",
+      },
+    ]);
+    const x = r.find((y) => y.id.startsWith("cert-emisor-"));
+    expect(x?.estado).toBe("ATENCION");
+    expect(x?.evidencia).toContain("A21 (e)");
+  });
+
+  it("y con la cláusula del crédito que exige inglés, ahí sí es discrepancia", () => {
+    const r = reglasCertificados({
+      lc: { ...LC, condicionesAdicionales: ["ALL DOCUMENTS MUST BE ISSUED IN ENGLISH LANGUAGE"] },
+      certificados: [
+        {
+          exigencia: "CERTIFICATE OF ANALYSIS ISSUED BY CALISET",
+          campos: doc({ emisor: campo("上海广大科技有限公司") }),
+          nombreArchivo: "Analysis",
+        },
+      ],
+      docs: [BL, PACKING],
+      beneficiario: "CEREALSUR S.A",
+      hoy: HOY,
+    });
+    expect(r.find((y) => y.id.startsWith("cert-emisor-"))?.estado).toBe("DISCREPANCIA");
+  });
+
   it("un certificado «independiente» no lo puede emitir el beneficiario", () => {
     const r = correr([
       {
