@@ -588,7 +588,30 @@ export function reglasCertificados(input: {
         .join(" · ");
       const buque = val(bl?.campos.buque);
       const numeroBl = val(bl?.campos.numeroDoc);
-      const ata = [buque, numeroBl, fechaEmbarque].find(
+      /*
+       * **Y el número de la factura ata igual que el del conocimiento**, que lo dice el párrafo 183.
+       *
+       * La Opinión **R 727 / TA 747rev** lo transcribe —es de los que no se pueden comprar— y enumera
+       * las vías: *«The goods description in the certificate of origin may be shown in general terms
+       * not in conflict with that stated in the credit **or by any other reference indicating a
+       * relation to the goods in a required document** … such as by reference to **the invoice
+       * number** or data contained in the transport or delivery document»*. El motor ataba por el
+       * buque, el número del conocimiento y la fecha de embarque, y le faltaba ésa.
+       *
+       * El cambio **solo puede ablandar**: agrega una vía de vínculo, así que un certificado que hoy
+       * sale a verificar puede pasar a OK y ninguno al revés.
+       *
+       * **Lo que NO se agregó, con su motivo.** (1) La vía de la *descripción de la mercadería*: el
+       * párrafo la admite «in general terms», y decidir eso es `coincideDescripcion`, que vive en
+       * `reglas-ucp.ts` y gobierna el 18 (c) y el 14 (e) — traerla acá es cambiar dos artículos de
+       * paso. Y el papel que esa Opinión declara discrepante dice literalmente «the goods are of
+       * French origin», o sea que nombra «goods» sin describir nada: un cotejo flojo lo daría por
+       * atado, que es justo lo que el panel castiga. (2) **El número del crédito**: el certificado de
+       * ese expediente tampoco lo citaba, pero el párrafo habla de una relación con **la mercadería** y
+       * casi todos los certificados citan el número del crédito — admitirlo vaciaría la regla.
+       */
+      const numeroFac = val(input.docs.find((d) => d.tipo === "FACTURA")?.campos.numeroDoc);
+      const ata = [buque, numeroBl, fechaEmbarque, numeroFac].find(
         (x) => x && texto.toUpperCase().includes(x.toUpperCase().slice(0, 12)),
       );
       out.push(
