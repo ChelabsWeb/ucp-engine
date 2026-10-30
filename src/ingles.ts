@@ -547,6 +547,19 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^El embarcador del documento de transporte no tiene que ser el beneficiario$/g,
     "The shipper on the transport document need not be the beneficiary",
   ],
+  /* Opinión R 531: el 14 (k) es por omisión y el crédito lo puede desplazar */
+  [
+    /^El crédito exige que el embarcador sea el beneficiario$/g,
+    "The credit requires the shipper to be the beneficiary",
+  ],
+  [
+    / y el crédito exige al beneficiario, /g,
+    " and the credit requires the beneficiary, ",
+  ],
+  [
+    /: el artículo 14 \(k\) admite que no coincidan salvo que el crédito lo pida, y lo pide$/g,
+    ": sub-article 14 (k) allows them not to match unless the credit calls for it, and it does",
+  ],
   [/^la factura dice /g, "the invoice states "],
   [
     / y no se leyó el beneficiario del crédito: verificar a mano$/g,

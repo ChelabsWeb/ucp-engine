@@ -207,6 +207,22 @@ function esZonaDeLugares(texto: string): boolean {
 }
 
 /**
+ * ¿El crédito **exige** que el embarcador del documento de transporte sea el beneficiario?
+ *
+ * El artículo 14 (k) dice que no tiene que serlo, y la Opinión **R 531 / TA 526** agrega la mitad que
+ * falta: *«There is no discrepancy **unless the credit specifies that the consignor (shipper) must be
+ * the named beneficiary**»*. Las dos direcciones de la frase entran, porque un 46A la escribe de las
+ * dos maneras —«showing expeditor as beneficiary» y «beneficiary as shipper»—.
+ *
+ * **Angosto a propósito y por el lado caro:** esto *agrega* discrepancias, así que se pide que la
+ * palabra «beneficiary» y el rol estén en la misma frase y cerca. Un 46A que nombre al beneficiario
+ * por otra cosa —«invoice issued to the beneficiary»— no entra, porque no nombra el rol del
+ * embarcador.
+ */
+const EXIGE_EMBARCADOR_BENEFICIARIO =
+  /\b(shipper|expeditor|exp[ée]diteur|consignor)\b[^.;]{0,20}\bas\b[^.;]{0,12}\bbeneficiar(y|ies)\b|\bbeneficiar(y|ies)\b[^.;]{0,12}\bas\b[^.;]{0,20}\b(shipper|expeditor|exp[ée]diteur|consignor)\b/i;
+
+/**
  * Los calificativos que cambian **de qué mercadería** se habla (Opinión TA 756).
  *
  * No son adjetivos cualesquiera: son las palabras con que el comercio clasifica una mercadería en otra
@@ -1103,17 +1119,40 @@ function reglasQuienEmite(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[]
    * Se informa igual —que el nombre difiera puede ser señal de otra cosa y el examinador quiere
    * verlo— pero como lo que es: algo que el artículo permite. Antes el mismo hecho salía sugiriendo
    * que podía ser discrepancia.
+   *
+   * **Y le faltaba la otra mitad, que la Opinión R 531 / TA 526 dice en una línea**: *«sub-Article
+   * 31(iii) allows for the consignor (shipper) to be a party other than the beneficiary of the credit.
+   * There is no discrepancy **unless the credit specifies that the consignor (shipper) must be the
+   * named beneficiary**»*. O sea que el artículo 14 (k) es una **regla por omisión** y el crédito la
+   * puede desplazar — y mientras la regla salía siempre en OK, un crédito que lo exigiera quedaba sin
+   * examinar: un falso **negativo**, del lado que paga de más.
+   *
+   * **Y no es una redacción hipotética: el crédito de la Opinión R 775 la tiene.** Su 46A pide el CMR
+   * «…NOTIFY [el ordenante], **SHOWING EXPEDITOR AS BENEFICIARY**», y ese caso ya estaba en el banco de
+   * pruebas con el papel cumpliendo. O sea que la exigencia estaba delante y nadie la miraba.
    */
   const transporte = docs.find((d) => d.tipo === "BL");
   const shipper = transporte ? val(transporte, "exportador") : null;
+  const lineaDelTransporte = (lc.documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
+  const loExigeElCredito = lineaDelTransporte ? EXIGE_EMBARCADOR_BENEFICIARIO.test(lineaDelTransporte) : false;
   if (shipper && ctx.beneficiario && !coincideLugar(shipper, ctx.beneficiario)) {
+    /*
+     * El veredicto sale de `veredictoDeNombre` y no de `coincideLugar`, que es el comparador de
+     * puertos: es la quinta regla de nombres de parte y entra por la puerta que *Bulgrains* abrió. Con
+     * eso un nombre a distancia de tipeo va a verificar en vez de rechazar.
+     */
+    const v = loExigeElCredito ? veredictoDeNombre(shipper, ctx.beneficiario, creditoExigeIngles(lc)) : "OK";
     out.push(
       regla(
         "ucp-14k",
-        "UCP 600 14k",
-        "El embarcador del documento de transporte no tiene que ser el beneficiario",
-        "OK",
-        `el documento de transporte dice "${shipper}" y el beneficiario es "${ctx.beneficiario}": el artículo 14 (k) admite que no coincidan`,
+        loExigeElCredito ? "46A · Opinión R 531" : "UCP 600 14k",
+        loExigeElCredito
+          ? "El crédito exige que el embarcador sea el beneficiario"
+          : "El embarcador del documento de transporte no tiene que ser el beneficiario",
+        v,
+        loExigeElCredito
+          ? `el documento de transporte dice "${shipper}" y el crédito exige al beneficiario, "${ctx.beneficiario}": el artículo 14 (k) admite que no coincidan salvo que el crédito lo pida, y lo pide`
+          : `el documento de transporte dice "${shipper}" y el beneficiario es "${ctx.beneficiario}": el artículo 14 (k) admite que no coincidan`,
       ),
     );
   }
