@@ -28,8 +28,10 @@ import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import {
   type DocAnalizado,
+  ES_RECIBO_DE_AGENTE,
   type EstadoRegla,
   admiteCopiaDelTransporte,
+  admiteReciboDeAgente,
   pideSoloCopiaDelTransporte,
   type ReglaPresentacion,
 } from "./presentacion";
@@ -2907,15 +2909,38 @@ export function reglasUCP(input: {
      */
     const laCopiaPresentada = admiteCopiaDelTransporte(exigidos) && esCopiaElDocumento(bl);
     const soloLaCopia = pideSoloCopiaDelTransporte(exigidos) || laCopiaPresentada;
-    if (soloLaCopia) {
+    /*
+     * Y la tercera forma de lo mismo: **el recibo de un agente de carga** (Opinión R 640 / TA 641).
+     *
+     * *«A forwarding agent's "goods receipt" is not a transport document covered by the content of UCP
+     * 600 articles 19-25 … **there is no requirement for the document to evidence a place of delivery,
+     * merely the receipt of goods**»*. El 46A de esa Opinión ofrece tres alternativas y el confirmador
+     * rechazó el recibo por no acreditar el destino; el panel dice que no hay discrepancia.
+     *
+     * El freno es el de la copia, y por el mismo motivo: **se mira la presentación y no solo el
+     * crédito**. Si el crédito no ofrece la alternativa, el capítulo corre sobre lo que se presente; y
+     * si la ofrece pero llega un conocimiento, también. Ver `admiteReciboDeAgente` y
+     * `ES_RECIBO_DE_AGENTE`, donde está escrito por qué el artículo 25 queda afuera.
+     */
+    const elReciboPresentado =
+      admiteReciboDeAgente(exigidos) && ES_RECIBO_DE_AGENTE.test(val(bl, "tipoTransporte") ?? "");
+    if (soloLaCopia || elReciboPresentado) {
       out.push(
-        regla(
-          "ucp-transporte-copia",
-          "ISBP 745 A6 · Laudo DOCDEX 330",
-          "El crédito pide una copia del documento de transporte, así que los artículos 19 a 25 no lo gobiernan",
-          "OK",
-          "una copia no es un documento de transporte a los efectos de los artículos 19 a 25, así que sus exigencias no se le piden y los datos se comparan por el artículo 14 (d)",
-        ),
+        elReciboPresentado && !soloLaCopia
+          ? regla(
+              "ucp-transporte-recibo-de-agente",
+              "Opinión R 640 · UCP 600 14f",
+              "El crédito admite el recibo de un agente de carga, que los artículos 19 a 25 no gobiernan",
+              "OK",
+              "un recibo de agente de carga acredita que la mercadería se recibió y no que se haya embarcado entre dos lugares, así que las exigencias de los artículos no se le piden —el lugar de entrega incluido— y los datos se comparan por el artículo 14 (d)",
+            )
+          : regla(
+              "ucp-transporte-copia",
+              "ISBP 745 A6 · Laudo DOCDEX 330",
+              "El crédito pide una copia del documento de transporte, así que los artículos 19 a 25 no lo gobiernan",
+              "OK",
+              "una copia no es un documento de transporte a los efectos de los artículos 19 a 25, así que sus exigencias no se le piden y los datos se comparan por el artículo 14 (d)",
+            ),
       );
       out.push(...reglasRutaPorCatorceD(ctx, bl));
     } else out.push(...reglaFirmaTransporte(bl, clase.modo));
@@ -2950,8 +2975,12 @@ export function reglasUCP(input: {
      * que casi siempre sí corresponde. Lo que se arriesga está acotado: las comprobaciones del 20
      * que un aéreo no pasa dan ATENCION —«verificar a mano»— y no discrepancia.
      */
-    if (soloLaCopia) {
-      /* ya se comparó por el 14 (d): los artículos no gobiernan una copia (ISBP 745 A6) */
+    if (soloLaCopia || elReciboPresentado) {
+      /*
+       * Ya se comparó por el 14 (d): los artículos no gobiernan ni una copia —ISBP 745 A6, laudo
+       * DOCDEX 330— ni el recibo de un agente de carga —Opinión R 640—. A los dos se les pedía acá el
+       * puerto de descarga, que es exactamente la discrepancia que esa Opinión declara inválida.
+       */
     } else if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
       out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
     } else if (clase.modo === "AEREO") {

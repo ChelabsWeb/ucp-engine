@@ -133,6 +133,50 @@ export function admiteCopiaDelTransporte(documentosExigidos: string[] | null | u
   ) || /\b(photocopy|photocopies|copy|copies)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(originals?|full\s+set)\b/i.test(linea);
 }
 
+/**
+ * ¿El crédito **admite** un recibo de agente de carga en lugar del documento de transporte?
+ *
+ * La Opinión **R 640 / TA 641** lo decide, y la regla es tan tajante como la de la copia: *«A forwarding
+ * agent's "goods receipt" **is not a transport document covered by the content of UCP 600 articles
+ * 19-25**. As implied by its title, such a document is a receipt for goods and **is not a document
+ * intended to evidence shipment having occurred between two places**, ports or airports»*. El 46A de ese
+ * crédito ofrece tres alternativas —«package of consignment notes (originals), or set of bills of lading
+ * (originals) **or forwarding agent's "goods receipt"** - 1 original»— y el confirmador rechazó el recibo
+ * porque *«does not evidence shipment to Russia»*. El panel: **no hay discrepancia.**
+ *
+ * > In the context of a forwarding agent's goods receipt, **there is no requirement for the document to
+ * > evidence a place of delivery, merely the receipt of goods.** The inclusion of a place of delivery (or
+ * > port of discharge) **is only relevant in the context of the issuance of consignment notes or bills of
+ * > lading.**
+ *
+ * **Y la línea del 46A aparea a `BL`**, porque su cabeza nombra los otros dos documentos: así que el
+ * recibo entraba por el capítulo del transporte y el motor le pedía cinco cosas que el artículo no le
+ * pide —el puerto de descarga, la anotación de a bordo, el juego de originales, la cláusula de documento
+ * limpio y el bloque de firma—, las cinco en ATENCION. No rechazaba, pero **cinco avisos sobre un papel
+ * que un panel declara conforme es ruido, y el ruido enseña a ignorar los avisos**.
+ *
+ * El freno es el mismo que la rama de la copia de la Opinión R 455, y por el mismo motivo: **se mira la
+ * presentación y no solo el crédito**. Si el crédito no ofrece esta alternativa, el capítulo corre
+ * entero sobre lo que se presente; y si la ofrece pero llega un conocimiento, también. Lo que apaga los
+ * artículos es que el crédito lo **admita** y que el papel presentado **sea** ese recibo.
+ */
+export function admiteReciboDeAgente(documentosExigidos: string[] | null | undefined): boolean {
+  const linea = (documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
+  return linea ? ES_RECIBO_DE_AGENTE.test(linea) : false;
+}
+
+/**
+ * Los nombres con que se titula un recibo de agente de carga.
+ *
+ * **Angosto a propósito, y el borde que no se puede pisar es el artículo 25**: un «courier receipt» y un
+ * «post receipt» **sí** son documentos de transporte, y tienen su propio artículo. Lo mismo el «cargo
+ * receipt» del laudo DOCDEX 215, que ahí es el papel contra el que se cobra y no un documento de
+ * transporte — pero el nombre no alcanza para decidirlo, así que queda afuera: lo que entra es lo que la
+ * Opinión nombra, un recibo **de un agente de carga**.
+ */
+export const ES_RECIBO_DE_AGENTE =
+  /\b(forwarding|forwarder'?s?|freight\s+forwarder'?s?)\b[^.;]{0,24}\b(goods\s+)?receipt\b|\bgoods\s+receipt\b|\bforwarder'?s?\s+certificate\s+of\s+receipt\b|\bFCR\b/i;
+
 /*
  * Las formas en que un crédito pide que un documento cite su número.
  *
