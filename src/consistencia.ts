@@ -145,6 +145,23 @@ export interface CamposDoc {
    *   cotejo del artículo 14 (d), no para concluir sobre el desglose.
    */
   pesoNeto?: CampoDoc; // "53.960 KGS" — y nunca se deduce del bruto
+  /*
+   * Lo que la factura **declara**, que es otra cosa que la descripción de la mercadería.
+   *
+   * Un 46A escribe «COMMERCIAL INVOICE … STATING THAT THE GOODS ARE OF EU ORIGIN» y hasta ahora no
+   * había contra qué compararlo: `mercaderia` lleva la descripción —y la compara `ucp-18c` contra el
+   * 45A— así que meter ahí una declaración mezclaría dos cotejos distintos.
+   *
+   * El laudo **DOCDEX 363** declara **relevante** exactamente esa discrepancia —una declaración que el
+   * 46A le pedía a la factura y el papel no traía— o sea una discrepancia válida que el motor no podía
+   * ver. Y el mismo laudo declara **inválida** la otra mitad, la del endoso del dorso del conocimiento:
+   * **el mismo campo que falta cuesta la discrepancia que valía y protege de la que no**.
+   *
+   * El motor ya hacía este cotejo para un certificado del beneficiario (`cert-benef`, que señala qué
+   * palabra falta desde *Fortis Bank v Indian Overseas Bank*) y no para la factura. Ahora sí, con el
+   * mismo comparador y el mismo límite: **señala y no concluye**.
+   */
+  declaracion?: CampoDoc; // el texto que la factura declara, cuando el 46A le pide declarar algo
   consignatario?: CampoDoc; // "TO THE ORDER OF MERIDIAN BANK PLC"
   /* pre-check UCP 600 (oportunidades A1): lo que el banco mira en cada documento */
   numeroLC?: CampoDoc; // "LCMRDN25000471" citado en el documento (47A: "all documents should indicate the LC number")
@@ -747,6 +764,7 @@ export const SCHEMA_DOC = {
     tipoBulto: campoSchema,
     pesoBruto: campoSchema,
     pesoNeto: campoSchema,
+    declaracion: campoSchema,
     consignatario: campoSchema,
     numeroLC: campoSchema,
     fechaDocumento: campoSchema,
@@ -836,6 +854,9 @@ export const PROMPT_DOC =
   "Ojo con el bloque de totales: el peso NETO, el peso BRUTO y el total de bultos suelen ir en renglones " +
   "seguidos del mismo bloque ('TOTAL NET WEIGHT' / 'TOTAL GROSS WEIGHT' / 'TOTAL BAGS'). Son tres campos " +
   "distintos —cantidad, pesoBruto y bultos—: leé el bloque entero y llenálos a los tres, no solo el primero. " +
+  "declaracion = SOLO si el crédito le pide a la factura declarar algo ('stating that…', 'certifying that…'): " +
+  "el texto que la factura declara, copiado tal cual y completo. NO es la descripción de la mercadería —ésa va en " +
+  "mercaderia— y si la factura no declara nada, dejalo VACÍO; nunca lo armes con el texto del crédito. " +
   "pesoNeto = el peso neto tal cual lo imprime el papel, con su unidad ('53.960,00 Kgs'). Si el documento pone " +
   "UNA sola cifra bajo el rótulo de los dos pesos, copiála en los dos campos y NO la repartas; si solo imprime el " +
   "bruto, dejá pesoNeto VACÍO — nunca lo deduzcas restando la tara ni lo copies del bruto por tu cuenta. " +
@@ -1475,6 +1496,87 @@ export function cabezaDeExigencia(s: string): string {
 export function textoDeLaExigencia(s: string): string {
   const i = abre(s);
   return i === -1 ? "" : s.slice(i).trim();
+}
+
+/*
+ * El cotejo del **pro forma**: qué palabras del texto que el crédito pide no están en el papel.
+ *
+ * Vive acá, al lado de `textoDeLaExigencia`, porque es el mismo concepto y lo usan **dos** reglas: la
+ * del certificado del beneficiario (`cert-benef`) y la de lo que la factura declara
+ * (`ucp-14a-fac-declara`). Estaba en `certificados.ts` cuando el único llamador era el primero, y dos
+ * copias de la misma pregunta es cómo se desincronizan dos respuestas — este repositorio ya lo pagó
+ * con `corto()` y con el patrón que abre la descripción de una exigencia.
+ */
+const ADMINISTRATIVAS = new Set([
+  /* la parte administrativa de una línea del 46A: está en todas y no dice nada del hecho */
+  "copy",
+  "copies",
+  "duplicate",
+  "each",
+  "original",
+  "originals",
+  "triplicate",
+  "following",
+  "hereby",
+  "certify",
+  "certifying",
+  "stating",
+  "showing",
+  /* «certifying as follows» es la apertura del pro forma, no parte de lo que se certifica */
+  "follows",
+  /* y las palabras vacías, incluidas las cortas — pero **no** los posesivos */
+  "the",
+  "and",
+  "for",
+  "not",
+  "any",
+  "all",
+  "per",
+  "out",
+  "one",
+  "two",
+  "has",
+  "was",
+  "are",
+  "that",
+  "this",
+  "these",
+  "those",
+  "with",
+  "from",
+  "have",
+  "been",
+  "will",
+  "shall",
+  "must",
+  "which",
+  "there",
+  "only",
+]);
+
+/**
+ * Las palabras entrecomilladas, armadas sin escribir una comilla en el fuente.
+ *
+ * `JSON.stringify` las pone, y el motivo es el control de inglés: `textoEnIngles` protege lo que va
+ * entre comillas dobles —así una palabra copiada de un papel no se traduce— y el extractor de
+ * literales que revisa la cobertura es un recorrido de caracteres que se rompe con una comilla dentro
+ * de una interpolación. Las dos cosas se cumplen armando la lista acá.
+ */
+export function listaEntreComillas(palabras: string[]): string {
+  return palabras.map((w) => JSON.stringify(w)).join(", ");
+}
+
+export function palabrasQueFaltanDelProForma(exigido: string, declarado: string): string[] {
+  const palabras = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(" ")
+      .filter((w) => w.length > 2 && !ADMINISTRATIVAS.has(w));
+  const delExigido = palabras(exigido);
+  if (delExigido.length === 0) return [];
+  const enElPapel = new Set(palabras(declarado));
+  return [...new Set(delExigido.filter((w) => !enElPapel.has(w)))].slice(0, 5);
 }
 
 /**
@@ -2119,6 +2221,8 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "tipoDocumento",
     /* El neto, que es lo que hace alcanzable el cruce del 14 (d): ver el comentario de `PACKING`. */
     "pesoNeto",
+    /* Y lo que el 46A le pide declarar, que es el laudo DOCDEX 363: ver el comentario en `CamposDoc`. */
+    "declaracion",
     "exportador",
     "importador",
     "montoTotal",

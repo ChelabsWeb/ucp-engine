@@ -1,4 +1,12 @@
-import { type CamposDoc, cabezaDeExigencia, claveDoc, parseNumero, textoDeLaExigencia } from "./consistencia";
+import {
+  type CamposDoc,
+  cabezaDeExigencia,
+  claveDoc,
+  listaEntreComillas,
+  palabrasQueFaltanDelProForma,
+  parseNumero,
+  textoDeLaExigencia,
+} from "./consistencia";
 import { cotejarEspecificaciones, pareceVariosDocumentos } from "./especificaciones";
 import { fmtFecha, parseFecha } from "./fechas";
 import {
@@ -860,77 +868,6 @@ export function reglasCertificados(input: {
  * COST»—. Con el umbral en cuatro letras, el motor decía que el certificado repetía el texto. En un pro
  * forma, «our», «we» y «your» son justamente lo que identifica de quién habla el papel.
  */
-const ADMINISTRATIVAS = new Set([
-  /* la parte administrativa de una línea del 46A: está en todas y no dice nada del hecho */
-  "copy",
-  "copies",
-  "duplicate",
-  "each",
-  "original",
-  "originals",
-  "triplicate",
-  "following",
-  "hereby",
-  "certify",
-  "certifying",
-  "stating",
-  "showing",
-  /* «certifying as follows» es la apertura del pro forma, no parte de lo que se certifica */
-  "follows",
-  /* y las palabras vacías, incluidas las cortas — pero **no** los posesivos */
-  "the",
-  "and",
-  "for",
-  "not",
-  "any",
-  "all",
-  "per",
-  "out",
-  "one",
-  "two",
-  "has",
-  "was",
-  "are",
-  "that",
-  "this",
-  "these",
-  "those",
-  "with",
-  "from",
-  "have",
-  "been",
-  "will",
-  "shall",
-  "must",
-  "which",
-  "there",
-  "only",
-]);
-
-/**
- * Las palabras entrecomilladas, armadas sin escribir una comilla en el fuente.
- *
- * `JSON.stringify` las pone, y el motivo es el control de inglés: `textoEnIngles` protege lo que va
- * entre comillas dobles —así una palabra copiada de un papel no se traduce— y el extractor de
- * literales que revisa la cobertura es un recorrido de caracteres que se rompe con una comilla dentro
- * de una interpolación. Las dos cosas se cumplen armando la lista acá.
- */
-function listaEntreComillas(palabras: string[]): string {
-  return palabras.map((w) => JSON.stringify(w)).join(", ");
-}
-
-function palabrasQueFaltanDelProForma(exigido: string, declarado: string): string[] {
-  const palabras = (t: string) =>
-    t
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .split(" ")
-      .filter((w) => w.length > 2 && !ADMINISTRATIVAS.has(w));
-  const delExigido = palabras(exigido);
-  if (delExigido.length === 0) return [];
-  const enElPapel = new Set(palabras(declarado));
-  return [...new Set(delExigido.filter((w) => !enElPapel.has(w)))].slice(0, 5);
-}
 
 /**
  * Aparea los certificados presentados con los ítems del 46A que pretenden cubrir.

@@ -53,6 +53,64 @@ describe("contexto del crédito", () => {
   });
 });
 
+/*
+ * Lo que el 46A le pide **declarar** a la factura (laudo DOCDEX 363).
+ *
+ * El panel declara **relevante** esa discrepancia: el crédito le pedía a la factura una declaración y
+ * el papel no la traía. La regla señala **qué palabra falta** y no concluye nunca, con el límite de
+ * *Fortis Bank v Indian Overseas Bank* —el texto del 46A viene mezclado con su parte administrativa—.
+ */
+describe("factura — lo que el crédito le pide declarar (DOCDEX 363)", () => {
+  const conLinea = (linea: string, declara?: string) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: [linea] },
+      credito: CTX,
+      docs: [
+        {
+          tipo: "FACTURA",
+          campos: doc(declara === undefined ? {} : { declaracion: campo(declara) }),
+        },
+      ],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-14a-fac-declara");
+
+  const PIDE = "COMMERCIAL INVOICE IN TRIPLICATE STATING THAT THE GOODS ARE OF EUROPEAN UNION ORIGIN";
+
+  it("señala la palabra que la factura no repite", () => {
+    const r = conLinea(PIDE, "WE DECLARE THAT THE GOODS ARE OF ASIAN ORIGIN");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("european");
+    expect(r?.evidencia).toContain("union");
+  });
+
+  it("cuando la factura repite el texto, lo dice y sigue sin concluir", () => {
+    const r = conLinea(PIDE, "WE CERTIFY THAT THE GOODS ARE OF EUROPEAN UNION ORIGIN");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("repite las palabras");
+  });
+
+  it("sin el texto leído manda a leerlo, y nunca rechaza", () => {
+    const r = conLinea(PIDE);
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("leer el texto de la factura");
+  });
+
+  /*
+   * **El freno, que es la mitad de la regla.** `textoDeLaExigencia` devuelve todo lo que sigue al
+   * nombre del documento, y en un 46A corriente eso es el destinatario: con el disparador abierto la
+   * regla le pediría a la factura «declarar» el nombre del ordenante en casi todos los créditos. Se
+   * exige un verbo de declaración seguido de «that».
+   */
+  it.each([
+    "SIGNED COMMERCIAL INVOICE IN TRIPLICATE ISSUED TO IMPORTADORA DEL ESTE S.A.",
+    "COMMERCIAL INVOICE IN 3 ORIGINALS AND 2 COPIES",
+    "COMMERCIAL INVOICE COVERING 100 PCT OF THE GOODS VALUE",
+    "COMMERCIAL INVOICE SHOWING NET AND GROSS WEIGHT",
+  ])("no se emite sobre un 46A que no pide declarar nada: %s", (linea) => {
+    expect(conLinea(linea, "CUALQUIER TEXTO")).toBeUndefined();
+  });
+});
+
 describe("factura — artículo 18", () => {
   it("18a-ii: a nombre de quien no es el ordenante es discrepancia", () => {
     const r = buscar([{ tipo: "FACTURA", campos: doc({ importador: campo("OTRA EMPRESA LTD") }) }], "ucp-18a-ii");

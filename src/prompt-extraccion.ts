@@ -27,6 +27,9 @@ export const PROMPT_EXAMEN =
   "- referenciaProforma: on an invoice, the sentence quoting the proforma ('goods shipped as per proforma invoice no. …').\n" +
   "- flete: on a transport document, 'FREIGHT PREPAID' or 'FREIGHT COLLECT'; on an invoice, the freight line if itemised.\n" +
   "- hsCode: the tariff heading (HS CODE) as written.\n" +
+  "- declaracion: ONLY if the credit asks the invoice to state something ('stating that…', 'certifying that…'): " +
+  "the text the invoice declares, copied verbatim and whole. It is NOT the goods description — that goes in mercaderia — " +
+  "and if the invoice declares nothing, leave it empty; never build it from the credit's own wording.\n" +
   "- pesoNeto: the net weight as the paper prints it, with its unit ('53,960.00 Kgs'). " +
   "If the document shows ONE figure under the heading of both weights, copy it into both fields and do not split it; " +
   "if it prints only the gross, leave pesoNeto empty — never derive it by subtracting tare, and never copy the gross into it.\n" +
