@@ -12,10 +12,12 @@ import { fmtFecha, parseFecha } from "./fechas";
 import {
   acreditaAlgoEnDestino,
   comparaISBP,
+  creditoExigeIngles,
   emisorAdmitido,
   esCertificadoDeOrigen,
   exigePrevioAlEmbarque,
   NOMBRA_AL_EMISOR,
+  normISBP,
 } from "./isbp";
 import {
   type DocAnalizado,
@@ -414,6 +416,26 @@ export function reglasCertificados(input: {
         const distinto = !opciones.some((o) => comparaISBP(emisor ?? "", o) !== "DISTINTO");
         const porFuncion = describeUnaFuncion(nombrado);
         /*
+         * **Y un nombre que no se pudo leer no es un nombre distinto**, que es la quinta regla de
+         * nombres y la única que se había quedado sin esta rama.
+         *
+         * La Opinión **TA 886rev** lo decidió para la factura: una razón social en un alfabeto que
+         * `normISBP` no conserva se normaliza a la cadena vacía, `comparaISBP` devuelve DISTINTO y el
+         * motor **rechazaba por no haber podido leer**, que es una afirmación distinta de la que
+         * hacía. El párrafo **A21 (e)** de la ISBP —transcripto en esa Opinión— dice que el nombre de
+         * una entidad y los sellos **pueden** ir en otro idioma, y lo que vuelve válida la
+         * discrepancia es la cláusula del crédito que exige los documentos en inglés, no el alfabeto.
+         *
+         * Ese arreglo centralizó la decisión en `veredictoDeNombre` y pasaron por ahí `fac-emisor`,
+         * `ucp-18a-i`, `bl-notify` y, con el laudo DOCDEX 325, `ucp-18a-ii`. **`cert-emisor` compara
+         * con `comparaISBP` crudo** —porque el crédito puede nombrar varios emisores alternativos y
+         * `distinto` recorre las opciones— así que nunca lo recibió: medido, un sello solo en chino
+         * daba **DISCREPANCIA**, igual que otra empresa.
+         *
+         * Lo encontró sondear la regla al escribir el caso de la Opinión R 474, que es de otra cosa.
+         */
+        const ilegible = Boolean(emisor?.trim()) && normISBP(emisor ?? "").trim() === "";
+        /*
          * Y si el crédito nombra al **beneficiario** como emisor, que lo emita él es lo pedido.
          *
          * «CERTIFICATE ISSUED BY BENEFICIARY CONFIRMING…» es redacción corriente del 46A, y la
@@ -473,13 +495,20 @@ export function reglasCertificados(input: {
                   ? "DISCREPANCIA"
                   : !distinto || (nombraAlBeneficiario && esElBeneficiario)
                     ? "OK"
-                    : porFuncion
-                      ? "ATENCION"
-                      : "DISCREPANCIA",
+                    : /* no se pudo leer: decide la cláusula del idioma y no el alfabeto (TA 886rev) */
+                      ilegible
+                      ? creditoExigeIngles(input.lc)
+                        ? "DISCREPANCIA"
+                        : "ATENCION"
+                      : porFuncion
+                        ? "ATENCION"
+                        : "DISCREPANCIA",
                 firmaPorOtro
                   ? `lo firma otro «por» la persona que el crédito nombra: dice "${emisor}" y el crédito lo pide firmado por ${corto(nombrado, 40)} — quien firma «por» alguien no es ese alguien (laudo DOCDEX 216 y Opinión 470/TA.122)`
                   : loEmiteElBeneficiario
                     ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
+                    : ilegible
+                      ? `no se pudo leer el nombre del emisor —el papel trae "${corto(emisor ?? "", 30)}" y queda vacío al normalizarlo— y el crédito lo pide emitido por ${corto(nombrado, 40)}: el párrafo A21 (e) admite el nombre y los sellos en otro idioma, así que ${creditoExigeIngles(input.lc) ? "con la cláusula del crédito que exige los documentos en inglés la discrepancia vale (Opinión TA 886rev)" : "esto se verifica a mano y no se rechaza (Opinión TA 886rev)"}`
                     : !distinto
                       ? `el documento lo emite "${emisor}"`
                       : porFuncion
