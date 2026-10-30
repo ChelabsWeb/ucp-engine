@@ -2317,8 +2317,10 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
      * campo cargado a mano y no se alcanzaba desde la pantalla**, que deriva sus casillas de esta
      * lista. Ahora la casilla aparece sola.
      *
-     * Ojo con el número: la gramática crece con los **nombres** y no solo con la cantidad, así que
-     * veinticuatro es el tope para *estos* nombres. Un campo nuevo se mide igual que se midió éste.
+     * **El tope es la cantidad de campos y no el tamaño de los nombres**, medido con esquemas
+     * sintéticos: veinticuatro de **un carácter** entran y veinticinco de un carácter no. O sea que
+     * acortar nombres no compra lugar y cada campo nuevo cuesta exactamente un lugar. Un campo nuevo
+     * se mide igual que se midió éste.
      */
     "firmaTransporte",
     "juegoOriginales",
