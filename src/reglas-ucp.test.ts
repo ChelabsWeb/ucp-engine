@@ -1129,6 +1129,63 @@ describe("quién emite y quién embarca, que no son la misma pregunta (arts. 18 
     expect(r.filter((y) => y.estado === "DISCREPANCIA" && /shipper|embarcador/i.test(y.regla))).toHaveLength(0);
   });
 
+  /*
+   * **Y la otra mitad del artículo, que la Opinión R 531 / TA 526 dice en una línea.**
+   *
+   * *«Sub-Article 31(iii) allows for the consignor (shipper) to be a party other than the beneficiary
+   * of the credit. There is no discrepancy **unless the credit specifies that the consignor (shipper)
+   * must be the named beneficiary**»*. O sea que el 14 (k) es una regla **por omisión** y el crédito
+   * la puede desplazar — y mientras la regla salía siempre en OK, un crédito que lo exigiera quedaba
+   * sin examinar: un falso **negativo**.
+   *
+   * Y no es hipotético: el 46A de la Opinión R 775 pide el CMR «SHOWING EXPEDITOR AS BENEFICIARY», y
+   * ese caso ya estaba en el banco de pruebas.
+   */
+  const EXIGE = ["CMR SHOWING EXPEDITOR AS BENEFICIARY", "FULL SET OF B/L SHOWING BENEFICIARY AS SHIPPER"];
+
+  it.each(EXIGE)("si el crédito lo exige («%s»), el embarcador distinto es discrepancia", (linea) => {
+    const r = reglasUCP({
+      lc: { ...LC, documentosExigidos: [linea] },
+      credito: { ...CTX, beneficiario: "CEREALSUR S.A" },
+      docs: [{ tipo: "BL", campos: doc({ exportador: campo("MOLSUR S.A."), buque: campo("STELLA AUSTRAL") }) }],
+      hoy: HOY,
+    });
+    const x = r.find((y) => y.id === "ucp-14k");
+    expect(x?.estado).toBe("DISCREPANCIA");
+    expect(x?.fuente).toContain("R 531");
+    expect(x?.evidencia).toMatch(/salvo que el crédito lo pida, y lo pide/i);
+  });
+
+  /*
+   * Los dos frenos, y el segundo es el que vuelve seguro un cambio que **agrega** discrepancias.
+   *
+   * El primero: con la exigencia escrita y el embarcador que **es** el beneficiario, no se emite nada
+   * —`coincideLugar` ya los da por iguales—. El segundo: una línea del 46A que nombre al beneficiario
+   * **sin nombrar el rol del embarcador** no activa nada, porque no es esta exigencia.
+   */
+  it("con la exigencia escrita y el beneficiario embarcando, no hay hallazgo", () => {
+    const r = reglasUCP({
+      lc: { ...LC, documentosExigidos: [EXIGE[0]] },
+      credito: { ...CTX, beneficiario: "CEREALSUR S.A" },
+      docs: [{ tipo: "BL", campos: doc({ exportador: campo("CEREALSUR S.A"), buque: campo("STELLA AUSTRAL") }) }],
+      hoy: HOY,
+    });
+    expect(r.find((y) => y.id === "ucp-14k")).toBeUndefined();
+  });
+
+  it.each([
+    "FULL SET OF ORIGINAL BILLS OF LADING CONSIGNED TO APPLICANT",
+    "B/L ISSUED TO THE ORDER OF THE BENEFICIARY AND BLANK ENDORSED",
+  ])("y «%s» no activa la exigencia, porque no nombra el rol del embarcador", (linea) => {
+    const r = reglasUCP({
+      lc: { ...LC, documentosExigidos: [linea] },
+      credito: { ...CTX, beneficiario: "CEREALSUR S.A" },
+      docs: [{ tipo: "BL", campos: doc({ exportador: campo("MOLSUR S.A."), buque: campo("STELLA AUSTRAL") }) }],
+      hoy: HOY,
+    });
+    expect(r.find((y) => y.id === "ucp-14k")?.estado).toBe("OK");
+  });
+
   it("si no hay beneficiario cargado, no se inventa el veredicto", () => {
     // El contexto del caso de referencia sí lo trae, así que acá se lo saca a propósito: lo que se prueba es
     // qué hace el motor cuando el crédito llegó sin el campo 59 legible.
