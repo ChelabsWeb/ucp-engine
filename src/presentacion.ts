@@ -104,6 +104,35 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
   return iCopia >= 0 && iNombre >= 0 && iCopia < iNombre;
 }
 
+/**
+ * Y el caso del medio: el crédito que **admite** original **o** copia, a elección del beneficiario.
+ *
+ * La función de arriba contesta «el crédito pide **únicamente** una copia» y hay un tercer estado que
+ * no contestaba nadie. La Opinión **R 455** es ese crédito —su 46A dice «Bill of lading - original or
+ * copy»— y el panel decide que **admitir** alcanza:
+ *
+ * > **Requesting or allowing a copy overrides the sub-Article 23(a)(iv) requirement** regarding the
+ * > presentation of a sole original or a full set thereof.
+ *
+ * > Where copies (non-negotiable) are presented, they do not necessarily evidence signature by the
+ * > carrier or its agent … **a copy need not be signed.** Where the agent or the carrier provides a
+ * > true non-negotiable copy of the bill of lading **it will bear no signatures or other markings of
+ * > authentication.**
+ *
+ * **Lo que esto no es: una licencia que dependa solo del crédito.** Si el crédito admite las dos cosas
+ * y el beneficiario presenta un **original**, los artículos se aplican enteros — así que quien use esta
+ * función tiene que mirar además **qué se presentó**. Es la misma forma que el laudo DOCDEX 238 dejó
+ * escrita para el plazo del 14 (c): lo que decide es la presentación y no lo que el crédito pidió.
+ */
+export function admiteCopiaDelTransporte(documentosExigidos: string[] | null | undefined): boolean {
+  const linea = (documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
+  if (!linea) return false;
+  /* «original or copy», «originals or copies», y al revés — la alternativa, no un conteo de ejemplares */
+  return /\b(originals?|full\s+set)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(photocopy|photocopies|copy|copies)\b/i.test(
+    linea,
+  ) || /\b(photocopy|photocopies|copy|copies)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(originals?|full\s+set)\b/i.test(linea);
+}
+
 /*
  * Las formas en que un crédito pide que un documento cite su número.
  *

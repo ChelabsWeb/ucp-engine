@@ -60,6 +60,53 @@ describe("contexto del crédito", () => {
  * el papel no la traía. La regla señala **qué palabra falta** y no concluye nunca, con el límite de
  * *Fortis Bank v Indian Overseas Bank* —el texto del 46A viene mezclado con su parte administrativa—.
  */
+/*
+ * El crédito que admite original **o** copia, con la copia presentada (Opinión R 455).
+ *
+ * Seis motivos de rechazo y ninguno válido, y tres de ellos son el mismo: que la copia no nombra al
+ * transportista, que no está firmada y que no es el juego completo. El panel: *«Requesting or allowing
+ * a copy overrides the sub-Article 23(a)(iv) requirement»* y *«a copy need not be signed … it will
+ * bear no signatures or other markings of authentication»*.
+ *
+ * **Y mira la presentación, no solo el crédito**: con el mismo crédito y un original presentado, los
+ * artículos se aplican enteros. Es la forma del laudo DOCDEX 238 para el plazo del 14 (c).
+ */
+describe("la copia que el crédito admite (Opinión R 455)", () => {
+  const ALTERNATIVA = "BILL OF LADING - ORIGINAL OR COPY";
+  const correrCon = (exigidos: string[], juego: string, titulo = "BILL OF LADING") =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: exigidos },
+      credito: CTX,
+      docs: [
+        {
+          tipo: "BL",
+          campos: doc({ tipoTransporte: campo(titulo), juegoOriginales: campo(juego), onBoard: campo("SHIPPED ON BOARD") }),
+        },
+      ],
+      hoy: HOY,
+    });
+
+  it("con la copia presentada, el capítulo del transporte no la gobierna y no se pide el juego", () => {
+    const r = correrCon([ALTERNATIVA], "COPY NON NEGOTIABLE", "NON-NEGOTIABLE COPY OF BILL OF LADING");
+    expect(r.find((x) => x.id === "ucp-transporte-copia")?.estado).toBe("OK");
+    expect(r.find((x) => x.id === "ucp-20a-iv")?.estado).not.toBe("DISCREPANCIA");
+    expect(r.find((x) => x.id === "ucp-firma-transporte")).toBeUndefined();
+  });
+
+  it("y con un original presentado bajo el mismo crédito, los artículos se aplican enteros", () => {
+    const r = correrCon([ALTERNATIVA], "3/3 ORIGINALS");
+    expect(r.find((x) => x.id === "ucp-transporte-copia")).toBeUndefined();
+    expect(r.find((x) => x.id === "ucp-20a-iv")?.estado).toBe("OK");
+    expect(r.find((x) => x.id === "ucp-firma-transporte")).toBeDefined();
+  });
+
+  /* Y el freno: un crédito que pide el juego completo y recibe una copia sigue rechazando. */
+  it("si el crédito pide el juego completo, una copia sigue siendo discrepancia", () => {
+    const r = correrCon(["FULL SET OF 3/3 ORIGINAL BILLS OF LADING"], "COPY NON NEGOTIABLE");
+    expect(r.find((x) => x.id === "ucp-20a-iv")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
 describe("factura — lo que el crédito le pide declarar (DOCDEX 363)", () => {
   const conLinea = (linea: string, declara?: string) =>
     reglasUCP({
