@@ -272,6 +272,40 @@ export function veredictoDeNombre(
 ): "OK" | "ATENCION" | "DISCREPANCIA" {
   if (enDocumento.trim() && normISBP(enDocumento).trim() === "") return exigeIngles ? "DISCREPANCIA" : "ATENCION";
   const cmp = comparaISBP(enDocumento, enCredito);
+  /*
+   * **Abreviar la forma societaria no es discrepancia; omitirla sí.** Lo dice la Opinión R 455.
+   *
+   * El panel contesta las dos mitades en una línea: *«Use of "Ltd" instead of "Limited" does not
+   * constitute a discrepancy. **The absence of word(s) to the effect of the meaning of "Ltd" in the
+   * name of the consignee would constitute a discrepancy.**»* La primera la cumple la tabla de
+   * abreviaturas del párrafo A1 —«LTD» y «LIMITED» canonizan igual, así que el par sale IGUAL— y la
+   * segunda **no la cumplía nadie**: la banda de **contención** de `comparaISBP` devuelve EQUIVALENTE
+   * cuando un nombre está contenido en el otro, y «ACME ELECTRONICS» está contenido en «ACME
+   * ELECTRONICS LIMITED», así que un consignatario que **se comió la forma societaria** salía en OK.
+   *
+   * **La dirección importa y es lo que hace seguro el arreglo.** Que el papel traiga **de más** es lo
+   * que la banda existe para admitir, y hay dos autoridades sosteniéndolo: la Opinión R 474 —una
+   * sucursal agregada al nombre no rechaza— y la R 733, cuya conclusión 3 dice que agregar datos de
+   * contacto que el crédito no da no es motivo de rechazo. Lo que se cierra es la otra dirección: que
+   * al papel le **falte** la forma societaria que el crédito escribió.
+   *
+   * Y el alcance es exacto a propósito: se exige que **todo** lo que falta sea forma societaria. Si al
+   * papel le falta además una palabra del nombre —«ACME» contra «ACME ELECTRONICS LIMITED»— eso no es
+   * lo que esta Opinión juzga, y queda donde estaba.
+   *
+   * Vive acá y no en `comparaISBP` porque **acá los roles tienen nombre**: `enDocumento` y
+   * `enCredito`. `comparaISBP` se llama en el motor con los argumentos en cualquier orden —`cert-emisor`
+   * recorre los emisores admitidos, `loEmiteElBeneficiario` compara contra el beneficiario— y volverla
+   * asimétrica cambiaría su contrato para todos sus llamadores.
+   */
+  if (cmp === "EQUIVALENTE") {
+    const doc = normISBP(enDocumento).split(" ").filter(Boolean);
+    const cre = normISBP(enCredito).split(" ").filter(Boolean);
+    const leFalta = cre.filter((w) => !doc.includes(w));
+    if (doc.length < cre.length && leFalta.length > 0 && leFalta.every((w) => FORMAS_SOCIETARIAS.has(w))) {
+      return "DISCREPANCIA";
+    }
+  }
   if (cmp === "IGUAL" || cmp === "EQUIVALENTE") return "OK";
   if (cmp === "TIPEO") return "ATENCION";
   /*

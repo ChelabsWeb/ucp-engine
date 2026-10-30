@@ -251,6 +251,33 @@ describe("veredictoDeNombre", () => {
     expect(veredictoDeNombre("Voest-Alpine Trading USA Corp.", "Voest-Alpine USA Trading Corp.")).toBe("OK");
   });
 
+  /*
+   * **Abreviar la forma societaria no es discrepancia; omitirla sí** (Opinión R 455).
+   *
+   * El panel contesta las dos mitades en una línea: *«Use of "Ltd" instead of "Limited" does not
+   * constitute a discrepancy. The absence of word(s) to the effect of the meaning of "Ltd" in the name
+   * of the consignee would constitute a discrepancy.»* La primera la cumplía la tabla del párrafo A1;
+   * la segunda **no la cumplía nadie**, porque la banda de contención de `comparaISBP` daba EQUIVALENTE.
+   *
+   * Y la dirección es lo que hace seguro el arreglo: que el papel traiga **de más** sigue pasando, con
+   * dos autoridades detrás —la Opinión R 474 admite una sucursal agregada al nombre y la R 733 admite
+   * datos de contacto agregados—.
+   */
+  it("abreviar la forma societaria pasa, y omitirla no (Opinión R 455)", () => {
+    expect(veredictoDeNombre("ACME ELECTRONICS LTD", "ACME ELECTRONICS LIMITED")).toBe("OK");
+    expect(veredictoDeNombre("ACME ELECTRONICS", "ACME ELECTRONICS LIMITED")).toBe("DISCREPANCIA");
+  });
+
+  it("y si el papel la agrega, pasa: lo de más es lo que la banda admite (R 474 y R 733)", () => {
+    expect(veredictoDeNombre("ACME ELECTRONICS LIMITED", "ACME ELECTRONICS")).toBe("OK");
+    expect(veredictoDeNombre("ACME ELECTRONICS LTD, BASEL BRANCH", "ACME ELECTRONICS LTD")).toBe("OK");
+  });
+
+  /* Y el freno del alcance: si además falta una palabra del nombre, eso no es lo que R 455 juzga. */
+  it("si además de la forma societaria falta una palabra del nombre, queda donde estaba", () => {
+    expect(veredictoDeNombre("ACME", "ACME ELECTRONICS LIMITED")).toBe("OK");
+  });
+
   it("un tipeo va a verificar: los tribunales no coinciden (Beyene contra Hing Yip)", () => {
     expect(veredictoDeNombre("MOHAMMED SORAN", "MOHAMMED SOFAN")).toBe("ATENCION");
   });
