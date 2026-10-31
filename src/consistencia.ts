@@ -1801,6 +1801,16 @@ export function claveDoc(nombre: string): string {
    * el texto completo en la familia que corresponde. Lo que la segunda pasada puede decidir es
    * **cuál** certificado del beneficiario es, no que no lo sea.
    */
+  /*
+   * **Y la segunda pasada del certificado de marcado, por el mismo motivo que la del beneficiario.**
+   *
+   * `claveDoc` clasifica por la **cabeza** de la línea, y en «a certificate to the effect that country
+   * of origin including details of merchandise has been printed on every skid…» la cabeza se corta antes
+   * del verbo de marcado: queda «…country of origin including details of merchandise», que da `ORIGEN`.
+   * Así que la prueba del marcado se repite sobre la línea **entera**, y solo puede corregir un `ORIGEN`
+   * — nunca robarle la línea a otro tipo.
+   */
+  if (k === "ORIGEN" && clavePorTexto(completo) === "MARCADO") return "MARCADO";
   if (!k.startsWith("BENEFICIARIO")) return k;
   const porLaLinea = clavePorTexto(completo);
   /* El texto va entero por lo que está escrito en `clavePorTexto`: con el recorte, dos exigencias que
@@ -1895,6 +1905,28 @@ function clavePorTexto(s: string): string {
   if (/\bcmr\b|\brail ?way ?bills?\b|\bconsignment notes?\b|\bcartas? de porte\b|\binland waterway\b/.test(s))
     return "BL";
   // con límite de palabra: la «ORIGEN» salía de dentro de «ORIGINAL DOCUMENTS»
+  /*
+   * **El certificado de que algo está marcado en los bultos, que no es un certificado de origen.**
+   *
+   * Va antes de la prueba del origen porque la exigencia lo nombra: el 46A de la Opinión **R 592 /
+   * TA 531** pide *«a certificate to the effect that country of origin including details of merchandise
+   * has been printed on every skid/package/carton/container»*, y eso caía en `ORIGEN` por la palabra
+   * «origin». Medido: una línea así y un «certificate of origin issued by chamber of commerce» daban
+   * **la misma clave**, así que un crédito que pidiera los dos tenía dos líneas con una y **un papel
+   * cumplía las dos**. Es la **décima vez** que un documento cuyo texto menciona otro tipo se lo deja
+   * robar, y la segunda en esta vuelta —antes fue la factura de aduana de la Opinión R 555—.
+   *
+   * **El patrón es angosto por el borde que no se puede pisar:** un «certificate of origin printed on
+   * the letterhead of the chamber» habla de **dónde está impreso el papel**, no de los bultos. Así que
+   * se pide el verbo de marcado **y** un sustantivo de bulto —o «each»/«every», que es como estos
+   * créditos lo escriben—.
+   */
+  if (
+    /\b(printed|marked|stencilled|stenciled|stamped|labelled|labeled)\b[^.;]{0,16}\bon\b[^.;]{0,24}\b(each|every|all|skids?|packages?|cartons?|containers?|bags?|drums?|cases?|crates?|pallets?|boxes|bales?)\b/.test(
+      s,
+    )
+  )
+    return "MARCADO";
   if (/\borigin\b|\borigen\b/.test(s)) return "ORIGEN";
   if (/health|sanitary|sanitario|veterinar/.test(s)) return "SANITARIO";
   if (/halal/.test(s)) return "HALAL";
