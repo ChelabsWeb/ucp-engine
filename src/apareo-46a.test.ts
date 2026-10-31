@@ -79,6 +79,21 @@ const BATERIA: [linea: string, clave: string][] = [
    */
   ["CERTIFICATE OF ORIGIN PRINTED ON THE LETTERHEAD OF THE CHAMBER OF COMMERCE", "ORIGEN"],
   ["CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE", "ORIGEN"],
+
+  /*
+   * ── la declaración de incumplimiento, que es el documento que dispara un standby ──
+   *
+   * El 46A de la Opinión R 426 pide «Statement of non-payment on due date **(75 days after B/L date)**»,
+   * y eso daba `BL` por las palabras «B/L date» de su propio texto — **colapsando con la línea del
+   * conocimiento que el mismo standby pide**. Undécima vez de esa familia, y la peor forma: el papel que
+   * dispara el cobro confundido con el documento de transporte, con el capítulo de los artículos 19 a 25
+   * aplicándosele.
+   */
+  ["STATEMENT OF NON-PAYMENT ON DUE DATE (75 DAYS AFTER B/L DATE)", "INCUMPLIMIENTO"],
+  ["BENEFICIARY'S DECLARATION OF DEFAULT UNDER THE UNDERLYING CONTRACT", "INCUMPLIMIENTO"],
+  ["CERTIFICATE OF NON-PERFORMANCE SIGNED BY THE BENEFICIARY", "INCUMPLIMIENTO"],
+  /* Y el freno: la declaración del embarcador se queda con su clave, que se prueba antes. */
+  ["STATEMENT OF SHIPPER STATING THAT ALL MERCHANDISE ARE SHIPPED IN ACCORDANCE WITH AGREEMENT", "DECLARACION"],
   ["U.S. CUSTOMS INVOICE", "ADUANA"],
   ["SPECIAL CUSTOMS INVOICE FORM 5515", "ADUANA"],
   /* Y el freno: la factura comercial sigue siendo la factura. */

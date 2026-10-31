@@ -1845,6 +1845,31 @@ export function claveParaId(clave: string): string {
 
 function clavePorTexto(s: string): string {
   /*
+   * **La declaración de incumplimiento, que es el documento que dispara un standby.**
+   *
+   * La Opinión **R 426** es un standby cuyo 46A pide tres papeles: *«Statement of non-payment on due date
+   * (75 days after B/L date)»*, la factura impaga y la copia del conocimiento. **Medido: esa primera
+   * línea daba `BL`** —por las palabras «B/L DATE» de su propio texto— **y colapsaba con la línea del
+   * conocimiento**, que también da `BL`. Dos exigencias con una clave: un papel cumplía las dos.
+   *
+   * Es la **undécima vez** que un documento cuyo texto menciona otro tipo se lo deja robar, y es la peor
+   * forma de todas: **el papel que dispara el cobro** —la declaración de que el ordenante no pagó— se
+   * confundía con el documento de transporte, y encima el capítulo de los artículos 19 a 25 se le
+   * aplicaba.
+   *
+   * **Va primera de toda la lista, y el motivo está medido**: puesta después de la declaración del
+   * embarcador seguía dando `BL`, porque la prueba del conocimiento se hace antes y las palabras «B/L
+   * date» de su propio texto se la llevaban. El patrón es angosto —pide la palabra que nombra el hecho,
+   * no pago o incumplimiento o mora— así que ninguna línea de transporte, factura o certificado puede
+   * caer acá: es lo que lo hace seguro delante de todas.
+   */
+  if (
+    /\b(statement|declaration|certificate)\b[^.;]{0,20}\b(of\s+)?(non.?payment|non.?performance|default|breach)\b|\b(non.?payment|default)\b[^.;]{0,16}\b(statement|declaration|certificate)\b/.test(
+      s,
+    )
+  )
+    return "INCUMPLIMIENTO";
+  /*
    * **La factura de aduana es otro documento, y va antes de la prueba de la factura comercial.**
    *
    * El 46A de la Opinión **R 555 / TA 536** pide «certificate of origin», **«U.S. Customs invoice»** y
