@@ -57,6 +57,28 @@ const BATERIA: [linea: string, clave: string][] = [
    * document so titled». Eso es «función sobre título» y vive del lado del examen, no del apareo.
    */
   ["CUSTOMS INVOICE IN 2 COPIES", "ADUANA"],
+
+  /*
+   * ── el certificado de marcado, que no es un certificado de origen ──
+   *
+   * El 46A de la Opinión R 592 / TA 531 pide «a certificate to the effect that **country of origin**
+   * including details of merchandise **has been printed on every skid/package/carton/container**», y eso
+   * caía en `ORIGEN` por la palabra «origin». Medido: esa línea y un «certificate of origin issued by
+   * chamber of commerce» daban la **misma clave**, así que un crédito que pidiera los dos tenía dos
+   * líneas con una y un papel cumplía las dos. Décima vez de esa familia.
+   */
+  [
+    "A CERTIFICATE TO THE EFFECT THAT COUNTRY OF ORIGIN INCLUDING DETAILS OF MERCHANDISE HAS BEEN PRINTED ON EVERY SKID/PACKAGE/CARTON/CONTAINER",
+    "MARCADO",
+  ],
+  ["CERTIFICATE THAT SHIPPING MARKS HAVE BEEN STENCILLED ON EACH CARTON", "MARCADO"],
+  ["CERTIFICATE CONFIRMING THE LOT NUMBER IS MARKED ON ALL BAGS", "MARCADO"],
+  /*
+   * **Y el borde que no se puede pisar:** «printed on the letterhead» habla de dónde está impreso el
+   * papel, no de los bultos. Por eso el patrón pide además un sustantivo de bulto o «each»/«every».
+   */
+  ["CERTIFICATE OF ORIGIN PRINTED ON THE LETTERHEAD OF THE CHAMBER OF COMMERCE", "ORIGEN"],
+  ["CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE", "ORIGEN"],
   ["U.S. CUSTOMS INVOICE", "ADUANA"],
   ["SPECIAL CUSTOMS INVOICE FORM 5515", "ADUANA"],
   /* Y el freno: la factura comercial sigue siendo la factura. */
