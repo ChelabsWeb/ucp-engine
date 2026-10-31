@@ -2168,6 +2168,18 @@ const REEMPLAZOS: [RegExp, string][] = [
     "the credit does not require this document to state the number: its absence is not a discrepancy",
   ],
   [/ y el crédito es /g, " while the credit is "],
+  /*
+   * **El número que está pero es de otro expediente, que ningún caso disparaba.**
+   *
+   * Lo agarró el corpus de inglés del banco de pruebas con la Opinión R 426 —un standby cuya factura
+   * impaga cita el número de otra operación, porque se emitió para el embarque meses antes—. Es la
+   * quinta vez que una plantilla queda descubierta por el límite declarado del control de literales: una
+   * regla que ningún caso dispara no aparece en ningún escenario armado.
+   */
+  [
+    /: el documento pertenece a otro expediente o está mal tipeado/g,
+    ": the document belongs to another file or is mistyped",
+  ],
   [/\bfechado el día de la LC o después\b/g, "dated on or after the credit date"],
   [/^BL consignado\b/g, "B/L consigned"],
   [/^BL marcado\b/g, "B/L marked"],
