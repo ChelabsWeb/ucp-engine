@@ -44,7 +44,23 @@ const BATERIA: [linea: string, clave: string][] = [
   ["SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS", "INVOICE"],
   ["COMMERCIAL INVOICE ISSUED BY BENEFICIARY INDICATING CONTRACT NUMBER AND NUMBER OF LETTER OF CREDIT", "INVOICE"],
   ["MANUALLY SIGNED AND DULY DATED BENEFICIARY'S COMMERCIAL INVOICE ADDRESSED TO APPLICANT", "INVOICE"],
-  ["CUSTOMS INVOICE IN 2 COPIES", "INVOICE"],
+  /*
+   * **Una factura de aduana es otro documento, y esta línea decía lo contrario.**
+   *
+   * La Opinión R 555 / TA 536 tiene un 46A que pide «certificate of origin», «U.S. Customs invoice» y
+   * tres certificados del beneficiario: con la clave vieja el crédito quedaba pidiendo **dos facturas**
+   * y un solo papel cumplía las dos líneas. El test se reescribe al revés con la autoridad en vez de
+   * borrarse, que es lo que este repositorio hace con una decisión ya contestada.
+   *
+   * Lo que el panel sí dice —y es otra cosa— es que el **título** del papel presentado no decide:
+   * «A credit that calls for a US Customs invoice does not specifically require the presentation of a
+   * document so titled». Eso es «función sobre título» y vive del lado del examen, no del apareo.
+   */
+  ["CUSTOMS INVOICE IN 2 COPIES", "ADUANA"],
+  ["U.S. CUSTOMS INVOICE", "ADUANA"],
+  ["SPECIAL CUSTOMS INVOICE FORM 5515", "ADUANA"],
+  /* Y el freno: la factura comercial sigue siendo la factura. */
+  ["COMMERCIAL INVOICE IN TRIPLICATE SHOWING CUSTOMS TARIFF NUMBER", "INVOICE"],
 
   /* ── packing list ── */
   ["PACKING LIST SHOWING GROSS AND NET WEIGHT PER BILL OF LADING", "PACKING"],
@@ -113,11 +129,11 @@ const BATERIA: [linea: string, clave: string][] = [
    */
   [
     "BENEFICIARY'S CERTIFIED COPY OF CABLE DISPATCHED TO THE APPLICANT ADVISING NAME OF VESSEL, SHIPMENT DATE, QUANTITY, WEIGHT, VALUE OF SHIPMENT GOODS AND THIS L/C NO.",
-    "BENEFICIARIO:beneficiary s certified copy of cable di",
+    "BENEFICIARIO:beneficiary s certified copy of cable dispatched to the applicant advising name of vessel shipment date quantity weight value of shipment goods and this l c no",
   ],
   [
     "BENEFICIARY'S STATEMENT ADVISING THE GROSS WEIGHT OF EACH PACKAGE",
-    "BENEFICIARIO:beneficiary s statement advising the gro",
+    "BENEFICIARIO:beneficiary s statement advising the gross weight of each package",
   ],
   /* Y las pruebas de más arriba siguen mandando: el origen se queda con su línea antes de llegar acá. */
   ["CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY", "ORIGEN"],
@@ -182,6 +198,25 @@ describe("el apareo de la línea del 46A", () => {
 
     it("y los cuatro dan claves distintas: presentar uno no cumple los otros", () => {
       expect(new Set(CERTIFICADOS.map(claveDoc)).size).toBe(CERTIFICADOS.length);
+    });
+
+    /*
+     * **El par que el recorte a cuarenta caracteres hacía colapsar (Opinión R 555 / TA 536).**
+     *
+     * Ese 46A pide **tres** certificados del beneficiario y los dos primeros empiezan con
+     * «beneficiary's certificate stating that one complete set of…»: a los cuarenta caracteres son
+     * idénticos, así que las dos exigencias quedaban con una clave y **un solo papel cumplía las dos
+     * líneas**. Es lo que el laudo DOCDEX 211 y la Opinión TA 893rev hicieron frenar, entrando por la
+     * puerta del truncado. Medido antes de arreglarlo: tres líneas, **dos** claves.
+     */
+    const LOS_TRES_DE_R555 = [
+      "BENEFICIARY'S CERTIFICATE STATING THAT ONE COMPLETE SET OF NON-NEGOTIABLE DOCUMENTS WAS SENT BY COURIER TO THE APPLICANT WITHIN 10 DAYS FROM SHIPMENT DATE",
+      "BENEFICIARY'S CERTIFICATE STATING THAT ONE COMPLETE SET OF DOCUMENTS TO BE FAXED TO THE APPLICANT IMMEDIATELY AFTER SHIPMENT",
+      "BENEFICIARY'S CERTIFICATE CERTIFYING THAT 1 ORIGINAL AND 2 COPIES OF TEXTILE EXPORT LICENSE/COMMERCIAL INVOICE STAMPED WITH QUOTA 224V WAS SENT PREPAID BY COURIER TO APPLICANT",
+    ];
+
+    it("y tres que empiezan con las mismas cuarenta letras siguen siendo tres claves", () => {
+      expect(new Set(LOS_TRES_DE_R555.map(claveDoc)).size).toBe(3);
     });
   });
 

@@ -2,6 +2,7 @@ import {
   type CamposDoc,
   cabezaDeExigencia,
   claveDoc,
+  claveParaId,
   listaEntreComillas,
   palabrasQueFaltanDelProForma,
   parseNumero,
@@ -319,7 +320,9 @@ export function reglasCertificados(input: {
 
   input.certificados.forEach((c, i) => {
     const nombre = c.nombreArchivo ?? corto(c.exigencia, 40);
-    const sufijo = `${claveDoc(c.exigencia)}-${i}`;
+    /* Recortada: el id de una regla es lo que los casos nombran y lo que viaja en el aviso del 16,
+     * mientras la clave del apareo lleva el texto entero. Ver `claveParaId`. */
+    const sufijo = `${claveParaId(claveDoc(c.exigencia))}-${i}`;
 
     /*
      * El número del crédito también se mira acá, y acá es donde el banco lo encontró.

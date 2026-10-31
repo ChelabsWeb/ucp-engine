@@ -1803,10 +1803,60 @@ export function claveDoc(nombre: string): string {
    */
   if (!k.startsWith("BENEFICIARIO")) return k;
   const porLaLinea = clavePorTexto(completo);
-  return porLaLinea.startsWith("BENEFICIARIO") ? porLaLinea : `BENEFICIARIO:${completo.slice(0, 40)}`;
+  /* El texto va entero por lo que está escrito en `clavePorTexto`: con el recorte, dos exigencias que
+   * empiezan igual colapsaban en una clave y un solo papel cumplía las dos líneas. */
+  return porLaLinea.startsWith("BENEFICIARIO") ? porLaLinea : `BENEFICIARIO:${completo}`;
+}
+
+/**
+ * La clave de un documento, recortada para entrar en el **id de una regla**.
+ *
+ * La clave de un certificado del beneficiario lleva **su texto entero** —se distingue por lo que
+ * certifica, y con un recorte dos exigencias que empiezan igual colapsaban en una— pero el id de una
+ * regla es otra cosa: **es lo que los casos del banco de pruebas nombran y lo que viaja en el aviso del
+ * artículo 16**, así que un id de doscientos caracteres es inusable. Las dos necesidades se separan acá.
+ *
+ * El recorte **no tiene que ser único**: los ids que la usan llevan además el índice del certificado, que
+ * es lo que los distingue. Y son cuarenta caracteres porque es lo que esos ids ya decían antes de que la
+ * clave creciera, así que ningún caso escrito cambia de nombre.
+ */
+export function claveParaId(clave: string): string {
+  /*
+   * **Solo las del certificado del beneficiario se recortan, y eso es deliberado.** Son las que
+   * crecieron al quitarles el truncado; las `TXT:` llevaron su texto entero desde siempre, así que
+   * recortarlas también les cambiaría el id a casos que ya lo nombran —lo midió el caso de la Opinión
+   * R 474, cuya regla es `cert-emisor-TXT:copy of telefax issued by beneficiary advising shipment
+   * details-1`—. El corte en 53 es `BENEFICIARIO:` más los cuarenta caracteres que esos ids decían
+   * antes, así que ninguno cambia de nombre.
+   */
+  /* Sin los dos puntos, que es como `claveDoc` ya pregunta por esta familia unas líneas más arriba. */
+  return clave.startsWith("BENEFICIARIO") ? clave.slice(0, 53) : clave;
 }
 
 function clavePorTexto(s: string): string {
+  /*
+   * **La factura de aduana es otro documento, y va antes de la prueba de la factura comercial.**
+   *
+   * El 46A de la Opinión **R 555 / TA 536** pide «certificate of origin», **«U.S. Customs invoice»** y
+   * tres certificados del beneficiario. Esa línea caía en `INVOICE` igual que la factura comercial, así
+   * que el crédito quedaba pidiendo **dos facturas** y un solo papel cumplía las dos líneas. Eso es peor
+   * que un FALTA: una factura de aduana es un documento **distinto**, que el crédito pide por separado, y
+   * darla por presentada con la factura comercial es pagar contra un juego incompleto.
+   *
+   * Es la **novena vez** que un documento cuyo nombre contiene otro tipo se lo deja robar por la primera
+   * prueba de la lista: antes fueron el seguro que decía «for 110 pct of invoice value», el air waybill,
+   * el certificado del beneficiario que nombraba el conocimiento, la letra con su «invoice date», la
+   * cláusula del packing list, la declaración del embarcador, la carta de indemnidad y la línea que
+   * nombraba dos documentos.
+   *
+   * Y lo que el panel decide sobre ella va al caso y no acá: *«A credit that calls for a US Customs
+   * invoice **does not specifically require the presentation of a document so titled**. The requirement
+   * is satisfied by the presentation of an invoice that signifies it is a format produced or approved by
+   * the US Customs»*. O sea que el **título** del papel no decide —eso es «función sobre título»— pero la
+   * **línea del 46A** sí nombra un documento aparte.
+   */
+  if (/\bcustoms\b[^.;]{0,12}\b(invoice|form|declaration)\b|\b(invoice|form)\b[^.;]{0,12}\bcustoms\b/.test(s))
+    return "ADUANA";
   if (/invoice|factura/.test(s)) return "INVOICE";
   if (/packing/.test(s)) return "PACKING";
   /*
@@ -1962,7 +2012,20 @@ function clavePorTexto(s: string): string {
    * «CERTIFICATE OF ORIGIN ISSUED BY THE BENEFICIARY» sigue siendo `ORIGEN`.
    */
   if (/beneficiary.{0,25}(?:certificate|certified|statement|declaration)|certificado del beneficiario/.test(s)) {
-    return `BENEFICIARIO:${s.slice(0, 40)}`;
+    /*
+     * **El texto va entero, y el recorte a cuarenta caracteres era un defecto.**
+     *
+     * Un certificado del beneficiario se distingue por **lo que certifica**, y por eso la clave lleva su
+     * texto adentro. Con el recorte, dos exigencias que empiezan igual colapsaban en una clave y **un
+     * solo papel cumplía las dos líneas** — que es justo lo que el laudo DOCDEX 211 y la Opinión
+     * TA 893rev hicieron frenar, entrando por la puerta del truncado.
+     *
+     * El 46A de la Opinión R 555 lo muestra: pide **tres** certificados del beneficiario —uno de que
+     * mandó el juego no negociable por courier en diez días, uno de que lo faxeó, y uno de la licencia
+     * textil con su cuota— y los dos primeros empiezan con «beneficiary's certificate stating that one
+     * complete set of…». A los cuarenta caracteres son idénticos.
+     */
+    return `BENEFICIARIO:${s}`;
   }
   /*
    * El courier y el correo van acá, y el lugar no es un detalle.
