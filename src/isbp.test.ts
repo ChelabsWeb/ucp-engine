@@ -349,6 +349,81 @@ describe("14 (j) — la dirección no tiene que coincidir", () => {
     expect(veredictoDeNombre("ACME TRADING LTD", "ACME HOLDINGS LTD")).toBe("DISCREPANCIA");
     expect(veredictoDeNombre("ALTRA DITTA SRL", "STEYR TRADING GMBH")).toBe("DISCREPANCIA");
   });
+});
+
+/**
+ * Dos formas societarias que significan lo mismo (Opinión R 776 / TA 692rev)
+ *
+ * El crédito nombra al ordenante «OOO [X]» y el papel lo nombra «[X] Ltd». El panel: *«"OOO Country D"
+ * and "Country D Ltd" have the same effect in describing the name of the applicant for the country of
+ * import, **"OOO" and "Ltd" effectively being interchangeable**»*, y **no hay discrepancia**.
+ *
+ * Medido antes de arreglarlo: los cinco pares daban **DISCREPANCIA**, y eso pega en las cinco reglas de
+ * nombres de parte — o sea en el veredicto más caro que tiene el motor.
+ *
+ * **Sale ATENCION y no OK a propósito.** El panel concluye apoyándose en un hecho que el consultante
+ * aportó sobre el comercio de un país; canonizar «ooo» → «ltd» en la tabla del párrafo A1 haría que el
+ * motor afirmara esa equivalencia, y el paso siguiente sería «gmbh» → «ltd», que nadie decide. Lo que el
+ * motor puede hacer sin inventar es dejar de rechazar y poner los dos nombres delante de una persona.
+ */
+describe("R 776 — la misma empresa con la forma societaria de otro país", () => {
+  it.each([
+    ["VOSTOK BAKERY LTD", "OOO VOSTOK BAKERY"],
+    ["OOO VOSTOK BAKERY", "VOSTOK BAKERY LTD"],
+    ["VOSTOK BAKERY OOO", "VOSTOK BAKERY LIMITED"],
+    ["VOSTOK BAKERY LLC", "OOO VOSTOK BAKERY"],
+    ["ALTRA DITTA SRL", "ALTRA DITTA GMBH"],
+    ["PADARIA SUL LTDA", "PADARIA SUL LTD"],
+  ])("«%s» contra «%s» deja de rechazar", (doc, cre) => {
+    expect(veredictoDeNombre(doc, cre)).toBe("ATENCION");
+  });
+
+  it("y nunca llega a OK, porque la equivalencia la afirma el comercio de un país y no el motor", () => {
+    expect(veredictoDeNombre("VOSTOK BAKERY LTD", "OOO VOSTOK BAKERY")).not.toBe("OK");
+  });
+
+  /*
+   * **Los tres frenos, y los tres están medidos.**
+   *
+   * El primero es el límite jurídico: una sociedad **anónima** no es una de responsabilidad limitada, y
+   * ahí el nombre puede estar describiendo otra persona jurídica. Un test de la banda del 14 (j) ya
+   * fijaba «ACME TRADING LTD» contra «ACME TRADING SA» en DISCREPANCIA y sigue así.
+   *
+   * El segundo es la Opinión R 455: si a un lado le **falta** la forma societaria —no la cambió por
+   * otra, se la comió— eso sigue siendo discrepancia.
+   *
+   * El tercero es *Bulgrains*: lo que difiere no puede ser una palabra del nombre.
+   */
+  it.each([
+    ["ACME TRADING LTD", "ACME TRADING SA"],
+    ["ACME TRADING LTD", "ACME TRADING AG"],
+    ["ACME TRADING LLC", "ACME TRADING INC"],
+    ["ACME TRADING SRL", "ACME TRADING PLC"],
+  ])("«%s» contra «%s» sigue siendo discrepancia: una anónima no es una limitada", (doc, cre) => {
+    expect(veredictoDeNombre(doc, cre)).toBe("DISCREPANCIA");
+  });
+
+  it("y la forma societaria que falta sigue siendo discrepancia (R 455)", () => {
+    expect(veredictoDeNombre("ACME ELECTRONICS", "ACME ELECTRONICS LIMITED")).toBe("DISCREPANCIA");
+  });
+
+  it("y una palabra del nombre cambiada tampoco entra (Bulgrains)", () => {
+    expect(veredictoDeNombre("BULGRAINS & CO LTD", "BULGRAINS CO LTD")).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("ACME TRADING OOO", "ACME HOLDINGS LTD")).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * **Y el cuarto freno, que escribí sin test y el mutante lo delató.**
+   *
+   * La condición de que las formas societarias **que no son de responsabilidad limitada** sean las
+   * mismas a los dos lados no la cubría ninguna aserción: aflojarla dejaba los 61 tests en verde, o sea
+   * que era decorativa. Lo que impide es esto — un lado que trae además una forma **anónima** describe
+   * potencialmente otra persona jurídica, y ahí el par no se compara por esta banda.
+   */
+  it("un lado con una forma anónima de más no entra por esta banda", () => {
+    expect(veredictoDeNombre("ACME TRADING SA LTD", "ACME TRADING OOO")).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("ACME TRADING OOO", "ACME TRADING AG GMBH")).toBe("DISCREPANCIA");
+  });
 
   it("y el prefijo común tiene que traer al menos dos palabras", () => {
     expect(veredictoDeNombre("STEYR WIEN", "STEYR VIENNA")).toBe("DISCREPANCIA");
