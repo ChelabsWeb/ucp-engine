@@ -82,6 +82,38 @@ const FORMAS_SOCIETARIAS = new Set([
 ]);
 
 /**
+ * Las formas societarias que significan **lo mismo**: sociedad de responsabilidad limitada.
+ *
+ * Existe por la Opinión **R 776 / TA 692rev**, donde el crédito nombra al ordenante «OOO [X]» y el papel
+ * «[X] Ltd»: *«"OOO" and "Ltd" effectively being interchangeable»*, y el panel concluye que no hay
+ * discrepancia. «OOO» es *obshchestvo s ogranichennoy otvetstvennostyu*, que es literalmente eso.
+ *
+ * **La lista es jurídica y no una corazonada**, y por eso se puede defender: entra lo que en su país
+ * designa una sociedad de responsabilidad limitada. Y **queda afuera lo que designa otra cosa** —«SA»,
+ * «AG», «NV», «SpA», «PLC», «JSC» son anónimas, «Inc» y «Corp» son corporaciones— porque ahí el nombre
+ * puede estar describiendo **otra persona jurídica**, y un test ya fijaba que «ACME TRADING LTD» contra
+ * «ACME TRADING SA» es discrepancia.
+ *
+ * Lo que el motor hace con un par de esta lista es **avisar**, no aprobar: ver `veredictoDeNombre`.
+ */
+const LIMITADAS_EQUIVALENTES = new Set([
+  "ltd",
+  "ltda",
+  "llc",
+  "ooo",
+  "gmbh",
+  "srl",
+  "sarl",
+  "bv",
+  "aps",
+  "zoo",
+  "bhd",
+  "sl",
+  "pvt",
+  "pte",
+]);
+
+/**
  * Texto comparable: sin acentos, sin puntuación y con las abreviaturas unificadas (A1).
  *
  * **El ampersand vale como la palabra «and» en vez de desaparecer**, y eso lo decidió una sentencia.
@@ -357,6 +389,55 @@ export function veredictoDeNombre(
    */
   const pa = normISBP(enDocumento).split(" ").filter(Boolean);
   const pb = normISBP(enCredito).split(" ").filter(Boolean);
+  /*
+   * **Dos formas societarias distintas sobre el mismo nombre: ATENCION, no DISCREPANCIA.**
+   *
+   * La Opinión **R 776 / TA 692rev** es el caso: el crédito nombra al ordenante «OOO [X]» y el papel lo
+   * nombra «[X] Ltd», y el panel resuelve que es **la misma empresa** — *«"OOO Country D" and "Country D
+   * Ltd" have the same effect in describing the name of the applicant for the country of import, "OOO"
+   * and "Ltd" effectively being interchangeable»*, y *«There is no discrepancy»*.
+   *
+   * Medido antes de tocar nada: los cinco pares que probé —OOO contra LTD, OOO contra LIMITED, OOO contra
+   * LLC, en las dos posiciones— daban **DISCREPANCIA**. Y pega en las **cinco** reglas de nombres de
+   * parte, o sea en el veredicto más caro que tiene el motor: pagar contra una factura emitida a nombre
+   * de otra empresa es de las cosas que un examen no puede dejar pasar, y rechazar a la empresa correcta
+   * porque su forma societaria se escribe distinta en dos países es el otro lado del mismo error.
+   *
+   * **Y sale ATENCION y no OK, que es la parte deliberada.** El panel concluye apoyándose en un hecho que
+   * el consultante aportó —«in Country R, "Ltd" is often used as the equivalent of "OOO"»— o sea en
+   * conocimiento del comercio de un país. Canonizar «ooo» → «ltd» en la tabla del párrafo A1 haría que el
+   * motor afirmara esa equivalencia, y el paso siguiente sería «gmbh» → «ltd», que la Opinión no decide y
+   * nadie sostiene. Lo que el motor puede hacer sin inventar es **dejar de rechazar y poner los dos
+   * nombres delante de una persona**, que es lo mismo que hace con el área geográfica (TA 796rev) y con
+   * una capacidad de firma que no reconoce. Si debería ser OK es la decisión del dueño, al lado de la que
+   * dejó el laudo DOCDEX 325.
+   *
+   * **Los dos frenos, y los dos están medidos:**
+   *
+   * - **los dos lados tienen que traer una forma societaria.** Si a uno le **falta** —«ACME ELECTRONICS»
+   *   contra «ACME ELECTRONICS LIMITED»— eso es la Opinión R 455 y **sigue siendo DISCREPANCIA**: el
+   *   papel se comió la forma, no la cambió por otra.
+   * - **el nombre sin su forma societaria tiene que ser el mismo.** «BULGRAINS & CO LTD» queda en
+   *   «bulgrains and» y «BULGRAINS CO LTD» en «bulgrains», así que ese par no entra por acá y sigue
+   *   siendo DISCREPANCIA, que es lo que el High Court resolvió.
+   */
+  const sinForma = (ws: string[]) => ws.filter((w) => !FORMAS_SOCIETARIAS.has(w));
+  const limitadasDe = (ws: string[]) => ws.filter((w) => LIMITADAS_EQUIVALENTES.has(w));
+  const otrasFormasDe = (ws: string[]) => ws.filter((w) => FORMAS_SOCIETARIAS.has(w) && !LIMITADAS_EQUIVALENTES.has(w));
+  const la = limitadasDe(pa);
+  const lb = limitadasDe(pb);
+  if (
+    la.length > 0 &&
+    lb.length > 0 &&
+    la.join(" ") !== lb.join(" ") &&
+    /* Si un lado trae además una forma que **no** es de responsabilidad limitada, no se compara: ahí
+       puede estar describiendo otra persona jurídica y eso es lo que el freno de abajo decide. */
+    otrasFormasDe(pa).join(" ") === otrasFormasDe(pb).join(" ") &&
+    sinForma(pa).length >= 1 &&
+    sinForma(pa).join(" ") === sinForma(pb).join(" ")
+  ) {
+    return "ATENCION";
+  }
   let i = 0;
   while (i < pa.length && i < pb.length && pa[i] === pb[i]) i++;
   const colas = [...pa.slice(i), ...pb.slice(i)];
