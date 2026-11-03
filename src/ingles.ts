@@ -1951,6 +1951,20 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^cláusula de opción del transportista, admitida por el artículo:/g,
     "carrier's option clause, permitted by the article:",
   ],
+  /*
+   * **La otra rama de la misma regla, que ningún caso disparaba (Opinión R 358).**
+   *
+   * El conocimiento del expediente de referencia trae el **permiso general** —«the Carrier may carry the
+   * goods on deck»— que es la rama de arriba y estaba traducida; la que **declara** la carga en cubierta
+   * no aparecía en ningún escenario armado. Es la sexta vez que una plantilla queda descubierta por el
+   * límite del control de literales, y la compensación sigue siendo la misma: se cubre el día que alguien
+   * le escribe el caso.
+   */
+  [
+    /^el documento declara la carga sobre cubierta:/g,
+    "the document states that the goods are loaded on deck:",
+  ],
+  [/^cláusula leída:/g, "clause read:"],
 
   // ── los nombres de los documentos, que el motor escribe en mayúsculas como clave ──
   [/\bFACTURA\b(?=:)/g, "INVOICE"],
