@@ -2839,6 +2839,24 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
        * invoice»*. La misma factura falla por un camino y cumple por el otro, así que elegir el camino
        * sería elegir el veredicto.
        *
+       * **Y la Opinión R 308 la cierra por el cuarto lado, que es el que parecía inofensivo: la cuenta
+       * tampoco sirve para SUPLIR un dato que falta.** Ahí el crédito pedía que una factura de aduana
+       * visada mostrara el precio unitario, el papel llegó con la cantidad total y el valor total, y el
+       * presentador argumentó que *«hence the unit price can be calculated»*. El panel:
+       *
+       * > It is not the duty of the issuing or nominated banks to carry out a calculation as described
+       * > to determine acceptability or otherwise. **It does not necessarily follow that the total value
+       * > divided by the total quantity would give a unit price that is required in the context of the
+       * > credit.** … The document would be discrepant without the inclusion of the unit price, **even
+       * > if the document showed the total quantity and total value**.
+       *
+       * El motivo es mejor que «los bancos no calculan»: **el cociente puede no ser el precio unitario
+       * que el crédito quiere** —hay descuentos, bases distintas, bultos de más— así que calcularlo no
+       * es un atajo, es inventar un dato. Las cuatro juntas: el laudo 224 admite la cuenta para
+       * **deshacer una ambigüedad a favor** del documento, el 310 dice que un banco no está obligado a
+       * **contar**, el 775 que no chequea **cálculos detallados** sino totales, y R 308 que tampoco
+       * **completa** lo que falta.
+       *
        * **Medido con el mutante, que es lo que vuelve la decisión defendible:** esa regla escrita como
        * la escribiría cualquiera —comparar el producto contra el total con medio centavo de
        * tolerancia— produce **tres inventadas** en el banco de pruebas de cotejo: el caso de esta
