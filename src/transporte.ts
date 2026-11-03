@@ -356,6 +356,20 @@ export interface FirmaDeTransporte {
   capacidad: CapacidadFirma | null;
   /** Firma un agente por cuenta de otro. No cambia el veredicto: el artículo admite al agente nombrado. */
   porAgente: boolean;
+  /**
+   * El bloque declara **más de una** capacidad, así que no se sabe en cuál firma.
+   *
+   * La Opinión **R 354** es el caso: un conocimiento preimpreso con «Signed **for the master/for the
+   * carrier** as agents», firmado por un agente nombrado. *«The bill of lading presented would seem to
+   * indicate that the agent signing the bill of lading **should have deleted either "for the master" or
+   * "for the carrier". With the document displaying both parties, the capacity in which the agent is
+   * signing is unclear**»*, y el panel concluye que el documento no cumple el artículo.
+   *
+   * Medido antes de arreglarlo: `leerFirma` devolvía **TRANSPORTISTA** —elegía la primera de la lista—
+   * y como el artículo admite las dos, la regla salía en **OK**. O sea el motor aprobaba un bloque que
+   * el panel declara ambiguo.
+   */
+  ambigua?: boolean;
 }
 
 export function leerFirma(texto: string): FirmaDeTransporte {
@@ -389,6 +403,28 @@ export function leerFirma(texto: string): FirmaDeTransporte {
     new RegExp(
       `\\b(?:AS|FOR|ON BEHALF OF|SIGNED BY|FIRMADO POR)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`,
     ).test(t);
+
+  /*
+   * **Dos capacidades a la vez no se eligen: se dicen (Opinión R 354).**
+   *
+   * El orden de las pruebas de abajo existe para decidir cuál capacidad declara el bloque, y con un
+   * preimpreso que dice «for the master/for the carrier» elegir la primera es inventar una respuesta.
+   * Acá se cuenta cuántas de las cinco declara, y con más de una la firma sale **ambigua**.
+   *
+   * **Sale ambigua y no discrepante, y el motivo es del dato y no prudencia genérica:** el propio panel
+   * dice que lo correcto era **tachar una** de las dos, y una tachadura es exactamente lo que un campo
+   * de texto transcrito por una persona no puede representar. El motor no puede saber si el papel que
+   * tiene delante traía una tachada, así que pone las dos a la vista — que es la misma decisión que con
+   * una capacidad que no se reconoce.
+   */
+  const declaradas = [
+    cap("CARRIER|CARRIERS") && "TRANSPORTISTA",
+    cap("MASTER|MASTERS|CAPTAIN|CAPT") && "CAPITAN",
+    cap("OWNER|OWNERS|SHIPOWNER|SHIPOWNERS") && "ARMADOR",
+    cap("CHARTERER|CHARTERERS") && "FLETADOR",
+    cap("COURIER|COURIER SERVICE") && "COURIER",
+  ].filter(Boolean);
+  if (declaradas.length > 1) return { capacidad: null, porAgente, ambigua: true };
 
   if (cap("CARRIER|CARRIERS")) return { capacidad: "TRANSPORTISTA", porAgente };
   /*

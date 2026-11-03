@@ -1999,6 +1999,26 @@ describe("con qué capacidad se firmó el documento de transporte (inciso (a) (i
       "ucp-firma-transporte",
     );
 
+  /*
+   * **El bloque que declara dos capacidades, y acá se mide la evidencia (Opinión R 354).**
+   *
+   * El estado no distingue este hecho de una capacidad que no se reconoce —los dos son ATENCION, y está
+   * bien que lo sean— así que **lo que esta rama cambia es la redacción**: en vez de «no se reconoció una
+   * capacidad», dice que el papel declara más de una y manda a mirar si en el original hay una tachada,
+   * que es lo que el panel dice que tendría que haber pasado. Sin esta aserción la rama sería decorativa
+   * —medido: apagarla deja los 338 tests en verde— y es la misma división de trabajo que la Opinión
+   * TA 862 dejó escrita: lo que no cambia un veredicto se mide donde nace.
+   */
+  it("R 354: el bloque con dos capacidades avisa de la tachadura y no elige", () => {
+    const r = conFirma("SIGNED FOR THE MASTER/FOR THE CARRIER AS AGENTS - OCEAN AGENCIES LTD");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("más de una capacidad");
+    expect(r?.evidencia).toContain("R 354");
+    expect(r?.evidencia).toMatch(/tachad/i);
+    /* Y no dice lo que diría una firma que no se entiende, que es otro hecho. */
+    expect(r?.evidencia).not.toContain("no se reconoció una capacidad");
+  });
+
   /** El mismo bloque de firma sobre un conocimiento sujeto a contrato de fletamento (art. 22). */
   const enFletamento = (firma: string) =>
     conFirma(firma, { charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-2025") });

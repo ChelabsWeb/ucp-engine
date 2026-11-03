@@ -164,6 +164,61 @@ describe("«signed by the master» declara una capacidad (laudo DOCDEX 247)", ()
 });
 
 /**
+ * El bloque que declara **dos** capacidades a la vez (Opinión **R 354**)
+ *
+ * Un conocimiento preimpreso con «Signed **for the master/for the carrier** as agents», firmado por un
+ * agente nombrado. *«The bill of lading presented would seem to indicate that the agent signing the bill
+ * of lading **should have deleted either "for the master" or "for the carrier". With the document
+ * displaying both parties, the capacity in which the agent is signing is unclear**»*, y el panel concluye
+ * que el documento no cumple el artículo.
+ *
+ * Medido antes de arreglarlo: `leerFirma` devolvía **TRANSPORTISTA** —elegía la primera de la lista— y
+ * como el artículo admite las dos, la regla salía en **OK**. El motor aprobaba un bloque que el panel
+ * declara ambiguo.
+ *
+ * **Sale ambigua y no discrepante por un motivo del dato:** el propio panel dice que lo correcto era
+ * **tachar una**, y una tachadura es exactamente lo que un campo de texto transcrito por una persona no
+ * puede representar.
+ */
+describe("el bloque que declara dos capacidades (Opinión R 354)", () => {
+  it.each([
+    "SIGNED FOR THE MASTER/FOR THE CARRIER AS AGENTS - OCEAN AGENCIES LTD",
+    "AS AGENT FOR THE CARRIER AND FOR THE MASTER",
+    "FOR THE CARRIER / FOR THE OWNERS AS AGENTS",
+  ])("«%s» sale ambigua y sin elegir", (b) => {
+    const f = leerFirma(b);
+    expect(f.ambigua).toBe(true);
+    expect(f.capacidad).toBeNull();
+  });
+
+  /*
+   * **Los tres frenos, y el primero es el que importa:** la ambigüedad necesita dos capacidades
+   * **ancladas**. El bloque de R 834 menciona un capitán **sin anclar** —«CAPT. J SMITH» detrás de una
+   * coma— así que no es ambiguo, es una firma sin capacidad reconocida, que es otro hecho y tiene su
+   * propia evidencia. Y el del laudo DOCDEX 284 nombra «CAPT.» y «MASTER», que son **la misma**
+   * capacidad escrita dos veces.
+   */
+  it("una mención suelta del capitán no vuelve ambiguo el bloque (R 834)", () => {
+    expect(leerFirma("ROH AS AGENT ON BEHALF OF HAP - THE CARRIER, CAPT. J SMITH").ambigua).toBeUndefined();
+  });
+
+  it("y dos palabras de la misma capacidad tampoco (DOCDEX 284)", () => {
+    const f = leerFirma("FOR AND/OR ON BEHALF OF CAPT. P / MASTER OF VESSEL D / FOR COMPANY S / AS AGENTS");
+    expect(f.ambigua).toBeUndefined();
+    expect(f.capacidad).toBe("CAPITAN");
+  });
+
+  it.each([
+    ["SIGNED BY THE MASTER OF M/V DON CARLOS", "CAPITAN"],
+    ["XYZ SHIPPING AS AGENT FOR THE CARRIER ABC LINES", "TRANSPORTISTA"],
+  ])("y una capacidad sola sigue decidiendo: «%s» → %s", (b, esperado) => {
+    const f = leerFirma(b);
+    expect(f.ambigua).toBeUndefined();
+    expect(f.capacidad).toBe(esperado);
+  });
+});
+
+/**
  * «CAPT.» abreviado, que es el laudo DOCDEX 284.
  *
  * El fletamento del laudo está firmado «FOR AND/OR ON BEHALF OF CAPT. P / MASTER OF VESSEL D / FOR
