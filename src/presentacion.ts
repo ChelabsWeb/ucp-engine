@@ -241,11 +241,19 @@ export const NOMBRA_PROFORMA = /\bPRO[\s-]?FORMA\b/i;
 /**
  * El número que el crédito le pone a la proforma.
  *
- * Acepta barras y puntos y **termina en alfanumérico**, así que «ZM/2009/118» entra entero y un punto
- * final de frase queda afuera. Con la clase vieja —`[A-Z0-9-]+`— ese número se cortaba en «ZM» y una
- * factura que citara otro de la misma serie pasaba por contención.
+ * Dos cosas, y cada una salió de una redacción real:
+ *
+ * - **acepta un calificativo en el medio**, porque el crédito de la Opinión R 339 pide la «**pro-forma
+ *   export invoice**» y la Opinión usa esa frase dos veces. Sin esto el número no se leía y la regla
+ *   caía a «cualquier cita alcanza», o sea daba **OK sobre la factura que el panel declara
+ *   discrepante**. Es **una** palabra y no una frase, y los conectores quedan afuera para que un
+ *   «proforma **and** commercial invoice no. X» no entregue el número de la otra factura;
+ * - **acepta barras y puntos y termina en alfanumérico**, así que «ZM/2009/118» entra entero y un punto
+ *   final de frase queda afuera. Con la clase vieja —`[A-Z0-9-]+`— ese número se cortaba en «ZM» y una
+ *   factura que citara otro de la misma serie pasaba por contención.
  */
-export const NUMERO_DE_PROFORMA = /\bPRO[\s-]?FORMA\s+INVOICE\s+NO\.?\s*([A-Z0-9/.-]*[A-Z0-9])/i;
+export const NUMERO_DE_PROFORMA =
+  /\bPRO[\s-]?FORMA(?:\s+(?!AND\b|OR\b|THE\b)[A-Z]+)?\s+INVOICE\s+NO\.?\s*([A-Z0-9/.-]*[A-Z0-9])/i;
 
 export function hastaLaDescripcion(nombre: string | null): string | null {
   if (!nombre) return null;

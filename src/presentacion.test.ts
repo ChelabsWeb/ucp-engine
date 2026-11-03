@@ -1499,6 +1499,26 @@ describe("fac-proforma: la proforma que el crédito nombra", () => {
     expect(r).toMatchObject({ estado: "ATENCION", evidencia: expect.stringContaining("verificar a mano") });
   });
 
+  it("la «pro-forma export invoice» de la Opinión R 339: el calificativo del medio no pierde el número", () => {
+    const r = correr({
+      mercaderia45A: "HOT ROLLED STEEL COILS AS PER PRO-FORMA EXPORT INVOICE NO. PF-2199/98",
+      fac: facturaQueCita("GOODS SUPPLIED AS PER PRO-FORMA EXPORT INVOICE NO. PF-2187/98"),
+    });
+    expect(r).toMatchObject({ estado: "DISCREPANCIA", regla: expect.stringContaining("PF-2199/98") });
+  });
+
+  /*
+   * El freno del calificativo: una sola palabra y sin conectores, para que el número de otra factura
+   * no entre como si fuera el de la proforma.
+   */
+  it("un conector en el medio no entrega el número de la otra factura", () => {
+    const r = correr({
+      mercaderia45A: "STEEL COILS AS PER PROFORMA AND COMMERCIAL INVOICE NO. CI-900",
+      fac: facturaQueCita("GOODS AS PER PROFORMA INVOICE NO. PF-1"),
+    });
+    expect(r).toMatchObject({ estado: "OK", regla: expect.not.stringContaining("CI-900") });
+  });
+
   it("un crédito que no la nombra no emite la regla", () => {
     expect(correr({ fac: facturaQueCita("GOODS AS PER PROFORMA INVOICE NO. PF-1") })).toBeUndefined();
   });
