@@ -48,6 +48,29 @@ describe("lo que queda del lado humano", () => {
     expect(v?.documentos).toEqual(["BL MVD0990117"]);
   });
 
+  /*
+   * El conteo del documento de seguro sale del **28 (b)** y no del 20 (a) (iv), y su disparador es lo que
+   * **el papel dice de sí mismo**: *«When the insurance document indicates that it has been issued in more
+   * than one original, all originals must be presented»*.
+   *
+   * Opinión **R 359**: el 46A pedía el certificado «in one original and one copy» y el papel venía
+   * preimpreso «in two originals to the same effect». Presentar **uno**, que es lo que el crédito pedía,
+   * **es discrepante**. Un examinador que cuente contra el 46A y no contra lo que el papel declara se lo
+   * pierde, y hasta acá no había nada que se lo dijera.
+   */
+  it("con un documento de seguro presentado, hay que contar los originales que el papel declara", () => {
+    const v = verificacionesManuales({ lc: LC, docs: DOCS, haySeguro: true }).find((x) => x.id === "juego-seguro");
+    expect(v?.fuente).toBe("UCP 600 28b");
+    expect(v?.que).toContain("declara");
+    expect(v?.porQue).toContain("aunque el crédito haya pedido menos");
+    expect(v?.documentos).toEqual(["documento de seguro"]);
+  });
+
+  it("sin documento de seguro, ese conteo no aparece", () => {
+    const ids = verificacionesManuales({ lc: LC, docs: DOCS }).map((x) => x.id);
+    expect(ids).not.toContain("juego-seguro");
+  });
+
   it("sin transporte presentado, esa verificación no aparece", () => {
     const soloFactura = [DOCS[0]!];
     expect(verificacionesManuales({ lc: LC, docs: soloFactura }).some((v) => v.id === "juego-fisico")).toBe(false);

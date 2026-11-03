@@ -2357,6 +2357,14 @@ const REEMPLAZOS: [RegExp, string][] = [
     "a scanned file does not allow an original to be told apart from a photocopy",
   ],
   [
+    /^Contar los originales que el documento de seguro declara, y que estén presentados todos$/g,
+    "Count the originals the insurance document states it was issued in, and that all of them were presented",
+  ],
+  [
+    /^si el papel dice que se emitió en más de un original hay que presentarlos todos, aunque el crédito haya pedido menos$/g,
+    "if the document states it was issued in more than one original, all of them must be presented, even where the credit asked for fewer",
+  ],
+  [
     /^Que toda corrección del original esté autenticada por quien emitió el documento y muestre por quién; en una copia no negociable no hace falta ni firma ni autenticación$/g,
     "That every correction on an original is authenticated by the issuer of the document and shows by whom; on a non-negotiable copy neither signature nor authentication is required",
   ],
