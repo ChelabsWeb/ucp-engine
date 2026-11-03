@@ -320,6 +320,44 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     ).toBe("OK");
   });
 
+  /*
+   * **Y la declaración no siempre lleva verbo (Opinión R 358).**
+   *
+   * *«A bill of lading which states "Perishable Cargo on Deck at Shipper's Risk" **is a clear indication
+   * that the goods are loaded on deck**, and if not allowed by the credit, the bills of lading should be
+   * rejected for an on deck shipment having taken place»*. Medido antes de arreglarlo: salía en **OK**.
+   *
+   * **Es la sobrecorrección del arreglo que esta regla tuvo primero** — el «the Carrier may carry the
+   * goods on deck» de CMA CGM, que la regla marcaba y habría fallado en casi todo conocimiento de línea.
+   * Al aflojarla quedó pasando la forma nominal, que es la leyenda estándar de un conocimiento que de
+   * verdad lleva carga en cubierta.
+   */
+  it.each([
+    "PERISHABLE CARGO ON DECK AT SHIPPER'S RISK",
+    "ON DECK CARGO",
+    "CONTAINERS ON DECK",
+    "ON DECK SHIPMENT",
+    "ON DECK AT SHIPPERS RISK",
+  ])("26a: «%s» declara la carga sobre cubierta aunque no lleve verbo", (c) => {
+    expect(buscar([{ tipo: "BL", campos: doc({ onDeck: campo(c) }) }], "ucp-26a")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * **Los dos frenos, y el segundo es el que el orden de las pruebas sostiene.**
+   *
+   * La cláusula de opción se evalúa **después** y gana, así que un permiso general que además reparte el
+   * riesgo —que es como lo escribe media línea marítima— sigue siendo opción y no declaración. Y una
+   * cláusula que dice que la carga va **bajo** cubierta no puede entrar por acá.
+   */
+  it.each([
+    "THE CARRIER MAY CARRY THE GOODS ON DECK AT SHIPPER'S RISK",
+    "CARRIER HAS THE OPTION TO STOW CARGO ON DECK",
+    "CARRIED UNDER DECK",
+    "UNDER DECK STOWAGE",
+  ])("y «%s» no es una declaración", (c) => {
+    expect(buscar([{ tipo: "BL", campos: doc({ onDeck: campo(c) }) }], "ucp-26a")?.estado).toBe("OK");
+  });
+
   it("27: una cláusula que declara el embalaje defectuoso ensucia el documento", () => {
     const r = buscar([{ tipo: "BL", campos: doc({ clausulaDefecto: campo("BAGS TORN AND STAINED") }) }], "ucp-27");
     expect(r?.estado).toBe("DISCREPANCIA");
