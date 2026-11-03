@@ -236,6 +236,9 @@ export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0
  * todo su texto y su crédito nombra el número que la factura citó mal; los dos créditos del banco de
  * pruebas que la nombran usan la grafía pegada. Ver la regla `fac-proforma`.
  */
+/** Los números que un 46A escribe en palabras: «IN THREE ORIGINALS», «3 COMMERCIAL INVOICES». */
+const PALABRA_A_NUMERO: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6 };
+
 export const NOMBRA_PROFORMA = /\bPRO[\s-]?FORMA\b/i;
 
 /**
@@ -388,24 +391,127 @@ export interface Ejemplares {
 
 /** "IN 03 FOLD" → 3 · "FULL SET OF (3/3) … PLUS 02 NON NEGOTIABLE COPIES" → 3 originales + 2 copias · "IN DUPLICATE" → 2. */
 export function ejemplaresDe(texto: string): Ejemplares {
-  const t = texto.toUpperCase();
-  const set = /\((\d)\s*\/\s*(\d)\)|FULL SET OF\s*(\d)/.exec(t);
-  const copias = /(\d{1,2})\s*(?:NON[- ]NEGOTIABLE\s+)?COP(?:Y|IES)/.exec(t);
-  const fold = /IN\s*(\d{1,2})\s*FOLD/.exec(t);
-  const palabra = /\b(DUPLICATE|TRIPLICATE|QUADRUPLICATE)\b/.exec(t);
-  const originales = set
-    ? Number(set[1] ?? set[3])
-    : fold
-      ? Number(fold[1])
-      : palabra
-        ? ({ DUPLICATE: 2, TRIPLICATE: 3, QUADRUPLICATE: 4 }[palabra[1]] ?? null)
+  /*
+   * **El conteo se corta donde el papel empieza a declarar lo que dice.**
+   *
+   * Una línea del 46A nombra el documento y lo describe, y la descripción de un certificado del
+   * beneficiario enumera **los papeles que certifica haber mandado**: «BENEFICIARY'S CERTIFICATE
+   * CERTIFYING THAT **2 COPIES OF EACH SHIPPING DOCUMENT** HAVE BEEN SENT TO THE APPLICANT». Leer ese 2
+   * como los ejemplares del certificado es la misma forma que ya costó cinco veces con el nombre del
+   * emisor y con la clave de apareo — y desde el arreglo del 17 (e) sería peor, porque el texto pasaría a
+   * **afirmar** que alcanza un original.
+   *
+   * **Dos cortes se probaron y se descartaron, medidos sobre los créditos del banco de pruebas:**
+   *
+   * - cortar en `ABRE_DESCRIPCION` **pierde nueve conteos legítimos**, porque los créditos reales ponen
+   *   el conteo detrás del emisor: «CERTIFICATE OF QUALITY ISSUED BY INDEPENDENT SURVEYOR **IN 1 ORIGINAL
+   *   AND 1 COPY**»;
+   * - y descartar cualquier «COPIES **OF** …» **pierde tres más**, porque ese «of» puede nombrar a este
+   *   mismo papel: «ORIGINAL AND 3 COPIES **OF PACKING LIST**».
+   *
+   * Lo que los separa es el verbo de declaración **con su «that»**: «issued by», «marked», «plus» o «in»
+   * describen al documento, y «certifying **that**» o «stating **that**» abren una cláusula sobre lo que
+   * el papel dice de **otros**. Ahí el conteo deja de ser suyo.
+   *
+   * **Y hacen falta las dos condiciones, medido línea por línea sobre el banco.** Con el verbo solo, el
+   * corte se lleva tres conteos propios —«BENEFICIARYS DULY SIGNED STATEMENT CONFIRMING THAT … **- 1
+   * ORIGINAL**», el protocolo igual, y la factura que va «EVIDENCING DELIVERY AND PAYMENT TERMS - IN 1
+   * ORIGINAL AND 1 COPY»—. Con el «of» solo se lleva otros tres, porque ese «of» puede nombrar a **este**
+   * papel: «ORIGINAL AND 3 COPIES **OF PACKING LIST**». Juntas aciertan en las ocho líneas que el banco
+   * tiene de esta forma: el conteo deja de ser suyo cuando está **dentro de la cláusula** que abre el
+   * «that» **y además** nombra otro documento.
+   */
+  const DECLARA = /\b(certifying|stating|confirming|declaring|attesting)\s+that\b/;
+  const DE_OTRO_PAPEL = /\b(?:COP(?:Y|IES)|ORIGINALS?|SET)\s+OF\b/;
+  const abre = DECLARA.exec(texto.toLowerCase())?.index;
+  const declarado = abre != null ? texto.slice(abre).toUpperCase() : "";
+  const corte = abre != null && DE_OTRO_PAPEL.test(declarado) ? abre : null;
+  const t = (corte != null ? texto.slice(0, corte) : texto).toUpperCase();
+
+  /* el juego completo del artículo 20 (a) (iv): «FULL SET OF 3», «(3/3)», «3/3» — ahí sí son n originales */
+  const juego = /\((\d)\s*\/\s*(\d)\)|\b(\d)\s*\/\s*\d\b|FULL SET OF\s*(\d)/.exec(t);
+  const nJuego = juego ? Number(juego[1] ?? juego[3] ?? juego[4]) : null;
+
+  /* «1 ORIGINAL», «IN THREE ORIGINALS»: el crédito dice originales y cuántos */
+  const mOrig = /\b(\d{1,2}|ONE|TWO|THREE|FOUR|FIVE|SIX)\s+ORIGINAL/.exec(t);
+  const nExplicitos = mOrig ? (PALABRA_A_NUMERO[mOrig[1]] ?? Number(mOrig[1])) : null;
+
+  /* las palabras van en los dos lados: «ONE ORIGINAL AND ONE COPY» se leía a medias */
+  const mCopias = /\b(\d{1,2}|ONE|TWO|THREE|FOUR|FIVE|SIX)\s*(?:NON[- ]NEGOTIABLE\s+)?COP(?:Y|IES)/.exec(t);
+  const nCopias = mCopias ? (PALABRA_A_NUMERO[mCopias[1]] ?? Number(mCopias[1])) : null;
+
+  /*
+   * **Los ejemplares múltiples se satisfacen con UN original y el resto en copias**, y eso es lo que
+   * esta función decía al revés.
+   *
+   * Decía «3 originales» sobre «PACKING LIST IN TRIPLICATE», que es palabra por palabra el razonamiento
+   * que la Opinión **R 338** rechaza. Su expediente es un emisor que concluyó que *«every document
+   * without an 'original' mark, presented by the negotiating bank, was not an original as stipulated in
+   * Article 20»* y pidió el reembolso a dos bancos negociadores. La Banking Commission transcribe el
+   * inciso que lo decide —el 20 (c) (ii) de las UCP 500, el **17 (e)** de hoy— y concluye:
+   *
+   * > "Credits that require multiple document(s) such as 'duplicate', 'two fold', 'two copies' and the
+   * > like, **will be satisfied by the presentation of one original and the remaining number in
+   * > copies** except where the document itself indicates otherwise."
+   * >
+   * > Where a credit requires, amongst others, **3 commercial invoices and 3 packing lists, this is
+   * > satisfied by the presentation of one of each of the documents being marked original and two copies
+   * > either marked copy or not marked as an original.**
+   * >
+   * > Of course, **if the documents appeared to be originals on their face** … **no marking "original"
+   * > is required.** Also refer to the ICC Decision on original documents dated 12 July 1999.
+   *
+   * Esto es **texto que una persona lee**, igual que el renglón de las correcciones: ningún veredicto
+   * depende de estos números —el motor no puede contar cuántos ejemplares llegaron, que es el hueco
+   * declarado del laudo DOCDEX 250— así que lo único que hace la función es decirle al examinador qué
+   * pide el crédito. Decirle «3 originales» lo empuja al rechazo de esta Opinión.
+   *
+   * **Tres frenos, y los tres salieron de medir el banco de pruebas:**
+   *
+   * - **el juego completo sigue siendo n originales.** «FULL SET (3/3)» es el artículo 20 (a) (iv) y ahí
+   *   los tres son originales de verdad;
+   * - **si la línea nombra originales, las copias son adicionales y no un total.** «FULL SET OF ORIGINAL
+   *   BILLS OF LADING PLUS 2 NON-NEGOTIABLE COPIES» pide el juego **más** dos copias, así que leer el 2
+   *   como el total de ejemplares perdería el juego;
+   * - **y «DUPLICATE OF …» es el nombre del documento y no un conteo.** El 46A del caso de la Opinión
+   *   R 690 pide «DUPLICATE OF RAIL WAYBILL DULY STAMPED AND SIGNED AT THE STATION OF DEPARTURE», que es
+   *   **un** documento —el artículo 24 (b) dice que un ferroviario marcado «duplicate» es un original— y
+   *   la función decía «2 originales». El conteo necesita el «IN» delante.
+   */
+  const mMultiples = /\bIN\s+(DUPLICATE|TRIPLICATE|QUADRUPLICATE)\b/.exec(t);
+  const mFold = /\bIN\s*(\d{1,2})\s*FOLDS?\b/.exec(t);
+  /* un número al principio de la exigencia: «3 COMMERCIAL INVOICES», la redacción de R 338 */
+  const mAlPrincipio = /^\s*(\d{1,2}|TWO|THREE|FOUR|FIVE|SIX)\s+[A-Z]/.exec(t);
+
+  const nMultiples = mMultiples
+    ? ({ DUPLICATE: 2, TRIPLICATE: 3, QUADRUPLICATE: 4 }[mMultiples[1]] ?? null)
+    : mFold
+      ? Number(mFold[1])
+      : mAlPrincipio
+        ? (PALABRA_A_NUMERO[mAlPrincipio[1]] ?? Number(mAlPrincipio[1]))
         : null;
-  const nCopias = copias ? Number(copias[1]) : null;
+
+  const nombraOriginales = nJuego != null || nExplicitos != null || /\bORIGINAL/.test(t);
+
+  /* el total de ejemplares, cuando el crédito pide varios sin decir que sean originales */
+  const total = nombraOriginales ? null : (nMultiples ?? nCopias);
+
+  if (total != null && total > 1) {
+    const copias = total - 1;
+    return {
+      originales: 1,
+      copias,
+      texto: `${total} ejemplares: alcanza 1 original + ${copias} copia${copias > 1 ? "s" : ""} (art. 17 e)`,
+    };
+  }
+
+  const originales = nJuego ?? nExplicitos ?? (nombraOriginales ? null : nMultiples);
+  const copias = total != null ? total : nCopias;
   const partes = [
     originales != null ? `${originales} original${originales > 1 ? "es" : ""}` : null,
-    nCopias != null ? `${nCopias} copia${nCopias > 1 ? "s" : ""}` : null,
+    copias != null ? `${copias} copia${copias > 1 ? "s" : ""}` : null,
   ].filter(Boolean);
-  return { originales, copias: nCopias, texto: partes.join(" + ") || "sin cantidad indicada" };
+  return { originales, copias, texto: partes.join(" + ") || "sin cantidad indicada" };
 }
 
 /** "A DISCREPANCY FEE OF USD 80/- OR ITS EQUIVALENT WILL BE DEDUCTED…" → 80 */

@@ -134,16 +134,90 @@ const OP: OperationDetail = {
 const HOY = new Date(2025, 3, 15); // 15-abr-25: BL 08-abr + 21 = 29-abr
 
 describe("ejemplaresDe / feeDiscrepancia", () => {
-  it("lee originales y copias como los escribe el 46A", () => {
-    expect(ejemplaresDe("SIGNED COMMERCIAL INVOICES IN 03 FOLD")).toMatchObject({
+  /*
+   * **Los ejemplares múltiples se satisfacen con un original y el resto en copias** (art. 17 e), y las
+   * dos aserciones de abajo decían lo contrario: «IN 03 FOLD» daba «3 originales» y «IN DUPLICATE» daba
+   * dos. Se reescriben **al revés con la autoridad** en vez de borrarse, que es lo que corresponde a un
+   * test que codificaba una decisión ya contestada.
+   *
+   * Opinión **R 338**, que transcribe el inciso y concluye: *«Where a credit requires … 3 commercial
+   * invoices and 3 packing lists, **this is satisfied by the presentation of one of each of the documents
+   * being marked original and two copies** either marked copy or not marked as an original»*. Su
+   * expediente es un emisor que concluyó lo que esta función decía y pidió el reembolso a dos bancos
+   * negociadores.
+   */
+  it("los ejemplares múltiples se satisfacen con un original y el resto en copias (art. 17 e)", () => {
+    for (const l of [
+      "SIGNED COMMERCIAL INVOICES IN 03 FOLD",
+      "PACKING LIST IN TRIPLICATE",
+      /* la redacción de R 338: el número suelto al principio de la exigencia */
+      "3 COMMERCIAL INVOICES",
+      "THREE COMMERCIAL INVOICES AND PACKING LISTS",
+      /* y «en N copias» es la misma pregunta: el inciso nombra «two copies» entre sus ejemplos */
+      "CERTIFICATE OF ORIGIN IN 3 COPIES ISSUED BY AUTHORIZED ORGANISATION",
+    ])
+      expect(ejemplaresDe(l), l).toMatchObject({
+        originales: 1,
+        copias: 2,
+        texto: "3 ejemplares: alcanza 1 original + 2 copias (art. 17 e)",
+      });
+    expect(ejemplaresDe("CERTIFICATE OF ORIGIN IN DUPLICATE")).toMatchObject({ originales: 1, copias: 1 });
+  });
+
+  /*
+   * El freno: el **juego completo** del artículo 20 (a) (iv) sí son n originales, y las copias que el
+   * crédito pide **además** del juego no son un total de ejemplares.
+   */
+  it("el juego completo sigue siendo n originales, y las copias de más son adicionales", () => {
+    expect(ejemplaresDe("FULL SET (3/3) OF ORIGINAL SHIPPED ON BOARD BILLS OF LADING")).toMatchObject({
       originales: 3,
-      copias: null,
       texto: "3 originales",
     });
     expect(
       ejemplaresDe("FULL SET OF (3/3) SHIPPED ON BOARD ORIGINAL BILLS OF LADING PLUS 02 NON NEGOTIABLE COPIES"),
     ).toMatchObject({ originales: 3, copias: 2, texto: "3 originales + 2 copias" });
-    expect(ejemplaresDe("CERTIFICATE OF ORIGIN IN DUPLICATE")).toMatchObject({ originales: 2 });
+  });
+
+  /* y cuando el crédito dice «originales» con todas las letras, son originales */
+  it("los números en palabras se leen de los dos lados", () => {
+    expect(ejemplaresDe("SIGNED COMMERCIAL INVOICE IN THREE ORIGINALS")).toMatchObject({
+      originales: 3,
+      texto: "3 originales",
+    });
+    expect(
+      ejemplaresDe("FUMIGATION CERTIFICATE IN ONE ORIGINAL PLUS ONE COPY ISSUED BY COMPETENT AUTHORITY"),
+    ).toMatchObject({ originales: 1, copias: 1, texto: "1 original + 1 copia" });
+  });
+
+  /*
+   * «DUPLICATE OF …» es **el nombre del documento** y no un conteo: el artículo 24 (b) dice que un
+   * ferroviario marcado «duplicate» es un original, y el 46A del caso de la Opinión R 690 lo pide así.
+   * La función decía «2 originales» sobre **un** documento.
+   */
+  it("«DUPLICATE OF RAIL WAYBILL» es el nombre del papel y no dos ejemplares", () => {
+    expect(ejemplaresDe("DUPLICATE OF RAIL WAYBILL DULY STAMPED AND SIGNED AT THE STATION OF DEPARTURE")).toMatchObject(
+      { originales: null, copias: null, texto: "sin cantidad indicada" },
+    );
+  });
+
+  /*
+   * Y el conteo que está dentro de lo que el papel **declara de otros** no es suyo. Hacen falta las dos
+   * condiciones —la cláusula del «that» y el «of» que nombra otro documento—: ver el comentario de la
+   * función, donde está medido qué pierde cada una por separado.
+   */
+  it("el conteo de los papeles que un certificado dice haber mandado no es el suyo", () => {
+    expect(
+      ejemplaresDe("BENEFICIARYS CERTIFICATE CERTIFYING THAT 2 COPIES OF EACH SHIPPING DOCUMENT HAVE BEEN SENT"),
+    ).toMatchObject({ texto: "sin cantidad indicada" });
+    /* pero un conteo propio detrás de un «confirming that» se conserva */
+    expect(
+      ejemplaresDe("BENEFICIARYS DULY SIGNED STATEMENT CONFIRMING THAT THE APPLICANT FAILED TO PAY - 1 ORIGINAL"),
+    ).toMatchObject({ originales: 1, texto: "1 original" });
+    /* y un «of» que nombra a este mismo papel tampoco descalifica el conteo */
+    expect(ejemplaresDe("ORIGINAL AND 3 COPIES OF PACKING LIST")).toMatchObject({ copias: 3 });
+  });
+
+  it("sin cantidad escrita no se inventa ninguna", () => {
     expect(ejemplaresDe("FUMIGATION CERTIFICATE.")).toMatchObject({ originales: null, texto: "sin cantidad indicada" });
   });
   it("el fee del 47A", () => {
@@ -167,7 +241,15 @@ describe("precheckPresentacion — el paquete real del caso CSU2025099", () => {
     expect(r.diasParaPresentar).toBe(14);
   });
   it("46A: factura, packing y BL analizados → OK con sus ejemplares; los demás FALTAN", () => {
-    expect(por("46A+1")).toMatchObject({ estado: "OK", evidencia: expect.stringContaining("3 originales") });
+    /*
+     * La línea de la factura del expediente real pide «IN 03 FOLD», y eso **no son tres originales**:
+     * el artículo 17 (e) lo satisface un original y el resto en copias. La aserción decía «3 originales»
+     * y se reescribe con la Opinión R 338, que es la que lo resuelve.
+     */
+    expect(por("46A+1")).toMatchObject({
+      estado: "OK",
+      evidencia: expect.stringContaining("3 ejemplares: alcanza 1 original + 2 copias"),
+    });
     expect(por("46A+2")).toMatchObject({ estado: "OK", evidencia: expect.stringContaining("3 originales + 2 copias") });
     expect(por("46A+4")?.estado).toBe("OK"); // packing
     const faltan = r.reglas.filter((x) => x.estado === "FALTA").map((x) => x.regla);
