@@ -1508,10 +1508,12 @@ describe("fac-proforma: la proforma que el crédito nombra", () => {
   });
 
   /*
-   * El freno del calificativo: una sola palabra y sin conectores, para que el número de otra factura
-   * no entre como si fuera el de la proforma.
+   * El freno del calificativo es que sea **una** palabra: con un hueco de dos, el patrón no matchea y
+   * el número de la otra factura no entra como si fuera el de la proforma. Verificado con un mutante
+   * que ensancha el hueco — el que primero escribí, un freno de conectores, resultó decorativo porque
+   * este límite ya lo cubría.
    */
-  it("un conector en el medio no entrega el número de la otra factura", () => {
+  it("un hueco de dos palabras no entrega el número de la otra factura", () => {
     const r = correr({
       mercaderia45A: "STEEL COILS AS PER PROFORMA AND COMMERCIAL INVOICE NO. CI-900",
       fac: facturaQueCita("GOODS AS PER PROFORMA INVOICE NO. PF-1"),
