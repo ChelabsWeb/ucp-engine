@@ -1097,6 +1097,29 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
     expect(r?.estado).toBe("OK");
   });
 
+  /*
+   * **Y el posesivo, que es la forma de la Opinión R 358 y era un falso positivo ancho.**
+   *
+   * Su 46A pide el conocimiento «made out to **our order** quoting our L/C number», que es como un banco
+   * emisor pide el documento a su propio nombre. Medido antes de arreglarlo: `A_LA_ORDEN_DE` no capturaba
+   * nada y `CONSIGNADO_A` se llevaba **«OUR ORDER QUOTING OUR L»** como si fuera el nombre de una parte
+   * —arrastrando media frase siguiente adentro— así que la regla **rechazaba un conocimiento que cumple
+   * exactamente lo pedido**. Es la misma forma que esta Opinión arregló por la otra puerta: ahí el rol va
+   * con todas las letras y acá en posesivo.
+   */
+  it.each([
+    "2. FULL SET OF CLEAN ON BOARD MARINE BILLS OF LADING MADE OUT TO OUR ORDER QUOTING OUR L/C NUMBER, MARKED FREIGHT PREPAID.",
+    "2. BILL OF LADING TO OUR ORDER BLANK ENDORSED.",
+    "2. BILL OF LADING MADE OUT TO ORDER OF OURSELVES.",
+  ])("«%s» es el rol del emisor", (exigencia) => {
+    expect(con(exigencia, "TO THE ORDER OF TEST BANK")?.estado).toBe("OK");
+  });
+
+  it("y a nuestra orden con el conocimiento a nombre de otro banco sigue siendo discrepancia", () => {
+    const r = con("2. BILL OF LADING MADE OUT TO OUR ORDER.", "TO THE ORDER OF OTRO BANCO SA");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
   /* Y un nombre propio en el 46A se sigue comparando como nombre. */
   it("un banco nombrado en el 46A se compara como nombre", () => {
     const r = con(
