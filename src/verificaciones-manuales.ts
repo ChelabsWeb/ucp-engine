@@ -126,6 +126,42 @@ export function verificacionesManuales(input: {
     });
   }
 
+  /*
+   * **El mismo conteo para el documento de seguro, y por un inciso distinto.**
+   *
+   * El del transporte sale del 20 (a) (iv): el crédito pide el juego completo y hay que contar cuántos
+   * llegaron. El del seguro sale del **28 (b)** y su disparador es otro — **lo que el documento dice de
+   * sí mismo**:
+   *
+   * > When the insurance document indicates that it has been issued in more than one original, **all
+   * > originals must be presented**.
+   *
+   * La Opinión **R 359** es el expediente, y lo que lo hace valer es que **contradice lo que el crédito
+   * pidió**: el 46A decía «Insurance certificate for 110% of invoice value **in one original and one
+   * copy**» y el certificado venía preimpreso «**in two originals to the same effect**». El panel: *«If
+   * the insurance document is issued in more than one original, then all the originals must be presented
+   * to comply with the provisions of sub-Article 34(b)»* —el 28 (b) de hoy—, y el consejo práctico:
+   * *«when the credit requires the presentation of one original insurance document then only one original
+   * should be produced»*.
+   *
+   * O sea que presentar **uno**, que es lo que el crédito pedía, es discrepante. Un examinador que cuente
+   * contra el 46A y no contra lo que el papel declara se lo pierde, y no había nada que se lo dijera.
+   *
+   * **Va como verificación manual y no como regla** porque `CAMPOS_SEGURO` no tiene campo para cuántos
+   * originales declara el documento ni para cuántos llegaron — el mismo hueco que el laudo DOCDEX 250
+   * dejó declarado para los ejemplares del 46A, acá en el capítulo del seguro.
+   */
+  if (input.haySeguro) {
+    lista.push({
+      id: "juego-seguro",
+      fuente: "UCP 600 28b",
+      que: "Contar los originales que el documento de seguro declara, y que estén presentados todos",
+      porQue:
+        "si el papel dice que se emitió en más de un original hay que presentarlos todos, aunque el crédito haya pedido menos",
+      documentos: ["documento de seguro"],
+    });
+  }
+
   const conEmisor = exigidos.filter((d) =>
     /issued by|emitido por|chamber|c[aá]mara|authority|autoridad|veterinar|survey/i.test(d),
   );
