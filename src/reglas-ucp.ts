@@ -1774,9 +1774,30 @@ function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPres
     ];
   }
 
-  const { capacidad, porAgente } = leerFirma(texto);
+  const { capacidad, porAgente, ambigua } = leerFirma(texto);
   const admitidas = capacidadesAdmitidas(modo);
   const comoLasLlama = admitidas.map((c) => NOMBRE_CAPACIDAD[c]).join(", ");
+
+  /*
+   * **El bloque que declara más de una capacidad tiene su propia evidencia (Opinión R 354).**
+   *
+   * No es el mismo hecho que una capacidad que no se reconoce: acá el papel dice **las dos** y lo que
+   * falta es saber en cuál firma. El panel lo decide sobre un preimpreso que dice «for the master/for
+   * the carrier» y concluye que *«the capacity in which the agent is signing is unclear»* — pero dice
+   * también que lo correcto era **tachar una**, y una tachadura es lo que un campo de texto transcrito
+   * no puede representar. Así que el motor pone las dos a la vista y lo dice con esas palabras.
+   */
+  if (ambigua) {
+    return [
+      regla(
+        "ucp-firma-transporte",
+        fuente,
+        "Con qué capacidad se firmó el documento de transporte",
+        "ATENCION",
+        `dice "${texto}" y declara más de una capacidad a la vez: la Opinión R 354 dice que el agente tendría que haber tachado una y que así no se sabe en cuál firma — verificar en el papel si una está tachada`,
+      ),
+    ];
+  }
 
   if (!capacidad) {
     return [
