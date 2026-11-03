@@ -2357,12 +2357,12 @@ const REEMPLAZOS: [RegExp, string][] = [
     "a scanned file does not allow an original to be told apart from a photocopy",
   ],
   [
-    /^Que toda corrección o enmienda esté autenticada por quien emitió el documento$/g,
-    "That every correction or amendment is authenticated by whoever issued the document",
+    /^Que toda corrección del original esté autenticada por quien emitió el documento y muestre por quién; en una copia no negociable no hace falta ni firma ni autenticación$/g,
+    "That every correction on an original is authenticated by the issuer of the document and shows by whom; on a non-negotiable copy neither signature nor authentication is required",
   ],
   [
-    /^la marca de autenticación es física y suele ser manuscrita$/g,
-    "the mark of authentication is physical and usually handwritten",
+    /^la marca de autenticación es física, y un sello o un chop de empresa vale como firma \(art\. 3\)$/g,
+    "the mark of authentication is physical, and a company stamp or chop counts as a signature (art. 3)",
   ],
   [
     /^Que sellos, estampillas y anotaciones manuscritas se lean con claridad$/g,

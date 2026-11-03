@@ -73,8 +73,38 @@ export function verificacionesManuales(input: {
     {
       id: "correcciones",
       fuente: "ISBP, principios generales",
-      que: "Que toda corrección o enmienda esté autenticada por quien emitió el documento",
-      porQue: "la marca de autenticación es física y suele ser manuscrita",
+      /*
+       * **El renglón le pedía a la persona más de lo que las dos autoridades piden**, y en la dirección
+       * que produce la discrepancia que la ICC declara inválida.
+       *
+       * Decía «que **toda** corrección o enmienda esté autenticada por quien emitió el documento», sobre
+       * **todos** los papeles. La Opinión **R 337** es exactamente ese rechazo —un banco negociador
+       * marcó una corrección sin autenticar en un conocimiento **no negociable**, y la naviera contestó
+       * que a una copia no le puede poner firma, solo su sello— y la Banking Commission lo desarma:
+       *
+       * > A non-negotiable bill of lading should "mirror" an original bill of lading to the extent of
+       * > content - including any alterations thereon. **Only the original bill of lading is required to
+       * > be signed and/or initialled by the carrier or his agent. Any alterations made to the
+       * > non-negotiable copy(ies) need not be signed or initialled.**
+       *
+       * Es la **Opinión que el párrafo ¶167 de la ISBP 681 codifica** —«Copies of UCP article 24
+       * transport documents do not need to include any signature on, or authentication of, any
+       * alterations or corrections»—, que el laudo DOCDEX 304 transcribe. O sea el mismo patrón que
+       * R 468 con el párrafo K15: parte de lo que el libro dice está en el material abierto, y no solo
+       * en lo que lo cita después — también en lo que lo originó.
+       *
+       * **Y el `porQue` empujaba para el otro lado.** Decía que la marca «suele ser manuscrita», y la
+       * misma Opinión cierra que *«Under UCP 500 sub-Article 20(b), **a chop constitutes a
+       * signature**»* — el **artículo 3** de hoy, que admite «stamp, symbol (for example, a chop)» y que
+       * *Deutsche Bank v CIMB* ya había puesto en el banco de pruebas. Un examinador que leyera «suele
+       * ser manuscrita» y tuviera delante un sello de empresa haría el rechazo de esta Opinión.
+       *
+       * Lo que **no** cambia es a qué papeles se aplica: la persona mira las correcciones en todos, y lo
+       * que cambió es el criterio con que las mira. Y lo que el párrafo ¶9 de la ISBP sí pide sobre un
+       * original está en el laudo DOCDEX 227: la autenticación tiene que mostrar **por quién** se hizo.
+       */
+      que: "Que toda corrección del original esté autenticada por quien emitió el documento y muestre por quién; en una copia no negociable no hace falta ni firma ni autenticación",
+      porQue: "la marca de autenticación es física, y un sello o un chop de empresa vale como firma (art. 3)",
       documentos: todos,
     },
     {
