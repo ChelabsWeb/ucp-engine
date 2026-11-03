@@ -2026,9 +2026,33 @@ function reglasTransporte(
   // 26a: la mercadería no puede ir declarada sobre cubierta
   const onDeck = val(bl, "onDeck");
   if (onDeck) {
-    // el artículo distingue dos cosas: declarar que la mercadería VA sobre cubierta (discrepancia)
-    // y la cláusula de opción que los transportistas imprimen en todos sus conocimientos (aceptable)
-    const declara = /\b(shipped|loaded|stowed|carried)\s+on\s+deck\b|sobre cubierta\b(?!.*\bpodr)/i.test(onDeck);
+    /*
+     * El artículo distingue dos cosas: declarar que la mercadería **va** sobre cubierta (discrepancia) y
+     * la cláusula de opción que los transportistas imprimen en todos sus conocimientos (aceptable).
+     *
+     * **Y la declaración no siempre lleva verbo, que era el falso negativo.** La Opinión **R 358** lo
+     * decide sobre «**Perishable Cargo on Deck at Shipper's Risk**»: *«A bill of lading which states
+     * "Perishable Cargo on Deck at Shipper's Risk" **is a clear indication that the goods are loaded on
+     * deck**, and if not allowed by the credit, the bills of lading should be rejected for an on deck
+     * shipment having taken place»*. Medido antes de arreglarlo: esa cláusula salía en **OK**.
+     *
+     * **Es la sobrecorrección del arreglo que esta regla tuvo primero.** El conocimiento de CMA CGM del
+     * expediente real trae «the Carrier may carry the goods on deck» y la regla lo marcaba como
+     * discrepancia —habría fallado en casi todo conocimiento de línea—; al aflojarla para admitir el
+     * permiso general quedó pasando la declaración **en forma nominal**, que es la leyenda estándar de un
+     * conocimiento que de verdad lleva carga en cubierta.
+     *
+     * Las dos formas nominales que entran son las que el comercio escribe: la mercadería **con** «on
+     * deck» pegado —«cargo on deck», «on deck cargo», «on deck shipment»— y el reparto de riesgo, «on
+     * deck at shipper's risk». **Y el orden de las pruebas es lo que las hace seguras**: la cláusula de
+     * opción se evalúa después y gana, así que un «the carrier may carry the goods on deck at shipper's
+     * risk» sigue siendo opción y no declaración.
+     */
+    const declara =
+      /\b(shipped|loaded|stowed|carried)\s+on\s+deck\b|sobre cubierta\b(?!.*\bpodr)/i.test(onDeck) ||
+      /\b(cargo|goods|containers?|merchandise)\s+on\s+deck\b|\bon\s+deck\s+(cargo|goods|shipment|stowage)\b|\bon\s+deck\s+at\s+(shipper|merchant|owner)s?.{0,2}s?\s+risk\b/i.test(
+        onDeck,
+      );
     const opcion = /\b(may|can|option|entitled|reserves?)\b/i.test(onDeck);
     const esOpcion =
       opcion && !/\b(is|are|was|were|has been|have been)\s+(shipped|loaded|stowed|carried)\s+on\s+deck\b/i.test(onDeck);
