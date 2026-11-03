@@ -309,6 +309,10 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [/^la factura no cita la proforma$/g, "the invoice does not quote the proforma"],
   [
+    /^no se leyó en la factura una cita de la proforma que el crédito nombra: verificar a mano$/g,
+    "no reference to the pro-forma invoice named in the credit was read on the commercial invoice: verify manually",
+  ],
+  [
     /^la ventana real es más corta que el plazo escrito: conviene correr el vencimiento$/g,
     "the real window is shorter than the period written: better to move the expiry date",
   ],
@@ -552,10 +556,7 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^El crédito exige que el embarcador sea el beneficiario$/g,
     "The credit requires the shipper to be the beneficiary",
   ],
-  [
-    / y el crédito exige al beneficiario, /g,
-    " and the credit requires the beneficiary, ",
-  ],
+  [/ y el crédito exige al beneficiario, /g, " and the credit requires the beneficiary, "],
   [
     /: el artículo 14 \(k\) admite que no coincidan salvo que el crédito lo pida, y lo pide$/g,
     ": sub-article 14 (k) allows them not to match unless the credit calls for it, and it does",
@@ -1100,8 +1101,14 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/: leer el texto de la factura y cotejarlo/g, ": read the invoice text and compare it"],
   [/^la factura dice /g, "the invoice says "],
   [/ y no repite /g, " and does not repeat "],
-  [/ del texto que el crédito le pide: cotejar el texto completo$/g, " of the text the credit requires: compare the whole text"],
-  [/ y repite las palabras del texto que el crédito le pide: cotejar el texto completo$/g, " and repeats the words of the text the credit requires: compare the whole text"],
+  [
+    / del texto que el crédito le pide: cotejar el texto completo$/g,
+    " of the text the credit requires: compare the whole text",
+  ],
+  [
+    / y repite las palabras del texto que el crédito le pide: cotejar el texto completo$/g,
+    " and repeats the words of the text the credit requires: compare the whole text",
+  ],
   [/^(.+): el archivo parece traer más de un documento$/g, "$1: the file seems to hold more than one document"],
   [/^(.+): indica origen (.+)$/g, "$1: states origin $2"],
   // las citas ya salieron del texto —son huecos— así que el patrón no lleva las comillas
@@ -1820,7 +1827,10 @@ const REEMPLAZOS: [RegExp, string][] = [
    * leyó la constancia de despacho, toma a cargo o embarque de un multimodal, y hasta el caso de la
    * Opinión R 354 ningún expediente del banco llegaba a esa rama.
    */
-  [/^no se leyó esa constancia en el documento: verificar a mano$/g, "that notation was not read on the document: check by hand"],
+  [
+    /^no se leyó esa constancia en el documento: verificar a mano$/g,
+    "that notation was not read on the document: check by hand",
+  ],
   [/ por medio de un agente nombrado, que el artículo admite: /g, " through a named agent, which the article allows: "],
   [/ y este documento solo lo puede firmar /g, " and this document may only be signed by "],
   [
@@ -1971,10 +1981,7 @@ const REEMPLAZOS: [RegExp, string][] = [
    * límite del control de literales, y la compensación sigue siendo la misma: se cubre el día que alguien
    * le escribe el caso.
    */
-  [
-    /^el documento declara la carga sobre cubierta:/g,
-    "the document states that the goods are loaded on deck:",
-  ],
+  [/^el documento declara la carga sobre cubierta:/g, "the document states that the goods are loaded on deck:"],
   [/^cláusula leída:/g, "clause read:"],
 
   // ── los nombres de los documentos, que el motor escribe en mayúsculas como clave ──

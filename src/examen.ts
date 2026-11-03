@@ -202,6 +202,11 @@ export function examinarPresentacion(input: {
 
   const base = precheckPresentacion({
     lc: input.lc,
+    /*
+     * El 45A entero, para la proforma: los créditos la nombran ahí y no en la línea de la factura del
+     * 46A. Mismo dato y mismo motivo que `mercaderiaCompleta` en el contexto de las reglas UCP.
+     */
+    mercaderia45A: input.credito?.mercaderiaCompleta ?? input.credito?.mercaderia ?? null,
     /* el plazo del 48 se mide contra el día de la presentación, no contra el del examen */
     /*
      * Para el plazo del 14 (c) manda la presentación, no la recepción en este banco.

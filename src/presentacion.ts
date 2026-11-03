@@ -128,9 +128,10 @@ export function admiteCopiaDelTransporte(documentosExigidos: string[] | null | u
   const linea = (documentosExigidos ?? []).find((d) => claveDoc(d) === "BL");
   if (!linea) return false;
   /* «original or copy», «originals or copies», y al revés — la alternativa, no un conteo de ejemplares */
-  return /\b(originals?|full\s+set)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(photocopy|photocopies|copy|copies)\b/i.test(
-    linea,
-  ) || /\b(photocopy|photocopies|copy|copies)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(originals?|full\s+set)\b/i.test(linea);
+  return (
+    /\b(originals?|full\s+set)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(photocopy|photocopies|copy|copies)\b/i.test(linea) ||
+    /\b(photocopy|photocopies|copy|copies)\b[^.;]{0,24}\bor\b[^.;]{0,24}\b(originals?|full\s+set)\b/i.test(linea)
+  );
 }
 
 /**
@@ -227,6 +228,34 @@ export const EXIGE_ENDOSO_EN_BLANCO = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BL
  */
 export const A_LA_ORDEN_DE = /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)|TO\s+(OUR)\s+ORDER\b/i;
 export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0-9 .,'&()-]+)/i;
+
+/**
+ * Cómo se escribe «proforma»: pegada, con guion y con espacio.
+ *
+ * Las tres formas están en uso y el motor reconocía una. La Opinión **R 339** escribe «pro-forma» en
+ * todo su texto y su crédito nombra el número que la factura citó mal; los dos créditos del banco de
+ * pruebas que la nombran usan la grafía pegada. Ver la regla `fac-proforma`.
+ */
+export const NOMBRA_PROFORMA = /\bPRO[\s-]?FORMA\b/i;
+
+/**
+ * El número que el crédito le pone a la proforma.
+ *
+ * Dos cosas, y cada una salió de una redacción real:
+ *
+ * - **acepta un calificativo en el medio**, porque el crédito de la Opinión R 339 pide la «**pro-forma
+ *   export invoice**» y la Opinión usa esa frase dos veces. Sin esto el número no se leía y la regla
+ *   caía a «cualquier cita alcanza», o sea daba **OK sobre la factura que el panel declara
+ *   discrepante**. Es **una** palabra y no una frase, y ese límite es el freno: con un hueco de dos
+ *   —«proforma **and commercial** invoice no. X»— el patrón no matchea y el número de la otra factura
+ *   no entra como si fuera el de la proforma. **Un freno de conectores también estaba escrito y el
+ *   mutante lo mostró decorativo**: el límite de una palabra ya cubre esos casos, así que se sacó en
+ *   vez de darle una aserción forzada;
+ * - **acepta barras y puntos y termina en alfanumérico**, así que «ZM/2009/118» entra entero y un punto
+ *   final de frase queda afuera. Con la clase vieja —`[A-Z0-9-]+`— ese número se cortaba en «ZM» y una
+ *   factura que citara otro de la misma serie pasaba por contención.
+ */
+export const NUMERO_DE_PROFORMA = /\bPRO[\s-]?FORMA(?:\s+[A-Z]+)?\s+INVOICE\s+NO\.?\s*([A-Z0-9/.-]*[A-Z0-9])/i;
 
 export function hastaLaDescripcion(nombre: string | null): string | null {
   if (!nombre) return null;
@@ -490,6 +519,16 @@ export function precheckPresentacion(input: {
    * crédito en FALTA y `listo` no podía ser `true` en ningún crédito real.
    */
   otros?: { exigencia: string; nombreArchivo?: string }[];
+  /**
+   * El **45A entero**, para la proforma que el crédito nombra ahí y no en la línea de la factura.
+   *
+   * Es el mismo motivo por el que `isbp-c8` lo lee entero en vez de usar `mercaderia`: los créditos
+   * reales escriben «… AS PER PROFORMA INVOICE NO. X» en la descripción de la mercadería, así que una
+   * regla que solo mirara la línea del 46A era inalcanzable en la redacción corriente. Opinión R 339.
+   *
+   * Llega vacío cuando no se pasa y la regla se comporta como antes, así que es aditivo.
+   */
+  mercaderia45A?: string | null;
   op: OperationDetail;
   empresaRazonSocial: string;
   /** dirección de la empresa en Ajustes (para cotejar con la de la LC, D3) */
@@ -972,9 +1011,7 @@ export function precheckPresentacion(input: {
        * nombre.
        */
       /* «OUR» entra por la Opinión R 358: «made out to our order» es el rol del emisor en posesivo. */
-      const esRol = /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES|OUR)\b/i.test(
-        ordenDe,
-      );
+      const esRol = /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES|OUR)\b/i.test(ordenDe);
       /*
        * Y el guion largo no es un nombre de banco.
        *
@@ -1127,17 +1164,68 @@ export function precheckPresentacion(input: {
   /* Factura: "as per proforma", FOB y flete separados, dentro del monto de la LC */
   const fac = doc("FACTURA");
   const reglaFac = exigidos.find((x) => claveDoc(x) === "INVOICE") ?? "";
+  const mercaderia45A = input.mercaderia45A ?? "";
   if (fac) {
-    if (/PROFORMA/i.test(reglaFac)) {
-      const ref = val(fac, "referenciaProforma");
-      const numProforma = /PROFORMA INVOICE NO\.?\s*([A-Z0-9-]+)/i.exec(reglaFac)?.[1];
-      const ok = ref && (!numProforma || ref.includes(numProforma));
+    /*
+     * La proforma que el crédito nombra: **se busca en el 45A además de en la línea de la factura.**
+     *
+     * El crédito de la Opinión **R 339** exige «indication of the precise amount of goods and of the
+     * certain value of the credit **referring to a specific and specified pro-forma invoice**», y la
+     * factura citó otro número. El panel:
+     *
+     * > If the credit provided details of a specific pro-forma invoice number and this was either
+     * > **mis-quoted or completely different** from the commercial invoice that was presented, **this
+     * > would be considered to be a discrepancy**.
+     *
+     * Y eso es **lo contrario** de lo que la misma Opinión dice del número del crédito dos párrafos más
+     * abajo —«purely for identification purposes and not a constituent part of the text of the document
+     * required», que es la línea que el laudo DOCDEX 329 convirtió en el ablandado de `lc-num-*`—. La
+     * diferencia es qué identifica cada número: el del crédito sirve para rastrear un papel extraviado,
+     * y el de la proforma dice **qué se contrató**.
+     *
+     * Tres cosas estaban mal y las tres son la misma forma —el motor reconocía una redacción y no la
+     * otra—, medidas antes de tocarlas:
+     *
+     * 1. **el disparador pedía la grafía de una palabra.** `/PROFORMA/i` no matchea «PRO-FORMA», que es
+     *    como la escribe esta Opinión en todo su texto, ni «PRO FORMA»;
+     * 2. **se buscaba solo en la línea de la factura del 46A**, y los dos créditos reales que el banco
+     *    de pruebas tiene la nombran en el **45A** —R 640, «MACHINE PARTS … AS PER PROFORMA INVOICE NO.
+     *    ZM/2009/118», y R 775—. O sea que la comparación era **inalcanzable en la redacción que usan
+     *    los créditos de verdad**. Es la misma forma que `isbp-c8`, que lee el 45A entero por lo mismo;
+     * 3. **y el número se cortaba en la primera barra.** `[A-Z0-9-]+` sobre «ZM/2009/118» captura «ZM»,
+     *    así que una factura que citara «ZM/2009/999» pasaba por contención — el falso negativo exacto
+     *    que esta Opinión declara discrepancia.
+     *
+     * **Y la cita se lee también de `mercaderia`**, porque ahí es donde el papel la imprime: una factura
+     * escribe «machine parts as per proforma invoice no. X» en su descripción, y así están cargadas las
+     * dos del banco. Sin ese respaldo el arreglo habría producido un aviso que afirma algo falso —«la
+     * factura no cita la proforma» sobre dos facturas que la citan—, que es el defecto de `bl-notify`
+     * comparando contra la cadena vacía.
+     *
+     * **Sin cita legible sale ATENCION y no DISCREPANCIA**, por el límite de la Opinión TA 862: un campo
+     * vacío significa a la vez que el papel no la trae y que nadie la cargó, y con la regla llegando
+     * ahora a los créditos que la nombran en el 45A esa rama pasó de inalcanzable a corriente.
+     *
+     * Queda un hueco declarado: una línea que **niega** la proforma —«COMMERCIAL INVOICE (PRO-FORMA NOT
+     * ACCEPTABLE)»— dispara la regla igual y le pide a la factura una cita que el crédito no quiere. No
+     * se frenó porque ningún crédito del banco lo escribe así, y agregar máquina que su propio caso no
+     * mide es lo que el laudo DOCDEX 267 dejó escrito que no se hace. El día que aparezca, el freno va
+     * acá y con el caso que lo pruebe.
+     */
+    const nombraProforma = NOMBRA_PROFORMA.test(reglaFac) || NOMBRA_PROFORMA.test(mercaderia45A);
+    if (nombraProforma) {
+      const ref = val(fac, "referenciaProforma") ?? val(fac, "mercaderia");
+      const numProforma = NUMERO_DE_PROFORMA.exec(reglaFac)?.[1] ?? NUMERO_DE_PROFORMA.exec(mercaderia45A)?.[1];
+      const cita = ref && NOMBRA_PROFORMA.test(ref) ? ref : null;
+      const ok = cita && (!numProforma || cita.includes(numProforma));
       reglas.push({
         id: "fac-proforma",
-        fuente: "46A",
+        fuente: NOMBRA_PROFORMA.test(reglaFac) ? "46A" : "45A",
         regla: `Factura: "goods shipped as per proforma invoice${numProforma ? ` no. ${numProforma}` : ""}"`,
-        estado: !ref ? "DISCREPANCIA" : ok ? "OK" : "DISCREPANCIA",
-        evidencia: ref ? `dice "${ref}"` : "la factura no cita la proforma",
+        estado: !cita ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+        evidencia: cita
+          ? `dice "${cita}"`
+          : "no se leyó en la factura una cita de la proforma que el crédito nombra: verificar a mano",
       });
     }
     if (/FOB VALUE AND FREIGHT|FREIGHT AMOUNTS? SEPARATELY|SHOWING.{0,30}FREIGHT/i.test(reglaFac)) {
