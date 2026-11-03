@@ -210,7 +210,22 @@ export const ES_RECIBO_DE_AGENTE =
  * terminen diciendo cosas distintas sobre la misma línea.
  */
 export const EXIGE_ENDOSO_EN_BLANCO = /\bBLANK\s+ENDORSED\b|\bENDORSED\s+IN\s+BLANK\b/i;
-export const A_LA_ORDEN_DE = /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)/i;
+/**
+ * A nombre de quién va el documento de transporte, cuando el crédito lo pide a la orden.
+ *
+ * **La forma posesiva faltaba y era un falso positivo ancho.** El 46A de la Opinión **R 358** pide el
+ * conocimiento *«made out to **our order** quoting our L/C number»*, que es como un banco emisor pide el
+ * documento a su propio nombre, y este patrón solo reconocía «to the order **of** X». Medido: con esa
+ * línea, `A_LA_ORDEN_DE` no capturaba nada y `CONSIGNADO_A` se llevaba **«OUR ORDER QUOTING OUR L»** como
+ * si fuera el nombre de una parte —arrastrando media frase siguiente adentro— así que la regla comparaba
+ * el consignatario del papel contra esa cadena y **rechazaba un conocimiento que cumple exactamente lo
+ * pedido**.
+ *
+ * Es la misma forma que la Opinión TA 765rev arregló por la otra puerta: ahí el rol era «the issuing
+ * bank» escrito con todas las letras y acá es el posesivo. En los dos casos lo que hay que comparar es
+ * **el banco de ese rol**, que sale del 52A — ver `esRol` más abajo.
+ */
+export const A_LA_ORDEN_DE = /TO\s+(?:THE\s+)?ORDER\s+OF\s+([A-Z0-9 .,'&()-]+)|TO\s+(OUR)\s+ORDER\b/i;
 export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0-9 .,'&()-]+)/i;
 
 export function hastaLaDescripcion(nombre: string | null): string | null {
@@ -829,7 +844,9 @@ export function precheckPresentacion(input: {
      * hay discrepancia, hay a lo sumo algo que mirar.
      */
     /* «TO ORDER OF» sin el «THE» es la misma exigencia, y la mitad de los créditos la escribe así. */
-    const ordenDe = hastaLaDescripcion(A_LA_ORDEN_DE.exec(reglaBL)?.[1] ?? null);
+    /* Dos grupos: el 1 es «to the order of X» y el 2 el posesivo «to our order», que captura «OUR». */
+    const mOrden = A_LA_ORDEN_DE.exec(reglaBL);
+    const ordenDe = hastaLaDescripcion(mOrden?.[1] ?? mOrden?.[2] ?? null);
     /*
      * «BLANK ENDORSED» dice a nombre de quién, aunque no lo parezca.
      *
@@ -954,7 +971,10 @@ export function precheckPresentacion(input: {
        * del banco y no al revés, porque un conocimiento no dice «a la orden del banco emisor»: dice el
        * nombre.
        */
-      const esRol = /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES)\b/i.test(ordenDe);
+      /* «OUR» entra por la Opinión R 358: «made out to our order» es el rol del emisor en posesivo. */
+      const esRol = /^(?:THE\s+)?(?:ISSUING|OPENING|L\/?C\s+ISSUING)\s+BANK\b|^(?:US|OURSELVES|OUR)\b/i.test(
+        ordenDe,
+      );
       /*
        * Y el guion largo no es un nombre de banco.
        *
