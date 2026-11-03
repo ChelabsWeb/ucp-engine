@@ -4,11 +4,11 @@ import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { ablandarPorISBP } from "./isbp";
 import {
+  admiteCopiaDelTransporte,
   type DocAnalizado,
   dondeSePideElNumeroLC,
   ejemplaresDe,
   feeDiscrepancia,
-  admiteCopiaDelTransporte,
   pideSoloCopiaDelTransporte,
   precheckPresentacion,
 } from "./presentacion";
@@ -1409,5 +1409,97 @@ describe("el documento que el crédito admite reemplazar (laudo DOCDEX 372)", ()
     const r = con(["COMMERCIAL INVOICE AND LETTER OF INDEMNITY ARE ACCEPTABLE IN LIEU OF THE BILLS OF LADING."]);
     expect(r.find((y) => y.id === "46A+2")?.estado, "el conocimiento está desplazado").toBe("ATENCION");
     expect(r.find((y) => y.id === "46A+3")?.estado, "el certificado de origen no").toBe("FALTA");
+  });
+});
+
+/*
+ * `fac-proforma` — las tres redacciones y el número entero (Opinión R 339)
+ *
+ * El panel: *«If the credit provided details of a specific pro-forma invoice number and this was
+ * either **mis-quoted or completely different** from the commercial invoice that was presented, this
+ * would be considered to be a discrepancy»*. Lo que la regla no podía ver, medido antes de tocarla:
+ * la grafía con guion, el crédito que nombra la proforma en el **45A** —que es donde la nombran los
+ * dos créditos reales del banco de pruebas— y el número cortado en la primera barra.
+ */
+describe("fac-proforma: la proforma que el crédito nombra", () => {
+  const facturaQueCita = (texto: string): CamposDoc => ({
+    ...base,
+    exportador: campo("CEREALSUR S.A"),
+    referenciaProforma: campo(texto),
+  });
+  const correr = (args: { reglaFac?: string; mercaderia45A?: string; fac: CamposDoc }) =>
+    precheckPresentacion({
+      lc: {
+        ...lc,
+        documentosExigidos: [args.reglaFac ?? "SIGNED COMMERCIAL INVOICE IN TRIPLICATE"],
+      },
+      docs: [{ tipo: "FACTURA" as const, campos: args.fac }],
+      mercaderia45A: args.mercaderia45A,
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((x) => x.id === "fac-proforma");
+
+  it("«PRO-FORMA» con guion dispara la regla, que es la grafía de la Opinión R 339", () => {
+    const r = correr({
+      reglaFac: "SIGNED COMMERCIAL INVOICE ISSUED AS PER PRO-FORMA INVOICE NO. PF-2199/98",
+      fac: facturaQueCita("GOODS AS PER PRO-FORMA INVOICE NO. PF-2200/98"),
+    });
+    expect(r).toMatchObject({ estado: "DISCREPANCIA", regla: expect.stringContaining("PF-2199/98") });
+  });
+
+  it("y con la grafía pegada y con espacio también", () => {
+    for (const forma of ["PROFORMA", "PRO FORMA"]) {
+      const r = correr({
+        reglaFac: `SIGNED COMMERCIAL INVOICE AS PER ${forma} INVOICE NO. PF-2199`,
+        fac: facturaQueCita(`GOODS AS PER ${forma} INVOICE NO. PF-2199`),
+      });
+      expect(r?.estado).toBe("OK");
+    }
+  });
+
+  it("el crédito que la nombra en el 45A llega a la regla, y la fuente lo dice", () => {
+    const r = correr({
+      mercaderia45A: "MACHINE PARTS AND SPARE PARTS AS PER PROFORMA INVOICE NO. ZM/2009/118",
+      fac: facturaQueCita("MACHINE PARTS AS PER PROFORMA INVOICE NO. ZM/2009/118"),
+    });
+    expect(r).toMatchObject({ estado: "OK", fuente: "45A" });
+  });
+
+  it("el número se lee entero: otro de la misma serie es discrepancia y no pasa por contención", () => {
+    const r = correr({
+      mercaderia45A: "MACHINE PARTS AS PER PROFORMA INVOICE NO. ZM/2009/118",
+      fac: facturaQueCita("MACHINE PARTS AS PER PROFORMA INVOICE NO. ZM/2009/999"),
+    });
+    expect(r).toMatchObject({ estado: "DISCREPANCIA", regla: expect.stringContaining("ZM/2009/118") });
+  });
+
+  it("la cita se lee de la descripción de la factura, que es donde el papel la imprime", () => {
+    const r = correr({
+      mercaderia45A: "ABC SPRAY 100ML AS PER PROFORMA INVOICE NO. 123",
+      fac: {
+        ...base,
+        exportador: campo("CEREALSUR S.A"),
+        mercaderia: campo("ABC SPRAY 100ML AS PER PROFORMA INVOICE NO. 123"),
+      },
+    });
+    expect(r?.estado).toBe("OK");
+  });
+
+  /*
+   * El límite de la Opinión TA 862: un campo vacío significa a la vez que el papel no la trae y que
+   * nadie la cargó. Antes esta rama daba DISCREPANCIA, y con la regla llegando ahora a los créditos
+   * que nombran la proforma en el 45A habría rechazado las dos facturas conformes del propio banco.
+   */
+  it("sin cita legible avisa y NO rechaza", () => {
+    const r = correr({
+      mercaderia45A: "ABC SPRAY 100ML AS PER PROFORMA INVOICE NO. 123",
+      fac: { ...base, exportador: campo("CEREALSUR S.A"), mercaderia: campo("ABC SPRAY 100ML") },
+    });
+    expect(r).toMatchObject({ estado: "ATENCION", evidencia: expect.stringContaining("verificar a mano") });
+  });
+
+  it("un crédito que no la nombra no emite la regla", () => {
+    expect(correr({ fac: facturaQueCita("GOODS AS PER PROFORMA INVOICE NO. PF-1") })).toBeUndefined();
   });
 });
