@@ -1810,6 +1810,17 @@ const REEMPLAZOS: [RegExp, string][] = [
     " and no capacity was recognised: check by hand that it is signed by ",
   ],
   [/, o un agente nombrado por cuenta de alguno de ellos$/g, ", or a named agent on behalf of any of them"],
+  /* Opinión R 354: el bloque que declara dos capacidades a la vez */
+  [
+    / y declara más de una capacidad a la vez: la Opinión R 354 dice que el agente tendría que haber tachado una y que así no se sabe en cuál firma — verificar en el papel si una está tachada$/g,
+    " and states more than one capacity at once: Opinion R 354 says the agent should have deleted one of them, and that as it stands the capacity in which it signs is unclear — check the paper for a deletion",
+  ],
+  /*
+   * **Y la séptima plantilla descubierta, que ningún caso disparaba.** `ucp-19a-ii` avisa cuando no se
+   * leyó la constancia de despacho, toma a cargo o embarque de un multimodal, y hasta el caso de la
+   * Opinión R 354 ningún expediente del banco llegaba a esa rama.
+   */
+  [/^no se leyó esa constancia en el documento: verificar a mano$/g, "that notation was not read on the document: check by hand"],
   [/ por medio de un agente nombrado, que el artículo admite: /g, " through a named agent, which the article allows: "],
   [/ y este documento solo lo puede firmar /g, " and this document may only be signed by "],
   [
