@@ -22,6 +22,27 @@ describe("lo que queda del lado humano", () => {
     );
   });
 
+  /*
+   * El criterio de las correcciones, que es lo que la persona lee y por lo tanto lo que hace.
+   *
+   * Opinión **R 337**: *«Only the original bill of lading is required to be signed and/or initialled by
+   * the carrier or his agent. **Any alterations made to the non-negotiable copy(ies) need not be signed
+   * or initialled**»*, que es la Opinión que el ¶167 de la ISBP 681 codifica —el que transcribe el laudo
+   * DOCDEX 304—. Y *«a chop constitutes a signature»*, el artículo 3 de hoy.
+   *
+   * El renglón decía «toda corrección … autenticada» sobre todos los papeles y que la marca «suele ser
+   * manuscrita»: las dos mitades empujaban a un examinador hacia el rechazo exacto que esta Opinión
+   * declara inválido.
+   */
+  it("la corrección se exige en el original y no en una copia no negociable, y un sello vale como firma", () => {
+    const v = verificacionesManuales({ lc: LC, docs: DOCS }).find((x) => x.id === "correcciones");
+    expect(v?.que).toContain("del original");
+    expect(v?.que).toContain("copia no negociable no hace falta");
+    expect(v?.porQue).toContain("chop");
+    /* y sigue mirándose en todos los papeles: lo que cambió es el criterio, no el alcance */
+    expect(v?.documentos).toEqual(["Commercial invoice A 4401", "BL MVD0990117"]);
+  });
+
   it("con un documento de transporte agrega contar los originales que llegaron", () => {
     const v = verificacionesManuales({ lc: LC, docs: DOCS }).find((x) => x.id === "juego-fisico");
     expect(v?.documentos).toEqual(["BL MVD0990117"]);
