@@ -1,3 +1,4 @@
+import { corto } from "./certificados";
 import { claveDoc } from "./consistencia";
 import { parseFecha } from "./fechas";
 import { comparaISBP } from "./isbp";
@@ -1001,6 +1002,58 @@ export function revisarCredito(p: LcSwift): Observacion[] {
           : "Se prohíbe el transbordo: el artículo 20(c) admite igual algunos casos",
         "campo 43T",
         "para que la prohibición tenga efecto hay que excluir expresamente el sub-artículo 20(c)",
+      ),
+    );
+  }
+
+  /*
+   * ── El término de entrega de puerto con un documento de transporte multimodal ──
+   *
+   * **Los cuatro términos marítimos están definidos a un puerto, no a un lugar.** CFR es «Cost and
+   * Freight» a un **puerto** de destino nombrado y CPT es «Carriage Paid To» a un **lugar** nombrado,
+   * así que un crédito que pide un documento multimodal —o sea carriage que sigue tierra adentro— y
+   * nombra CFR, CIF, FOB o FAS está pidiendo dos cosas que no encajan.
+   *
+   * Lo dice la Opinión **R 432** sobre un crédito con lugar de recepción Singapur, destino final Chicago
+   * vía cualquier puerto del oeste, documento multimodal y término CFR:
+   *
+   * > Where the goods are being transported in the manner in which you describe, **use of the Incoterm
+   * > CFR is inappropriate, as CFR is defined as Cost and Freight to a named port of destination. The
+   * > Incoterm CPT should be used**, which is defined as Carriage Paid to a named place of destination.
+   * >
+   * > Given that your credit called for CFR and then presumably was further defined as CFR Chicago,
+   * > **the complete freight costs should have been paid through to Chicago.**
+   *
+   * **Lo que esto le ahorra a un banco es concreto, y es la pregunta 3 de esa consulta:** un conocimiento
+   * marcado «freight prepaid» con el flete base y la documentación prepagos y el *fuel adjustment* y la
+   * entrega en el container yard **por cobrar**. La marca dice «prepaid» y el tramo de tierra no está
+   * pago, y el ordenante lo descubre cuando le reclaman.
+   *
+   * **Va en AVISO y no más arriba:** el crédito es operable, y lo que el banco tiene que saber es que la
+   * marca de flete no le va a decir lo que cree. Y va acá y **no en el examen**, que es el límite que
+   * separa esto de la Opinión TA 765rev: `ucp-18c-incoterm` compara el término del crédito contra el de
+   * la factura y **no opina sobre si el término es el apropiado** para el medio de transporte, porque eso
+   * es investigar más allá de la cara del documento. R 432 tampoco declara ninguna discrepancia por este
+   * punto: le dice al que emitió el crédito cómo tendría que haberlo redactado. **Las dos cosas conviven
+   * y no se mezclan: la redacción se aconseja antes, el documento se examina como vino.**
+   *
+   * Medido antes de escribirla: de los 178 créditos del banco de pruebas, **47 nombran un término de
+   * puerto y ninguno pide un documento multimodal**, así que la regla es aditiva sobre todo lo medido.
+   */
+  const TERMINO_DE_PUERTO =
+    /\b(FOB|FAS|CFR|CIF)\b|\bC\s*(?:AND|&)\s*F\b|\bFREE\s+ON\s+BOARD\b|\bCOST\s+AND\s+FREIGHT\b|\bCOST,?\s+INSURANCE\s+AND\s+FREIGHT\b/i;
+  const PIDE_MULTIMODAL = /\bMULTIMODAL\b|\bCOMBINED\s+TRANSPORT\b|\bINTERMODAL\b/i;
+  const terminoDePuerto = TERMINO_DE_PUERTO.exec(p.extra.bienes ?? "")?.[0];
+  const lineaMultimodal = (p.lc.documentosExigidos ?? []).find((d) => PIDE_MULTIMODAL.test(d));
+  if (terminoDePuerto && lineaMultimodal) {
+    out11.push(
+      obs(
+        "emision-termino-de-puerto-multimodal",
+        "AVISO",
+        "45A / 46A",
+        `El término de entrega "${terminoDePuerto.toUpperCase()}" está definido a un puerto y el crédito pide un documento multimodal`,
+        `45A dice "${corto(terminoDePuerto, 20)}" y el 46A pide "${corto(lineaMultimodal, 60)}"`,
+        'la Opinión R 432 dice que ahí «use of the Incoterm CFR is inappropriate … The Incoterm CPT should be used»: con el término de puerto, la marca "freight prepaid" del documento puede cubrir solo el tramo marítimo y el acarreo de tierra quedar por cobrar',
       ),
     );
   }
