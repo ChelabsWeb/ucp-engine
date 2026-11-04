@@ -793,6 +793,60 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
   });
 });
 /**
+ * El término de entrega de puerto con un documento multimodal (Opinión R 432)
+ *
+ * Los cuatro términos marítimos están definidos **a un puerto** y CPT a **un lugar**, así que un crédito que
+ * pide un documento multimodal y nombra CFR, CIF, FOB o FAS pide dos cosas que no encajan — y la consecuencia
+ * concreta es la pregunta 3 de esa consulta: un conocimiento marcado «freight prepaid» con el flete base
+ * prepago y la entrega en el container yard **por cobrar**.
+ *
+ * **Y esto vive en la revisión del crédito y no en el examen**, que es lo que lo separa de la Opinión
+ * TA 765rev: `ucp-18c-incoterm` compara el término del crédito contra el de la factura y **no opina sobre si
+ * el término es el apropiado** para el medio de transporte. R 432 tampoco declara ninguna discrepancia por
+ * este punto: le dice al que emitió el crédito cómo tendría que haberlo redactado.
+ */
+describe("el término de entrega de puerto con un documento multimodal (Opinión R 432)", () => {
+  const con = (bienes: string, doc: string) => {
+    const swift = SWIFT_CSU2025099.replace(
+      /( {5}45A: Description of Goods and\/or Services\n)[\s\S]*?(\n {5}46A:)/,
+      `$1          ${bienes}$2`,
+    ).replace(/( {5}46A: Documents Required\n)[\s\S]*?(\n {5}47A:)/, `$1          1. ${doc}$2`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-termino-de-puerto-multimodal");
+  };
+
+  it("sale como AVISO nombrando el término y la línea del 46A", () => {
+    const [r] = con("1000 MT OF WHEAT CFR CHICAGO", "MULTIMODAL TRANSPORT DOCUMENT IN FULL SET");
+    expect(r?.gravedad).toBe("AVISO");
+    expect(r?.que).toContain("CFR");
+    expect(r?.sugerencia).toContain("R 432");
+    expect(r?.sugerencia).toContain("CPT");
+  });
+
+  it.each(["CIF CHICAGO", "FOB SINGAPORE", "FAS SINGAPORE", "COST AND FREIGHT CHICAGO", "C AND F CHICAGO"])(
+    "y vale para los cuatro términos de puerto y sus formas en palabras: %s",
+    (termino) => {
+      expect(con(`1000 MT OF WHEAT ${termino}`, "COMBINED TRANSPORT DOCUMENT IN FULL SET")).toHaveLength(1);
+    },
+  );
+
+  /* Los frenos, que son lo que la hace usable en un crédito corriente. */
+  it("un término de lugar con un multimodal no se marca: es el que corresponde", () => {
+    expect(con("1000 MT OF WHEAT CPT CHICAGO", "MULTIMODAL TRANSPORT DOCUMENT IN FULL SET")).toEqual([]);
+    expect(con("1000 MT OF WHEAT DAP CHICAGO", "MULTIMODAL TRANSPORT DOCUMENT IN FULL SET")).toEqual([]);
+  });
+
+  it("y un término de puerto con un marítimo tampoco: ahí encajan", () => {
+    expect(con("1000 MT OF WHEAT CFR COLOMBO", "FULL SET OF ORIGINAL MARINE BILLS OF LADING")).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-termino-de-puerto-multimodal"),
+    ).toEqual([]);
+  });
+});
+
+/**
  * El artículo 6 (b) vive en el campo 41, no en el 42C
  *
  * El 42C es el plazo del **giro** y solo existe cuando el crédito pide giro; cómo está disponible el crédito

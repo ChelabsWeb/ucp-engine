@@ -270,6 +270,22 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^Se prohíbe el transbordo: el artículo 20\(c\) admite igual algunos casos$/g,
     "Transhipment is prohibited: article 20 (c) admits some cases all the same",
   ],
+  /* ── el término de entrega de puerto con un documento multimodal (Opinión R 432) ── */
+  [/^El término de entrega /g, "The trade term "],
+  [
+    / está definido a un puerto y el crédito pide un documento multimodal$/g,
+    " is defined to a port and the credit calls for a multimodal transport document",
+  ],
+  [/^45A dice /g, "field 45A states "],
+  [/ y el 46A pide /g, " and field 46A calls for "],
+  [
+    /^la Opinión R 432 dice que ahí «use of the Incoterm CFR is inappropriate … The Incoterm CPT should be used»: con el término de puerto, la marca /g,
+    "ICC Opinion R 432 says that there «use of the Incoterm CFR is inappropriate … The Incoterm CPT should be used»: with a port-to-port trade term, the ",
+  ],
+  [
+    / del documento puede cubrir solo el tramo marítimo y el acarreo de tierra quedar por cobrar$/g,
+    " marking on the document may cover the ocean leg only, leaving the inland carriage collect",
+  ],
   /* ── la política interna que el crédito se reserva aplicar «a su sola discreción» ── */
   [
     /^El crédito se reserva no procesar los documentos a su sola discreción: esa cláusula no releva al emisor de honrar una presentación conforme$/g,
