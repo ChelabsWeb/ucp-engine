@@ -465,6 +465,47 @@ describe("lo que el crédito NO exige, no se dictamina", () => {
     expect(x?.estado).toBe("DISCREPANCIA");
   });
 
+  /* Opinión R 467: «franco de port» es flete pagado, y rechazarlo volvería discrepante a casi
+     todo ferroviario europeo. Lo que no se reconoce sale a verificar, no se rechaza. */
+  it("una marca de flete pagado en otro idioma cumple la exigencia de FREIGHT PREPAID", () => {
+    for (const fl of ["FRANCO DE PORT", "PORT PAYÉ", "FRACHTFREI", "CARRIAGE PAID", "FREIGHT PAID"]) {
+      const x = correr(lc, { ...BL, flete: campo(fl) }).reglas.find((y) => y.id === "bl-freight");
+      expect(x?.estado, fl).toBe("OK");
+    }
+  });
+
+  it("y la marca contraria en otro idioma sigue siendo discrepancia", () => {
+    for (const fl of ["PORT DÛ", "PORTO ASSEGNATO", "FREIGHT PAYABLE AT DESTINATION"]) {
+      const x = correr(lc, { ...BL, flete: campo(fl) }).reglas.find((y) => y.id === "bl-freight");
+      expect(x?.estado, fl).toBe("DISCREPANCIA");
+    }
+  });
+
+  it("una marca que el motor no reconoce se verifica a mano en vez de rechazarse", () => {
+    const x = correr(lc, { ...BL, flete: campo("FREIGHT PAYABLE AS PER CHARTER PARTY") }).reglas.find(
+      (y) => y.id === "bl-freight",
+    );
+    expect(x?.estado).toBe("ATENCION");
+    expect(x?.evidencia).toMatch(/by other means/);
+  });
+
+  /* el prepago se prueba primero, así que la mención de un lugar de pago no da vuelta la marca */
+  it("«FREIGHT PREPAID - PAYABLE AT BASEL» es flete pagado", () => {
+    const x = correr(lc, { ...BL, flete: campo("FREIGHT PREPAID - PAYABLE AT BASEL") }).reglas.find(
+      (y) => y.id === "bl-freight",
+    );
+    expect(x?.estado).toBe("OK");
+  });
+
+  /* la otra mitad del defecto: el 46A del caso de la Opinión R 354 dice «MARKED FREIGHT PAID»,
+     y con el patrón viejo el motor contestaba «el crédito no pide una marca de flete» */
+  it("un crédito que pide «FREIGHT PAID» pide una marca de flete", () => {
+    const pide = { ...lc, documentos: ["FULL SET OF BILLS OF LADING MARKED FREIGHT PAID"] };
+    const x = correr(pide, { ...BL, flete: campo("FREIGHT COLLECT") }).reglas.find((y) => y.id === "bl-freight");
+    expect(x?.estado).toBe("DISCREPANCIA");
+    expect(x?.regla).toMatch(/FREIGHT PREPAID/);
+  });
+
   it("sin destinatario en el crédito, el consignatario del BL no se compara contra el emisor", () => {
     const r = correr(sinMencion(/ISSUED TO THE ORDER OF\s+MERIDIAN BANK PLC/i), {
       ...BL,

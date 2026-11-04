@@ -236,6 +236,53 @@ export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0
  * todo su texto y su crédito nombra el número que la factura citó mal; los dos créditos del banco de
  * pruebas que la nombran usan la grafía pegada. Ver la regla `fac-proforma`.
  */
+/**
+ * **Cómo se marca el flete en un documento de transporte, y en qué idioma.**
+ *
+ * `bl-freight` comparaba la palabra del crédito contra el campo del papel con `includes`, así que solo
+ * reconocía «PREPAID» y «COLLECT» **en inglés y con esa grafía exacta**. La Opinión **R 467** es el caso, y
+ * el argumento del consultante es lo que lo hace grave: un ferroviario europeo trae la casilla preimpresa
+ * tildada **en su idioma** —«franco de port»— y *«Railway authorities or their officers normally tick the
+ * related pre-printed box and are normally not prepared to add equal wordings in another language. Since
+ * the position of the issuing bank would render **almost all railway bills (at least in Europe)
+ * discrepant**»*.
+ *
+ * El inciso 33 (b) de las UCP 500, que la Opinión transcribe:
+ *
+ * > "If a Credit stipulates that the transport document has to indicate that freight has been paid or
+ * > prepaid, banks will accept a transport document on which **words clearly indicating payment or
+ * > prepayment of freight appear by stamp or otherwise, or on which payment or prepayment of freight is
+ * > indicated by other means**."
+ *
+ * > a document stating "franco de port (place of destination)" **would be acceptable** under a credit
+ * > requiring the transport document to evidence payment of freight.
+ *
+ * **Las dos mitades estaban mal, y la primera ya estaba sentada en el banco de pruebas:** el 46A del caso
+ * de la Opinión R 354 dice «MARKED FREIGHT **PAID**», que no es «PREPAID» ni «COLLECT», así que el motor
+ * contestaba «el crédito no pide una marca de flete» **sobre un crédito que la pide**. Eso no se ve como
+ * una falla: se ve como un aviso.
+ *
+ * **La lista es corta y cerrada a propósito**, como la del párrafo A1 y la de las formas societarias: son
+ * los términos con que el comercio marca el flete, cada uno con su par, y lo que **no** está reconocido
+ * **no se rechaza** —sale a verificar citando el «by other means» del propio inciso—. Así una entrada que
+ * falte no cuesta nada y la única equivocación caro posible, confundir un pagado con un por cobrar, tiene
+ * su test en las dos direcciones.
+ */
+const FLETE_PREPAGO =
+  /\bFREIGHT\s+PRE[\s-]?PAID\b|\bFREIGHT\s+PAID\b|\bCARRIAGE\s+PAID\b|\bFRANCO\s+DE\s+PORT\b|\bPORT\s+PAY[EÉ](?![A-Z])|\bFRACHTFREI\b|\bPORTO\s+FRANCO\b|\bFLETE\s+PAGADO\b|\bPORTE\s+PAGADO\b/i;
+
+const FLETE_POR_COBRAR =
+  /\bFREIGHT\s+COLLECT\b|\bPAYABLE\s+AT\s+DESTINATION\b|\bPORT\s+D[UÛ](?![A-Z])|\bPORTO\s+ASSEGNATO\b|\bFLETE\s+POR\s+COBRAR\b|\bPORTE\s+DEBIDO\b/i;
+
+/** `"PREPAID"`, `"COLLECT"` o `null` cuando la marca no está en el vocabulario reconocido. */
+export function marcaDeFlete(texto: string | null | undefined): "PREPAID" | "COLLECT" | null {
+  if (!texto) return null;
+  /* el prepago se prueba primero: «FREIGHT PREPAID - PAYABLE AT BASEL» trae las dos familias */
+  if (FLETE_PREPAGO.test(texto)) return "PREPAID";
+  if (FLETE_POR_COBRAR.test(texto)) return "COLLECT";
+  return null;
+}
+
 /** Los números que un 46A escribe en palabras: «IN THREE ORIGINALS», «3 COMMERCIAL INVOICES». */
 const PALABRA_A_NUMERO: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, SIX: 6 };
 
@@ -1177,15 +1224,21 @@ export function precheckPresentacion(input: {
      * habla del flete salía discrepante por una marca que nadie pidió. El incoterno de la operación
      * dice cómo se pactó la venta, no qué exige el crédito, y son cosas distintas.
      */
-    const flete = /FREIGHT\s+(PREPAID|COLLECT)/i.exec(reglaBL)?.[1]?.toUpperCase() ?? null;
+    /* lo que el crédito pide, en cualquiera de las formas reconocidas: ver `marcaDeFlete` y R 467 */
+    const flete = marcaDeFlete(reglaBL);
     const fl = val(bl, "flete");
     if (flete) {
+      const marca = marcaDeFlete(fl);
       reglas.push({
         id: "bl-freight",
         fuente: "46A",
         regla: `BL marcado "FREIGHT ${flete}"`,
-        estado: !fl ? "ATENCION" : fl.toUpperCase().includes(flete) ? "OK" : "DISCREPANCIA",
-        evidencia: fl ? `dice "${fl}"` : "no se leyó la marca de flete",
+        estado: !fl ? "ATENCION" : marca === flete ? "OK" : marca ? "DISCREPANCIA" : "ATENCION",
+        evidencia: !fl
+          ? "no se leyó la marca de flete"
+          : marca
+            ? `dice "${fl}"`
+            : `dice "${fl}", que no está entre las formas que el motor reconoce: el inciso admite que el pago del flete conste «by stamp or otherwise, or … by other means» y la Opinión R 467 acepta «franco de port» como flete pagado, así que esto se verifica a mano en vez de rechazarse`,
       });
     } else if (fl) {
       reglas.push({
