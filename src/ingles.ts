@@ -553,6 +553,19 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el crédito no pide una marca de flete y el documento dice /g,
     "the credit does not call for a freight marking and the document states ",
   ],
+  /*
+   * La cola del aviso de la Opinión R 467, escrita a mano porque `ingles-cobertura` saltea las
+   * plantillas y **ningún caso del banco dispara esta rama**: todas las marcas de flete del banco
+   * están en inglés. Es el límite declarado de ese control, y la compensación es ésta.
+   */
+  [
+    /, que no está entre las formas que el motor reconoce: ninguna disposición de las UCP 600 exige que la marca de flete esté en inglés, y la Opinión R 467 acepta /g,
+    ", which is not among the forms the engine recognises: no provision of UCP 600 requires the freight marking to be in English, and ICC Opinion R 467 accepts ",
+  ],
+  [
+    / como flete pagado, así que esto se verifica a mano en vez de rechazarse$/g,
+    " as freight prepaid, so this is to be checked by hand rather than refused",
+  ],
   [/: verificar contra el incoterm de la venta$/g, ": check it against the term of delivery of the sale"],
   // ── quién emite y quién embarca (UCP 600 arts. 18 a i y 14 k) ──
   [/^La factura la emite el beneficiario$/g, "The commercial invoice is issued by the beneficiary"],

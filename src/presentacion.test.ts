@@ -486,7 +486,9 @@ describe("lo que el crédito NO exige, no se dictamina", () => {
       (y) => y.id === "bl-freight",
     );
     expect(x?.estado).toBe("ATENCION");
-    expect(x?.evidencia).toMatch(/by other means/);
+    /* lo que no se puede es rechazar: no hay disposición de las UCP 600 que exija el inglés */
+    expect(x?.evidencia).toMatch(/ninguna disposición de las UCP 600 exige que la marca de flete esté en inglés/);
+    expect(x?.evidencia).toMatch(/R 467/);
   });
 
   /* el prepago se prueba primero, así que la mención de un lugar de pago no da vuelta la marca */

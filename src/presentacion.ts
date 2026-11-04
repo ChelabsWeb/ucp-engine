@@ -257,6 +257,16 @@ export const CONSIGNADO_A = /\b(?:CONSIGNED|MADE\s+OUT)\s+TO\s+(?:THE\s+)?([A-Z0
  * > a document stating "franco de port (place of destination)" **would be acceptable** under a credit
  * > requiring the transport document to evidence payment of freight.
  *
+ * **Y ese inciso es de las UCP 500, que las 600 no reproducen** —el 26 (c) de hoy es de los costos
+ * **adicionales** al flete, que es otra cosa y tiene su propia regla, `isbp-e27`—. Así que la lección del
+ * laudo DOCDEX 215 se aplica al revés y a favor: lo que caducó es una redacción **permisiva**, y que
+ * desaparezca no crea una restrictiva. Hoy lo que manda es lo que el crédito escribió (14 a), que es la
+ * fuente que esta regla cita, y **no hay ninguna disposición de las UCP que diga que la marca tiene que
+ * estar en inglés** — o sea que el motor estaba rechazando sobre una comparación de su propia invención.
+ * Eso es lo que sostiene el arreglo, y lo que hace que la salida de lo no reconocido sea verificar y no
+ * rechazar: no hay inciso al que apoyarse para lo segundo. Lo que la sección E de la ISBP agregue sobre
+ * las marcas de flete no se puede leer: el texto no está comprado.
+ *
  * **Las dos mitades estaban mal, y la primera ya estaba sentada en el banco de pruebas:** el 46A del caso
  * de la Opinión R 354 dice «MARKED FREIGHT **PAID**», que no es «PREPAID» ni «COLLECT», así que el motor
  * contestaba «el crédito no pide una marca de flete» **sobre un crédito que la pide**. Eso no se ve como
@@ -1238,7 +1248,7 @@ export function precheckPresentacion(input: {
           ? "no se leyó la marca de flete"
           : marca
             ? `dice "${fl}"`
-            : `dice "${fl}", que no está entre las formas que el motor reconoce: el inciso admite que el pago del flete conste «by stamp or otherwise, or … by other means» y la Opinión R 467 acepta «franco de port» como flete pagado, así que esto se verifica a mano en vez de rechazarse`,
+            : `dice "${fl}", que no está entre las formas que el motor reconoce: ninguna disposición de las UCP 600 exige que la marca de flete esté en inglés, y la Opinión R 467 acepta "franco de port" como flete pagado, así que esto se verifica a mano en vez de rechazarse`,
       });
     } else if (fl) {
       reglas.push({
