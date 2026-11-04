@@ -1224,6 +1224,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^no se leyó el origen ([A-Z]+); el documento dice (.+): verificar a mano, y si el papel de verdad no lo indica la discrepancia vale \(Opinión TA 864rev\)$/g,
     "the $1 origin was not read; the document states $2: check by hand, and if the paper really does not indicate it the discrepancy is valid (ICC Opinion TA 864rev)",
   ],
+  /*
+   * R 320: el país nombrado sin referencia expresa al origen. Va escrita a mano **el mismo día** porque el
+   * control de literales saltea las plantillas y ningún caso del banco dispara esta rama — es la séptima
+   * vez que ese límite declarado cuesta una frase a medias.
+   */
+  [
+    /^el documento nombra ([A-Z]+) pero sin referencia expresa al origen: dice (.+)\. La Opinión R 320 dice que eso no alcanza —«could, indeed, be a brand or trade name for a particular product\. Banks are not expected to have any prior or present knowledge to that effect»—: verificar a mano$/g,
+    "the document names $1 but without specific reference to the origin: it states $2. ICC Opinion R 320 holds that this is not enough — «could, indeed, be a brand or trade name for a particular product. Banks are not expected to have any prior or present knowledge to that effect» — : check by hand",
+  ],
   [
     /^el documento no nombra el origen y trae el criterio del formulario: dice (.+)\. La Opinión TA 864rev lo admite pero no dice que ese acrónimo signifique este país: verificar a mano$/g,
     "the document does not name the origin and carries the form's own origin criterion: it states $1. ICC Opinion TA 864rev admits it but does not say that acronym means this country: check by hand",

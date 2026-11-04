@@ -709,12 +709,12 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
    * OF ORIGIN: URUGUAY» en su texto y «MONTEVIDEO» en el lugar salía a verificar **mostrando
    * «MONTEVIDEO»** como evidencia — el campo equivocado, sobre un documento que sí decía el origen.
    */
-  const correrOrigen = (campos: Partial<CamposDoc>) =>
+  const correrOrigen = (campos: Partial<CamposDoc>, exigencia = "+3)CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD") =>
     reglasCertificados({
       lc: LC,
       docs: [],
       hoy: new Date(2025, 3, 20),
-      certificados: [{ exigencia: "+3)CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD", campos: doc(campos) }],
+      certificados: [{ exigencia, campos: doc(campos) }],
     }).find((x) => x.id.startsWith("cert-origen"));
 
   it("lo encuentra en el texto aunque el lugar diga otra cosa", () => {
@@ -726,8 +726,54 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
     expect(r?.evidencia).toMatch(/URUGUAY/);
   });
 
-  it("y en el lugar cuando ahí está", () => {
-    expect(correrOrigen({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") })?.estado).toBe("OK");
+  /*
+   * **Y acá cambió el veredicto, por la Opinión R 320 — que es la autoridad del hueco que este archivo
+   * tenía declarado.** Este test afirmaba OK: un certificado sin ninguna declaración de origen, embarcado
+   * desde «MONTEVIDEO, URUGUAY», daba por cumplida la exigencia de origen uruguayo **sobre un campo que
+   * no certifica nada**.
+   *
+   * R 320: un certificado que dice «200 bales **Sudan** Raw Cotton» y ningún origen no sirve, porque
+   * *«"Sudan Raw Cotton" could, indeed, be a brand or trade name for a particular product. **Banks are
+   * not expected to have any prior or present knowledge to that effect**»* — y lo que falta es
+   * **«specific reference to that fact»**. Un puerto de embarque tampoco la trae.
+   *
+   * Queda ATENCION con la Opinión nombrada, que es lo que corresponde: el país **está** en el papel y
+   * puede estar también en la casilla de origen que nadie extrajo (el límite de la TA 862), así que el
+   * motor pone el papel delante de una persona en vez de afirmar un origen que no se declaró.
+   */
+  it("pero un puerto que contiene el país no declara el origen (R 320)", () => {
+    const r = correrOrigen({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") });
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 320");
+    expect(r?.evidencia).toContain("sin referencia expresa al origen");
+  });
+
+  /* y el casillero que **es** el país sí lo declara: es la casilla de origen del formulario */
+  it("y el campo que es el país a secas sí lo declara", () => {
+    expect(correrOrigen({ puertoEmbarque: campo("URUGUAY") })?.estado).toBe("OK");
+  });
+
+  /*
+   * El caso textual de R 320: el nombre del país **dentro de la designación de la mercadería**. Ojo con
+   * el arnés —su exigencia nombra origen uruguayo— así que este test trae la suya: sin eso pasaría
+   * porque «SUDAN» no es el país buscado, que es pasar por el motivo equivocado.
+   */
+  it("«200 bales SUDAN Raw Cotton» no declara origen sudanés (R 320)", () => {
+    const r = correrOrigen(
+      { mercaderia: campo("200 BALES SUDAN RAW COTTON") },
+      "CERTIFICATE OF SUDAN ORIGIN ISSUED BY THE CHAMBER OF COMMERCE",
+    );
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 320");
+  });
+
+  /* y con la referencia expresa sí: es lo que el inciso pide, «specific reference to that fact» */
+  it("pero «COUNTRY OF ORIGIN: SUDAN» sí lo declara", () => {
+    const r = correrOrigen(
+      { mercaderia: campo("200 BALES RAW COTTON · COUNTRY OF ORIGIN: SUDAN") },
+      "CERTIFICATE OF SUDAN ORIGIN ISSUED BY THE CHAMBER OF COMMERCE",
+    );
+    expect(r?.estado).toBe("OK");
   });
 
   it("si no está en ninguno, va a verificar mostrando lo que sí se leyó", () => {
