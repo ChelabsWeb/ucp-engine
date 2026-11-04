@@ -1286,8 +1286,8 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^si hay cláusula de mercadería defectuosa$/g, "whether there is a clause declaring the goods defective"],
   [/^Embarques parciales prohibidos por el crédito$/g, "Partial shipments prohibited by the credit"],
   [
-    /^verificar que se presenta un solo juego de documentos de transporte$/g,
-    "check that a single set of transport documents is presented",
+    /^verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos \(UCP 600 31b, Opiniones R 370 y R 369\)\. Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino \(Opinión R 368\)$/g,
+    "check the means of conveyance, the journey and the destination, not the number of sets: several sets evidencing the same means and the same journey to the same destination are NOT a partial shipment, even if they indicate different dates or different ports of loading (UCP 600 31b, ICC Opinions R 370 and R 369). And where the credit names more than one destination, that overrules the same-destination condition (ICC Opinion R 368)",
   ],
   [
     /^El seguro lo emite una compañía de seguros o un asegurador$/g,
