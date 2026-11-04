@@ -80,7 +80,11 @@ describe("la copia que el crédito admite (Opinión R 455)", () => {
       docs: [
         {
           tipo: "BL",
-          campos: doc({ tipoTransporte: campo(titulo), juegoOriginales: campo(juego), onBoard: campo("SHIPPED ON BOARD") }),
+          campos: doc({
+            tipoTransporte: campo(titulo),
+            juegoOriginales: campo(juego),
+            onBoard: campo("SHIPPED ON BOARD"),
+          }),
         },
       ],
       hoy: HOY,
@@ -823,8 +827,42 @@ describe("los transportes que no son marítimos ni aéreos", () => {
       expect(r?.evidencia).toContain("lugar de recepción");
     });
 
-    it("pero el lugar de destino sí: la Opinión decide el lado de la carga y nada más", () => {
+    /*
+     * **Y el destino también, por la Opinión R 355** — este test afirmaba DISCREPANCIA y se reescribe al
+     * revés con la autoridad, que es lo que corresponde a un test que codificaba una decisión ya
+     * contestada. El inciso lo dice con todas las letras: *«the place of final destination stipulated in
+     * the Credit **which may be different from the port, airport or place of discharge**»*, y el panel
+     * resuelve que con puerto de descarga Port Elizabeth y lugar de entrega East London **no hay
+     * discrepancia**.
+     */
+    it("19a-iii: el lugar de destino distinto tampoco se rechaza en un multimodal (R 355)", () => {
       const r = corr(multi({ puertoDestino: campo("BUENOS AIRES") })).find((x) => x.id === "ucp-19a-iii-destino");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 355");
+      expect(r?.evidencia).toContain("lugar de entrega");
+    });
+
+    /*
+     * El par de la Opinión R 348: **sobre un marítimo del artículo 20 el puerto de descarga sigue
+     * mandando.** Ahí el papel traía «Port of discharge: Hong Kong» y «Place of destination: Shenzhen»
+     * contra un crédito que pedía «to Shenzhen», y el panel dijo que «Shenzhen should have been stated to
+     * be the port of discharge». Con un campo solo, lo que manda depende del artículo.
+     *
+     * **Y este test pasa por construcción, que conviene decirlo:** el marítimo tiene su propio bucle en
+     * `reglasTransporte` y no pasa por `reglasLugares`, así que el ablandado no puede alcanzarlo. Lo que
+     * vigila es que nadie unifique los dos caminos sin volver a leer este par. Lo que `esMultimodal` sí
+     * separa es el 19 del **24**: quitando esa puerta se rompe el test del ferroviario, y con razón —el
+     * «may be different» es del inciso del 19—.
+     */
+    it("pero en un marítimo del artículo 20 el puerto de descarga distinto sigue siendo discrepancia", () => {
+      const maritimo = doc({
+        tipoTransporte: campo("OCEAN BILL OF LADING"),
+        numeroDoc: campo("BL-2025-0417"),
+        puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+        puertoDestino: campo("BUENOS AIRES"),
+        onBoard: campo("SHIPPED ON BOARD 08-APR-2025"),
+      });
+      const r = corr(maritimo).find((x) => x.id === "ucp-20a-iii-puertoDestino");
       expect(r?.estado).toBe("DISCREPANCIA");
     });
 
@@ -2603,9 +2641,9 @@ describe("la factura que agrega un calificativo de categoría (TA 756)", () => {
   });
 
   it("y si el crédito ya la pide de imitación, no es discrepancia", () => {
-    expect(
-      con("IMITATION SUEDE JACKETS", "MEN'S IMITATION SUEDE JACKETS, PLAIN FABRIC")?.estado,
-    ).not.toBe("DISCREPANCIA");
+    expect(con("IMITATION SUEDE JACKETS", "MEN'S IMITATION SUEDE JACKETS, PLAIN FABRIC")?.estado).not.toBe(
+      "DISCREPANCIA",
+    );
   });
 
   /*

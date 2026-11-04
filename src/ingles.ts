@@ -1750,6 +1750,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\bes un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 \/ TA 629 declara inválido el rechazo por esto\. Verificar en el papel el lugar de recepción\b/g,
     "this is a multimodal transport document, so that box shows the port of loading of the ocean leg and the place named in the credit may appear in the place of receipt box, which the engine does not read: ICC Opinion R 638 / TA 629 holds a refusal on this ground to be invalid. Check the place of receipt on the document itself",
   ],
+  /* y el espejo del destino, que trajo la Opinión R 355 */
+  [
+    /\bes un documento multimodal, así que ese casillero es el puerto de descarga del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de entrega o destino final, que el motor no lee: el inciso dice que el destino final del crédito \*\*puede ser distinto\*\* del puerto de descarga, y la Opinión R 355 declara que no hay discrepancia\. Verificar en el papel el lugar de entrega\b/g,
+    "this is a multimodal transport document, so that box shows the port of discharge of the ocean leg and the place named in the credit may appear in the place of delivery or final destination box, which the engine does not read: the sub-article states that the final destination stipulated in the credit **may be different** from the port of discharge, and ICC Opinion R 355 holds that there is no discrepancy. Check the place of delivery on the document itself",
+  ],
   /*
    * La anotación de a bordo a la que no se le pudo leer la fecha, que no es lo mismo que no tenerla.
    *
