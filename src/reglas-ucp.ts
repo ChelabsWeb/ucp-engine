@@ -1976,7 +1976,39 @@ function reglasTransporte(
   // 20a-ii: anotación de a bordo con fecha; "intended vessel" la exige sí o sí
   const onBoard = val(bl, "onBoard");
   const buque = val(bl, "buque");
-  const intended = /intended|previsto/i.test(`${buque ?? ""} ${onBoard ?? ""}`);
+  /*
+   * **Qué cuenta como «similar qualification» al buque previsto, y qué no.**
+   *
+   * El inciso dice que con «intended vessel» **o un calificativo similar** la carga a bordo tiene que
+   * constar en una anotación que, además de la fecha, **nombre el buque real**. La Opinión **R 349** —que
+   * **da vuelta la R 283** y el Documento 470.TA.18, después de deliberar con la *ICC Commission on
+   * Maritime Transport*— decide las dos frases que se confunden, y las decide al revés una de la otra:
+   *
+   * > Use of the words **"by any additional (vessel)" would be considered to be a similar qualification to
+   * > intended vessel** in the context of sub-Article 23(a)(ii).
+   *
+   * > … a bill of lading which in its pre-printed form uses the words **"or substitute vessel" is not to be
+   * > considered as a qualification similar to "intended vessel"** … For the purposes of this and any
+   * > future issue(s), a bill of lading using the words "or substitute vessel" or "or any substitute
+   * > vessel" **will not be considered discrepant** under the conditions stated in sub-Article 23(a)(ii).
+   *
+   * **Y el motivo del segundo está en la cita de la Comisión Marítima, que es lo que lo hace mecánico y no
+   * una corazonada:** un «intended vessel» equivale a «vessel to be nominated», o sea que **al contratar
+   * no había buque convenido**; una cláusula de sustitución es otra cosa —hay un buque convenido y el
+   * transportista tiene, si se pactó, la opción de cambiarlo por otro de tipo similar—. *«The named vessel
+   * is therefore a firm choice vessel and any equation of a substitution clause with 'intended vessel' is
+   * unfounded.»*
+   *
+   * Así que «substitute» queda **afuera a propósito** y con su propio test: la intuición de que suena
+   * parecido es exactamente lo que esta Opinión corrige, y es lo que R 283 había concluido antes.
+   *
+   * Lo que el motor **no** puede ver queda dicho en el caso de esa Opinión: la frase vive en el texto
+   * preimpreso de la cara del papel —la notificación general de aceptación de la carga— y no en el
+   * casillero del buque, así que solo llega si una extracción la pone en `buque`.
+   */
+  const intended = /intended|previsto|\bany\s+additional\s+vessel\b|\badditional\s+vessel\b/i.test(
+    `${buque ?? ""} ${onBoard ?? ""}`,
+  );
   out.push(
     onBoard
       ? regla(
