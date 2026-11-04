@@ -44,6 +44,40 @@ const corre = (docs: DocAnalizado[], seguro?: { campos: CamposDoc }) =>
 const buscar = (docs: DocAnalizado[], id: string, seguro?: { campos: CamposDoc }) =>
   corre(docs, seguro).find((r) => r.id === id);
 
+/*
+ * **El aviso de los parciales prohibidos no tenía ningún test, y por eso su texto sobrevivió al revés.**
+ *
+ * Decía «verificar que se presenta **un solo juego** de documentos de transporte», que es exactamente lo
+ * que el inciso (b) corrige y lo que las tres Opiniones de ese inciso desarman: **R 370** (mismo buque,
+ * dos puertos de carga: no es parcial), **R 369** (tres vagones del mismo tren con tres cartas de porte:
+ * tampoco, y el discriminador contra los tres camiones del Documento 470/GE.46 es si van **enganchadas al
+ * mismo medio**) y **R 368** (si el crédito nombra más de un destino, eso desplaza la condición del mismo
+ * destino). Un examinador que contara juegos rechazaría una presentación conforme.
+ */
+describe("ucp-31: los embarques parciales prohibidos", () => {
+  const conParciales = (parciales: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, parciales },
+      docs: [{ tipo: "BL", campos: doc({ onBoard: campo("SHIPPED ON BOARD 08-APR-2025") }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-31");
+
+  it("pide mirar el medio, el viaje y el destino, y NO la cantidad de juegos", () => {
+    const r = conParciales("NOT ALLOWED");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.fuente).toBe("43P / UCP 600 31b");
+    expect(r?.evidencia).toContain("no la cantidad de juegos");
+    expect(r?.evidencia).toContain("NO son un embarque parcial");
+    /* y las tres autoridades del inciso quedan nombradas donde la persona las lee */
+    for (const o of ["R 370", "R 369", "R 368"]) expect(r?.evidencia, o).toContain(o);
+  });
+
+  it("y no se emite si el crédito los permite", () => {
+    expect(conParciales("ALLOWED")).toBeUndefined();
+  });
+});
+
 describe("contexto del crédito", () => {
   it("saca del SWIFT los puertos, la mercadería y el ordenante", () => {
     expect(CTX.puertoEmbarque).toMatch(/MONTEVIDEO/i);

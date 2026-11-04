@@ -2249,15 +2249,48 @@ function reglasTransporte(
       : sinLeer("ucp-27", "UCP 600 27", "Documento de transporte limpio", "si hay cláusula de mercadería defectuosa"),
   );
 
-  // 31: si el crédito prohíbe embarques parciales, un solo juego de transporte
+  /*
+   * **31: el crédito prohíbe los parciales, y lo que hay que mirar NO es cuántos juegos llegaron.**
+   *
+   * Este aviso decía «verificar que se presenta **un solo juego** de documentos de transporte», y eso es
+   * exactamente lo que el inciso (b) corrige. Lo transcribe la Opinión **R 370**:
+   *
+   * > "Transport documents which appear on their face to indicate that **shipment has been made on the
+   * > same means of conveyance and for the same journey, provided they indicate the same destination,
+   * > will not be regarded as covering partial shipments, even if the transport documents indicate
+   * > different dates of shipment and/or different ports of loading**, places of taking in charge, or
+   * > dispatch."
+   *
+   * > This sub-Article clearly states that whilst transport documents, i.e. **more than one bill of
+   * > lading, are acceptable which cover shipment on the same vessel but from different ports of
+   * > loading**, they are not acceptable if they show a different destination.
+   *
+   * O sea que un examinador que contara juegos **rechazaría una presentación conforme**, que es el error
+   * que las tres Opiniones de este inciso desarman:
+   *
+   * - **R 370** — mismo buque, **dos puertos de carga**: no es parcial. El límite es el destino;
+   * - **R 369** — **tres vagones del mismo tren** con tres cartas de porte: no es parcial. Y da el
+   *   discriminador contra el Documento 470/GE.46, que había dicho que tres camiones sí lo son —*«of the
+   *   three trucks in that example, two could arrive, the third having been destroyed by fire or other
+   *   incident»*—: lo que importa es si las unidades van **enganchadas al mismo medio**;
+   * - **R 368** — y si el **crédito mismo** nombra más de un destino mientras prohíbe los parciales, el
+   *   crédito **desplaza** la condición del «same destination»: *«The logical interpretation is that
+   *   shipment was to be effected to two … ports in one shipment, thereby overruling the clause in
+   *   sub-Article 40(b)»*, y los conocimientos **conforman**.
+   *
+   * **Sigue en ATENCION y sigue siendo manual**, porque el motor recibe **un** documento por tipo y no
+   * puede contar juegos ni comparar sus viajes. Lo que cambia es **qué se le pide mirar**: el medio, el
+   * viaje y el destino, no la cantidad. Y la mitad de R 368 queda dicha ahí mismo, porque el crédito que
+   * nombra dos destinos tampoco se puede ver — `puertoDestino` es un campo solo.
+   */
   if (ctx.parciales && /not allowed|prohibid|no permit/i.test(ctx.parciales)) {
     out.push(
       regla(
         "ucp-31",
-        "43P / UCP 600 31",
+        "43P / UCP 600 31b",
         "Embarques parciales prohibidos por el crédito",
         "ATENCION",
-        "verificar que se presenta un solo juego de documentos de transporte",
+        "verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos (UCP 600 31b, Opiniones R 370 y R 369). Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino (Opinión R 368)",
       ),
     );
   }
