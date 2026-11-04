@@ -307,6 +307,38 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 
+  /*
+   * **Las dos frases que se confunden, decididas al revés una de la otra por la Opinión R 349** —que da
+   * vuelta la R 283 después de deliberar con la *ICC Commission on Maritime Transport*—:
+   *
+   * > Use of the words **"by any additional (vessel)" would be considered to be a similar qualification to
+   * > intended vessel**.
+   *
+   * > … a bill of lading using the words "or substitute vessel" or "or any substitute vessel" **will not be
+   * > considered discrepant** under the conditions stated in sub-Article 23(a)(ii).
+   */
+  it("20a-ii: «any additional vessel» es un calificativo similar al buque previsto (R 349)", () => {
+    const r = buscar(
+      [{ tipo: "BL", campos: doc({ buque: campo("M/V EVER LINKING OR ANY ADDITIONAL VESSEL") }) }],
+      "ucp-20a-ii",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * Y el freno, que es la mitad que la intuición rompe: «substitute» **suena** parecido y no lo es. El
+   * motivo lo da la Comisión Marítima en la propia Opinión —un «intended vessel» equivale a «vessel to be
+   * nominated», o sea que al contratar **no había buque convenido**, mientras una cláusula de sustitución
+   * tiene un buque convenido y una opción de cambiarlo— : *«The named vessel is therefore a firm choice
+   * vessel and any equation of a substitution clause with 'intended vessel' is unfounded.»*
+   */
+  it("20a-ii: pero «or substitute vessel» NO lo es, y no se rechaza (R 349, que da vuelta la R 283)", () => {
+    for (const b of ["M/V EVER LINKING OR SUBSTITUTE VESSEL", "M/V EVER LINKING OR ANY SUBSTITUTE VESSEL"]) {
+      const r = buscar([{ tipo: "BL", campos: doc({ buque: campo(b) }) }], "ucp-20a-ii");
+      expect(r?.estado, b).not.toBe("DISCREPANCIA");
+    }
+  });
+
   it("20a-vi: un conocimiento sujeto a contrato de fletamento es discrepancia", () => {
     const r = buscar(
       [{ tipo: "BL", campos: doc({ charterParty: campo("SUBJECT TO CHARTER PARTY DATED 01-MAR-2025") }) }],
