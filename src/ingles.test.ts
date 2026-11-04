@@ -414,4 +414,21 @@ describe("los números y las fechas del hallazgo, en inglés", () => {
     expect(en).not.toContain("el documento nombra");
     expect(en).not.toContain("verificar a mano");
   });
+
+  /*
+   * Y la misma forma, por la Opinión R 467: **todas las marcas de flete del banco de pruebas están en
+   * inglés**, así que la rama de lo no reconocido no la dispara ningún caso y el control de literales la
+   * saltea por ser plantilla. La compensación es este test.
+   */
+  it("la evidencia de R 467 se traduce entera, aunque ningún caso la dispare", () => {
+    const es =
+      'dice "FRANCO DE PORT - ZARAGOZA", que no está entre las formas que el motor reconoce: ninguna disposición de las UCP 600 exige que la marca de flete esté en inglés, y la Opinión R 467 acepta "franco de port" como flete pagado, así que esto se verifica a mano en vez de rechazarse';
+    const en = textoEnIngles(es);
+    expect(en).toContain("no provision of UCP 600 requires the freight marking to be in English");
+    expect(en).toContain("rather than refused");
+    /* y la cita del papel queda intacta, que es lo que el banco presentador tiene que poder buscar */
+    expect(en).toContain('"FRANCO DE PORT - ZARAGOZA"');
+    expect(en).not.toContain("que no está entre las formas");
+    expect(en).not.toContain("verifica a mano");
+  });
 });
