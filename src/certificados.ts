@@ -299,6 +299,56 @@ function nombraElOrigen(texto: string, pais: string): boolean {
   return false;
 }
 
+/**
+ * Y **nombrar el país no es declarar el origen**, que es la otra mitad de la misma pregunta.
+ *
+ * La Opinión **R 320** es el caso: un certificado emitido por la Cámara de Comercio del país, en su
+ * papel membretado, que dice «**200 bales Sudan Raw Cotton**» y **ningún origen** —*«nor is there a
+ * place within the document for this to be included»*—. El banco negociador rechazó y la Banking
+ * Commission le dio la razón:
+ *
+ * > The issue is whether or not the description "Sudan Raw Cotton" is sufficient to describe that the
+ * > goods are of Sudanese origin **without specific reference to that fact**.
+ * >
+ * > **The description "Sudan Raw Cotton" could, indeed, be a brand or trade name for a particular
+ * > product. Banks are not expected to have any prior or present knowledge to that effect.**
+ * >
+ * > The certificate of origin **does not provide a clear indication of the origin of goods**.
+ *
+ * O sea que el nombre del país **dentro de la designación de la mercadería** no afirma nada: puede ser
+ * una marca. Es la misma doctrina que la Opinión TA 796rev —*«It should not be necessary to refer to
+ * external resources in order to determine relevant facts»*— y el laudo DOCDEX 207, donde un emisor
+ * tradujo «SLD» por «sailing date»: **al examinador no se le pide saber de mercaderías.**
+ *
+ * **Lo que esto saca es un acierto vacío**, que es la clase que este repositorio persigue —el
+ * conocimiento que copiaba la zona del crédito del laudo DOCDEX 361, la observación vacua de
+ * `cert-fecha-INSPECCION-1`—: el motor afirmaba el origen leyéndolo del nombre del producto.
+ *
+ * **El corte son las palabras del propio inciso: «specific reference to that fact».** Hay declaración
+ * cuando el texto trae vocabulario de origen junto al país, o cuando el campo **es** el país —un
+ * casillero que dice «URUGUAY» y nada más es la casilla de origen del formulario—. Si el país aparece
+ * de cualquier otra manera, el veredicto **baja de OK a ATENCION** con la Opinión nombrada.
+ *
+ * **Solo puede ablandar**, nunca endurecer: un OK pasa a verificar y ninguna discrepancia se inventa.
+ * Y de paso cierra el hueco que el caso de TA 864rev dejó declarado —un certificado embarcado desde
+ * «SYDNEY, AUSTRALIA» salía OK contra un crédito que pide origen australiano, **sobre un campo que no
+ * certifica nada**—, porque ahí el país va dentro de un lugar más largo y sin vocabulario de origen.
+ */
+const VOCABULARIO_DE_ORIGEN = /\b(origin|origen|made\s+in|product\s+of|produce\s+of|manufactured\s+in)\b/i;
+
+function declaraElOrigen(texto: string, pais: string): boolean {
+  if (!nombraElOrigen(texto, pais)) return false;
+  /* el campo **es** el país: la casilla de origen del formulario */
+  if (
+    texto
+      .trim()
+      .replace(/[.,;]+$/, "")
+      .toUpperCase() === pais.toUpperCase()
+  )
+    return true;
+  return VOCABULARIO_DE_ORIGEN.test(texto);
+}
+
 export function reglasCertificados(input: {
   lc: LcInfo;
   certificados: DocCertificado[];
@@ -512,11 +562,11 @@ export function reglasCertificados(input: {
                     ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
                     : ilegible
                       ? `no se pudo leer el nombre del emisor —el papel trae "${corto(emisor ?? "", 30)}" y queda vacío al normalizarlo— y el crédito lo pide emitido por ${corto(nombrado, 40)}: el párrafo A21 (e) admite el nombre y los sellos en otro idioma, así que ${creditoExigeIngles(input.lc) ? "con la cláusula del crédito que exige los documentos en inglés la discrepancia vale (Opinión TA 886rev)" : "esto se verifica a mano y no se rechaza (Opinión TA 886rev)"}`
-                    : !distinto
-                      ? `el documento lo emite "${emisor}"`
-                      : porFuncion
-                        ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
-                        : `el documento lo emite "${emisor}"`,
+                      : !distinto
+                        ? `el documento lo emite "${emisor}"`
+                        : porFuncion
+                          ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
+                          : `el documento lo emite "${emisor}"`,
               )
             : regla(
                 `cert-emisor-${sufijo}`,
@@ -826,7 +876,9 @@ export function reglasCertificados(input: {
         Boolean,
       ) as string[];
       if (pais) {
-        const loTrae = donde.find((x) => nombraElOrigen(x, pais));
+        const loTrae = donde.find((x) => declaraElOrigen(x, pais));
+        /* el país está, pero sin referencia expresa al origen: ver `declaraElOrigen` y la Opinión R 320 */
+        const soloNombrado = !loTrae ? donde.find((x) => nombraElOrigen(x, pais)) : undefined;
         /*
          * El criterio de origen del propio formulario, que la ICC acepta.
          *
@@ -862,11 +914,13 @@ export function reglasCertificados(input: {
             estado,
             loTrae
               ? `el documento dice "${corto(loTrae)}"`
-              : conCriterio
-                ? `el documento no nombra el origen y trae el criterio del formulario: dice "${corto(conCriterio)}". La Opinión TA 864rev lo admite pero no dice que ese acrónimo signifique este país: verificar a mano`
-                : donde.length > 0
-                  ? `no se leyó el origen ${pais.toUpperCase()}; el documento dice "${corto(donde.join(" · "))}": verificar a mano, y si el papel de verdad no lo indica la discrepancia vale (Opinión TA 864rev)`
-                  : "no se leyó el origen: verificar a mano",
+              : soloNombrado
+                ? `el documento nombra ${pais.toUpperCase()} pero sin referencia expresa al origen: dice "${corto(soloNombrado)}". La Opinión R 320 dice que eso no alcanza —«could, indeed, be a brand or trade name for a particular product. Banks are not expected to have any prior or present knowledge to that effect»—: verificar a mano`
+                : conCriterio
+                  ? `el documento no nombra el origen y trae el criterio del formulario: dice "${corto(conCriterio)}". La Opinión TA 864rev lo admite pero no dice que ese acrónimo signifique este país: verificar a mano`
+                  : donde.length > 0
+                    ? `no se leyó el origen ${pais.toUpperCase()}; el documento dice "${corto(donde.join(" · "))}": verificar a mano, y si el papel de verdad no lo indica la discrepancia vale (Opinión TA 864rev)`
+                    : "no se leyó el origen: verificar a mano",
           ),
         );
       }

@@ -399,4 +399,19 @@ describe("los números y las fechas del hallazgo, en inglés", () => {
     // un número de documento o un código no tiene separadores: nada que dar vuelta
     expect(textoEnIngles("el conocimiento número 2301.20.00")).toContain("2301.20.00");
   });
+
+  /*
+   * La rama de la Opinión R 320 —el país nombrado sin referencia expresa al origen— **no la dispara
+   * ningún caso del banco de pruebas**: el crédito de esa Opinión no nombra ningún origen, así que la
+   * regla no corre, y el control de literales saltea las plantillas por su límite declarado. Por eso la
+   * frase lleva su test acá, que es la compensación que corresponde cuando el corpus no llega.
+   */
+  it("la evidencia de R 320 se traduce entera, aunque ningún caso la dispare", () => {
+    const es =
+      'el documento nombra SUDAN pero sin referencia expresa al origen: dice "200 BALES SUDAN RAW COTTON". La Opinión R 320 dice que eso no alcanza —«could, indeed, be a brand or trade name for a particular product. Banks are not expected to have any prior or present knowledge to that effect»—: verificar a mano';
+    const en = textoEnIngles(es);
+    expect(en).toContain("without specific reference to the origin");
+    expect(en).not.toContain("el documento nombra");
+    expect(en).not.toContain("verificar a mano");
+  });
 });
