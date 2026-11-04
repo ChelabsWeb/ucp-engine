@@ -27,11 +27,11 @@ import {
 import { toleranciaDeCantidad } from "./lc";
 import { mismaMoneda } from "./numeros";
 import {
+  admiteCopiaDelTransporte,
+  admiteReciboDeAgente,
   type DocAnalizado,
   ES_RECIBO_DE_AGENTE,
   type EstadoRegla,
-  admiteCopiaDelTransporte,
-  admiteReciboDeAgente,
   pideSoloCopiaDelTransporte,
   type ReglaPresentacion,
 } from "./presentacion";
@@ -1239,11 +1239,36 @@ function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): {
  * en el papel. No OK: el documento podría de verdad estar cargando en un puerto que el crédito no
  * nombró, y afirmar que cumple sin ver el lugar de recepción sería inventar la mitad que falta.
  *
- * **El alcance es el que la Opinión decide y nada más:** solo el artículo 19, solo el lado de la
- * carga. Sobre un marítimo del artículo 20 un puerto de carga distinto sigue siendo discrepancia —el
- * crédito nombró el puerto y el papel es de puerto a puerto— y el lado del destino queda como estaba
- * hasta que un caso real pruebe el espejo.
+ * **El alcance es el que la Opinión decide y nada más:** solo el artículo 19. Sobre un marítimo del
+ * artículo 20 un puerto de carga distinto sigue siendo discrepancia —el crédito nombró el puerto y el
+ * papel es de puerto a puerto—.
+ *
+ * **Y el espejo del destino llegó con la Opinión R 355, que es el caso real que este comentario
+ * esperaba.** El crédito pedía transporte «to East London (inland)» y admitía un multimodal; el papel
+ * decía puerto de descarga **Port Elizabeth** y lugar de entrega **East London**. El panel empieza por
+ * donde hay que empezar —*«The credit, as issued, was unworkable if the beneficiary had presented a
+ * marine (port-to-port) bill of lading. The request for shipment to an inland destination could only be
+ * achieved by the use of a multimodal transport document»*— y después transcribe el inciso, que lo dice
+ * con todas las letras:
+ *
+ * > " ... indicates the place of taking in charge stipulated in the Credit which may be different from
+ * > the port, airport or place of loading, and **the place of final destination stipulated in the Credit
+ * > which may be different from the port, airport or place of discharge**".
+ *
+ * > In the credit under discussion, East London is the final destination stipulated in the credit,
+ * > **which may be different from the port of discharge which is Port Elizabeth. There is no
+ * > discrepancy.**
+ *
+ * **Y hace par con la Opinión R 348, que es la que decide el otro lado:** ahí el papel traía «Port of
+ * discharge: Hong Kong» y «Place of destination: Shenzhen» contra un crédito que pedía «to Shenzhen», y
+ * el panel dijo que *«Shenzhen should have been stated to be the port of discharge and not the place of
+ * destination»* — **sobre un marítimo**. O sea que con un campo solo lo que manda depende del artículo:
+ * en el 20 el puerto de descarga, en el 19 el destino final. Por eso `esMultimodal` es la puerta, y por
+ * eso R 348 sigue saliendo en DISCREPANCIA.
  */
+const NOTA_R355 =
+  " — es un documento multimodal, así que ese casillero es el puerto de descarga del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de entrega o destino final, que el motor no lee: el inciso dice que el destino final del crédito **puede ser distinto** del puerto de descarga, y la Opinión R 355 declara que no hay discrepancia. Verificar en el papel el lugar de entrega";
+
 const NOTA_R638 =
   " — es un documento multimodal, así que ese casillero es el puerto del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de recepción, que el motor no lee: la Opinión R 638 / TA 629 declara inválido el rechazo por esto. Verificar en el papel el lugar de recepción";
 
@@ -1267,13 +1292,14 @@ function reglasLugares(
       enDoc
         ? (() => {
             const v = veredictoLugar(enDoc, delCredito, sufijo === "carga");
-            const ablanda = esMultimodal && sufijo === "carga" && v.estado === "DISCREPANCIA";
+            const ablanda = esMultimodal && v.estado === "DISCREPANCIA";
+            const nota = sufijo === "carga" ? NOTA_R638 : NOTA_R355;
             return regla(
               id,
               fuente,
               `${cual} el que indica el crédito ("${delCredito}")`,
               ablanda ? "ATENCION" : v.estado,
-              `el documento dice "${enDoc}"${ablanda ? NOTA_R638 : v.nota}`,
+              `el documento dice "${enDoc}"${ablanda ? nota : v.nota}`,
             );
           })()
         : sinLeer(id, fuente, `${cual} el que indica el crédito`, cual.toLowerCase()),
@@ -2892,7 +2918,9 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
        * con las dos cifras a la vista, igual que arriba.
        */
       const otraEsParcialCorto =
-        !dentro && otraEnKg !== null && parcialesOk ? otraEnKg < par.b && !(Math.abs(otraEnKg - par.b) / par.b <= tol) : false;
+        !dentro && otraEnKg !== null && parcialesOk
+          ? otraEnKg < par.b && !(Math.abs(otraEnKg - par.b) / par.b <= tol)
+          : false;
       const laOtraEntra = otraDentro || otraEsParcialCorto;
       /* el giro corto bajo 43P no es ninguna de las dos cosas: ver el comentario de arriba */
       const porParcial = parcialesOk && corto && !dentro;
