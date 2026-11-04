@@ -843,11 +843,16 @@ describe("los transportes que no son marítimos ni aéreos", () => {
     });
 
     /*
-     * El freno, y es el par de la Opinión R 348: **sobre un marítimo del artículo 20 el puerto de
-     * descarga sigue mandando.** Ahí el papel traía «Port of discharge: Hong Kong» y «Place of
-     * destination: Shenzhen» contra un crédito que pedía «to Shenzhen», y el panel dijo que «Shenzhen
-     * should have been stated to be the port of discharge». Con un campo solo, lo que manda depende del
-     * artículo.
+     * El par de la Opinión R 348: **sobre un marítimo del artículo 20 el puerto de descarga sigue
+     * mandando.** Ahí el papel traía «Port of discharge: Hong Kong» y «Place of destination: Shenzhen»
+     * contra un crédito que pedía «to Shenzhen», y el panel dijo que «Shenzhen should have been stated to
+     * be the port of discharge». Con un campo solo, lo que manda depende del artículo.
+     *
+     * **Y este test pasa por construcción, que conviene decirlo:** el marítimo tiene su propio bucle en
+     * `reglasTransporte` y no pasa por `reglasLugares`, así que el ablandado no puede alcanzarlo. Lo que
+     * vigila es que nadie unifique los dos caminos sin volver a leer este par. Lo que `esMultimodal` sí
+     * separa es el 19 del **24**: quitando esa puerta se rompe el test del ferroviario, y con razón —el
+     * «may be different» es del inciso del 19—.
      */
     it("pero en un marítimo del artículo 20 el puerto de descarga distinto sigue siendo discrepancia", () => {
       const maritimo = doc({

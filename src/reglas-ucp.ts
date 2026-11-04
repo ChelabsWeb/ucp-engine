@@ -1263,8 +1263,15 @@ function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): {
  * discharge: Hong Kong» y «Place of destination: Shenzhen» contra un crédito que pedía «to Shenzhen», y
  * el panel dijo que *«Shenzhen should have been stated to be the port of discharge and not the place of
  * destination»* — **sobre un marítimo**. O sea que con un campo solo lo que manda depende del artículo:
- * en el 20 el puerto de descarga, en el 19 el destino final. Por eso `esMultimodal` es la puerta, y por
- * eso R 348 sigue saliendo en DISCREPANCIA.
+ * en el 20 el puerto de descarga, en el 19 el destino final.
+ *
+ * **Y qué separa cada cosa, medido con el mutante y no supuesto:** el marítimo no pasa por acá. Los
+ * artículos 20, 21 y 22 tienen su propio bucle en `reglasTransporte`, con ids `ucp-20a-iii-<campo>`, así
+ * que **R 348 sigue en DISCREPANCIA por construcción** y lo que hay en el test es un guardián contra
+ * unificar los dos caminos. Lo que `esMultimodal` separa es el **19 del 24**: quitando esa puerta se
+ * rompe el ferroviario y el terrestre, y con razón — el «may be different» del texto es del inciso del
+ * artículo 19 y el 24 (a) (iii) pide el lugar de embarque y el de destino que el crédito fija, sin esa
+ * licencia.
  */
 const NOTA_R355 =
   " — es un documento multimodal, así que ese casillero es el puerto de descarga del tramo oceánico y el lugar que nombra el crédito puede estar en el casillero de lugar de entrega o destino final, que el motor no lee: el inciso dice que el destino final del crédito **puede ser distinto** del puerto de descarga, y la Opinión R 355 declara que no hay discrepancia. Verificar en el papel el lugar de entrega";
