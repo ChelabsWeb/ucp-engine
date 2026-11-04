@@ -327,6 +327,16 @@ const REEMPLAZOS: [RegExp, string][] = [
    *
    * Van enteros y anclados en vez de armados por partes, que es lo que ya costó cuatro entradas muertas.
    */
+  /*
+   * La **sexta** plantilla que el corpus del banco de pruebas destapa: ningún caso había presentado un
+   * conocimiento que no dijera cuántos originales se emitieron, así que este aviso nunca se armó. Lo trajo
+   * la Opinión R 351, cuyo papel es exactamente ese —«none of the bills of lading gave the number of
+   * originals issued»—.
+   */
+  [
+    /^no se leyó cuántos originales se emitieron en el documento: verificar a mano$/g,
+    "how many originals were issued was not read on the document: check by hand",
+  ],
   [
     /^no se leyó el comprador en el documento: verificar a mano$/g,
     "the buyer was not read on the document: check by hand",
