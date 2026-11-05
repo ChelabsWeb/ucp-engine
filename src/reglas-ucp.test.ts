@@ -2560,6 +2560,32 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
       buscar(conAnotacion("SHIPPED ON BOARD UNI-PROMOTE ON 20-AUG-2026", "INTENDED VESSEL STELLA"), "ucp-20a-ii-buque"),
     ).toBeUndefined();
   });
+
+  /*
+   * **Y las palabras del casillero tampoco (Opinión R 472).**
+   *
+   * «SHIPPED AT THE PORT OF LOADING ON BOARD THE VESSEL» es la leyenda preimpresa de cualquier
+   * conocimiento —es la que esa Opinión transcribe— y «LOADING» no estaba en la lista, así que el aviso
+   * pedía verificar si «LOADING» era el buque que salió del puerto de carga. Un aviso que grita sobre la
+   * redacción más corriente que hay enseña a ignorar los avisos, que es lo que ya había pasado con
+   * «GOODS» en el laudo DOCDEX 259.
+   */
+  it.each([
+    "SHIPPED AT THE PORT OF LOADING ON BOARD THE VESSEL",
+    "LADEN ON BOARD THE VESSEL AT THE PORT OF LOADING",
+    "SHIPPED ON BOARD FOR DISCHARGE AT THE PORT OF DESTINATION 20-AUG-2026",
+  ])("«%s» no nombra ningún buque", (anotacion) => {
+    expect(buscar(conAnotacion(anotacion, "STELLA AUSTRAL"), "ucp-20a-ii-buque")).toBeUndefined();
+  });
+
+  /* Y el freno: un nombre de verdad en la anotación sigue levantando el aviso. */
+  it("pero un buque de pre-acarreo en la misma frase sí lo levanta", () => {
+    const r = buscar(
+      conAnotacion("SHIPPED AT THE PORT OF LOADING ON BOARD UNI-PROMOTE 198B", "EVER DELUXE"),
+      "ucp-20a-ii-buque",
+    );
+    expect(r?.estado).toBe("ATENCION");
+  });
 });
 
 /**

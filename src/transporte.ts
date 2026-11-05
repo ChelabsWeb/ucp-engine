@@ -238,6 +238,21 @@ const PALABRAS_DE_LA_ANOTACION = new Set([
   "SS",
   "MS",
   /*
+   * Y las palabras del **casillero** que la leyenda preimpresa nombra, que no son un buque.
+   *
+   * «SHIPPED AT THE PORT OF LOADING ON BOARD THE VESSEL» es la leyenda preimpresa de cualquier
+   * conocimiento —es la que la Opinión **R 472** transcribe— y «LOADING» no estaba en esta lista, así
+   * que el aviso del buque de pre-acarreo gritaba sobre ella: pedía verificar si «LOADING» era el
+   * buque que salió del puerto de carga. Un aviso que grita sobre la redacción más corriente que hay
+   * enseña a ignorar los avisos, que es lo que ya había pasado con «GOODS» en el laudo DOCDEX 259.
+   */
+  "LOADING",
+  "DISCHARGE",
+  "DESTINATION",
+  "CARGA",
+  "DESCARGA",
+  "DESTINO",
+  /*
    * Y las palabras que nombran **la carga** y no un buque ni un lugar.
    *
    * «GOODS ON BOARD - 7 LUG. 2005» es la anotación del conocimiento del laudo DOCDEX 259, y sin
