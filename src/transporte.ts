@@ -384,6 +384,22 @@ export function leerFirma(texto: string): FirmaDeTransporte {
    */
   const RELLENO = "(?:THE|A|AN|AND|OR|ITS|AGENTS?|AS|FOR|ON|BEHALF|OF|DULY|AUTHORI[SZ]ED|SIGNATORY)";
   /*
+   * **Y un «successive carrier» es un transportista para esto (Opinión R 466).**
+   *
+   * Un CMR trae dos casillas, «Carrier» (16) y «Successive carriers» (17), y la firma va en la 23. El
+   * motor leía «AS SUCCESSIVE CARRIER» **sin capacidad reconocida** —«SUCCESSIVE» no es palabra de
+   * relleno— así que salía en ATENCION sobre una firma que el panel acepta:
+   *
+   * > A CMR that provides details of transport companies or organizations within boxes designated as
+   * > "Carrier" and "Successive carriers" **would not be seen as being inconsistent with the
+   * > requirements of sub-Article 28(a)(i)** … **The signature of the "carrier" or the "successive
+   * > carrier" or a named agent signing on either of their behalf(s) would be acceptable.**
+   *
+   * Va en la alternativa de la capacidad y no en el relleno a propósito: «successive» es una palabra
+   * con significado y meterla entre las de relleno haría que «as successive master» parseara.
+   */
+  const TRANSPORTISTA = "(?:SUCCESSIVE\\s+)?CARRIERS?";
+  /*
    * Y **«SIGNED BY THE MASTER» también declara una capacidad**, que es la redacción de medio
    * fletamento.
    *
@@ -399,10 +415,44 @@ export function leerFirma(texto: string): FirmaDeTransporte {
    * Carrier» con el nombre de un capitán al lado— sigue saliendo como agente del transportista,
    * porque ahí no hay ningún «signed by the master».
    */
-  const cap = (palabras: string) =>
+  const ancla = (palabras: string) =>
     new RegExp(
       `\\b(?:AS|FOR|ON BEHALF OF|SIGNED BY|FIRMADO POR)\\b(?:\\s+${RELLENO}\\b){0,6}\\s+(?:${palabras})\\b`,
     ).test(t);
+
+  /*
+   * **Y la capacidad también puede venir de la casilla preimpresa, que es la sexta forma de atribuir
+   * una firma (Opinión R 472).**
+   *
+   * Las cinco anteriores van **delante** —«as», «for», «on behalf of», «signed by», «firmado por»— y
+   * esta va **detrás**, en posesivo: el conocimiento trae la casilla rotulada «master's signature» y
+   * dentro una firma sobre el sello del buque. El bloque salía **sin capacidad reconocida**, o sea
+   * ATENCION sobre una firma que el panel acepta sin discusión:
+   *
+   * > The query states that the B/L had a pre-printed statement "master's signature" and this box had
+   * > the ships stamp placed therein and a signature. **In the absence of any other details this
+   * > signature would be accepted as that of the master. There is no discrepancy.**
+   *
+   * Y es la misma forma que el rótulo de la casilla 23 de un CMR, «Signature of carrier», que la
+   * Opinión **R 466** usa para decidir quién puede firmarla.
+   *
+   * **El anclaje sigue siendo lo que lo hace seguro**, igual que con las otras cinco: la palabra de la
+   * capacidad tiene que estar **pegada a «signature»**, no mencionada en cualquier parte. El bloque de
+   * R 834 / TA 793rev —«ROH as agent on behalf of HAP, the Carrier», con el nombre de un capitán al
+   * lado— no trae ninguna casilla de firma del capitán, así que sigue saliendo como agente del
+   * transportista.
+   *
+   * **Lo que el motor no puede distinguir queda declarado:** una casilla preimpresa está en el papel
+   * esté firmada o no, y acá lo que se lee es un campo de texto que transcribió una persona. Que cada
+   * documento esté efectivamente firmado ya es una verificación manual (`firma-autenticacion`), que es
+   * donde corresponde — el artículo 3 habla de una marca física.
+   */
+  const casilla = (palabras: string) =>
+    new RegExp(
+      `\\b(?:${palabras})(?:'|\u2019)?S?\\s+SIGNATURE\\b|\\bSIGNATURE\\s+OF\\s+(?:THE\\s+)?(?:${palabras})\\b`,
+    ).test(t);
+
+  const cap = (palabras: string) => ancla(palabras) || casilla(palabras);
 
   /*
    * **Dos capacidades a la vez no se eligen: se dicen (Opinión R 354).**
@@ -418,7 +468,7 @@ export function leerFirma(texto: string): FirmaDeTransporte {
    * una capacidad que no se reconoce.
    */
   const declaradas = [
-    cap("CARRIER|CARRIERS") && "TRANSPORTISTA",
+    cap(TRANSPORTISTA) && "TRANSPORTISTA",
     cap("MASTER|MASTERS|CAPTAIN|CAPT") && "CAPITAN",
     cap("OWNER|OWNERS|SHIPOWNER|SHIPOWNERS") && "ARMADOR",
     cap("CHARTERER|CHARTERERS") && "FLETADOR",
@@ -426,7 +476,7 @@ export function leerFirma(texto: string): FirmaDeTransporte {
   ].filter(Boolean);
   if (declaradas.length > 1) return { capacidad: null, porAgente, ambigua: true };
 
-  if (cap("CARRIER|CARRIERS")) return { capacidad: "TRANSPORTISTA", porAgente };
+  if (cap(TRANSPORTISTA)) return { capacidad: "TRANSPORTISTA", porAgente };
   /*
    * «CAPT.» cuenta como capitán, que lo decidió el laudo DOCDEX 284.
    *

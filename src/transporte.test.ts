@@ -150,6 +150,68 @@ describe("«signed by the master» declara una capacidad (laudo DOCDEX 247)", ()
     expect(leerFirma("SIGNED BY THE CARRIER MAERSK LINE").capacidad).toBe("TRANSPORTISTA");
   });
 
+  /**
+   * **La sexta forma de atribuir una firma va detrás y en posesivo: la casilla preimpresa (R 472).**
+   *
+   * Las cinco anteriores van delante —«as», «for», «on behalf of», «signed by», «firmado por»— y ésta es
+   * el rótulo de la casilla: *«the B/L had a pre-printed statement "master's signature" and this box had
+   * the ships stamp placed therein and a signature. **In the absence of any other details this signature
+   * would be accepted as that of the master. There is no discrepancy**»*. Salía sin capacidad, o sea
+   * ATENCION sobre una firma que el panel acepta sin discusión.
+   *
+   * Y es la misma forma que el rótulo de la casilla 23 de un CMR, «Signature of carrier», con el que la
+   * Opinión R 466 decide quién puede firmarla.
+   */
+  it.each([
+    "MASTER'S SIGNATURE: SIGNATURE OVER SHIPS STAMP OF M/V ARTHUR",
+    "MASTERS SIGNATURE - SIGNED OVER STAMP M/V ARTHUR",
+    "MASTER\u2019S SIGNATURE OVER THE SHIPS STAMP",
+  ])("«%s» es el capitán por la casilla", (texto) => {
+    expect(leerFirma(texto).capacidad).toBe("CAPITAN");
+  });
+
+  it("y «signature of carrier», que es la casilla 23 de un CMR, es el transportista", () => {
+    expect(leerFirma("SIGNATURE OF CARRIER: TRANSPORTS MARTIN SARL").capacidad).toBe("TRANSPORTISTA");
+    expect(leerFirma("SIGNATURE OF THE CARRIER - FINNLINES PLC").capacidad).toBe("TRANSPORTISTA");
+  });
+
+  /*
+   * **Los dos frenos de la casilla, y el primero es el que la hace segura:** la palabra de la capacidad
+   * tiene que estar **pegada a «signature»**. Un nombre de parte en otra casilla no la declara, y una
+   * capacidad que el artículo no nombra —el embarcador— no entra por acá.
+   */
+  it("pero el nombre del transportista en otra casilla no declara la capacidad de la firma", () => {
+    const r = leerFirma("SHIPOWNER/CARRIER: BX LINES, MASTER'S SIGNATURE OVER SHIPS STAMP");
+    expect(r.capacidad, "manda la casilla de la firma, no la del transportista").toBe("CAPITAN");
+    expect(r.ambigua, "y no es ambigua: solo una de las dos atribuye la firma").toBeUndefined();
+  });
+
+  it("y «signature of shipper» no es ninguna de las cinco capacidades", () => {
+    expect(leerFirma("SIGNATURE OF SHIPPER: ACME EXPORTS LTD").capacidad).toBeNull();
+  });
+
+  /**
+   * **Y un «successive carrier» es un transportista para esto (Opinión R 466).**
+   *
+   * Un CMR trae las casillas «Carrier» (16) y «Successive carriers» (17), y el motor leía «AS SUCCESSIVE
+   * CARRIER» sin capacidad reconocida porque «SUCCESSIVE» no es palabra de relleno. El panel:
+   * *«**The signature of the "carrier" or the "successive carrier" or a named agent signing on either of
+   * their behalf(s) would be acceptable**»*.
+   */
+  it.each([
+    "TRANSPORTS MARTIN SARL AS SUCCESSIVE CARRIER",
+    "SIGNED BY THE SUCCESSIVE CARRIER TRANSPORTS MARTIN SARL",
+    "AS AGENT FOR THE SUCCESSIVE CARRIERS",
+  ])("«%s» es el transportista", (texto) => {
+    expect(leerFirma(texto).capacidad).toBe("TRANSPORTISTA");
+  });
+
+  it("y nombrar a los dos no vuelve ambigua la firma: son la misma capacidad", () => {
+    const r = leerFirma("TRANSPORTS DUPONT SA AS CARRIER AND TRANSPORTS MARTIN SARL AS SUCCESSIVE CARRIER");
+    expect(r.capacidad).toBe("TRANSPORTISTA");
+    expect(r.ambigua).toBeUndefined();
+  });
+
   /*
    * Los dos frenos que R 834 / TA 793rev obliga a conservar: una mención suelta del capitán no salva la
    * firma, y el bloque de esa Opinión —que nombra un capitán y declara otra capacidad— no cambia.
