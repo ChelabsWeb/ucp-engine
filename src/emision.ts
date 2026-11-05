@@ -1023,6 +1023,50 @@ export function revisarCredito(p: LcSwift): Observacion[] {
   }
 
   /*
+   * ── Los documentos que el crédito pide en más de un envío ──
+   *
+   * Un crédito puede instruir que los documentos se remitan **en dos lotes**, y entonces el reloj del
+   * aviso de rechazo no empieza donde uno cree. Lo decide la Opinión **R 415**, donde el emisor contó
+   * desde el **segundo** lote y perdió por un día:
+   *
+   * > When an issuing bank requests that documents be sent in two mailings, **the first mailing should
+   * > consist of at least one original of all of the required documents** … This first mailing should
+   * > provide the issuing bank with the ability to review the documents on the basis that the second
+   * > mailing will only contain copies (or further original(s)) of documents already received.
+   * >
+   * > If an issuing bank has chosen this method for the delivery of documents, **it must be prepared to
+   * > provide a rejection notice in accordance with Article 14 of the UCP 500 based upon the content of
+   * > the first mailing.** To do otherwise could give rise to an inordinate delay in reviewing the
+   * > documents should the second mailing be delayed or lost in transit.
+   *
+   * **Esto vale el aviso porque el reloj del 16 (d) es lo más caro que el motor calcula**: al cierre del
+   * quinto día hábil el banco pierde el derecho a rechazar (16 f), y *Fortis Bank v Indian Overseas
+   * Bank* costó USD 8,06 millones por un aviso mal cursado. Contar desde el lote equivocado es
+   * exactamente el error de ese expediente, y el motor recibe **una** fecha de recepción: que sea la del
+   * primer lote es una decisión de quien la carga.
+   *
+   * Va en **AVISO** —el crédito es operable— y el freno es el crédito que pide **un solo** lote, que es
+   * la redacción del expediente real («PLEASE DESPATCH DOCUMENTS BY COURIER IN ONE LOT») y contiene las
+   * mismas palabras.
+   */
+  const EN_VARIOS_ENVIOS =
+    /\bIN\s+(?:TWO|2|THREE|3|SEPARATE|CONSECUTIVE|DIFFERENT)\s+(?:CONSECUTIVE\s+)?(?:LOTS?|MAILINGS?|COVERS?|BATCHES|DESPATCHES|DISPATCHES|SETS)\b|\bIN\s+MORE\s+THAN\s+ONE\s+(?:LOT|MAILING|COVER|BATCH|DESPATCH|DISPATCH)\b|\b(?:TWO|2)\s+CONSECUTIVE\s+LOTS?\b/i;
+
+  const instrucciones = `${p.extra.instruccionesAlBanco ?? ""} · ${(p.lc.condicionesAdicionales ?? []).join(" · ")}`;
+  if (EN_VARIOS_ENVIOS.test(instrucciones)) {
+    out11.push(
+      obs(
+        "emision-documentos-en-varios-envios",
+        "AVISO",
+        "78 / 47A · Opinión R 415",
+        "El crédito pide que los documentos se remitan en más de un envío",
+        `dice "${corto(instrucciones.replace(/\s+/g, " "), 110)}"`,
+        "que el **primer** envío lleve al menos un original de cada documento exigido, porque el plazo del artículo 16 (d) para avisar el rechazo se cuenta desde ése y no desde el último: la Opinión R 415 dice que el emisor «must be prepared to provide a rejection notice … based upon the content of the first mailing», y el emisor de ese expediente contó desde el segundo lote y perdió por un día",
+      ),
+    );
+  }
+
+  /*
    * ── El documento cuya firma el presentador no puede cotejar ──
    *
    * Un crédito puede anunciar que las firmas de un documento se van a cotejar contra los especímenes

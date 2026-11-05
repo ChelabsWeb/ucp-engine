@@ -793,6 +793,55 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
   });
 });
 /**
+ * Los documentos que el crédito pide en más de un envío (Opinión R 415)
+ *
+ * El reloj del 16 (d) es lo más caro que el motor calcula —al cierre del quinto día hábil el banco pierde
+ * el derecho a rechazar— y un crédito que manda los documentos en dos lotes mueve el punto de partida.
+ * El emisor de esa Opinión contó desde el **segundo** y perdió por un día: *«it must be prepared to
+ * provide a rejection notice … **based upon the content of the first mailing**»*.
+ *
+ * El freno es el crédito que pide **un solo** lote, que es la redacción del expediente real —«PLEASE
+ * DESPATCH DOCUMENTS BY COURIER IN ONE LOT»— y contiene las mismas palabras.
+ */
+describe("los documentos en más de un envío (Opinión R 415)", () => {
+  const con = (instruccion: string) => {
+    const swift = SWIFT_CSU2025099.replace(
+      /( {5}78: Instr to Payg\/Accptg\/Negotg Bank\n)[\s\S]*?(\n {5}57A:)/,
+      `$1          1)${instruccion}$2`,
+    );
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-documentos-en-varios-envios");
+  };
+
+  it("sale como AVISO y dice desde cuál envío corre el plazo", () => {
+    const [r] = con("PLEASE DESPATCH DOCUMENTS IN TWO CONSECUTIVE LOTS BY COURIER.");
+    expect(r?.gravedad).toBe("AVISO");
+    expect(r?.fuente).toContain("R 415");
+    expect(r?.sugerencia).toContain("16 (d)");
+    expect(r?.sugerencia).toContain("first mailing");
+  });
+
+  it.each([
+    "DOCUMENTS TO BE FORWARDED IN TWO LOTS BY COURIER",
+    "PLEASE SEND THE DOCUMENTS IN SEPARATE MAILINGS",
+    "DOCUMENTS MUST BE DESPATCHED IN MORE THAN ONE LOT",
+    "FORWARD DOCUMENTS IN 2 CONSECUTIVE LOTS",
+  ])("y vale para las otras redacciones: %s", (instruccion) => {
+    expect(con(instruccion)).toHaveLength(1);
+  });
+
+  /* El freno, que es la redacción del expediente real y contiene las mismas palabras. */
+  it("un crédito que pide UN solo lote no se marca", () => {
+    expect(con("PLEASE DESPATCH DOCUMENTS BY COURIER IN ONE LOT TO MERIDIAN BANK PLC.")).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-documentos-en-varios-envios"),
+    ).toEqual([]);
+  });
+});
+
+/**
  * El documento cuya firma el presentador no puede cotejar (Opinión R 446)
  *
  * Un crédito que anuncia que las firmas se cotejan contra los especímenes que guarda **el emisor** y que

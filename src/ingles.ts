@@ -270,6 +270,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^Se prohíbe el transbordo: el artículo 20\(c\) admite igual algunos casos$/g,
     "Transhipment is prohibited: article 20 (c) admits some cases all the same",
   ],
+  /* ── los documentos que el crédito pide en más de un envío (Opinión R 415) ── */
+  [
+    /^El crédito pide que los documentos se remitan en más de un envío$/g,
+    "The credit instructs that the documents be sent in more than one mailing",
+  ],
+  [
+    /^que el \*\*primer\*\* envío lleve al menos un original de cada documento exigido, porque el plazo del artículo 16 \(d\) para avisar el rechazo se cuenta desde ése y no desde el último: la Opinión R 415 dice que el emisor «must be prepared to provide a rejection notice … based upon the content of the first mailing», y el emisor de ese expediente contó desde el segundo lote y perdió por un día$/g,
+    "that the **first** mailing carry at least one original of every required document, because the article 16 (d) period for giving notice of refusal runs from that one and not from the last: ICC Opinion R 415 says the issuing bank «must be prepared to provide a rejection notice … based upon the content of the first mailing», and the issuing bank in that case counted from the second lot and lost by one day",
+  ],
   /* ── el documento cuya firma el presentador no puede cotejar (Opinión R 446) ── */
   [
     /^El crédito anuncia que las firmas se cotejan contra especímenes que guarda el emisor y no nombra a los firmantes$/g,
