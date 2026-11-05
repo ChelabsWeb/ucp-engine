@@ -2333,7 +2333,7 @@ function reglasTransporte(
         "43P / UCP 600 31b",
         "Embarques parciales prohibidos por el crédito",
         "ATENCION",
-        "verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos (UCP 600 31b, Opiniones R 370 y R 369). Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino (Opinión R 368)",
+        "verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos (UCP 600 31b, Opiniones R 370 y R 369). Un camión con acoplado es UN medio de transporte y tampoco es un embarque parcial (Opinión R 478). Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino (Opinión R 368)",
       ),
     );
   }
