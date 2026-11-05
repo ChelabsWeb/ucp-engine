@@ -272,8 +272,24 @@ export const CALENDARIO_DE_EMBARQUES =
   /\b(shipping|shipment)\s+schedule\b|\bto be shipped (before|by|within|during|not later than|no later than|latest (until|by|on))\b|\b(shipments?|embarques?)\s+(are|is)\s+required\b/i;
 
 export const PARAMETROS_DEL_CREDITO =
-  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b/i;
+  /\b(tolerance|more or less|partial (shipment|drawing)s?|transhipment|transshipment|instal?ments?|expiry|latest shipment|revolving|confirm(ed|ation))\b|\bport\s+of\s+(loading|discharge|destination)\b|\bairport\s+of\s+(departure|destination)\b|\bon\s+deck\b/i;
 
+/*
+ * Y **el permiso de carga sobre cubierta** es la séptima cara, y la encontró el control antes de que el
+ * defecto pudiera hacer daño.
+ *
+ * El artículo 26 (a) prohíbe que el documento indique que la carga va sobre cubierta **salvo que el
+ * crédito lo permita**, así que un «ON DECK SHIPMENT ALLOWED» en el 47A es un parámetro del crédito
+ * —igual que el permiso de embarque parcial o la autorización de transbordo, y por el mismo artículo que
+ * ésos: las UCP lo reconocen expresamente—. El motor lo sacaba como condición **no documentaria tenida
+ * por no puesta** (14 h).
+ *
+ * **Y desde la Opinión R 478 esa cláusula es portante:** `ucp-26a` la **lee** para decidir el veredicto,
+ * así que aconsejarle al banco que la saque del crédito lo dejaría rechazando un documento conforme.
+ * Es la misma contradicción que ya costó dos vueltas con el campo 48 —las dos mitades del motor diciendo
+ * cosas distintas de la misma cláusula— y acá la frenó el inventario congelado de emisión **en la misma
+ * corrida en que la regla nació**.
+ */
 /**
  * ¿Esta cláusula del 47A **configura** el crédito en vez de pedir un papel?
  *

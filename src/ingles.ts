@@ -2034,6 +2034,23 @@ const REEMPLAZOS: [RegExp, string][] = [
    * límite del control de literales, y la compensación sigue siendo la misma: se cubre el día que alguien
    * le escribe el caso.
    */
+  /*
+   * Las dos ramas del 26 (a) van **de la más específica a la más general**, porque la segunda es prefijo
+   * de las otras dos: con la corta primero, «…cubierta y el crédito lo admite» quedaría traducido a
+   * medias. La entrada va partida alrededor de la cita del papel, que `textoEnIngles` protege.
+   */
+  [
+    /^el documento declara la carga sobre cubierta y el crédito lo admite, así que el artículo no la prohíbe: /g,
+    "the document states that the goods are loaded on deck and the credit allows it, so the article does not prohibit it: ",
+  ],
+  [
+    / \(Opinión R 478: «Where a credit allows the goods to be shipped on deck, banks will accept any notation to that effect»\)$/g,
+    " (ICC Opinion R 478: «Where a credit allows the goods to be shipped on deck, banks will accept any notation to that effect»)",
+  ],
+  [
+    /^el documento declara la carga sobre cubierta y el crédito no lo admite: /g,
+    "the document states that the goods are loaded on deck and the credit does not allow it: ",
+  ],
   [/^el documento declara la carga sobre cubierta:/g, "the document states that the goods are loaded on deck:"],
   [/^cláusula leída:/g, "clause read:"],
 
