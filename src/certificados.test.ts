@@ -186,6 +186,32 @@ describe("quién puede emitir cada certificado", () => {
    * compara con `comparaISBP` crudo: el crédito puede nombrar varios emisores alternativos y `distinto`
    * recorre las opciones, así que no pasa por `veredictoDeNombre`, que es donde vive la decisión.
    */
+  /*
+   * **Y el firmante descripto por su RELACIÓN con el ordenante tampoco es un nombre propio (R 446).**
+   *
+   * El 46A de esa Opinión pide el certificado «issued and signed by **two persons nominated by the
+   * applicant**», y ninguna de esas palabras estaba en el vocabulario de funciones: el motor lo tomaba
+   * por un nombre propio y rechazaba —medido— un certificado firmado por dos personas con nombre y
+   * apellido. O sea que pretendía cotejar contra un nombre **que el crédito nunca dio**, que es
+   * precisamente de lo que la Opinión se queja.
+   */
+  it.each([
+    "INSPECTION CERTIFICATE ISSUED BY TWO PERSONS NOMINATED BY THE APPLICANT",
+    "INSPECTION CERTIFICATE ISSUED BY THE AUTHORISED SIGNATORIES OF THE APPLICANT",
+    "INSPECTION CERTIFICATE ISSUED BY AN INDIVIDUAL APPOINTED BY THE APPLICANT",
+  ])("«%s» describe una relación, no un nombre: verifica en vez de rechazar", (exigencia) => {
+    const r = correr([{ exigencia, campos: doc({ emisor: campo("MR J PERERA AND MR A FERNANDO") }) }]);
+    expect(r.find((x) => x.id.startsWith("cert-emisor-"))?.estado).toBe("ATENCION");
+  });
+
+  /* Y el freno: un nombre propio sigue rechazando, que es la mitad que el corte sostiene. */
+  it("pero un nombre propio distinto sigue siendo discrepancia", () => {
+    const r = correr([
+      { exigencia: "INSPECTION CERTIFICATE ISSUED BY CALISET LIMITED", campos: doc({ emisor: campo("SGS S.A.") }) },
+    ]);
+    expect(r.find((x) => x.id.startsWith("cert-emisor-"))?.estado).toBe("DISCREPANCIA");
+  });
+
   it("un emisor que no se pudo leer sale a verificar y no rechaza (TA 886rev)", () => {
     const r = correr([
       {
