@@ -1023,6 +1023,62 @@ export function revisarCredito(p: LcSwift): Observacion[] {
   }
 
   /*
+   * ── El documento cuya firma el presentador no puede cotejar ──
+   *
+   * Un crédito puede anunciar que las firmas de un documento se van a cotejar contra los especímenes
+   * que el **banco emisor** guarda. Si además describe al firmante por su relación con el ordenante
+   * —«two persons nominated by the applicant»— y no lo nombra, el que presenta tiene delante un papel
+   * que no puede examinar: **presenta un certificado válido y se lo rechazan por un dato que nunca
+   * tuvo**.
+   *
+   * Lo dice la Opinión **R 446**, y lo que la vuelve usable es que declara el rechazo **justificado** y
+   * la redacción **desaconsejada** a la vez:
+   *
+   * > Given the terms of the credit, **the issuing bank would have been justified in rejecting the
+   * > documents** if the inspection certificate had not been signed according to the mandate held in
+   * > its files … However, **the issuance of credits which do not, at the very least, identify by name
+   * > the individual(s) who are to complete the document is not in line with international standard
+   * > banking practice and is discouraged by the ICC. Banks who, nonetheless, choose to negotiate such
+   * > credits would do so at their risk** unless recourse was held to the beneficiary.
+   *
+   * Y la línea que le toca al designado antes de negociar: *«the nominated bank must be certain as to
+   * the integrity of the beneficiary before negotiating»*.
+   *
+   * **Va en CONFLICTO y no en aviso** porque es exactamente la gravedad que esa lista reserva: una
+   * presentación que el designado encuentra conforme puede rechazarse igual. Es la familia de
+   * `emision-presenta-ordenante` (laudo DOCDEX 209, el documento que el ordenante presenta él mismo) y
+   * de `emision-primera-presentacion` (el laudo 337): cláusulas que dejan el cobro del beneficiario a
+   * merced de algo que no controla.
+   *
+   * **Los dos frenos:** hace falta **la cláusula del cotejo** —un crédito que pide una firma sin
+   * nombrar a nadie es corriente y lo resuelve el artículo 14 (f)— y hace falta que el firmante esté
+   * descripto por su **relación** y no por su nombre, que es el mínimo que la Opinión pide. Un crédito
+   * que anuncia el cotejo **y nombra** a los firmantes no se marca: ahí el presentador sabe contra qué
+   * cotejar.
+   */
+  const COTEJA_FIRMAS =
+    /\bSPECIMEN\s+SIGNATURES?\b|\bSIGNATURES?\b[^.]{0,60}?\b(?:HELD|ON\s+(?:OUR\s+)?(?:FILE|RECORD)S?|IN\s+OUR\s+(?:FILE|RECORD)S?|REGISTERED\s+WITH\s+US)\b|\b(?:VERIFI|CHECK)[A-Z]*\b[^.]{0,40}?\bAGAINST\s+(?:THE\s+)?(?:SPECIMEN|SIGNATURES?\s+(?:HELD|ON\s+FILE))\b/i;
+
+  const FIRMANTE_SIN_NOMBRE =
+    /\b(?:PERSONS?|INDIVIDUALS?|SIGNATOR(?:Y|IES)|OFFICIALS?|REPRESENTATIVES?)\b[^.]{0,40}?\b(?:NOMINATED|APPOINTED|DESIGNATED|AUTHORI[SZ]ED|NAMED)\s+BY\b|\bAUTHORI[SZ]ED\s+SIGNATOR(?:Y|IES)\s+OF\b|\b(?:TWO|THREE|2|3)\s+(?:PERSONS?|INDIVIDUALS?|SIGNATOR(?:Y|IES)|OFFICIALS?)\b/i;
+
+  const delCredito46A = (p.lc.documentosExigidos ?? []).join(" · ");
+  const delCredito47A = (p.lc.condicionesAdicionales ?? []).join(" · ");
+  const todoElCredito = `${delCredito46A} · ${delCredito47A} · ${p.extra.instruccionesAlBanco ?? ""}`;
+  if (COTEJA_FIRMAS.test(todoElCredito) && FIRMANTE_SIN_NOMBRE.test(todoElCredito)) {
+    out11.push(
+      obs(
+        "emision-firma-sin-cotejo-posible",
+        "CONFLICTO",
+        "46A / 47A · Opinión R 446",
+        "El crédito anuncia que las firmas se cotejan contra especímenes que guarda el emisor y no nombra a los firmantes",
+        `el crédito describe al firmante por su relación y anuncia el cotejo: "${corto(todoElCredito.replace(/\s+/g, " "), 110)}"`,
+        "nombrar a los individuos que firman —la Opinión R 446 dice que ése es el mínimo: «the issuance of credits which do not, at the very least, identify by name the individual(s) … is not in line with international standard banking practice and is discouraged by the ICC»—, porque si no, el que presenta puede presentar un certificado válido y recibir un rechazo justificado por un dato que nunca tuvo, y «banks who, nonetheless, choose to negotiate such credits would do so at their risk»",
+      ),
+    );
+  }
+
+  /*
    * ── El término de entrega de puerto con un documento de transporte multimodal ──
    *
    * **Los cuatro términos marítimos están definidos a un puerto, no a un lugar.** CFR es «Cost and

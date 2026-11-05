@@ -270,6 +270,19 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^Se prohíbe el transbordo: el artículo 20\(c\) admite igual algunos casos$/g,
     "Transhipment is prohibited: article 20 (c) admits some cases all the same",
   ],
+  /* ── el documento cuya firma el presentador no puede cotejar (Opinión R 446) ── */
+  [
+    /^El crédito anuncia que las firmas se cotejan contra especímenes que guarda el emisor y no nombra a los firmantes$/g,
+    "The credit announces that signatures will be checked against specimens held by the issuing bank and does not name the signatories",
+  ],
+  [
+    /^el crédito describe al firmante por su relación y anuncia el cotejo: /g,
+    "the credit describes the signatory by their relationship and announces the check: ",
+  ],
+  [
+    /^nombrar a los individuos que firman —la Opinión R 446 dice que ése es el mínimo: «the issuance of credits which do not, at the very least, identify by name the individual\(s\) … is not in line with international standard banking practice and is discouraged by the ICC»—, porque si no, el que presenta puede presentar un certificado válido y recibir un rechazo justificado por un dato que nunca tuvo, y «banks who, nonetheless, choose to negotiate such credits would do so at their risk»$/g,
+    "name the individuals who are to sign — ICC Opinion R 446 says that is the minimum: «the issuance of credits which do not, at the very least, identify by name the individual(s) … is not in line with international standard banking practice and is discouraged by the ICC» — because otherwise the presenter may present a valid certificate and receive a justified refusal over data it never had, and «banks who, nonetheless, choose to negotiate such credits would do so at their risk»",
+  ],
   /* ── el término de entrega de puerto con un documento multimodal (Opinión R 432) ── */
   [/^El término de entrega /g, "The trade term "],
   [

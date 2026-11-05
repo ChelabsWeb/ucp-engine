@@ -793,6 +793,75 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
   });
 });
 /**
+ * El documento cuya firma el presentador no puede cotejar (Opinión R 446)
+ *
+ * Un crédito que anuncia que las firmas se cotejan contra los especímenes que guarda **el emisor** y que
+ * describe al firmante por su relación con el ordenante —«two persons nominated by the applicant»— deja
+ * al que presenta con un papel que no puede examinar: presenta un certificado válido y recibe un rechazo
+ * **justificado** por un dato que nunca tuvo.
+ *
+ * Lo que vuelve usable a la Opinión es que dice las dos cosas: el rechazo de ese expediente **estaba
+ * justificado** y la redacción **está desaconsejada** —*«the issuance of credits which do not, at the
+ * very least, identify by name the individual(s) … is discouraged by the ICC. Banks who, nonetheless,
+ * choose to negotiate such credits would do so at their risk»*—.
+ */
+describe("la firma que el presentador no puede cotejar (Opinión R 446)", () => {
+  const con = (...lineas46A: string[]) => {
+    const bloque = lineas46A.map((l, i) => `          +${i + 1})${l}`).join("\n");
+    const swift = SWIFT_CSU2025099.replace(/( {5}46A: Documents Required\n)[\s\S]*?(\n {5}47A:)/, `$1${bloque}$2`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-firma-sin-cotejo-posible");
+  };
+
+  it("sale como CONFLICTO y nombra la Opinión", () => {
+    const [r] = con(
+      "SIGNED COMMERCIAL INVOICE IN THREE ORIGINALS",
+      "INSPECTION CERTIFICATE ISSUED AND SIGNED BY TWO PERSONS NOMINATED BY THE APPLICANT. SPECIMEN SIGNATURES ARE HELD BY US AND WILL BE CHECKED UPON RECEIPT.",
+    );
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("R 446");
+    expect(r?.sugerencia).toContain("identify by name");
+  });
+
+  it.each([
+    "INSPECTION CERTIFICATE SIGNED BY AUTHORISED SIGNATORIES OF THE APPLICANT, SIGNATURES ON OUR FILE",
+    "CERTIFICATE SIGNED BY TWO OFFICIALS APPOINTED BY THE APPLICANT. SPECIMEN SIGNATURES REGISTERED WITH US",
+    "CERTIFICATE SIGNED BY REPRESENTATIVES DESIGNATED BY THE APPLICANT, TO BE VERIFIED AGAINST SPECIMEN SIGNATURES",
+  ])("y vale para las otras redacciones: %s", (linea) => {
+    expect(con("SIGNED COMMERCIAL INVOICE", linea)).toHaveLength(1);
+  });
+
+  /*
+   * **Los dos frenos, y el primero es el que la hace usable:** hace falta **la cláusula del cotejo**. Un
+   * crédito que pide una firma sin nombrar a nadie es corriente —lo resuelve el artículo 14 (f), que es
+   * lo que el laudo DOCDEX 233 midió— y marcarlo sería ruido en media cartera.
+   */
+  it("un crédito que pide la firma sin nombrar a nadie y sin anunciar cotejo no se marca", () => {
+    expect(
+      con(
+        "SIGNED COMMERCIAL INVOICE",
+        "INSPECTION CERTIFICATE ISSUED AND SIGNED BY TWO PERSONS NOMINATED BY THE APPLICANT",
+      ),
+    ).toEqual([]);
+  });
+
+  /* Y el segundo: si el crédito **nombra** a los firmantes, el presentador sabe contra qué cotejar. */
+  it("y uno que anuncia el cotejo pero nombra a los firmantes tampoco", () => {
+    expect(
+      con(
+        "SIGNED COMMERCIAL INVOICE",
+        "INSPECTION CERTIFICATE SIGNED BY MR J PERERA AND MR A FERNANDO. SPECIMEN SIGNATURES ARE HELD BY US.",
+      ),
+    ).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-firma-sin-cotejo-posible"),
+    ).toEqual([]);
+  });
+});
+
+/**
  * El término de entrega de puerto con un documento multimodal (Opinión R 432)
  *
  * Los cuatro términos marítimos están definidos **a un puerto** y CPT a **un lugar**, así que un crédito que
