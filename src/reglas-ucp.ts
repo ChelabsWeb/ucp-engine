@@ -1924,11 +1924,28 @@ function reglasRutaPorCatorceD(ctx: ContextoCredito, bl: DocAnalizado): ReglaPre
   return out;
 }
 
+/**
+ * Si el crédito **admite** la carga sobre cubierta, que es la condición del artículo 26 (a).
+ *
+ * **La prohibición se prueba después y gana**, por el mismo motivo que la cláusula de opción en
+ * `ucp-26a`: «ON DECK SHIPMENT NOT ALLOWED» contiene las mismas palabras que «ON DECK SHIPMENT
+ * ALLOWED», y leer una prohibición como un permiso encendería el error caro —aceptar una carga sobre
+ * cubierta que el crédito prohíbe—. Los dos patrones van con el hueco **acotado y sin alternativas
+ * adentro**: la cláusula de fluctuación del 47A ya costó una vez diecisiete minutos de backtracking, y
+ * un 47A es justo el campo donde los bancos escriben párrafos.
+ */
+const ADMITE_CUBIERTA =
+  /\bON\s+DECK\b[^.]{0,40}?\b(ALLOWED|PERMITTED|PERMISSIBLE|ACCEPTABLE)\b|\b(ALLOWED|PERMITTED|PERMISSIBLE|ACCEPTABLE)\b[^.]{0,30}?\bON\s+DECK\b/i;
+
+const PROHIBE_CUBIERTA =
+  /\bON\s+DECK\b[^.]{0,40}?\b(NOT\s+(ALLOWED|PERMITTED|PERMISSIBLE|ACCEPTABLE)|PROHIBITED|FORBIDDEN|UNACCEPTABLE|EXCLUDED)\b|\bNO\s+ON\s+DECK\b|\b(NOT\s+(ALLOWED|PERMITTED|PERMISSIBLE|ACCEPTABLE)|PROHIBITED|FORBIDDEN)\b[^.]{0,30}?\bON\s+DECK\b/i;
+
 function reglasTransporte(
   ctx: ContextoCredito,
   bl: DocAnalizado,
   exigidos: string[],
   modo: ModoTransporte = "MARITIMO",
+  condiciones: string[] = [],
 ): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -2142,17 +2159,43 @@ function reglasTransporte(
     const opcion = /\b(may|can|option|entitled|reserves?)\b/i.test(onDeck);
     const esOpcion =
       opcion && !/\b(is|are|was|were|has been|have been)\s+(shipped|loaded|stowed|carried)\s+on\s+deck\b/i.test(onDeck);
+    /*
+     * **Y la condición que faltaba está en la cita de arriba: «and if NOT ALLOWED BY THE CREDIT».**
+     *
+     * La regla iba directo a DISCREPANCIA sin preguntarle nunca al crédito si lo admite, y el inciso
+     * es al revés: el artículo prohíbe que el documento diga que la carga va sobre cubierta **salvo que
+     * el crédito lo permita** (26 a). La Opinión **R 478** es el expediente del otro lado y no deja
+     * margen:
+     *
+     * > **Where a credit allows the goods to be shipped on deck, banks will accept any notation to that
+     * > effect.** A bill of lading which declares that the goods have been shipped on deck at
+     * > shippers/receivers' risk without liability to the vessel **is not a reason to reject. This is a
+     * > normal provision added by the shipping company.**
+     *
+     * Así que R 358 y R 478 son el **par exacto**: la misma leyenda, el veredicto opuesto, y lo que lo
+     * decide es el crédito. El hueco es más viejo que el arreglo de R 358 —con la forma verbal ya
+     * rechazaba— y ese arreglo lo ensanchó a la forma nominal, que es la corriente.
+     *
+     * **El freno es la prohibición y gana, igual que la cláusula de opción**: un crédito que dice «ON
+     * DECK SHIPMENT NOT ALLOWED» contiene las mismas palabras que uno que lo admite, y leerlo al revés
+     * volvería a encender el error caro. Medido antes de escribirlo: de los 179 créditos del banco de
+     * pruebas **ninguno admite la cubierta**, así que esto solo puede quitar un rechazo.
+     */
+    const delCredito = [...exigidos, ...condiciones].join(" · ");
+    const admiteCubierta = ADMITE_CUBIERTA.test(delCredito) && !PROHIBE_CUBIERTA.test(delCredito);
     out.push(
       regla(
         "ucp-26a",
         "UCP 600 26a",
         "La mercadería no viaja declarada sobre cubierta",
-        esOpcion ? "OK" : declara ? "DISCREPANCIA" : "OK",
+        esOpcion || !declara || admiteCubierta ? "OK" : "DISCREPANCIA",
         esOpcion
           ? `cláusula de opción del transportista, admitida por el artículo: "${onDeck.slice(0, 90)}"`
-          : declara
-            ? `el documento declara la carga sobre cubierta: "${onDeck.slice(0, 90)}"`
-            : `cláusula leída: "${onDeck.slice(0, 90)}"`,
+          : !declara
+            ? `cláusula leída: "${onDeck.slice(0, 90)}"`
+            : admiteCubierta
+              ? `el documento declara la carga sobre cubierta y el crédito lo admite, así que el artículo no la prohíbe: "${onDeck.slice(0, 90)}" (Opinión R 478: «Where a credit allows the goods to be shipped on deck, banks will accept any notation to that effect»)`
+              : `el documento declara la carga sobre cubierta y el crédito no lo admite: "${onDeck.slice(0, 90)}"`,
       ),
     );
   }
@@ -2290,7 +2333,7 @@ function reglasTransporte(
         "43P / UCP 600 31b",
         "Embarques parciales prohibidos por el crédito",
         "ATENCION",
-        "verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos (UCP 600 31b, Opiniones R 370 y R 369). Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino (Opinión R 368)",
+        "verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos (UCP 600 31b, Opiniones R 370 y R 369). Un camión con acoplado es UN medio de transporte y tampoco es un embarque parcial (Opinión R 478). Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino (Opinión R 368)",
       ),
     );
   }
@@ -3184,7 +3227,7 @@ export function reglasUCP(input: {
        * puerto de descarga, que es exactamente la discrepancia que esa Opinión declara inválida.
        */
     } else if (clase.modo === "MARITIMO" || clase.modo === "SEA_WAYBILL" || clase.modo === "FLETAMENTO") {
-      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
+      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo, input.lc.condicionesAdicionales ?? []));
     } else if (clase.modo === "AEREO") {
       out.push(...reglasAereo(ctx, bl));
     } else if (clase.modo === "MULTIMODAL") {
@@ -3195,7 +3238,7 @@ export function reglasUCP(input: {
     } else if (clase.modo === "COURIER") {
       out.push(...reglasCourier(bl));
     } else if (clase.modo === "SIN_DETERMINAR") {
-      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo));
+      out.push(...reglasTransporte(ctx, bl, exigidos, clase.modo, input.lc.condicionesAdicionales ?? []));
     }
   }
 

@@ -1315,8 +1315,8 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^si hay cláusula de mercadería defectuosa$/g, "whether there is a clause declaring the goods defective"],
   [/^Embarques parciales prohibidos por el crédito$/g, "Partial shipments prohibited by the credit"],
   [
-    /^verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos \(UCP 600 31b, Opiniones R 370 y R 369\)\. Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino \(Opinión R 368\)$/g,
-    "check the means of conveyance, the journey and the destination, not the number of sets: several sets evidencing the same means and the same journey to the same destination are NOT a partial shipment, even if they indicate different dates or different ports of loading (UCP 600 31b, ICC Opinions R 370 and R 369). And where the credit names more than one destination, that overrules the same-destination condition (ICC Opinion R 368)",
+    /^verificar el medio de transporte, el viaje y el destino, no la cantidad de juegos: varios juegos que evidencian el mismo medio y el mismo viaje al mismo destino NO son un embarque parcial, aunque indiquen fechas o puertos de carga distintos \(UCP 600 31b, Opiniones R 370 y R 369\)\. Un camión con acoplado es UN medio de transporte y tampoco es un embarque parcial \(Opinión R 478\)\. Y si el crédito nombra más de un destino, eso desplaza la condición del mismo destino \(Opinión R 368\)$/g,
+    "check the means of conveyance, the journey and the destination, not the number of sets: several sets evidencing the same means and the same journey to the same destination are NOT a partial shipment, even if they indicate different dates or different ports of loading (UCP 600 31b, ICC Opinions R 370 and R 369). A truck with a trailer is ONE means of conveyance and is not a partial shipment either (ICC Opinion R 478). And where the credit names more than one destination, that overrules the same-destination condition (ICC Opinion R 368)",
   ],
   [
     /^El seguro lo emite una compañía de seguros o un asegurador$/g,
@@ -2034,6 +2034,23 @@ const REEMPLAZOS: [RegExp, string][] = [
    * límite del control de literales, y la compensación sigue siendo la misma: se cubre el día que alguien
    * le escribe el caso.
    */
+  /*
+   * Las dos ramas del 26 (a) van **de la más específica a la más general**, porque la segunda es prefijo
+   * de las otras dos: con la corta primero, «…cubierta y el crédito lo admite» quedaría traducido a
+   * medias. La entrada va partida alrededor de la cita del papel, que `textoEnIngles` protege.
+   */
+  [
+    /^el documento declara la carga sobre cubierta y el crédito lo admite, así que el artículo no la prohíbe: /g,
+    "the document states that the goods are loaded on deck and the credit allows it, so the article does not prohibit it: ",
+  ],
+  [
+    / \(Opinión R 478: «Where a credit allows the goods to be shipped on deck, banks will accept any notation to that effect»\)$/g,
+    " (ICC Opinion R 478: «Where a credit allows the goods to be shipped on deck, banks will accept any notation to that effect»)",
+  ],
+  [
+    /^el documento declara la carga sobre cubierta y el crédito no lo admite: /g,
+    "the document states that the goods are loaded on deck and the credit does not allow it: ",
+  ],
   [/^el documento declara la carga sobre cubierta:/g, "the document states that the goods are loaded on deck:"],
   [/^cláusula leída:/g, "clause read:"],
 

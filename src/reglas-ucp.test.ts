@@ -428,6 +428,70 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     expect(buscar([{ tipo: "BL", campos: doc({ onDeck: campo(c) }) }], "ucp-26a")?.estado).toBe("OK");
   });
 
+  /*
+   * **Y la otra mitad del inciso, que la regla no preguntaba nunca: si el crédito lo admite.**
+   *
+   * La cita de R 358 que esta regla lleva arriba dice «and **if not allowed by the credit**», y la
+   * Opinión **R 478** es el expediente del otro lado: *«Where a credit allows the goods to be shipped on
+   * deck, **banks will accept any notation to that effect**. A bill of lading which declares that the
+   * goods have been shipped on deck at shippers/receivers' risk without liability to the vessel **is not
+   * a reason to reject. This is a normal provision added by the shipping company**»*.
+   *
+   * Los dos juntos son el **par exacto**: la misma leyenda, el veredicto opuesto, y lo que lo decide es
+   * el crédito.
+   */
+  const conCredito = (onDeck: string, ...condiciones: string[]) =>
+    reglasUCP({
+      lc: { ...LC, condicionesAdicionales: condiciones },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ onDeck: campo(onDeck) }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-26a");
+
+  it.each([
+    "ON DECK SHIPMENT ALLOWED",
+    "ON DECK SHIPMENT IS PERMITTED",
+    "SHIPMENT ON DECK ACCEPTABLE",
+    "ON DECK STOWAGE PERMISSIBLE",
+  ])("26a: con «%s» en el crédito, la declaración NO es discrepancia (R 478)", (permiso) => {
+    const r = conCredito("SHIPPED ON DECK AT SHIPPERS/RECEIVERS RISK WITHOUT LIABILITY TO THE VESSEL", permiso);
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toContain("R 478");
+  });
+
+  /*
+   * **El freno, y es el que sostiene todo lo demás:** una prohibición contiene las mismas palabras que
+   * un permiso, y leerla al revés encendería el error caro — aceptar una carga sobre cubierta que el
+   * crédito prohíbe. La prohibición se prueba después y gana.
+   */
+  it.each([
+    "ON DECK SHIPMENT NOT ALLOWED",
+    "ON DECK SHIPMENT IS NOT ACCEPTABLE",
+    "ON DECK SHIPMENT PROHIBITED",
+    "NO ON DECK SHIPMENT",
+    "ON DECK STOWAGE NOT PERMITTED",
+  ])("y con «%s» sigue siendo discrepancia", (prohibicion) => {
+    expect(conCredito("SHIPPED ON DECK", prohibicion)?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("y un crédito que no dice nada de la cubierta sigue rechazando la declaración", () => {
+    expect(conCredito("PERISHABLE CARGO ON DECK AT SHIPPER'S RISK")?.estado).toBe("DISCREPANCIA");
+  });
+
+  /*
+   * El 47A es el campo donde los bancos escriben párrafos, y la cláusula de fluctuación ya costó una vez
+   * **diecisiete minutos** de backtracking catastrófico con un patrón de huecos. Los dos de acá van
+   * acotados y sin alternativas adentro del hueco; el test afirma el tiempo además del veredicto, porque
+   * un fallo de performance en una regla no se ve en ningún otro lado.
+   */
+  it("y una condición de doce mil caracteres no cuelga la regla", () => {
+    const largo = `ON DECK SHIPMENT ALLOWED ${"THE BENEFICIARY MUST PRESENT ALL DOCUMENTS IN ENGLISH AND ".repeat(200)}`;
+    const t0 = Date.now();
+    const r = conCredito("SHIPPED ON DECK", largo);
+    expect(Date.now() - t0, "la regla no puede tardar un segundo").toBeLessThan(1000);
+    expect(r?.estado).toBe("OK");
+  });
+
   it("27: una cláusula que declara el embalaje defectuoso ensucia el documento", () => {
     const r = buscar([{ tipo: "BL", campos: doc({ clausulaDefecto: campo("BAGS TORN AND STAINED") }) }], "ucp-27");
     expect(r?.estado).toBe("DISCREPANCIA");
