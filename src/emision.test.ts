@@ -793,6 +793,124 @@ describe("el giro librado sobre el banco designado (laudo DOCDEX 366)", () => {
   });
 });
 /**
+ * Los documentos que el crédito pide en más de un envío (Opinión R 415)
+ *
+ * El reloj del 16 (d) es lo más caro que el motor calcula —al cierre del quinto día hábil el banco pierde
+ * el derecho a rechazar— y un crédito que manda los documentos en dos lotes mueve el punto de partida.
+ * El emisor de esa Opinión contó desde el **segundo** y perdió por un día: *«it must be prepared to
+ * provide a rejection notice … **based upon the content of the first mailing**»*.
+ *
+ * El freno es el crédito que pide **un solo** lote, que es la redacción del expediente real —«PLEASE
+ * DESPATCH DOCUMENTS BY COURIER IN ONE LOT»— y contiene las mismas palabras.
+ */
+describe("los documentos en más de un envío (Opinión R 415)", () => {
+  const con = (instruccion: string) => {
+    const swift = SWIFT_CSU2025099.replace(
+      /( {5}78: Instr to Payg\/Accptg\/Negotg Bank\n)[\s\S]*?(\n {5}57A:)/,
+      `$1          1)${instruccion}$2`,
+    );
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-documentos-en-varios-envios");
+  };
+
+  it("sale como AVISO y dice desde cuál envío corre el plazo", () => {
+    const [r] = con("PLEASE DESPATCH DOCUMENTS IN TWO CONSECUTIVE LOTS BY COURIER.");
+    expect(r?.gravedad).toBe("AVISO");
+    expect(r?.fuente).toContain("R 415");
+    expect(r?.sugerencia).toContain("16 (d)");
+    expect(r?.sugerencia).toContain("first mailing");
+  });
+
+  it.each([
+    "DOCUMENTS TO BE FORWARDED IN TWO LOTS BY COURIER",
+    "PLEASE SEND THE DOCUMENTS IN SEPARATE MAILINGS",
+    "DOCUMENTS MUST BE DESPATCHED IN MORE THAN ONE LOT",
+    "FORWARD DOCUMENTS IN 2 CONSECUTIVE LOTS",
+  ])("y vale para las otras redacciones: %s", (instruccion) => {
+    expect(con(instruccion)).toHaveLength(1);
+  });
+
+  /* El freno, que es la redacción del expediente real y contiene las mismas palabras. */
+  it("un crédito que pide UN solo lote no se marca", () => {
+    expect(con("PLEASE DESPATCH DOCUMENTS BY COURIER IN ONE LOT TO MERIDIAN BANK PLC.")).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-documentos-en-varios-envios"),
+    ).toEqual([]);
+  });
+});
+
+/**
+ * El documento cuya firma el presentador no puede cotejar (Opinión R 446)
+ *
+ * Un crédito que anuncia que las firmas se cotejan contra los especímenes que guarda **el emisor** y que
+ * describe al firmante por su relación con el ordenante —«two persons nominated by the applicant»— deja
+ * al que presenta con un papel que no puede examinar: presenta un certificado válido y recibe un rechazo
+ * **justificado** por un dato que nunca tuvo.
+ *
+ * Lo que vuelve usable a la Opinión es que dice las dos cosas: el rechazo de ese expediente **estaba
+ * justificado** y la redacción **está desaconsejada** —*«the issuance of credits which do not, at the
+ * very least, identify by name the individual(s) … is discouraged by the ICC. Banks who, nonetheless,
+ * choose to negotiate such credits would do so at their risk»*—.
+ */
+describe("la firma que el presentador no puede cotejar (Opinión R 446)", () => {
+  const con = (...lineas46A: string[]) => {
+    const bloque = lineas46A.map((l, i) => `          +${i + 1})${l}`).join("\n");
+    const swift = SWIFT_CSU2025099.replace(/( {5}46A: Documents Required\n)[\s\S]*?(\n {5}47A:)/, `$1${bloque}$2`);
+    return revisarCredito(parseMT700(swift)!).filter((o) => o.id === "emision-firma-sin-cotejo-posible");
+  };
+
+  it("sale como CONFLICTO y nombra la Opinión", () => {
+    const [r] = con(
+      "SIGNED COMMERCIAL INVOICE IN THREE ORIGINALS",
+      "INSPECTION CERTIFICATE ISSUED AND SIGNED BY TWO PERSONS NOMINATED BY THE APPLICANT. SPECIMEN SIGNATURES ARE HELD BY US AND WILL BE CHECKED UPON RECEIPT.",
+    );
+    expect(r?.gravedad).toBe("CONFLICTO");
+    expect(r?.fuente).toContain("R 446");
+    expect(r?.sugerencia).toContain("identify by name");
+  });
+
+  it.each([
+    "INSPECTION CERTIFICATE SIGNED BY AUTHORISED SIGNATORIES OF THE APPLICANT, SIGNATURES ON OUR FILE",
+    "CERTIFICATE SIGNED BY TWO OFFICIALS APPOINTED BY THE APPLICANT. SPECIMEN SIGNATURES REGISTERED WITH US",
+    "CERTIFICATE SIGNED BY REPRESENTATIVES DESIGNATED BY THE APPLICANT, TO BE VERIFIED AGAINST SPECIMEN SIGNATURES",
+  ])("y vale para las otras redacciones: %s", (linea) => {
+    expect(con("SIGNED COMMERCIAL INVOICE", linea)).toHaveLength(1);
+  });
+
+  /*
+   * **Los dos frenos, y el primero es el que la hace usable:** hace falta **la cláusula del cotejo**. Un
+   * crédito que pide una firma sin nombrar a nadie es corriente —lo resuelve el artículo 14 (f), que es
+   * lo que el laudo DOCDEX 233 midió— y marcarlo sería ruido en media cartera.
+   */
+  it("un crédito que pide la firma sin nombrar a nadie y sin anunciar cotejo no se marca", () => {
+    expect(
+      con(
+        "SIGNED COMMERCIAL INVOICE",
+        "INSPECTION CERTIFICATE ISSUED AND SIGNED BY TWO PERSONS NOMINATED BY THE APPLICANT",
+      ),
+    ).toEqual([]);
+  });
+
+  /* Y el segundo: si el crédito **nombra** a los firmantes, el presentador sabe contra qué cotejar. */
+  it("y uno que anuncia el cotejo pero nombra a los firmantes tampoco", () => {
+    expect(
+      con(
+        "SIGNED COMMERCIAL INVOICE",
+        "INSPECTION CERTIFICATE SIGNED BY MR J PERERA AND MR A FERNANDO. SPECIMEN SIGNATURES ARE HELD BY US.",
+      ),
+    ).toEqual([]);
+  });
+
+  it("y el crédito real del expediente no gana ninguna observación", () => {
+    expect(
+      revisarCredito(parseMT700(SWIFT_CSU2025099)!).filter((o) => o.id === "emision-firma-sin-cotejo-posible"),
+    ).toEqual([]);
+  });
+});
+
+/**
  * El término de entrega de puerto con un documento multimodal (Opinión R 432)
  *
  * Los cuatro términos marítimos están definidos **a un puerto** y CPT a **un lugar**, así que un crédito que

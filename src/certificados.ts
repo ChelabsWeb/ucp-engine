@@ -182,9 +182,22 @@ function emisoresAdmitidos(nombrado: string): string[] {
  * El cambio **solo puede ablandar**: mueve veredictos de DISCREPANCIA a ATENCION con los dos nombres a la
  * vista, nunca al revés. Y las dos grafías entran, porque un 46A las escribe como las escribe el banco que
  * lo redacta.
+ *
+ * **Y el que describe al firmante por su RELACIÓN, que es la Opinión R 446.** Su 46A pide el certificado
+ * de inspección «issued and signed by **two persons nominated by the applicant**», y ninguna de esas
+ * palabras estaba en la lista: el motor la tomaba por un **nombre propio** y sacaba **DISCREPANCIA**
+ * —medido— sobre un certificado firmado por dos personas con nombre y apellido. O sea que el motor
+ * pretendía cotejar contra un nombre que **el crédito nunca dio**, que es precisamente de lo que esa
+ * Opinión se queja: *«the issuance of credits which do not, at the very least, **identify by name** the
+ * individual(s) who are to complete the document … is discouraged by the ICC»*.
+ *
+ * Una persona descripta por su relación con el ordenante no es una marca: es la misma idea que
+ * `representative` y que `agent`, que ya estaban. Y el veredicto que corresponde es el del otro lado del
+ * corte —ATENCION con los dos textos a la vista— porque quién sea «la persona nombrada por el ordenante»
+ * es exactamente lo que el motor no puede saber.
  */
 function describeUnaFuncion(nombrado: string): boolean {
-  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health|carrier|shipper|master|manufacturer|producer|supplier|surveyor|laboratory|lab|agent|agents|forwarder|forwarders|insurer|underwriters?|inspector|inspection|company|beneficiary|exporter|packer|mill|factory|third party|organisation|organization|organisations|organizations|representative|representatives|representante|representantes)\b/i.test(
+  return /\b(govt|government|governmental|authority|authorities|ministry|ministerio|official|state|public|chamber|department|bureau|institute|agency|board|inspectorate|customs|consulate|embassy|veterinary|veterinery|sanitary|health|carrier|shipper|master|manufacturer|producer|supplier|surveyor|laboratory|lab|agent|agents|forwarder|forwarders|insurer|underwriters?|inspector|inspection|company|beneficiary|exporter|packer|mill|factory|third party|organisation|organization|organisations|organizations|representative|representatives|representante|representantes|person|persons|individual|individuals|signator(?:y|ies)|nominee|nominees|persona|personas)\b/i.test(
     nombrado,
   );
 }
