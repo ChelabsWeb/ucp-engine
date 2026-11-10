@@ -2752,6 +2752,25 @@ function esVolumen(unidad: string): boolean {
   return /^(litros?|lt?rs?|liters?|litres?|l|m3|cbm|metros?\s*c[uú]bicos?)$/i.test(unidad.trim());
 }
 
+/**
+ * Si dos textos nombran la misma unidad, cuando ninguna de las dos se puede llevar a kilos.
+ *
+ * `unidadNormal` devuelve `null` para lo que no reconoce, y su comentario dice para qué: «sin saber que
+ * son la misma unidad no se comparan dos números». La regla de la cantidad preguntaba
+ * `unidadNormal(a) === unidadNormal(b)`, y **`null === null`**: dos unidades desconocidas cualesquiera
+ * pasaban por la misma. Con el crédito de la Opinión R 366 —«about 180 bales or about 90,388.60lbs»— y
+ * la factura en fardos, el motor comparaba 160 contra 90.388,6 y rechazaba con «−100 %»; y al revés,
+ * «500 DRUMS» contra «500 PAILS» salía en OK.
+ *
+ * Lo desconocido se compara por su texto —sin plural, que es lo único que un crédito y una factura
+ * escriben distinto de la misma palabra—, que es lo que ya hacía el cotejo entre documentos.
+ */
+function esLaMismaUnidad(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  const forma = (t: string) => unidadNormal(t) ?? `texto:${norm(t).replace(/s$/, "")}`;
+  return forma(a) === forma(b);
+}
+
 function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[], hoy: Date): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -2802,21 +2821,42 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
      * anunciar lo contrario. Lo que se busca es un número seguido de la unidad de bulto, que es
      * como se escribe una cantidad en bultos.
      */
-    const enBultos = /\b\d[\d.,]*\s*(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs)\b/i.test(
-      ctx.mercaderia ?? "",
-    );
+    /*
+     * «Bales» entra por la Opinión R 366, que lo dice con todas las letras: *«Reference to "about 180
+     * bales" is a stipulated number of packing units and would therefore not be subject to the 5%
+     * tolerance.»*
+     */
+    const enBultos =
+      /\b\d[\d.,]*\s*(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs|bales?|fardos?)\b/i.test(
+        ctx.mercaderia ?? "",
+      );
+    /*
+     * Y si el crédito dice «about», lo que rige es el 10 % del 30 (a) y no el 5 % del (b).
+     *
+     * La regla de abajo ya lo aplicaba; este renglón seguía anunciando «±5 %» al lado, o sea que el
+     * mismo examen decía dos tolerancias distintas para la misma cantidad. Es el crédito de R 366.
+     */
+    const diceAbout = /\b(about|approximately|circa|aproximadamente|aprox)\s+\d/i.test(ctx.mercaderia ?? "");
     out.push(
-      regla(
-        "ucp-30b",
-        "UCP 600 30b",
-        enBultos
-          ? "El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %"
-          : "Sin tolerancia en el crédito, la cantidad admite ±5 %",
-        "OK",
-        enBultos
-          ? "la cantidad se compara exacta"
-          : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
-      ),
+      diceAbout
+        ? regla(
+            "ucp-30b",
+            "UCP 600 30a",
+            "El crédito dice «about» junto a la cantidad: rige el 10 % del artículo 30 (a)",
+            "OK",
+            "se aplica ±10 % a la cantidad que esa palabra acompaña, y no el 5 % del 30 (b)",
+          )
+        : regla(
+            "ucp-30b",
+            "UCP 600 30b",
+            enBultos
+              ? "El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %"
+              : "Sin tolerancia en el crédito, la cantidad admite ±5 %",
+            "OK",
+            enBultos
+              ? "la cantidad se compara exacta"
+              : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
+          ),
     );
   }
 
@@ -2971,7 +3011,7 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
     const par =
       enKgPedido !== null && enKgFac !== null
         ? { a: enKgFac, b: enKgPedido }
-        : n !== null && unidadNormal(uniFac) === unidadNormal(pedido.unidad)
+        : n !== null && esLaMismaUnidad(uniFac, pedido.unidad)
           ? { a: n, b: pedido.valor }
           : null;
     if (par) {

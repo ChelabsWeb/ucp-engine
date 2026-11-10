@@ -1557,6 +1557,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The on board notation names the vessel that left the port of loading",
   ],
   [/\bla anotación dice\b/g, "the on board notation reads"],
+  /* R 366: el anuncio de la tolerancia cuando el crédito dice «about» */
+  [
+    /^El crédito dice «about» junto a la cantidad: rige el 10 % del artículo 30 \(a\)$/g,
+    "The credit says «about» next to the quantity: the 10 % of article 30 (a) applies",
+  ],
+  [
+    /^se aplica ±10 % a la cantidad que esa palabra acompaña, y no el 5 % del 30 \(b\)$/g,
+    "±10 % is applied to the quantity that word qualifies, and not the 5 % of article 30 (b)",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,

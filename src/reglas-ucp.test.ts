@@ -2155,6 +2155,78 @@ describe("el seguro fechado después del embarque (art. 28 e)", () => {
   });
 });
 
+/**
+ * Dos unidades alternativas en el 45A, y dos unidades que el motor no conoce (Opinión R 366).
+ *
+ * El crédito decía «about 180 bales or about 90,388.60lbs Raw Cotton» y se presentaron 160 fardos que
+ * pesaban 84.304 libras: *«Whilst the number of bales falls outside the 10% tolerance, the quantity by
+ * weight falls within the guideline … There is no discrepancy with regard to the quantity of goods
+ * shipped.»*
+ *
+ * Sondearlo encontró un defecto que no es de esa Opinión y es más ancho: `unidadNormal` devuelve `null`
+ * para lo que no reconoce —su propio comentario dice que así «no se comparan dos números»— y la regla
+ * preguntaba `unidadNormal(a) === unidadNormal(b)`. **`null === null`**: dos unidades desconocidas
+ * cualesquiera se comparaban como si fueran la misma. Con la factura en fardos el motor rechazaba «160
+ * BALES» contra «90388.6 LBS» con un desvío del −100 %.
+ */
+describe("dos unidades que el motor no conoce no son la misma unidad (R 366)", () => {
+  const ALGODON = "ABOUT 180 BALES OR ABOUT 90,388.60LBS RAW COTTON";
+  const con = (mercaderia: string, cantidad: string, unidad: string) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia: null },
+      credito: { ...CTX, mercaderia, mercaderiaCompleta: mercaderia },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo(unidad) }) }],
+      hoy: HOY,
+    });
+  const cantidad = (mercaderia: string, c: string, u: string) =>
+    con(mercaderia, c, u).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("fardos contra libras no se comparan: va a verificar, no a discrepancia", () => {
+    const r = cantidad(ALGODON, "160", "BALES");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("no se pueden comparar");
+  });
+
+  it("y el peso, que es la alternativa que la factura sí trae, cumple dentro del 10 % del «about»", () => {
+    const r = cantidad(ALGODON, "84304", "LBS");
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toBe("UCP 600 30a");
+  });
+
+  it("tambores contra baldes tampoco son la misma unidad, aunque el número coincida", () => {
+    expect(cantidad("500 DRUMS OF LUBRICANT", "500", "PAILS")?.estado).toBe("ATENCION");
+  });
+
+  it("pero la misma unidad desconocida sigue comparándose, en singular o en plural", () => {
+    expect(cantidad("2700 PCS OF ELECTRONIC COMPONENTS", "2700", "PCS")?.estado).toBe("OK");
+    expect(cantidad("2700 PCS OF ELECTRONIC COMPONENTS", "3000", "PC")?.estado).toBe("DISCREPANCIA");
+    expect(cantidad("40 DRUMS OF LUBRICANT", "40", "DRUM")?.estado).toBe("OK");
+  });
+
+  /*
+   * Y el anuncio de la tolerancia, que decía «±5 %» sobre un crédito que dice «about» y que nombra
+   * fardos: las dos cosas que la Opinión corrige en su primer párrafo —*«Reference to "about 180 bales"
+   * is a stipulated number of packing units and would therefore not be subject to the 5% tolerance»*—.
+   */
+  it("el anuncio del 30 (b) no promete el 5 % cuando el crédito dice «about»", () => {
+    const r = con(ALGODON, "84304", "LBS").find((x) => x.id === "ucp-30b");
+    expect(r?.fuente).toBe("UCP 600 30a");
+    expect(r?.evidencia).toContain("10 %");
+    expect(r?.evidencia).not.toContain("±5 %");
+  });
+
+  it("y un fardo es un bulto: sobre «180 BALES» a secas no corre el 5 %", () => {
+    const r = con("180 BALES OF RAW COTTON", "180", "BALES").find((x) => x.id === "ucp-30b");
+    expect(r?.regla).toContain("bultos");
+  });
+
+  it("los dos textos nuevos se traducen", () => {
+    const r = con(ALGODON, "84304", "LBS").find((x) => x.id === "ucp-30b");
+    for (const t of [r?.regla, r?.evidencia])
+      expect(textoEnIngles(t ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bcantidad\b/i);
+  });
+});
+
 describe("la cantidad, con lo que la auditoría encontró", () => {
   const conCantidad = (cantidad: string, unidad: string, mercaderia: string, lcOver: Partial<typeof LC> = {}) =>
     reglasUCP({
