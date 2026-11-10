@@ -99,8 +99,15 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
   const NOMBRE_TRANSPORTE =
     /\b(bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awbs?|air\s+consignment\s+notes?|sea\s*way\s*bills?|consignment\s+notes?|cmr|(?:rail|road|truck)\s*way\s*bills?|cartas?\s+de\s+porte|inland\s+waterway|multimodal|combined\s+transport|intermodal|through\s+bill|courier\s+receipt|post\s+receipt|transport\s+document|conocimiento)\b/i;
   const COPIA = /\b(photocopy|photocopies|copy|copies)\b/i;
-  const iCopia = linea.search(COPIA);
-  const iNombre = linea.search(NOMBRE_TRANSPORTE);
+  /*
+   * Y el plural entre paréntesis, que es como lo escribe un mensaje SWIFT: «BILL(S) OF LADING». El apareo
+   * normaliza la puntuación y esta lista no, así que «COPY OF MARINE BILL(S) OF LADING» apareaba y no
+   * era «solo una copia». Lo encontró, en su primera corrida, el control que compara las dos listas
+   * (`apareo-46a.test.ts`) — la tercera vez que se desalinean, después de «CMR» y de la carretera.
+   */
+  const sinParentesis = linea.replace(/\(s\)/gi, "s");
+  const iCopia = sinParentesis.search(COPIA);
+  const iNombre = sinParentesis.search(NOMBRE_TRANSPORTE);
   return iCopia >= 0 && iNombre >= 0 && iCopia < iNombre;
 }
 
