@@ -2688,6 +2688,96 @@ describe("el «on board» que pide el crédito sobre un documento multimodal", (
     ] satisfies DocAnalizado[];
     expect(con(aereo, ["1. FULL SET CLEAN ON BOARD BILL OF LADING."])).toBeUndefined();
   });
+
+  /*
+   * **El par R 638 / R 461: el permiso del multimodal no quita el «on board» solo.**
+   *
+   * Las dos Opiniones tienen la misma forma —el 46A pide el conocimiento «on board», otra parte del
+   * crédito admite el documento multimodal, se presenta un «received for shipment»— y el veredicto
+   * opuesto:
+   *
+   * - R 638 / TA 629, «clean on board **marine** bill(s) of lading»: el documento cumple, porque el «on
+   *   board» pertenece a la alternativa marítima;
+   * - R 461, «clean on board bill of lading» a secas: *«the requirements for the completion of the
+   *   document were not amended, only the type of transport document that was required. The requirement
+   *   that the document indicate "on board" was not amended.»*
+   *
+   * Lo que las separa es que la línea nombre un documento **marítimo**. El freno pedía solo que no
+   * nombrara un multimodal, así que sobre los hechos de R 461 el motor se callaba: una discrepancia que
+   * la ICC declara válida y que no salía en ninguna parte. Y el freno de R 638 no tenía test en el motor
+   * —solo el caso del banco de pruebas—, así que va acá con su par.
+   */
+  describe("cuando el crédito admite el multimodal en otra parte (R 638 contra R 461)", () => {
+    const MARITIMA = ["1. FULL SET OF AT LEAST 3/3 ORIGINAL CLEAN ON BOARD MARINE BILL(S) OF LADING."];
+    const GENERICA = ["1. CLEAN ON BOARD BILL OF LADING DRAWN TO ORDER AND BLANK ENDORSED."];
+    const conPermiso = (exigidos: string[], condiciones: string[], constancia = "Received for Shipment") =>
+      reglasUCP({
+        lc: { ...LC, documentosExigidos: exigidos, condicionesAdicionales: condiciones },
+        credito: CTX,
+        docs: multimodal(constancia),
+        hoy: HOY,
+      }).find((r) => r.id === "ucp-14a-on-board");
+
+    it("R 638: la línea nombra un marítimo y el permiso está en el 47A → la regla no se emite", () => {
+      expect(conPermiso(MARITIMA, ["MULTIMODAL TRANSPORT DOCUMENT IS ACCEPTABLE."])).toBeUndefined();
+    });
+
+    it("y «ocean» es un marítimo igual que «marine»", () => {
+      expect(
+        conPermiso(
+          ["1. FULL SET CLEAN ON BOARD OCEAN BILLS OF LADING."],
+          ["MULTIMODAL TRANSPORT DOCUMENT ACCEPTABLE."],
+        ),
+      ).toBeUndefined();
+    });
+
+    it("R 461: la línea dice «bill of lading» a secas → el «on board» sigue exigido, y lo dice", () => {
+      const r = conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."]);
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).toContain("R 461");
+      expect(r?.evidencia).toContain("R 638");
+    });
+
+    it("y con la anotación de a bordo fechada, el mismo crédito cumple", () => {
+      expect(
+        conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."], "SHIPPED ON BOARD 20-AUG-2026")?.estado,
+      ).toBe("OK");
+    });
+
+    it("sin permiso no se nombra R 461: la evidencia no afirma un permiso que el crédito no dio", () => {
+      const r = conPermiso(GENERICA, []);
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).not.toContain("R 461");
+    });
+
+    /*
+     * **Y una prohibición no es un permiso.** El patrón del permiso buscaba «acceptable» y lo
+     * encontraba adentro de «NOT ACCEPTABLE», así que un crédito que **prohíbe** el multimodal —el 47A
+     * del caso port-to-port del banco de pruebas, palabra por palabra— apagaba la exigencia de «on
+     * board» igual que uno que lo admite. Lo encontró el sondeo de este arreglo, corriendo el patrón
+     * contra los 47A que el banco ya tenía.
+     */
+    it.each([
+      "MULTIMODAL BILL OF LADING IS NOT ACCEPTABLE.",
+      "MULTIMODAL TRANSPORT DOCUMENT NOT ALLOWED.",
+      "COMBINED TRANSPORT DOCUMENTS ARE UNACCEPTABLE.",
+      "NO SE ACEPTA DOCUMENTO DE TRANSPORTE MULTIMODAL.",
+    ])("«%s» no apaga la exigencia, ni con la línea marítima", (condicion) => {
+      expect(conPermiso(MARITIMA, [condicion])?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("y la negación de otra frase de la misma condición no anula el permiso", () => {
+      expect(
+        conPermiso(MARITIMA, ["MULTIMODAL TRANSPORT DOCUMENT IS ACCEPTABLE. SHORT FORM B/L NOT ACCEPTABLE."]),
+      ).toBeUndefined();
+    });
+
+    it("la evidencia de R 461 se traduce entera", () => {
+      const en = textoEnIngles(conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."])?.evidencia ?? "");
+      expect(en).not.toMatch(/[áéíóúñ¿¡]|\bel crédito\b|\bla línea\b|\bdocumento\b|\bexigencia\b/i);
+      expect(en).toContain("R 461");
+    });
+  });
 });
 
 /**

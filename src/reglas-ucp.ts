@@ -1467,10 +1467,48 @@ function reglaOnBoardQuePideElCredito(
    * inválida, con texto oficial en contra.
    */
   const laLineaNombraElMultimodal = /multimodal|combined transport|intermodal|through bill/i.test(lineaDeTransporte);
-  const permitido = condicionesAdicionales.some(
-    (c) => /multimodal|combined transport|intermodal/i.test(c) && /acceptable|allowed|permitted|acepta|permit/i.test(c),
-  );
-  if (permitido && !laLineaNombraElMultimodal) return [];
+  /*
+   * **Y el freno del freno, que es la Opinión R 461: admitir el multimodal no quita el «on board» solo.**
+   *
+   * R 461 tiene la misma forma que R 638 y el veredicto opuesto. El 46A pedía «Clean on board bill of
+   * lading drawn to order and blank endorsed», el crédito se enmendó a «Combined Transport Document
+   * acceptable» y se presentó un «received for shipment»:
+   *
+   *   «However, in this case, the requirements for the completion of the document were not amended, only
+   *   the type of transport document that was required. The requirement that the document indicate "on
+   *   board" was not amended. The transport document that was submitted should have given an on board
+   *   notation.»
+   *
+   * Lo que separa a las dos es mecánico: en R 638 la línea nombra un documento **marítimo** —«marine
+   * bill(s) of lading»— y entonces hay una alternativa a la que el «on board» puede pertenecer; en R 461
+   * dice «bill of lading» a secas, que es el término que el propio crédito después abre a un combinado,
+   * y la exigencia queda en pie. El freno pedía solo que la línea **no nombrara un multimodal**, así que
+   * sobre los hechos de R 461 el motor no emitía nada: una discrepancia que la ICC declara válida y que
+   * no aparecía en ninguna parte.
+   *
+   * Y R 461 es, a fortiori, la Opinión que le faltaba a la rama sin permiso —que descansaba en el blog
+   * del autor de la ISBP—: si el «on board» sobrevive a un crédito que admite el combinado, sobrevive a
+   * uno que no lo admite.
+   *
+   * **Y una prohibición no es un permiso.** El patrón encontraba «acceptable» adentro de «NOT
+   * ACCEPTABLE», así que un 47A que **prohíbe** el multimodal apagaba la exigencia igual que uno que lo
+   * admite. Se mira frase por frase, para que la negación de otra frase de la misma condición —«…IS
+   * ACCEPTABLE. SHORT FORM B/L NOT ACCEPTABLE»— no anule el permiso.
+   */
+  const laLineaNombraUnMaritimo = /\b(marine|ocean|mar[ií]timo)\b/i.test(lineaDeTransporte);
+  const permitido = condicionesAdicionales
+    .flatMap((c) => c.split(/[.;]\s+|[.;]$/))
+    .some(
+      (frase) =>
+        /multimodal|combined transport|intermodal/i.test(frase) &&
+        /acceptable|allowed|permitted|acepta|permit/i.test(frase) &&
+        !/\b(not|no|never|nor|neither)\b|unacceptable|inaceptable|prohib/i.test(frase),
+    );
+  if (permitido && laLineaNombraUnMaritimo && !laLineaNombraElMultimodal) return [];
+  const elPermisoNoLaQuita =
+    permitido && !laLineaNombraElMultimodal
+      ? " Que el crédito admita el documento multimodal no quita esa exigencia: la línea del 46A no nombra un documento marítimo al que el «on board» pueda pertenecer. Opinión R 461 de la ICC —cambió el tipo de documento, no lo que el documento tiene que decir—, a diferencia de R 638 / TA 629, donde la línea pedía un conocimiento marítimo"
+      : "";
   const constancia = val(doc, "onBoard");
   if (!constancia) {
     return [
@@ -1523,7 +1561,7 @@ function reglaOnBoardQuePideElCredito(
         ? conFecha
           ? `el 46A pide "on board" y el documento dice "${constancia}"`
           : `el 46A pide "on board" y el documento dice "${constancia}" — no se le leyó una fecha: la Opinión R 641 / TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión. Verificar en el papel si está preimpresa o agregada`
-        : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo`,
+        : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo.${elPermisoNoLaQuita}`,
     ),
   ];
 }

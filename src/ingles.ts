@@ -1841,6 +1841,12 @@ const REEMPLAZOS: [RegExp, string][] = [
     /\bno se le leyó una fecha: la Opinión R 641 \/ TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión\. Verificar en el papel si está preimpresa o agregada\b/g,
     "no date could be read from it: ICC Opinion R 641 / TA 650rev requires a dated on board notation when the credit so requests, unless the wording is pre-printed, in which case the date of issuance governs. Check on the document itself whether it is pre-printed or added",
   ],
+  /* R 461: el permiso del multimodal no quita el «on board». Va antes que la frase que la precede, y a
+     mano: sale de una plantilla y el control de cobertura las saltea. */
+  [
+    /Que el crédito admita el documento multimodal no quita esa exigencia: la línea del 46A no nombra un documento marítimo al que el «on board» pueda pertenecer\. Opinión R 461 de la ICC —cambió el tipo de documento, no lo que el documento tiene que decir—, a diferencia de R 638 \/ TA 629, donde la línea pedía un conocimiento marítimo/g,
+    "That the credit allows a multimodal transport document does not remove that requirement: the 46A line does not name a marine document to which the «on board» wording could belong. ICC Opinion R 461 —the type of document was changed, not what the document must state—, unlike R 638 / TA 629, where the line called for a marine bill of lading",
+  ],
   [
     /\bel artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo\b/g,
     "article 19 allows the goods to be shown as taken in charge, but this credit required them on board",
