@@ -1173,6 +1173,15 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^(.+): el archivo parece traer más de un documento$/g, "$1: the file seems to hold more than one document"],
   [/^(.+): indica origen (.+)$/g, "$1: states origin $2"],
   // las citas ya salieron del texto —son huecos— así que el patrón no lleva las comillas
+  /* R 403: el firmante descripto por su relación. Van antes que la del organismo, y a mano. */
+  [
+    /^el documento lo emite (.+), que se presenta como quien el crédito describe: el banco no tiene que averiguar si ese nombramiento es cierto \(Opinión R 403 de la ICC\)\. Verificar en el papel$/g,
+    "the document is issued by $1, who is shown as the party the credit describes: the bank is not required to ascertain whether that appointment is true (ICC Opinion R 403). Check on the document itself",
+  ],
+  [
+    /^el documento lo emite (.+) y lo leído no muestra que sea quien el crédito describe: el crédito no da un nombre contra el cual cotejar, así que el papel tiene que mostrarlo en su faz\. Si no lo muestra es discrepante, y el banco no tiene que averiguar quién es el firmante \(Opinión R 403 de la ICC\)\. Verificar en el papel$/g,
+    "the document is issued by $1 and what was read does not show that this is the party the credit describes: the credit gives no name to check against, so the document must show it on its face. If it does not, it is discrepant, and the bank is not required to ascertain who the signatory is (ICC Opinion R 403). Check on the document itself",
+  ],
   [
     /^el documento lo emite (.+): verificar que sea el organismo que el crédito nombra$/g,
     "the document is issued by $1: check that this is the body the credit names",
