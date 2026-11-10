@@ -108,6 +108,25 @@ const valida = (y: number, m: number, d: number): Date | null => {
  * Se mantiene separada de `parseFecha` porque la búsqueda dentro de un texto necesita un juez
  * estricto: probar candidatos contra un parser indulgente devolvería cualquier cosa.
  */
+/**
+ * El siglo de un año escrito con dos cifras.
+ *
+ * Se sumaba 2000 siempre, y eso es cierto para cualquier crédito vivo y falso para todo lo demás: el
+ * campo 31D «980615» de un crédito de 1998 vencía en **2098**. La convención de SWIFT para sus fechas
+ * YYMMDD es la ventana de siempre —de 80 a 99 es el siglo pasado, de 00 a 79 este— y es la que va acá.
+ *
+ * No se notaba porque no rompía nada: hacía que las reglas del vencimiento **dijeran que sí**. Sobre
+ * las reconstrucciones de los años noventa del banco de pruebas —una de cada seis— `giro-vencimiento`
+ * salía OK con «quedan 36.553 días», y `plazo` no podía toparse nunca con el 31D. Lo encontró leer la
+ * evidencia de una regla en verde al sondear la Opinión R 363, que es de otra cosa, y al corregirlo
+ * apareció lo que tapaba: el laudo DOCDEX 206, cuyo crédito vencía el 15 de junio de 1998 y cuyas
+ * facturas están fechadas el 18.
+ *
+ * Vive acá y la usa también `fechaSwift`, porque el formato del dominio —«30-jun-98»— vuelve a pasar
+ * por `parseFecha`: con el pivote en un solo lado, una fecha de 1998 se formateaba bien y se releía mal.
+ */
+export const anioDeDosCifras = (yy: number): number => (yy >= 80 ? 1900 + yy : 2000 + yy);
+
 function fechaExacta(s: string): Date | null {
   // "April, 08th, 2025 (08/04/2025)": se prueba cada tramo (fuera y dentro del paréntesis)
   if (s.includes("(")) {
@@ -128,7 +147,7 @@ function fechaExacta(s: string): Date | null {
   // dd-mmm-yy · dd-mmm-yyyy · dd mmm yyyy · dd/mmm/yyyy (ES o EN)
   if ((m = /^(\d{1,2})[-/ ]([a-zñ]{3,10})[-/ ](\d{2}|\d{4})$/.exec(t))) {
     const mes = mesDe(m[2]);
-    const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    const y = m[3].length === 2 ? anioDeDosCifras(Number(m[3])) : Number(m[3]);
     return mes === -1 ? null : valida(y, mes, Number(m[1]));
   }
   // "april 08 2025" · "08 april 2025" (con o sin ordinal, ya quitado)
@@ -138,7 +157,7 @@ function fechaExacta(s: string): Date | null {
   }
   // dd/mm/yy · dd/mm/yyyy · dd.mm.yyyy · dd-mm-yyyy
   if ((m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/.exec(t))) {
-    const y = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+    const y = m[3].length === 2 ? anioDeDosCifras(Number(m[3])) : Number(m[3]);
     return valida(y, Number(m[2]) - 1, Number(m[1]));
   }
   // ISO yyyy-mm-dd
