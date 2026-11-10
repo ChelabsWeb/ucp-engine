@@ -1272,7 +1272,20 @@ export function precheckPresentacion(input: {
      * notify a nombre de un tercero: «NOTIFY PARTY: XYZ CO LTD» no activa la comparación contra el
      * ordenante, porque ahí el crédito nombró a otro y compararlo sería inventar una discrepancia.
      */
-    if (/NOTIFY(?:\s+PARTY)?\s*:?\s*(?:APPLICANT|ACCOUNTEE|OPENER)\b/i.test(reglaBL)) {
+    /*
+     * **Y la palabra y el artículo, que eran la mitad de las redacciones.** Medido contra los 46A del
+     * banco de pruebas: de 102 créditos que piden un notify en la línea del transporte, 16 no activaban
+     * esta regla, y diez nombran al ordenante por su rol escrito de otra manera —«NOTIFY**ING**
+     * APPLICANT», que es el crédito del expediente de referencia y el de la Opinión R 444; «NOTIFY
+     * APPLICANT**S**»; «NOTIFYING **THE** APPLICANT»; «NOTIFY THE **ABOVENAMED** APPLICANT»—. Los otros
+     * seis nombran a un tercero o dicen «BUYERS», y siguen afuera a propósito: el comprador no es
+     * siempre el ordenante, y no hay autoridad para suponerlo.
+     */
+    if (
+      /NOTIFY(?:ING)?(?:\s+PARTY)?\s*:?\s*(?:THE\s+)?(?:ABOVE[\s-]*NAMED\s+)?(?:APPLICANTS?|ACCOUNTEE|OPENER)\b/i.test(
+        reglaBL,
+      )
+    ) {
       const nt = val(bl, "notify") ?? val(bl, "importador");
       const cliente = op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
       /*
