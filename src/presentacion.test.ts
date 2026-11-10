@@ -947,6 +947,13 @@ describe("la copia del documento de transporte y los plazos", () => {
     ["PHOTOCOPY OF CMR ISSUED TO PORT L AS CONSIGNEE", true],
     ["COPY OF THE AIR WAYBILL", true],
     ["PHOTO COPY B/L (TELEX/TELEFAX ACCEPTABLE)", true],
+    /*
+     * Y la carretera por su nombre, que es la Opinión R 465. La lista de nombres de esta función va
+     * alineada con la del apareo y se quedó atrás **en el mismo arreglo que le enseñó «ROADWAYBILL» al
+     * apareo**: la línea ya apareaba y el plazo del 14 (c) seguía corriendo sobre una copia.
+     */
+    ["COPY OF ROADWAYBILL, ISSUED TO THE ORDER OF MAKEDONIA TRADING SA", true],
+    ["ROAD WAYBILL IN 2 COPIES", false],
   ])("«%s» → solo copia: %s", (linea, esperado) => {
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(esperado);
   });
