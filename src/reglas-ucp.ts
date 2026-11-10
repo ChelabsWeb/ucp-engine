@@ -2390,6 +2390,50 @@ function reglasSeguro(
 ): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
+  /*
+   * **14 (e) sobre el documento de seguro, que no lo miraba nadie.**
+   *
+   * El cotejo de la descripción corría sobre los documentos de la matriz —`ucp-14e-BL`,
+   * `ucp-14e-PACKING`— y el seguro entra por otra puerta, así que su casillero de mercadería se cargaba,
+   * se guardaba y no lo leía ninguna regla. La Opinión R 363 de la ICC es exactamente ese papel: el
+   * crédito decía «Iron ore concentrate», la póliza «Koolyanobbing Lump Iron Ore», y
+   *
+   *   «Banks are not required to be experts in the field of goods, their types, characteristics or
+   *   branding. The inclusion of "Koolyanobbing Lump" in the description shown on the insurance policy
+   *   (unless so additionally described in the invoice) would be grounds for refusal in the context of
+   *   sub-Article 37(c)» —el 14 (e) de hoy—.
+   *
+   * La comparación es la misma de los otros documentos, y hace sola el corte que la Opinión pide: «IRON
+   * ORE» son términos generales y cumple; «KOOLYANOBBING LUMP IRON ORE» pierde una palabra del producto
+   * y trae dos que el crédito no tiene. **Sale ATENCION y no DISCREPANCIA**, igual que en los demás
+   * documentos: el motor no sabe si «lump» contradice a «concentrate» —es justo lo que la Opinión dice
+   * que un banco no tiene por qué saber— y la propia conclusión es condicional.
+   *
+   * Y la salvedad va medida, no supuesta: si **todas** las palabras que el seguro agrega están en la
+   * descripción de la factura, es el «unless so additionally described in the invoice» y cumple.
+   */
+  const mercSeg = val(seg, "mercaderia");
+  if (mercSeg && ctx.mercaderia) {
+    const delCredito = new Set(propias(ctx.mercaderia));
+    const agregadas = propias(mercSeg).filter((w) => !delCredito.has(w));
+    const enFactura = new Set(propias(factura ? (val(factura, "mercaderia") ?? "") : ""));
+    const laFacturaLasTrae = agregadas.length > 0 && agregadas.every((w) => enFactura.has(w));
+    const coincide = coincideDescripcion(mercSeg, ctx.mercaderia);
+    out.push(
+      regla(
+        "ucp-14e-SEGURO",
+        "UCP 600 14e",
+        "Documento de seguro: la descripción de la mercadería no contradice al crédito",
+        coincide || laFacturaLasTrae ? "OK" : "ATENCION",
+        coincide
+          ? `dice "${mercSeg.slice(0, 70)}"`
+          : laFacturaLasTrae
+            ? `dice "${mercSeg.slice(0, 70)}", con palabras que el crédito no trae y la factura sí: es la salvedad de la Opinión R 363 de la ICC`
+            : `dice "${mercSeg.slice(0, 70)}", que no es la descripción del crédito ni una forma general de ella, y la factura no la describe así: la Opinión R 363 de la ICC lo da por motivo de rechazo, porque un banco no tiene que saber de mercaderías para decidir si las dos descripciones son compatibles. Verificar en el papel`,
+      ),
+    );
+  }
+
   // 28a: lo emite y firma una compañía de seguros, un asegurador o sus agentes
   const emisor = val(seg, "emisorSeguro") ?? val(seg, "exportador");
   out.push(

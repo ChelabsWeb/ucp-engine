@@ -1462,6 +1462,66 @@ describe("el documento de seguro (UCP 600 art. 28), lo que el artículo sí dice
       hoy: HOY,
     });
 
+  /*
+   * **El 14 (e) sobre el seguro, que es la Opinión R 363.**
+   *
+   * El casillero de mercadería del seguro se cargaba y no lo leía ninguna regla: el cotejo de la
+   * descripción corría sobre los documentos de la matriz y el seguro entra por otra puerta. El crédito
+   * de la Opinión decía «Iron ore concentrate» y la póliza «Koolyanobbing Lump Iron Ore»: *«would be
+   * grounds for refusal»*, *«unless so additionally described in the invoice»*.
+   */
+  describe("la descripción de la mercadería en el seguro (14 e, Opinión R 363)", () => {
+    const CONCENTRADO = { mercaderia: "50000 MTS OF IRON ORE CONCENTRATE", mercaderiaCompleta: "" };
+    const en = (enSeguro: string, enFactura = "IRON ORE CONCENTRATE") =>
+      conSeguro(
+        { mercaderia: campo(enSeguro) },
+        [{ tipo: "FACTURA", campos: doc({ mercaderia: campo(enFactura) }) }],
+        {},
+        CONCENTRADO,
+      ).find((r) => r.id === "ucp-14e-SEGURO");
+
+    it("«Koolyanobbing Lump Iron Ore» contra «Iron ore concentrate» va a verificar nombrando la Opinión", () => {
+      const r = en("KOOLYANOBBING LUMP IRON ORE");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 363");
+      expect(r?.evidencia).toContain("KOOLYANOBBING LUMP IRON ORE");
+    });
+
+    it("los términos generales cumplen: «Iron ore» no contradice nada", () => {
+      expect(en("IRON ORE")?.estado).toBe("OK");
+    });
+
+    it("y la misma descripción del crédito, también", () => {
+      expect(en("IRON ORE CONCENTRATE")?.estado).toBe("OK");
+    });
+
+    it("la salvedad: si la factura la describe con esas palabras, cumple", () => {
+      const r = en("KOOLYANOBBING LUMP IRON ORE", "IRON ORE CONCENTRATE, KOOLYANOBBING LUMP");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("salvedad");
+    });
+
+    it("nunca rechaza: un banco no tiene que saber si «lump» contradice a «concentrate»", () => {
+      expect(en("KOOLYANOBBING LUMP IRON ORE")?.estado).not.toBe("DISCREPANCIA");
+      expect(en("COPPER CATHODES")?.estado).toBe("ATENCION");
+    });
+
+    it("sin descripción leída en el seguro no se emite nada", () => {
+      expect(conSeguro({}, [], {}, CONCENTRADO).find((r) => r.id === "ucp-14e-SEGURO")).toBeUndefined();
+    });
+
+    it("y las dos evidencias se traducen enteras", () => {
+      for (const r of [
+        en("KOOLYANOBBING LUMP IRON ORE"),
+        en("KOOLYANOBBING LUMP IRON ORE", "KOOLYANOBBING LUMP IRON ORE"),
+      ]) {
+        const t = textoEnIngles(`${r?.regla} · ${r?.evidencia}`);
+        expect(t).not.toMatch(/[áéíóúñ¿¡]|\bque no es\b|\bla factura\b|\bcrédito\b|\bseguro\b/i);
+        expect(t).toContain("R 363");
+      }
+    });
+  });
+
   it("28 f ii: sin el total de la factura no se cae al monto del crédito, se manda a verificar", () => {
     /*
      * El artículo nombra tres bases y ninguna es el monto del crédito: el valor CIF/CIP, y si no se

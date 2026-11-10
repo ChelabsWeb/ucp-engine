@@ -2320,6 +2320,15 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\bemitida por el beneficiario\b/g, "issued by the beneficiary"],
   [/\bemitida a nombre del ordenante\b/g, "made out in the name of the applicant"],
   [/\ben la moneda del crédito\b/g, "in the currency of the credit"],
+  /* 14 (e) sobre el seguro (Opinión R 363). A mano: las dos salen de una plantilla. */
+  [
+    /, con palabras que el crédito no trae y la factura sí: es la salvedad de la Opinión R 363 de la ICC/g,
+    ", with words that the credit does not carry and the invoice does: this is the proviso in ICC Opinion R 363",
+  ],
+  [
+    /, que no es la descripción del crédito ni una forma general de ella, y la factura no la describe así: la Opinión R 363 de la ICC lo da por motivo de rechazo, porque un banco no tiene que saber de mercaderías para decidir si las dos descripciones son compatibles\. Verificar en el papel/g,
+    ", which is neither the description in the credit nor a general form of it, and the invoice does not describe the goods that way: ICC Opinion R 363 treats this as grounds for refusal, because a bank is not required to be an expert in goods to decide whether the two descriptions are compatible. Check on the document itself",
+  ],
   [
     /\bla descripción de la mercadería no contradice al crédito\b/g,
     "the goods description does not conflict with the credit",
@@ -2337,6 +2346,7 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Factura comercial: /g, "Commercial invoice: "],
   [/^Packing list: /g, "Packing list: "],
   [/^Conocimiento de embarque: /g, "Bill of lading: "],
+  [/^Documento de seguro: /g, "Insurance document: "],
   [/^Factura: /g, "Invoice: "],
   [/^Factura /g, "Invoice "],
 
