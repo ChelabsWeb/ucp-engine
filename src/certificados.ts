@@ -482,6 +482,30 @@ export function reglasCertificados(input: {
         const distinto = !opciones.some((o) => comparaISBP(emisor ?? "", o) !== "DISTINTO");
         const porFuncion = describeUnaFuncion(nombrado);
         /*
+         * **Y cuando la función es una RELACIÓN con otra parte, lo que hay que mirar es otra cosa (R 403).**
+         *
+         * El crédito de esa Opinión pedía el certificado «signed by Inspector A and/or 'Mr.' appointed as
+         * inspector(s) of Trading Company B (the applicant)», lo firmó un Inspector B y el banco preguntó
+         * si tenía que confirmar que B había sido nombrado:
+         *
+         *   «The answer to the question asked in your query is no. Documents are examined on their face.
+         *   As it does not appear from the information given that the signature on the inspection
+         *   certificate (other than that of Inspector A) showed that he/she was an appointed inspector of
+         *   the applicant, the document is discrepant.»
+         *
+         * El aviso de abajo —«verificar que sea el organismo que el crédito nombra»— está escrito para un
+         * organismo público, y sobre una persona descripta por su relación manda a hacer justo lo que la
+         * Opinión dice que al banco no le toca. Lo que decide es si **el papel lo muestra en su faz**.
+         *
+         * El estado no cambia —ATENCION— y es a propósito: el campo trae un texto copiado, y «no se leyó
+         * que fuera inspector nombrado» no es «el papel no lo dice». Es el par de R 446, donde el crédito
+         * no nombraba a nadie; acá nombra a uno y describe al otro.
+         */
+        const RELACION =
+          /\b(?:appointed|nominated|authori[sz]ed|designated|approved)\b[^.;]*\b(?:by|of)\b|\b(?:inspectors?|representatives?|nominees?|signator(?:y|ies))\s*(?:\(s\))?\s+of\b/i;
+        const porRelacion = porFuncion && RELACION.test(nombrado);
+        const elPapelMuestraLaRelacion = RELACION.test(emisor ?? "");
+        /*
          * **Y un nombre que no se pudo leer no es un nombre distinto**, que es la quinta regla de
          * nombres y la única que se había quedado sin esta rama.
          *
@@ -577,9 +601,13 @@ export function reglasCertificados(input: {
                       ? `no se pudo leer el nombre del emisor —el papel trae "${corto(emisor ?? "", 30)}" y queda vacío al normalizarlo— y el crédito lo pide emitido por ${corto(nombrado, 40)}: el párrafo A21 (e) admite el nombre y los sellos en otro idioma, así que ${creditoExigeIngles(input.lc) ? "con la cláusula del crédito que exige los documentos en inglés la discrepancia vale (Opinión TA 886rev)" : "esto se verifica a mano y no se rechaza (Opinión TA 886rev)"}`
                       : !distinto
                         ? `el documento lo emite "${emisor}"`
-                        : porFuncion
-                          ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
-                          : `el documento lo emite "${emisor}"`,
+                        : porRelacion
+                          ? elPapelMuestraLaRelacion
+                            ? `el documento lo emite "${emisor}", que se presenta como quien el crédito describe: el banco no tiene que averiguar si ese nombramiento es cierto (Opinión R 403 de la ICC). Verificar en el papel`
+                            : `el documento lo emite "${emisor}" y lo leído no muestra que sea quien el crédito describe: el crédito no da un nombre contra el cual cotejar, así que el papel tiene que mostrarlo en su faz. Si no lo muestra es discrepante, y el banco no tiene que averiguar quién es el firmante (Opinión R 403 de la ICC). Verificar en el papel`
+                          : porFuncion
+                            ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
+                            : `el documento lo emite "${emisor}"`,
               )
             : regla(
                 `cert-emisor-${sufijo}`,

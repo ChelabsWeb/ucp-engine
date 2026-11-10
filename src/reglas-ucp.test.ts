@@ -1462,6 +1462,66 @@ describe("el documento de seguro (UCP 600 art. 28), lo que el artículo sí dice
       hoy: HOY,
     });
 
+  /*
+   * **El 14 (e) sobre el seguro, que es la Opinión R 363.**
+   *
+   * El casillero de mercadería del seguro se cargaba y no lo leía ninguna regla: el cotejo de la
+   * descripción corría sobre los documentos de la matriz y el seguro entra por otra puerta. El crédito
+   * de la Opinión decía «Iron ore concentrate» y la póliza «Koolyanobbing Lump Iron Ore»: *«would be
+   * grounds for refusal»*, *«unless so additionally described in the invoice»*.
+   */
+  describe("la descripción de la mercadería en el seguro (14 e, Opinión R 363)", () => {
+    const CONCENTRADO = { mercaderia: "50000 MTS OF IRON ORE CONCENTRATE", mercaderiaCompleta: "" };
+    const en = (enSeguro: string, enFactura = "IRON ORE CONCENTRATE") =>
+      conSeguro(
+        { mercaderia: campo(enSeguro) },
+        [{ tipo: "FACTURA", campos: doc({ mercaderia: campo(enFactura) }) }],
+        {},
+        CONCENTRADO,
+      ).find((r) => r.id === "ucp-14e-SEGURO");
+
+    it("«Koolyanobbing Lump Iron Ore» contra «Iron ore concentrate» va a verificar nombrando la Opinión", () => {
+      const r = en("KOOLYANOBBING LUMP IRON ORE");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 363");
+      expect(r?.evidencia).toContain("KOOLYANOBBING LUMP IRON ORE");
+    });
+
+    it("los términos generales cumplen: «Iron ore» no contradice nada", () => {
+      expect(en("IRON ORE")?.estado).toBe("OK");
+    });
+
+    it("y la misma descripción del crédito, también", () => {
+      expect(en("IRON ORE CONCENTRATE")?.estado).toBe("OK");
+    });
+
+    it("la salvedad: si la factura la describe con esas palabras, cumple", () => {
+      const r = en("KOOLYANOBBING LUMP IRON ORE", "IRON ORE CONCENTRATE, KOOLYANOBBING LUMP");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("salvedad");
+    });
+
+    it("nunca rechaza: un banco no tiene que saber si «lump» contradice a «concentrate»", () => {
+      expect(en("KOOLYANOBBING LUMP IRON ORE")?.estado).not.toBe("DISCREPANCIA");
+      expect(en("COPPER CATHODES")?.estado).toBe("ATENCION");
+    });
+
+    it("sin descripción leída en el seguro no se emite nada", () => {
+      expect(conSeguro({}, [], {}, CONCENTRADO).find((r) => r.id === "ucp-14e-SEGURO")).toBeUndefined();
+    });
+
+    it("y las dos evidencias se traducen enteras", () => {
+      for (const r of [
+        en("KOOLYANOBBING LUMP IRON ORE"),
+        en("KOOLYANOBBING LUMP IRON ORE", "KOOLYANOBBING LUMP IRON ORE"),
+      ]) {
+        const t = textoEnIngles(`${r?.regla} · ${r?.evidencia}`);
+        expect(t).not.toMatch(/[áéíóúñ¿¡]|\bque no es\b|\bla factura\b|\bcrédito\b|\bseguro\b/i);
+        expect(t).toContain("R 363");
+      }
+    });
+  });
+
   it("28 f ii: sin el total de la factura no se cae al monto del crédito, se manda a verificar", () => {
     /*
      * El artículo nombra tres bases y ninguna es el monto del crédito: el valor CIF/CIP, y si no se
@@ -2095,6 +2155,78 @@ describe("el seguro fechado después del embarque (art. 28 e)", () => {
   });
 });
 
+/**
+ * Dos unidades alternativas en el 45A, y dos unidades que el motor no conoce (Opinión R 366).
+ *
+ * El crédito decía «about 180 bales or about 90,388.60lbs Raw Cotton» y se presentaron 160 fardos que
+ * pesaban 84.304 libras: *«Whilst the number of bales falls outside the 10% tolerance, the quantity by
+ * weight falls within the guideline … There is no discrepancy with regard to the quantity of goods
+ * shipped.»*
+ *
+ * Sondearlo encontró un defecto que no es de esa Opinión y es más ancho: `unidadNormal` devuelve `null`
+ * para lo que no reconoce —su propio comentario dice que así «no se comparan dos números»— y la regla
+ * preguntaba `unidadNormal(a) === unidadNormal(b)`. **`null === null`**: dos unidades desconocidas
+ * cualesquiera se comparaban como si fueran la misma. Con la factura en fardos el motor rechazaba «160
+ * BALES» contra «90388.6 LBS» con un desvío del −100 %.
+ */
+describe("dos unidades que el motor no conoce no son la misma unidad (R 366)", () => {
+  const ALGODON = "ABOUT 180 BALES OR ABOUT 90,388.60LBS RAW COTTON";
+  const con = (mercaderia: string, cantidad: string, unidad: string) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia: null },
+      credito: { ...CTX, mercaderia, mercaderiaCompleta: mercaderia },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo(unidad) }) }],
+      hoy: HOY,
+    });
+  const cantidad = (mercaderia: string, c: string, u: string) =>
+    con(mercaderia, c, u).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("fardos contra libras no se comparan: va a verificar, no a discrepancia", () => {
+    const r = cantidad(ALGODON, "160", "BALES");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("no se pueden comparar");
+  });
+
+  it("y el peso, que es la alternativa que la factura sí trae, cumple dentro del 10 % del «about»", () => {
+    const r = cantidad(ALGODON, "84304", "LBS");
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toBe("UCP 600 30a");
+  });
+
+  it("tambores contra baldes tampoco son la misma unidad, aunque el número coincida", () => {
+    expect(cantidad("500 DRUMS OF LUBRICANT", "500", "PAILS")?.estado).toBe("ATENCION");
+  });
+
+  it("pero la misma unidad desconocida sigue comparándose, en singular o en plural", () => {
+    expect(cantidad("2700 PCS OF ELECTRONIC COMPONENTS", "2700", "PCS")?.estado).toBe("OK");
+    expect(cantidad("2700 PCS OF ELECTRONIC COMPONENTS", "3000", "PC")?.estado).toBe("DISCREPANCIA");
+    expect(cantidad("40 DRUMS OF LUBRICANT", "40", "DRUM")?.estado).toBe("OK");
+  });
+
+  /*
+   * Y el anuncio de la tolerancia, que decía «±5 %» sobre un crédito que dice «about» y que nombra
+   * fardos: las dos cosas que la Opinión corrige en su primer párrafo —*«Reference to "about 180 bales"
+   * is a stipulated number of packing units and would therefore not be subject to the 5% tolerance»*—.
+   */
+  it("el anuncio del 30 (b) no promete el 5 % cuando el crédito dice «about»", () => {
+    const r = con(ALGODON, "84304", "LBS").find((x) => x.id === "ucp-30b");
+    expect(r?.fuente).toBe("UCP 600 30a");
+    expect(r?.evidencia).toContain("10 %");
+    expect(r?.evidencia).not.toContain("±5 %");
+  });
+
+  it("y un fardo es un bulto: sobre «180 BALES» a secas no corre el 5 %", () => {
+    const r = con("180 BALES OF RAW COTTON", "180", "BALES").find((x) => x.id === "ucp-30b");
+    expect(r?.regla).toContain("bultos");
+  });
+
+  it("los dos textos nuevos se traducen", () => {
+    const r = con(ALGODON, "84304", "LBS").find((x) => x.id === "ucp-30b");
+    for (const t of [r?.regla, r?.evidencia])
+      expect(textoEnIngles(t ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bcantidad\b/i);
+  });
+});
+
 describe("la cantidad, con lo que la auditoría encontró", () => {
   const conCantidad = (cantidad: string, unidad: string, mercaderia: string, lcOver: Partial<typeof LC> = {}) =>
     reglasUCP({
@@ -2687,6 +2819,96 @@ describe("el «on board» que pide el crédito sobre un documento multimodal", (
       },
     ] satisfies DocAnalizado[];
     expect(con(aereo, ["1. FULL SET CLEAN ON BOARD BILL OF LADING."])).toBeUndefined();
+  });
+
+  /*
+   * **El par R 638 / R 461: el permiso del multimodal no quita el «on board» solo.**
+   *
+   * Las dos Opiniones tienen la misma forma —el 46A pide el conocimiento «on board», otra parte del
+   * crédito admite el documento multimodal, se presenta un «received for shipment»— y el veredicto
+   * opuesto:
+   *
+   * - R 638 / TA 629, «clean on board **marine** bill(s) of lading»: el documento cumple, porque el «on
+   *   board» pertenece a la alternativa marítima;
+   * - R 461, «clean on board bill of lading» a secas: *«the requirements for the completion of the
+   *   document were not amended, only the type of transport document that was required. The requirement
+   *   that the document indicate "on board" was not amended.»*
+   *
+   * Lo que las separa es que la línea nombre un documento **marítimo**. El freno pedía solo que no
+   * nombrara un multimodal, así que sobre los hechos de R 461 el motor se callaba: una discrepancia que
+   * la ICC declara válida y que no salía en ninguna parte. Y el freno de R 638 no tenía test en el motor
+   * —solo el caso del banco de pruebas—, así que va acá con su par.
+   */
+  describe("cuando el crédito admite el multimodal en otra parte (R 638 contra R 461)", () => {
+    const MARITIMA = ["1. FULL SET OF AT LEAST 3/3 ORIGINAL CLEAN ON BOARD MARINE BILL(S) OF LADING."];
+    const GENERICA = ["1. CLEAN ON BOARD BILL OF LADING DRAWN TO ORDER AND BLANK ENDORSED."];
+    const conPermiso = (exigidos: string[], condiciones: string[], constancia = "Received for Shipment") =>
+      reglasUCP({
+        lc: { ...LC, documentosExigidos: exigidos, condicionesAdicionales: condiciones },
+        credito: CTX,
+        docs: multimodal(constancia),
+        hoy: HOY,
+      }).find((r) => r.id === "ucp-14a-on-board");
+
+    it("R 638: la línea nombra un marítimo y el permiso está en el 47A → la regla no se emite", () => {
+      expect(conPermiso(MARITIMA, ["MULTIMODAL TRANSPORT DOCUMENT IS ACCEPTABLE."])).toBeUndefined();
+    });
+
+    it("y «ocean» es un marítimo igual que «marine»", () => {
+      expect(
+        conPermiso(
+          ["1. FULL SET CLEAN ON BOARD OCEAN BILLS OF LADING."],
+          ["MULTIMODAL TRANSPORT DOCUMENT ACCEPTABLE."],
+        ),
+      ).toBeUndefined();
+    });
+
+    it("R 461: la línea dice «bill of lading» a secas → el «on board» sigue exigido, y lo dice", () => {
+      const r = conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."]);
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).toContain("R 461");
+      expect(r?.evidencia).toContain("R 638");
+    });
+
+    it("y con la anotación de a bordo fechada, el mismo crédito cumple", () => {
+      expect(
+        conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."], "SHIPPED ON BOARD 20-AUG-2026")?.estado,
+      ).toBe("OK");
+    });
+
+    it("sin permiso no se nombra R 461: la evidencia no afirma un permiso que el crédito no dio", () => {
+      const r = conPermiso(GENERICA, []);
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).not.toContain("R 461");
+    });
+
+    /*
+     * **Y una prohibición no es un permiso.** El patrón del permiso buscaba «acceptable» y lo
+     * encontraba adentro de «NOT ACCEPTABLE», así que un crédito que **prohíbe** el multimodal —el 47A
+     * del caso port-to-port del banco de pruebas, palabra por palabra— apagaba la exigencia de «on
+     * board» igual que uno que lo admite. Lo encontró el sondeo de este arreglo, corriendo el patrón
+     * contra los 47A que el banco ya tenía.
+     */
+    it.each([
+      "MULTIMODAL BILL OF LADING IS NOT ACCEPTABLE.",
+      "MULTIMODAL TRANSPORT DOCUMENT NOT ALLOWED.",
+      "COMBINED TRANSPORT DOCUMENTS ARE UNACCEPTABLE.",
+      "NO SE ACEPTA DOCUMENTO DE TRANSPORTE MULTIMODAL.",
+    ])("«%s» no apaga la exigencia, ni con la línea marítima", (condicion) => {
+      expect(conPermiso(MARITIMA, [condicion])?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("y la negación de otra frase de la misma condición no anula el permiso", () => {
+      expect(
+        conPermiso(MARITIMA, ["MULTIMODAL TRANSPORT DOCUMENT IS ACCEPTABLE. SHORT FORM B/L NOT ACCEPTABLE."]),
+      ).toBeUndefined();
+    });
+
+    it("la evidencia de R 461 se traduce entera", () => {
+      const en = textoEnIngles(conPermiso(GENERICA, ["COMBINED TRANSPORT DOCUMENT ACCEPTABLE."])?.evidencia ?? "");
+      expect(en).not.toMatch(/[áéíóúñ¿¡]|\bel crédito\b|\bla línea\b|\bdocumento\b|\bexigencia\b/i);
+      expect(en).toContain("R 461");
+    });
   });
 });
 

@@ -1467,10 +1467,48 @@ function reglaOnBoardQuePideElCredito(
    * inválida, con texto oficial en contra.
    */
   const laLineaNombraElMultimodal = /multimodal|combined transport|intermodal|through bill/i.test(lineaDeTransporte);
-  const permitido = condicionesAdicionales.some(
-    (c) => /multimodal|combined transport|intermodal/i.test(c) && /acceptable|allowed|permitted|acepta|permit/i.test(c),
-  );
-  if (permitido && !laLineaNombraElMultimodal) return [];
+  /*
+   * **Y el freno del freno, que es la Opinión R 461: admitir el multimodal no quita el «on board» solo.**
+   *
+   * R 461 tiene la misma forma que R 638 y el veredicto opuesto. El 46A pedía «Clean on board bill of
+   * lading drawn to order and blank endorsed», el crédito se enmendó a «Combined Transport Document
+   * acceptable» y se presentó un «received for shipment»:
+   *
+   *   «However, in this case, the requirements for the completion of the document were not amended, only
+   *   the type of transport document that was required. The requirement that the document indicate "on
+   *   board" was not amended. The transport document that was submitted should have given an on board
+   *   notation.»
+   *
+   * Lo que separa a las dos es mecánico: en R 638 la línea nombra un documento **marítimo** —«marine
+   * bill(s) of lading»— y entonces hay una alternativa a la que el «on board» puede pertenecer; en R 461
+   * dice «bill of lading» a secas, que es el término que el propio crédito después abre a un combinado,
+   * y la exigencia queda en pie. El freno pedía solo que la línea **no nombrara un multimodal**, así que
+   * sobre los hechos de R 461 el motor no emitía nada: una discrepancia que la ICC declara válida y que
+   * no aparecía en ninguna parte.
+   *
+   * Y R 461 es, a fortiori, la Opinión que le faltaba a la rama sin permiso —que descansaba en el blog
+   * del autor de la ISBP—: si el «on board» sobrevive a un crédito que admite el combinado, sobrevive a
+   * uno que no lo admite.
+   *
+   * **Y una prohibición no es un permiso.** El patrón encontraba «acceptable» adentro de «NOT
+   * ACCEPTABLE», así que un 47A que **prohíbe** el multimodal apagaba la exigencia igual que uno que lo
+   * admite. Se mira frase por frase, para que la negación de otra frase de la misma condición —«…IS
+   * ACCEPTABLE. SHORT FORM B/L NOT ACCEPTABLE»— no anule el permiso.
+   */
+  const laLineaNombraUnMaritimo = /\b(marine|ocean|mar[ií]timo)\b/i.test(lineaDeTransporte);
+  const permitido = condicionesAdicionales
+    .flatMap((c) => c.split(/[.;]\s+|[.;]$/))
+    .some(
+      (frase) =>
+        /multimodal|combined transport|intermodal/i.test(frase) &&
+        /acceptable|allowed|permitted|acepta|permit/i.test(frase) &&
+        !/\b(not|no|never|nor|neither)\b|unacceptable|inaceptable|prohib/i.test(frase),
+    );
+  if (permitido && laLineaNombraUnMaritimo && !laLineaNombraElMultimodal) return [];
+  const elPermisoNoLaQuita =
+    permitido && !laLineaNombraElMultimodal
+      ? " Que el crédito admita el documento multimodal no quita esa exigencia: la línea del 46A no nombra un documento marítimo al que el «on board» pueda pertenecer. Opinión R 461 de la ICC —cambió el tipo de documento, no lo que el documento tiene que decir—, a diferencia de R 638 / TA 629, donde la línea pedía un conocimiento marítimo"
+      : "";
   const constancia = val(doc, "onBoard");
   if (!constancia) {
     return [
@@ -1523,7 +1561,7 @@ function reglaOnBoardQuePideElCredito(
         ? conFecha
           ? `el 46A pide "on board" y el documento dice "${constancia}"`
           : `el 46A pide "on board" y el documento dice "${constancia}" — no se le leyó una fecha: la Opinión R 641 / TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión. Verificar en el papel si está preimpresa o agregada`
-        : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo`,
+        : `el 46A pide "on board" y el documento dice "${constancia}": el artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo.${elPermisoNoLaQuita}`,
     ),
   ];
 }
@@ -2352,6 +2390,50 @@ function reglasSeguro(
 ): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
+  /*
+   * **14 (e) sobre el documento de seguro, que no lo miraba nadie.**
+   *
+   * El cotejo de la descripción corría sobre los documentos de la matriz —`ucp-14e-BL`,
+   * `ucp-14e-PACKING`— y el seguro entra por otra puerta, así que su casillero de mercadería se cargaba,
+   * se guardaba y no lo leía ninguna regla. La Opinión R 363 de la ICC es exactamente ese papel: el
+   * crédito decía «Iron ore concentrate», la póliza «Koolyanobbing Lump Iron Ore», y
+   *
+   *   «Banks are not required to be experts in the field of goods, their types, characteristics or
+   *   branding. The inclusion of "Koolyanobbing Lump" in the description shown on the insurance policy
+   *   (unless so additionally described in the invoice) would be grounds for refusal in the context of
+   *   sub-Article 37(c)» —el 14 (e) de hoy—.
+   *
+   * La comparación es la misma de los otros documentos, y hace sola el corte que la Opinión pide: «IRON
+   * ORE» son términos generales y cumple; «KOOLYANOBBING LUMP IRON ORE» pierde una palabra del producto
+   * y trae dos que el crédito no tiene. **Sale ATENCION y no DISCREPANCIA**, igual que en los demás
+   * documentos: el motor no sabe si «lump» contradice a «concentrate» —es justo lo que la Opinión dice
+   * que un banco no tiene por qué saber— y la propia conclusión es condicional.
+   *
+   * Y la salvedad va medida, no supuesta: si **todas** las palabras que el seguro agrega están en la
+   * descripción de la factura, es el «unless so additionally described in the invoice» y cumple.
+   */
+  const mercSeg = val(seg, "mercaderia");
+  if (mercSeg && ctx.mercaderia) {
+    const delCredito = new Set(propias(ctx.mercaderia));
+    const agregadas = propias(mercSeg).filter((w) => !delCredito.has(w));
+    const enFactura = new Set(propias(factura ? (val(factura, "mercaderia") ?? "") : ""));
+    const laFacturaLasTrae = agregadas.length > 0 && agregadas.every((w) => enFactura.has(w));
+    const coincide = coincideDescripcion(mercSeg, ctx.mercaderia);
+    out.push(
+      regla(
+        "ucp-14e-SEGURO",
+        "UCP 600 14e",
+        "Documento de seguro: la descripción de la mercadería no contradice al crédito",
+        coincide || laFacturaLasTrae ? "OK" : "ATENCION",
+        coincide
+          ? `dice "${mercSeg.slice(0, 70)}"`
+          : laFacturaLasTrae
+            ? `dice "${mercSeg.slice(0, 70)}", con palabras que el crédito no trae y la factura sí: es la salvedad de la Opinión R 363 de la ICC`
+            : `dice "${mercSeg.slice(0, 70)}", que no es la descripción del crédito ni una forma general de ella, y la factura no la describe así: la Opinión R 363 de la ICC lo da por motivo de rechazo, porque un banco no tiene que saber de mercaderías para decidir si las dos descripciones son compatibles. Verificar en el papel`,
+      ),
+    );
+  }
+
   // 28a: lo emite y firma una compañía de seguros, un asegurador o sus agentes
   const emisor = val(seg, "emisorSeguro") ?? val(seg, "exportador");
   out.push(
@@ -2670,6 +2752,25 @@ function esVolumen(unidad: string): boolean {
   return /^(litros?|lt?rs?|liters?|litres?|l|m3|cbm|metros?\s*c[uú]bicos?)$/i.test(unidad.trim());
 }
 
+/**
+ * Si dos textos nombran la misma unidad, cuando ninguna de las dos se puede llevar a kilos.
+ *
+ * `unidadNormal` devuelve `null` para lo que no reconoce, y su comentario dice para qué: «sin saber que
+ * son la misma unidad no se comparan dos números». La regla de la cantidad preguntaba
+ * `unidadNormal(a) === unidadNormal(b)`, y **`null === null`**: dos unidades desconocidas cualesquiera
+ * pasaban por la misma. Con el crédito de la Opinión R 366 —«about 180 bales or about 90,388.60lbs»— y
+ * la factura en fardos, el motor comparaba 160 contra 90.388,6 y rechazaba con «−100 %»; y al revés,
+ * «500 DRUMS» contra «500 PAILS» salía en OK.
+ *
+ * Lo desconocido se compara por su texto —sin plural, que es lo único que un crédito y una factura
+ * escriben distinto de la misma palabra—, que es lo que ya hacía el cotejo entre documentos.
+ */
+function esLaMismaUnidad(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (!a?.trim() || !b?.trim()) return false;
+  const forma = (t: string) => unidadNormal(t) ?? `texto:${norm(t).replace(/s$/, "")}`;
+  return forma(a) === forma(b);
+}
+
 function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[], hoy: Date): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -2720,21 +2821,42 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
      * anunciar lo contrario. Lo que se busca es un número seguido de la unidad de bulto, que es
      * como se escribe una cantidad en bultos.
      */
-    const enBultos = /\b\d[\d.,]*\s*(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs)\b/i.test(
-      ctx.mercaderia ?? "",
-    );
+    /*
+     * «Bales» entra por la Opinión R 366, que lo dice con todas las letras: *«Reference to "about 180
+     * bales" is a stipulated number of packing units and would therefore not be subject to the 5%
+     * tolerance.»*
+     */
+    const enBultos =
+      /\b\d[\d.,]*\s*(bags?|cartons?|boxe?s?|packages?|bultos?|cajas?|units?|pieces?|pcs|bales?|fardos?)\b/i.test(
+        ctx.mercaderia ?? "",
+      );
+    /*
+     * Y si el crédito dice «about», lo que rige es el 10 % del 30 (a) y no el 5 % del (b).
+     *
+     * La regla de abajo ya lo aplicaba; este renglón seguía anunciando «±5 %» al lado, o sea que el
+     * mismo examen decía dos tolerancias distintas para la misma cantidad. Es el crédito de R 366.
+     */
+    const diceAbout = /\b(about|approximately|circa|aproximadamente|aprox)\s+\d/i.test(ctx.mercaderia ?? "");
     out.push(
-      regla(
-        "ucp-30b",
-        "UCP 600 30b",
-        enBultos
-          ? "El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %"
-          : "Sin tolerancia en el crédito, la cantidad admite ±5 %",
-        "OK",
-        enBultos
-          ? "la cantidad se compara exacta"
-          : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
-      ),
+      diceAbout
+        ? regla(
+            "ucp-30b",
+            "UCP 600 30a",
+            "El crédito dice «about» junto a la cantidad: rige el 10 % del artículo 30 (a)",
+            "OK",
+            "se aplica ±10 % a la cantidad que esa palabra acompaña, y no el 5 % del 30 (b)",
+          )
+        : regla(
+            "ucp-30b",
+            "UCP 600 30b",
+            enBultos
+              ? "El crédito expresa la cantidad en bultos: no corre la tolerancia del 5 %"
+              : "Sin tolerancia en el crédito, la cantidad admite ±5 %",
+            "OK",
+            enBultos
+              ? "la cantidad se compara exacta"
+              : `se aplica ±${Math.round(toleranciaDeCantidad(lc) * 100)} % a la cantidad`,
+          ),
     );
   }
 
@@ -2889,7 +3011,7 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
     const par =
       enKgPedido !== null && enKgFac !== null
         ? { a: enKgFac, b: enKgPedido }
-        : n !== null && unidadNormal(uniFac) === unidadNormal(pedido.unidad)
+        : n !== null && esLaMismaUnidad(uniFac, pedido.unidad)
           ? { a: n, b: pedido.valor }
           : null;
     if (par) {

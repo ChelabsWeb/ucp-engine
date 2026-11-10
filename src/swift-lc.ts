@@ -1,5 +1,5 @@
 import type { CamposDoc, RequisitosLC } from "./consistencia";
-import { fmtFecha } from "./fechas";
+import { anioDeDosCifras, fmtFecha } from "./fechas";
 import { parseTolerancia } from "./lc";
 import type { LcInfo } from "./types";
 
@@ -258,7 +258,7 @@ const texto = (cs: CampoSwift[], tag: string): string => (campo(cs, tag) ?? []).
 export function fechaSwift(v: string | undefined | null): string | null {
   const m = /(\d{2})(\d{2})(\d{2})/.exec(v ?? "");
   if (!m) return null;
-  const y = 2000 + Number(m[1]),
+  const y = anioDeDosCifras(Number(m[1])),
     mo = Number(m[2]) - 1,
     d = Number(m[3]);
   const f = new Date(y, mo, d);

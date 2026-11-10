@@ -97,7 +97,7 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
    * módulo se sincroniza con romai y no conviene cargarlo de dependencias nuevas, pero es la misma.
    */
   const NOMBRE_TRANSPORTE =
-    /\b(bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awbs?|air\s+consignment\s+notes?|sea\s*way\s*bills?|consignment\s+notes?|cmr|rail\s*way\s*bills?|cartas?\s+de\s+porte|inland\s+waterway|multimodal|combined\s+transport|intermodal|through\s+bill|courier\s+receipt|post\s+receipt|transport\s+document|conocimiento)\b/i;
+    /\b(bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awbs?|air\s+consignment\s+notes?|sea\s*way\s*bills?|consignment\s+notes?|cmr|(?:rail|road|truck)\s*way\s*bills?|cartas?\s+de\s+porte|inland\s+waterway|multimodal|combined\s+transport|intermodal|through\s+bill|courier\s+receipt|post\s+receipt|transport\s+document|conocimiento)\b/i;
   const COPIA = /\b(photocopy|photocopies|copy|copies)\b/i;
   const iCopia = linea.search(COPIA);
   const iNombre = linea.search(NOMBRE_TRANSPORTE);

@@ -1927,7 +1927,21 @@ function clavePorTexto(s: string): string {
   if (/\bair ?way ?bills?\b|\bawbs?\b|\bair consignment notes?\b/.test(s)) return "BL";
   if (/\bmultimodal\b|\bcombined transport\b|\bintermodal\b|\bthrough bill\b/.test(s)) return "BL";
   if (/\bsea ?way ?bills?\b|\bnon.?negotiable sea\b/.test(s)) return "BL";
-  if (/\bcmr\b|\brail ?way ?bills?\b|\bconsignment notes?\b|\bcartas? de porte\b|\binland waterway\b/.test(s))
+  /*
+   * **Y la carretera, que estaba solo por su sigla.** «RAIL WAYBILL» apareaba y «ROAD WAYBILL» no: una
+   * línea que pide el documento de carretera por su nombre —«COPY OF ROADWAYBILL», en una palabra, que
+   * es el crédito de la Opinión R 465— caía en `TXT:` salvo que además dijera «CMR». El CMR presentado
+   * salía desestimado por el 14 (g) como documento no exigido y la línea en **FALTA**, sobre una
+   * presentación que la ICC declara conforme: *«The document entitled "CMR" is the specific form of
+   * road transport document issued in Europe and is acceptable under a letter of credit requiring the
+   * presentation of a document entitled "roadwaybill"»*. Es la decimoquinta de «el motor reconocía una
+   * redacción y no la otra», y la séptima que se ve como un FALTA.
+   */
+  if (
+    /\bcmr\b|\b(?:rail|road|truck) ?way ?bills?\b|\broad transport documents?\b|\bconsignment notes?\b|\bcartas? de porte\b|\binland waterway\b/.test(
+      s,
+    )
+  )
     return "BL";
   // con límite de palabra: la «ORIGEN» salía de dentro de «ORIGINAL DOCUMENTS»
   /*

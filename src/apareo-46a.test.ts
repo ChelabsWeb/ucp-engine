@@ -119,6 +119,15 @@ const BATERIA: [linea: string, clave: string][] = [
   ["NON-NEGOTIABLE SEA WAYBILL CONSIGNED TO APPLICANT", "BL"],
   ["CMR ROAD CONSIGNMENT NOTE IN 2 COPIES", "BL"],
   ["RAIL WAYBILL MARKED DUPLICATE", "BL"],
+  /*
+   * La carretera escrita en una palabra, que es la Opinión R 465: el crédito enmendado pedía «Copy of
+   * roadwaybill» y se presentó la copia de un CMR. «RAIL WAYBILL» estaba y «ROAD WAYBILL» no: la línea
+   * solo apareaba si además decía «CMR», como la del laudo DOCDEX 204.
+   */
+  ["COPY OF ROADWAYBILL, ISSUED TO THE ORDER OF MAKEDONIA TRADING SA", "BL"],
+  ["ROAD WAYBILL IN 2 COPIES SHOWING GOODS CONSIGNED TO APPLICANT", "BL"],
+  ["TRUCK WAYBILL EVIDENCING DISPATCH FROM FRANCE", "BL"],
+  ["ROAD TRANSPORT DOCUMENT ISSUED TO THE ORDER OF THE APPLICANT", "BL"],
   ["COURIER RECEIPT EVIDENCING DISPATCH OF ONE SET OF DOCUMENTS", "BL"],
   ["POST RECEIPT SHOWING DISPATCH TO THE APPLICANT", "BL"],
 

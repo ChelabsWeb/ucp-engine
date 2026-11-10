@@ -1173,6 +1173,15 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^(.+): el archivo parece traer más de un documento$/g, "$1: the file seems to hold more than one document"],
   [/^(.+): indica origen (.+)$/g, "$1: states origin $2"],
   // las citas ya salieron del texto —son huecos— así que el patrón no lleva las comillas
+  /* R 403: el firmante descripto por su relación. Van antes que la del organismo, y a mano. */
+  [
+    /^el documento lo emite (.+), que se presenta como quien el crédito describe: el banco no tiene que averiguar si ese nombramiento es cierto \(Opinión R 403 de la ICC\)\. Verificar en el papel$/g,
+    "the document is issued by $1, who is shown as the party the credit describes: the bank is not required to ascertain whether that appointment is true (ICC Opinion R 403). Check on the document itself",
+  ],
+  [
+    /^el documento lo emite (.+) y lo leído no muestra que sea quien el crédito describe: el crédito no da un nombre contra el cual cotejar, así que el papel tiene que mostrarlo en su faz\. Si no lo muestra es discrepante, y el banco no tiene que averiguar quién es el firmante \(Opinión R 403 de la ICC\)\. Verificar en el papel$/g,
+    "the document is issued by $1 and what was read does not show that this is the party the credit describes: the credit gives no name to check against, so the document must show it on its face. If it does not, it is discrepant, and the bank is not required to ascertain who the signatory is (ICC Opinion R 403). Check on the document itself",
+  ],
   [
     /^el documento lo emite (.+): verificar que sea el organismo que el crédito nombra$/g,
     "the document is issued by $1: check that this is the body the credit names",
@@ -1548,6 +1557,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The on board notation names the vessel that left the port of loading",
   ],
   [/\bla anotación dice\b/g, "the on board notation reads"],
+  /* R 366: el anuncio de la tolerancia cuando el crédito dice «about» */
+  [
+    /^El crédito dice «about» junto a la cantidad: rige el 10 % del artículo 30 \(a\)$/g,
+    "The credit says «about» next to the quantity: the 10 % of article 30 (a) applies",
+  ],
+  [
+    /^se aplica ±10 % a la cantidad que esa palabra acompaña, y no el 5 % del 30 \(b\)$/g,
+    "±10 % is applied to the quantity that word qualifies, and not the 5 % of article 30 (b)",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,
@@ -1840,6 +1858,12 @@ const REEMPLAZOS: [RegExp, string][] = [
   [
     /\bno se le leyó una fecha: la Opinión R 641 \/ TA 650rev pide la anotación fechada cuando el crédito la pide, salvo que la leyenda venga preimpresa, y entonces rige la fecha de emisión\. Verificar en el papel si está preimpresa o agregada\b/g,
     "no date could be read from it: ICC Opinion R 641 / TA 650rev requires a dated on board notation when the credit so requests, unless the wording is pre-printed, in which case the date of issuance governs. Check on the document itself whether it is pre-printed or added",
+  ],
+  /* R 461: el permiso del multimodal no quita el «on board». Va antes que la frase que la precede, y a
+     mano: sale de una plantilla y el control de cobertura las saltea. */
+  [
+    /Que el crédito admita el documento multimodal no quita esa exigencia: la línea del 46A no nombra un documento marítimo al que el «on board» pueda pertenecer\. Opinión R 461 de la ICC —cambió el tipo de documento, no lo que el documento tiene que decir—, a diferencia de R 638 \/ TA 629, donde la línea pedía un conocimiento marítimo/g,
+    "That the credit allows a multimodal transport document does not remove that requirement: the 46A line does not name a marine document to which the «on board» wording could belong. ICC Opinion R 461 —the type of document was changed, not what the document must state—, unlike R 638 / TA 629, where the line called for a marine bill of lading",
   ],
   [
     /\bel artículo 19 admite que conste tomada a cargo, pero este crédito pidió a bordo\b/g,
@@ -2314,6 +2338,15 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\bemitida por el beneficiario\b/g, "issued by the beneficiary"],
   [/\bemitida a nombre del ordenante\b/g, "made out in the name of the applicant"],
   [/\ben la moneda del crédito\b/g, "in the currency of the credit"],
+  /* 14 (e) sobre el seguro (Opinión R 363). A mano: las dos salen de una plantilla. */
+  [
+    /, con palabras que el crédito no trae y la factura sí: es la salvedad de la Opinión R 363 de la ICC/g,
+    ", with words that the credit does not carry and the invoice does: this is the proviso in ICC Opinion R 363",
+  ],
+  [
+    /, que no es la descripción del crédito ni una forma general de ella, y la factura no la describe así: la Opinión R 363 de la ICC lo da por motivo de rechazo, porque un banco no tiene que saber de mercaderías para decidir si las dos descripciones son compatibles\. Verificar en el papel/g,
+    ", which is neither the description in the credit nor a general form of it, and the invoice does not describe the goods that way: ICC Opinion R 363 treats this as grounds for refusal, because a bank is not required to be an expert in goods to decide whether the two descriptions are compatible. Check on the document itself",
+  ],
   [
     /\bla descripción de la mercadería no contradice al crédito\b/g,
     "the goods description does not conflict with the credit",
@@ -2331,6 +2364,7 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Factura comercial: /g, "Commercial invoice: "],
   [/^Packing list: /g, "Packing list: "],
   [/^Conocimiento de embarque: /g, "Bill of lading: "],
+  [/^Documento de seguro: /g, "Insurance document: "],
   [/^Factura: /g, "Invoice: "],
   [/^Factura /g, "Invoice "],
 

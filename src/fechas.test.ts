@@ -28,6 +28,32 @@ describe("parseFecha", () => {
   });
 });
 
+/*
+ * El siglo de un año de dos cifras: la ventana de SWIFT, 80-99 → 19YY y 00-79 → 20YY.
+ *
+ * Se sumaba 2000 siempre, así que el vencimiento de un crédito de 1998 caía en 2098 y las reglas del
+ * vencimiento decían que sí sobre todas las reconstrucciones de los años noventa.
+ */
+describe("el siglo de un año de dos cifras", () => {
+  it("de 80 a 99 es el siglo pasado, de 00 a 79 éste", () => {
+    expect(parseFecha("15-jun-98")?.getFullYear()).toBe(1998);
+    expect(parseFecha("15/06/98")?.getFullYear()).toBe(1998);
+    expect(parseFecha("01-ene-80")?.getFullYear()).toBe(1980);
+    expect(parseFecha("31-dic-79")?.getFullYear()).toBe(2079);
+    expect(parseFecha("30-sep-26")?.getFullYear()).toBe(2026);
+    expect(parseFecha("08/04/25")?.getFullYear()).toBe(2025);
+  });
+
+  it("y el formato del dominio vuelve a leerse como la misma fecha", () => {
+    const f = new Date(1998, 5, 15);
+    expect(parseFecha(fmtFecha(f))?.getTime()).toBe(f.getTime());
+  });
+
+  it("un año de cuatro cifras no pasa por la ventana", () => {
+    expect(parseFecha("15-jun-2098")?.getFullYear()).toBe(2098);
+  });
+});
+
 describe("fmtFecha", () => {
   it("formatea al formato del dominio dd-mmm-yy", () => {
     expect(fmtFecha(new Date(2026, 8, 30))).toBe("30-sep-26");

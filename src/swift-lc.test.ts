@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseFecha } from "./fechas";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
 import { veredictoDeNombre } from "./isbp";
 import {
@@ -181,6 +182,9 @@ describe("swift-lc — helpers", () => {
     expect(fechaSwift("250430")).toBe("30-abr-25");
     expect(fechaSwift("250630 URUGUAY")).toBe("30-jun-25");
     expect(fechaSwift("URUGUAY")).toBeNull();
+    /* y el siglo: «980615» es 1998, no 2098 — la ventana de SWIFT, igual que `parseFecha` */
+    expect(parseFecha(fechaSwift("980615SINGAPORE") ?? "")?.getFullYear()).toBe(1998);
+    expect(parseFecha(fechaSwift("261015DUBAI") ?? "")?.getFullYear()).toBe(2026);
     expect(fechaSwift("251345")).toBeNull();
   });
   it("montoSwift: coma decimal SWIFT, con o sin moneda", () => {

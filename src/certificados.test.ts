@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 } from "./fixtures";
+import { textoEnIngles } from "./ingles";
 import { ablandarPorISBP } from "./isbp";
 import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
@@ -202,6 +203,69 @@ describe("quién puede emitir cada certificado", () => {
   ])("«%s» describe una relación, no un nombre: verifica en vez de rechazar", (exigencia) => {
     const r = correr([{ exigencia, campos: doc({ emisor: campo("MR J PERERA AND MR A FERNANDO") }) }]);
     expect(r.find((x) => x.id.startsWith("cert-emisor-"))?.estado).toBe("ATENCION");
+  });
+
+  /*
+   * **Y lo que el aviso le dice a la persona, que es la Opinión R 403.**
+   *
+   * El crédito pedía el certificado «signed by Inspector A and/or 'Mr.' appointed as inspector(s) of
+   * Trading Company B (the applicant)», lo firmó un Inspector B, y la pregunta era si el banco tenía que
+   * confirmar que B había sido nombrado:
+   *
+   *   «The answer to the question asked in your query is no. Documents are examined on their face. As it
+   *   does not appear from the information given that the signature on the inspection certificate (other
+   *   than that of Inspector A) showed that he/she was an appointed inspector of the applicant, the
+   *   document is discrepant.»
+   *
+   * El motor ya mandaba ese papel a verificar, pero con el texto de un organismo público —«verificar
+   * que sea el organismo que el crédito nombra»—, que acá manda a la persona a hacer **justo lo que la
+   * Opinión dice que no le toca**: averiguar quién es el firmante. Lo que hay que mirar es si **el papel
+   * muestra** la relación, y si no la muestra es discrepante.
+   *
+   * Sigue en ATENCION y no rechaza: el campo trae un texto copiado y «no se leyó» no es «el papel no lo
+   * trae».
+   */
+  describe("el firmante descripto por su relación: qué tiene que mirar la persona (R 403)", () => {
+    const R403 =
+      "INSPECTION CERTIFICATE MUST BE SIGNED BY INSPECTOR A AND/OR 'MR.' APPOINTED AS INSPECTOR(S) OF TRADING COMPANY B";
+    const emitidoPor = (emisor: string, exigencia = R403) =>
+      correr([{ exigencia, campos: doc({ emisor: campo(emisor) }) }]).find((x) => x.id.startsWith("cert-emisor-"));
+
+    it("lo firma otro y lo leído no muestra el nombramiento: dice qué mirar y nombra la Opinión", () => {
+      const r = emitidoPor("INSPECTOR B");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 403");
+      expect(r?.evidencia).toContain("en su faz");
+      expect(r?.evidencia).not.toContain("organismo");
+    });
+
+    it("lo firma otro y el papel muestra el nombramiento: no hay que averiguar si es cierto", () => {
+      const r = emitidoPor("INSPECTOR B, APPOINTED AS INSPECTOR OF TRADING COMPANY B");
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 403");
+      expect(r?.evidencia).toContain("se presenta como");
+    });
+
+    it("lo firma el que el crédito nombra: cumple, sin más", () => {
+      expect(emitidoPor("INSPECTOR A")?.estado).toBe("OK");
+    });
+
+    it("y un organismo público sigue con su texto de siempre", () => {
+      const r = emitidoPor(
+        "MINISTERIO DE GANADERIA",
+        "HEALTH CERTIFICATE ISSUED BY GOVT.VETERINERY AUTHORITY IN URUGUAY",
+      );
+      expect(r?.evidencia).toContain("organismo");
+      expect(r?.evidencia).not.toContain("R 403");
+    });
+
+    it("las dos evidencias se traducen enteras", () => {
+      for (const e of ["INSPECTOR B", "INSPECTOR B, APPOINTED AS INSPECTOR OF TRADING COMPANY B"]) {
+        const t = textoEnIngles(emitidoPor(e)?.evidencia ?? "");
+        expect(t).not.toMatch(/[áéíóúñ¿¡]|\bel crédito\b|\bel papel\b|\bdocumento\b|\bverificar\b/i);
+        expect(t).toContain("R 403");
+      }
+    });
   });
 
   /* Y el freno: un nombre propio sigue rechazando, que es la mitad que el corte sostiene. */
