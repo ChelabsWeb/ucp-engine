@@ -2214,7 +2214,18 @@ function reglasTransporte(
              * la discrepancia vale. Y se busca el **nombre del puerto** del crédito —lo que va antes de
              * la coma—, no el país: «Port of loading Laem Chabang, Thailand» no es Bangkok.
              */
-            const anotacion = k === "puertoEmbarque" ? (val(bl, "onBoard") ?? "") : "";
+            /*
+             * **Y el de descarga, solo si la anotación dice con esas palabras que lo es (Opinión R 676).**
+             * Casillero «Rotterdam», lugar de entrega «Manila port» y la anotación «Shipped on board
+             * Vessel H 01.06.2006 for shipment to Manila port, port of discharge»: *«a bill of lading
+             * including a notation stating that the port of discharge is that which is stated in the
+             * credit then the document will be acceptable»* (párrafo 81 de la ISBP de entonces). Que la
+             * anotación **nombre** el puerto no alcanza —es el segundo ejemplo de R 460—: tiene que decir
+             * «port of discharge».
+             */
+            const textoOnBoard = val(bl, "onBoard") ?? "";
+            const diceQueEsElDeDescarga = /\bport\s+of\s+discharge\b|\bdischarge\s+port\b/i.test(textoOnBoard);
+            const anotacion = k === "puertoEmbarque" || diceQueEsElDeDescarga ? textoOnBoard : "";
             /*
              * El nombre del puerto, como lo escribe un 44E de verdad: «MONTEVIDEO PORT IN URUGUAY»,
              * «PORT OF BANGKOK», «BANGKOK, THAILAND». Se corta en la coma o en el «in» que introduce el
@@ -2232,7 +2243,9 @@ function reglasTransporte(
               `Puerto ${cual} el que indica el crédito ("${puertoLC}")`,
               laAnotacionDaElPuerto ? "OK" : v.estado,
               laAnotacionDaElPuerto
-                ? `el casillero dice "${enDoc}", pero la anotación de a bordo da el puerto de carga del crédito: "${anotacion.slice(0, 110)}" — con eso el conocimiento es aceptable aunque el casillero diga otro puerto (Opiniones R 458 y R 460 de la ICC), y no hace falta que la anotación diga las palabras «port of loading» (R 462)`
+                ? k === "puertoDestino"
+                  ? `el casillero dice "${enDoc}", pero la anotación dice que el puerto de descarga es el del crédito: "${anotacion.slice(0, 110)}" — con eso el conocimiento es aceptable aunque el casillero diga el puerto de transbordo (Opinión R 676 de la ICC)`
+                  : `el casillero dice "${enDoc}", pero la anotación de a bordo da el puerto de carga del crédito: "${anotacion.slice(0, 110)}" — con eso el conocimiento es aceptable aunque el casillero diga otro puerto (Opiniones R 458 y R 460 de la ICC), y no hace falta que la anotación diga las palabras «port of loading» (R 462)`
                 : `el documento dice "${enDoc}"${v.nota}`,
             );
           })()

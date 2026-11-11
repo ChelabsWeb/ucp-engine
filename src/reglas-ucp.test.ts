@@ -335,6 +335,48 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
    *
    * El motor miraba el casillero y nada más: rechazaba el conocimiento que las tres declaran aceptable.
    */
+  /*
+   * **Y el de descarga, cuando la anotación dice con esas palabras que lo es (Opinión R 676).** Casillero
+   * «Port of discharge: Rotterdam», «Place of delivery: Manila port» y la anotación «Shipped on board
+   * Vessel H 01.06.2006 for shipment to Manila port, port of discharge»: *«a bill of lading including a
+   * notation stating that the port of discharge is that which is stated in the credit then the document
+   * will be acceptable»*. No alcanza con que la anotación nombre el puerto —ese es el segundo ejemplo de
+   * R 460, donde la discrepancia vale—: tiene que decir que es el de descarga.
+   */
+  describe("el puerto de descarga que da la anotación (R 676)", () => {
+    const con = (onBoard: string) =>
+      buscar(
+        [
+          {
+            tipo: "BL",
+            campos: doc({
+              puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+              puertoDestino: campo("ROTTERDAM"),
+              onBoard: campo(onBoard),
+            }),
+          },
+        ],
+        "ucp-20a-iii-puertoDestino",
+      );
+    const PUERTO = (CTX.puertoDestino ?? "").split(",")[0];
+
+    it("la anotación dice que el puerto del crédito es el de descarga: cumple, con la Opinión", () => {
+      const r = con(`SHIPPED ON BOARD VESSEL H 01.06.2025 FOR SHIPMENT TO ${PUERTO} PORT, PORT OF DISCHARGE`);
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("R 676");
+      expect(r?.evidencia).toContain("ROTTERDAM");
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcasillero\b|\banotación\b/i);
+    });
+
+    it("si solo lo nombra, sin decir que es el de descarga, la discrepancia vale (R 460)", () => {
+      expect(con(`SHIPPED ON BOARD VESSEL H 01.06.2025 FOR ${PUERTO}`)?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("y si dice que el de descarga es otro, también", () => {
+      expect(con("SHIPPED ON BOARD VESSEL H 01.06.2025, PORT OF DISCHARGE SINGAPORE")?.estado).toBe("DISCREPANCIA");
+    });
+  });
+
   describe("el puerto de carga que da la anotación de a bordo (R 458)", () => {
     const con = (casillero: string, onBoard: string) =>
       buscar(
