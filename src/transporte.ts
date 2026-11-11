@@ -105,6 +105,12 @@ function sujetoAFletamento(valor: string): boolean {
  * más de una —«BILL OF LADING OR AIR WAYBILL»—, que es un crédito que admite las dos.
  */
 export function modoQueNombra(textoLibre: string): ModoTransporte | null {
+  const clases = modosQueNombra(textoLibre);
+  return clases.length === 1 ? clases[0]! : null;
+}
+
+/** Todas las clases de documento de transporte que un texto nombra. Ver `modoQueNombra`. */
+export function modosQueNombra(textoLibre: string): ModoTransporte[] {
   const t = textoLibre.toUpperCase();
   const clases: ModoTransporte[] = [];
   if (/MULTIMODAL|COMBINED TRANSPORT|INTERMODAL|THROUGH BILL/.test(t)) clases.push("MULTIMODAL");
@@ -123,7 +129,7 @@ export function modoQueNombra(textoLibre: string): ModoTransporte | null {
     "",
   );
   if (/BILLS?(?:\(S\))? OF LADING|\bB\/LS?\b|CONOCIMIENTO/.test(sinLasOtras)) clases.push("MARITIMO");
-  return clases.length === 1 ? clases[0]! : null;
+  return clases;
 }
 
 export function modoDelDocumento(campos: CamposDoc): ClaseDeTransporte {

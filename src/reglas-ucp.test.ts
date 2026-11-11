@@ -216,6 +216,35 @@ describe("el recibo del agente de carga (Opinión R 640)", () => {
   });
 });
 
+/**
+ * El crédito que pide el transporte por mar **o** por aire (Opinión R 660 / TA 636rev, consulta 2): *«Use
+ * of the word "or" does not allow for the goods to be shipped by sea AND air. … The presentation of a
+ * combined transport document evidencing goods shipped by sea … and then onward dispatched by air …
+ * would not be acceptable.»*
+ */
+describe("la línea que nombra dos clases de transporte con «or» (R 660)", () => {
+  const LINEA = "FULL SET OF BILLS OF LADING OR AIR WAYBILL CONSIGNED TO APPLICANT";
+  const clase = (titulo: string) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: [LINEA] },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ tipoTransporte: campo(titulo) }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-transporte-clase");
+
+  it("un documento combinado no es ninguna de las dos: sale a verificar, con la Opinión", () => {
+    const r = clase("COMBINED TRANSPORT DOCUMENT");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 660");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bclase\b/i);
+  });
+
+  it("cualquiera de las dos que la línea nombra cumple", () => {
+    expect(clase("BILL OF LADING")?.estado).toBe("OK");
+    expect(clase("AIR WAYBILL")?.estado).toBe("OK");
+  });
+});
+
 describe("factura — lo que el crédito le pide declarar (DOCDEX 363)", () => {
   const conLinea = (linea: string, declara?: string) =>
     reglasUCP({

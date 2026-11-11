@@ -1599,6 +1599,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^BL (.+) → el plazo del embarque venció el (.+), pero el 47A admite presentar después: (.+) — lo que queda como límite es el vencimiento del crédito \((.+)\), y la presentación está dentro$/g,
     "B/L $1 → the period counted from shipment ended on $2, but field 47A allows later presentation: $3 — what remains as the limit is the expiry of the credit ($4), and the presentation is within it",
   ],
+  /* R 660: la alternativa con «or». A mano: sale de una plantilla. */
+  [
+    / — y el crédito pide una de dos clases de documento, no esta: (.+)\. Una alternativa con «or» no admite combinar las dos \(Opinión R 660 de la ICC\): verificar si el crédito admite esa clase$/g,
+    " — and the credit calls for one of two classes of document, not this one: $1. An alternative with «or» does not allow combining the two (ICC Opinion R 660): check whether the credit allows that class",
+  ],
   /* La clase presentada contra la pedida. A mano: sale de una plantilla. */
   [
     / — y el crédito pide otra clase de documento: (.+)\. Se examinó con el artículo que le corresponde al documento presentado, que no es el que el crédito nombra: verificar si el crédito admite esa clase$/g,

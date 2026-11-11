@@ -48,6 +48,7 @@ import {
   type ModoTransporte,
   modoDelDocumento,
   modoQueNombra,
+  modosQueNombra,
   NOMBRE_CAPACIDAD,
   NOMBRE_MODO,
 } from "./transporte";
@@ -3649,17 +3650,34 @@ export function reglasUCP(input: {
       !(pedida === "MARITIMO" && clase.modo === "FLETAMENTO") &&
       !(pedida === "FLETAMENTO" && clase.modo === "MARITIMO") &&
       !(PERMISO[clase.modo] && fraseQueAdmite(input.lc.condicionesAdicionales, PERMISO[clase.modo]!));
+    /*
+     * **La línea que nombra dos clases con «or» (Opinión R 660 / TA 636rev, consulta 2).** Un crédito
+     * que pide el transporte por mar **o** por aire y un documento combinado que hace un tramo por mar y
+     * otro por aire: *«Use of the word "or" does not allow for the goods to be shipped by sea AND air …
+     * would not be acceptable.»* Con dos clases en la línea esta regla no opinaba y el combinado pasaba
+     * en OK. Sale a verificar por lo mismo que con una sola clase: la clase se deduce del título.
+     */
+    const pedidas = lineaDelTransporte ? modosQueNombra(lineaDelTransporte) : [];
+    const noEsNingunaDeLasDos =
+      pedidas.length >= 2 &&
+      /\bor\b/i.test(lineaDelTransporte ?? "") &&
+      clase.modo !== "SIN_DETERMINAR" &&
+      !pedidas.includes(clase.modo) &&
+      !(pedidas.includes("MARITIMO") && clase.modo === "FLETAMENTO") &&
+      !(PERMISO[clase.modo] && fraseQueAdmite(input.lc.condicionesAdicionales, PERMISO[clase.modo]!));
     out.push(
       regla(
         "ucp-transporte-clase",
         articuloDelModo(clase.modo),
         "Clase del documento de transporte",
-        clase.modo === "SIN_DETERMINAR" || noEsLaPedida ? "ATENCION" : "OK",
+        clase.modo === "SIN_DETERMINAR" || noEsLaPedida || noEsNingunaDeLasDos ? "ATENCION" : "OK",
         clase.modo === "SIN_DETERMINAR"
           ? `${clase.porQue}. Se examinó con el artículo 20, el del conocimiento marítimo: si el documento es aéreo, terrestre o multimodal, este examen no corresponde.`
-          : noEsLaPedida
-            ? `${NOMBRE_MODO[clase.modo]}: ${clase.porQue} — y el crédito pide otra clase de documento: "${(lineaDelTransporte ?? "").slice(0, 90)}". Se examinó con el artículo que le corresponde al documento presentado, que no es el que el crédito nombra: verificar si el crédito admite esa clase`
-            : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
+          : noEsNingunaDeLasDos
+            ? `${NOMBRE_MODO[clase.modo]}: ${clase.porQue} — y el crédito pide una de dos clases de documento, no esta: "${(lineaDelTransporte ?? "").slice(0, 90)}". Una alternativa con «or» no admite combinar las dos (Opinión R 660 de la ICC): verificar si el crédito admite esa clase`
+            : noEsLaPedida
+              ? `${NOMBRE_MODO[clase.modo]}: ${clase.porQue} — y el crédito pide otra clase de documento: "${(lineaDelTransporte ?? "").slice(0, 90)}". Se examinó con el artículo que le corresponde al documento presentado, que no es el que el crédito nombra: verificar si el crédito admite esa clase`
+              : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
       ),
     );
     /*
