@@ -1619,6 +1619,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^cláusula leída: (.+) — lo que observa es el estado de los contenedores, y un contenedor no es el embalaje del artículo 27 \(Opinión R 878 de la ICC\): no declara defectuosos la mercadería ni su embalaje, y conviene leerla$/g,
     "clause read: $1 — what it notes is the condition of the containers, and a container is not packaging within the meaning of article 27 (ICC Opinion R 878): it does not declare the goods or their packaging defective, and it should be read",
   ],
+  /* R 676: el puerto de descarga que da la anotación */
+  [
+    /^el casillero dice (.+), pero la anotación dice que el puerto de descarga es el del crédito: (.+) — con eso el conocimiento es aceptable aunque el casillero diga el puerto de transbordo \(Opinión R 676 de la ICC\)$/g,
+    "the box reads $1, but the notation states that the port of discharge is that of the credit: $2 — with that the bill of lading is acceptable even though the box shows the port of transhipment (ICC Opinion R 676)",
+  ],
   /* R 838: las tres casillas del CMR */
   [
     /^la casilla del transportista trae (\d+) nombres y la de la firma lleva el sello de uno de ellos, (.+): eso lo identifica como el transportista \(Opinión R 838 de la ICC\)$/g,
