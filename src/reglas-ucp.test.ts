@@ -445,6 +445,66 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 
+  /*
+   * **«Charterparty B/L acceptable» va en el 47A, y la regla solo miraba el 46A (Opinión R 420).**
+   *
+   * El crédito de esa Opinión pide un conocimiento a secas en el 46A y dice en sus condiciones
+   * especiales «charterparty B/L acceptable» — la redacción más corriente que hay para un granel—. Se
+   * presentó un conocimiento de fletamento, el emisor rechazó por otra cosa y el panel: *«There is no
+   * discrepancy»*. El motor lo rechazaba por el 20 (a) (vi), que es justamente lo que el crédito admitió.
+   *
+   * Y al lado había un falso negativo: la regla daba por bueno cualquier texto que contuviera las letras
+   * «no», «sin» o «not» —pensado para «NOT SUBJECT TO CHARTER PARTY»— sin límite de palabra, así que
+   * «AS PER CHARTER PARTY DATED 12 **NO**VEMBER» pasaba como si negara el fletamento.
+   */
+  describe("el fletamento que el crédito admite en el 47A (R 420)", () => {
+    const con = (charter: string, condiciones: string[]) =>
+      reglasUCP({
+        lc: { ...LC, condicionesAdicionales: condiciones },
+        credito: CTX,
+        docs: [{ tipo: "BL", campos: doc({ charterParty: campo(charter) }) }],
+        hoy: HOY,
+      }).find((r) => r.id === "ucp-20a-vi");
+    const CP = "FREIGHT PAYABLE AS PER CHARTER-PARTY DATED 12 MARCH 2025";
+
+    it.each([
+      "CHARTERPARTY B/L ACCEPTABLE",
+      "CHARTER PARTY BILLS OF LADING ARE ACCEPTABLE.",
+      "CHARTER PARTY BILL OF LADING ALLOWED",
+      "THIRD PARTY DOCUMENTS ACCEPTABLE. CHARTER-PARTY B/L IS ALSO ACCEPTABLE.",
+    ])("«%s» lo admite: el conocimiento de fletamento cumple", (condicion) => {
+      const r = con(CP, [condicion]);
+      expect(r?.estado).toBe("OK");
+      expect(r?.fuente).toBe("UCP 600 22");
+      expect(r?.evidencia).toContain("47A");
+    });
+
+    it.each([
+      "CHARTER PARTY B/L NOT ACCEPTABLE",
+      "CHARTER PARTY BILLS OF LADING ARE NOT ALLOWED",
+      "SHORT FORM B/L ACCEPTABLE",
+    ])("«%s» no lo admite: sigue siendo discrepancia", (condicion) => {
+      expect(con(CP, [condicion])?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("«NOVEMBER» no niega el fletamento", () => {
+      expect(con("AS PER CHARTER PARTY DATED 12 NOVEMBER 2025", [])?.estado).toBe("DISCREPANCIA");
+      expect(con("CHARTER PARTY SIGNED IN SINGAPORE", [])?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("y la negación de verdad sigue cumpliendo", () => {
+      expect(con("NOT SUBJECT TO CHARTER PARTY", [])?.estado).toBe("OK");
+      expect(con("NO", [])?.estado).toBe("OK");
+      expect(con("SIN CONTRATO DE FLETAMENTO", [])?.estado).toBe("OK");
+    });
+
+    it("el texto nuevo se traduce", () => {
+      const r = con(CP, ["CHARTERPARTY B/L ACCEPTABLE"]);
+      for (const t of [r?.regla, r?.evidencia])
+        expect(textoEnIngles(t ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bconocimiento\b|\badmite\b/i);
+    });
+  });
+
   it("26a: mercadería declarada sobre cubierta es discrepancia; «may be carried on deck» no lo es", () => {
     expect(buscar([{ tipo: "BL", campos: doc({ onDeck: campo("SHIPPED ON DECK") }) }], "ucp-26a")?.estado).toBe(
       "DISCREPANCIA",

@@ -2207,15 +2207,45 @@ function reglasTransporte(
   const charter = val(bl, "charterParty");
   if (charter) {
     const loPideElCredito = exigidos.some((d) => /charter\s*part/i.test(d));
+    /*
+     * **Y el crédito que lo admite en el 47A, que es donde casi siempre lo dice (Opinión R 420).**
+     *
+     * «Charterparty B/L acceptable» es una condición adicional corriente de cualquier crédito de
+     * granel: el 46A pide un conocimiento a secas y el permiso va aparte. La regla miraba solo el 46A,
+     * así que sobre el crédito de R 420 —donde el panel concluye *«There is no discrepancy»*— rechazaba
+     * por el 20 (a) (vi) el documento que el crédito admitió. Se mira frase por frase y sin negación,
+     * igual que el permiso del multimodal: «CHARTER PARTY B/L NOT ACCEPTABLE» no es un permiso.
+     */
+    const loAdmiteElCredito = condiciones
+      .flatMap((c) => c.split(/[.;]\s+|[.;]$/))
+      .some(
+        (frase) =>
+          /charter[\s-]*part/i.test(frase) &&
+          /acceptable|allowed|permitted|acepta|permit/i.test(frase) &&
+          !/\b(not|no|never|nor|neither)\b|unacceptable|inaceptable|prohib/i.test(frase),
+      );
+    /*
+     * La negación va con límite de palabra. Era `/no|sin|not/` suelto —para «NOT SUBJECT TO CHARTER
+     * PARTY»— y encontraba «no» adentro de «NOVEMBER» y «sin» adentro de «SINGAPORE»: un conocimiento
+     * «AS PER CHARTER PARTY DATED 12 NOVEMBER» pasaba como si negara el fletamento.
+     */
+    const loNiega = /\b(no|not|sin|non|none|nil)\b/i.test(charter);
+    const cumple = loPideElCredito || loAdmiteElCredito;
     out.push(
       regla(
         "ucp-20a-vi",
-        loPideElCredito ? "UCP 600 22" : "UCP 600 20a-vi",
+        cumple ? "UCP 600 22" : "UCP 600 20a-vi",
         loPideElCredito
           ? "El crédito pide un conocimiento sujeto a fletamento y el presentado lo es"
-          : "El conocimiento no indica estar sujeto a contrato de fletamento",
-        /no|sin|not/i.test(charter) || loPideElCredito ? "OK" : "DISCREPANCIA",
-        loPideElCredito ? `el 46A lo exige y el documento dice "${charter}"` : `dice "${charter}"`,
+          : loAdmiteElCredito
+            ? "El crédito admite un conocimiento sujeto a fletamento y el presentado lo es"
+            : "El conocimiento no indica estar sujeto a contrato de fletamento",
+        loNiega || cumple ? "OK" : "DISCREPANCIA",
+        loPideElCredito
+          ? `el 46A lo exige y el documento dice "${charter}"`
+          : loAdmiteElCredito
+            ? `el 47A lo admite y el documento dice "${charter}"`
+            : `dice "${charter}"`,
       ),
     );
   }
