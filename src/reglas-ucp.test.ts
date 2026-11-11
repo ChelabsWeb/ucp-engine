@@ -2518,6 +2518,35 @@ describe("dos transportistas en el mismo documento y ninguno sucesivo (R 632)", 
 });
 
 /**
+ * Lo que el capitán observa del contenedor (Opinión R 878 / TA 846rev): *«All of the master's remarks on
+ * the bills of lading are confined to the exterior condition and appearance of the containers … Containers
+ * are not to be considered packing in the meaning of UCP 600 article 27.»* — **«The bills of lading
+ * presented are clean and are therefore not discrepant.»**
+ */
+describe("las observaciones del capitán sobre los contenedores (R 878)", () => {
+  const limpio = (clausula: string) =>
+    buscar(
+      [{ tipo: "BL", campos: doc({ tipoTransporte: campo("BILL OF LADING"), clausulaDefecto: campo(clausula) }) }],
+      "ucp-27",
+    );
+  const REMARKS =
+    "MASTERS REMARKS 1. CONTAINERS STORED IN AN OPEN AREA 2. CONTAINERS EXPOSED TO WEATHER BEFORE SHIPMENT 3. CONTAINERS LOADED FROM OPEN STORAGE 4. CONTAINERS WET/MOIST BEFORE SHIPMENT 5. CONTAINERS LOADED DURING RAIN 6. CONTAINERS COVERED WITH DIRT /DUST PRIOR TO SHIPMENT 7. CONTAINERS ARE SECOND HAND, SOME OF THEM SLIGHTLY DENTED PRIOR TO SHIPMENT 8. SURFACES OF THE CONTAINERS ARE RUST STAINED, WITH SCRATCHES BEFORE SHIPMENT 9. THE MARKS OF SOME CONTAINERS ARE NOT CLEAR / MISSING";
+
+  it("las nueve de la Opinión no hacen discrepante el conocimiento, y la evidencia la nombra", () => {
+    const r = limpio(REMARKS);
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 878");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcláusula\b|\bcontenedor/i);
+  });
+
+  it("pero si una frase habla de la carga, sigue siendo discrepancia", () => {
+    expect(limpio("1. CONTAINERS WET BEFORE SHIPMENT 2. CARGO PARTLY RUSTY")?.estado).toBe("DISCREPANCIA");
+    expect(limpio("CONTAINER DAMAGED AND BAGS TORN")?.estado).toBe("DISCREPANCIA");
+    expect(limpio("ALL CARGO ATMOSPHERIC RUSTY")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+/**
  * Las tres casillas del CMR, cuatro maneras de llenarlas (Opinión R 838 / TA 819rev).
  *
  * *«Where field 16 embodies two stamps, without further explanation as to the role of the parties, data

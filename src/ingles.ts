@@ -1614,6 +1614,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el documento califica el buque como previsto y la anotación dice (.+), que (no nombra ningún buque|no tiene fecha|no tiene fecha ni nombra ningún buque): con «intended vessel» la anotación de a bordo tiene que traer las dos cosas, aunque el documento tenga además la leyenda de a bordo preimpresa \(Opinión R 675 de la ICC\)$/g,
     "the document qualifies the vessel as intended and the on board notation reads $1, which lacks the date and/or the name of the vessel: with «intended vessel» the on board notation must carry both, even where the document also bears pre-printed on board wording (ICC Opinion R 675)",
   ],
+  /* R 878: lo que el capitán observa del contenedor */
+  [
+    /^cláusula leída: (.+) — lo que observa es el estado de los contenedores, y un contenedor no es el embalaje del artículo 27 \(Opinión R 878 de la ICC\): no declara defectuosos la mercadería ni su embalaje, y conviene leerla$/g,
+    "clause read: $1 — what it notes is the condition of the containers, and a container is not packaging within the meaning of article 27 (ICC Opinion R 878): it does not declare the goods or their packaging defective, and it should be read",
+  ],
   /* R 838: las tres casillas del CMR */
   [
     /^la casilla del transportista trae (\d+) nombres y la de la firma lleva el sello de uno de ellos, (.+): eso lo identifica como el transportista \(Opinión R 838 de la ICC\)$/g,

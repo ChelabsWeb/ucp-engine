@@ -2587,7 +2587,35 @@ function reglasTransporte(
               "OK",
               `cláusula leída: "${defecto}"`,
             );
-          const declara = DECLARA_DEFECTO.test(defecto);
+          /*
+           * **Lo que el capitán dice del contenedor no es una declaración sobre el embalaje (Opinión
+           * R 878 / TA 846rev).** Nueve observaciones del capitán —«CONTAINERS WET/MOIST BEFORE
+           * SHIPMENT», «SOME OF THEM SLIGHTLY DENTED», «SURFACES OF THE CONTAINERS ARE RUST STAINED»— y
+           * la regla las leía como óxido, humedad y abolladuras de la mercadería: *«All of the master's
+           * remarks … are confined to the exterior condition and appearance of the containers … Containers
+           * are not to be considered packing in the meaning of UCP 600 article 27»*, y los conocimientos
+           * están limpios. La cláusula se parte en frases y las que hablan **del contenedor y no de la
+           * carga** no cuentan; si una sola nombra la mercadería o su embalaje, cuenta entera.
+           */
+          const frases = defecto
+            .split(/\s*(?:\b\d{1,2}[.)]\s+|[;·\n]|\.\s+)\s*/)
+            .map((f) => f.trim())
+            .filter(Boolean);
+          const esDelContenedor = (f: string) =>
+            /\b(?:containers?|cntrs?|contenedor(?:es)?)\b/i.test(f) &&
+            !/\b(?:goods|cargo|contents?|merchandise|packag\w*|packing|bags?|cartons?|drums?|bales?|coils?|pallets?|cases?|crates?|bundles?|mercader\w*|carga|embalaje|bultos?)\b/i.test(
+              f,
+            );
+          const delContenedor = frases.filter((f) => esDelContenedor(f) && DECLARA_DEFECTO.test(f));
+          const declara = frases.some((f) => !esDelContenedor(f) && DECLARA_DEFECTO.test(f));
+          if (!declara && delContenedor.length > 0)
+            return regla(
+              "ucp-27",
+              "UCP 600 27",
+              "Documento de transporte limpio",
+              "ATENCION",
+              `cláusula leída: "${defecto}" — lo que observa es el estado de los contenedores, y un contenedor no es el embalaje del artículo 27 (Opinión R 878 de la ICC): no declara defectuosos la mercadería ni su embalaje, y conviene leerla`,
+            );
           /*
            * **El crédito que admite un documento con cláusulas.** El artículo 27 es la regla por
            * omisión —«a bank will only accept a clean transport document»— y «claused B/L acceptable»

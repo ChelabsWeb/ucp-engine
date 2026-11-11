@@ -352,6 +352,26 @@ describe("14 (j) — la dirección no tiene que coincidir", () => {
 });
 
 /**
+ * El papel agrega una forma societaria a la del crédito (Opinión R 893 / TA 875rev): crédito a favor de
+ * «Company NV», factura de «Company SA-NV» — *«does not in itself create a discrepancy»*.
+ */
+describe("R 893 — la forma societaria agregada en otro idioma", () => {
+  it("cumple: el papel trae la forma del crédito y una más", () => {
+    expect(veredictoDeNombre("GLASWERKEN VAN DAMME SA-NV", "GLASWERKEN VAN DAMME NV")).toBe("OK");
+    expect(veredictoDeNombre("GLASWERKEN VAN DAMME NV/SA", "GLASWERKEN VAN DAMME NV")).toBe("OK");
+  });
+
+  it("si al papel le falta la forma del crédito, sigue siendo discrepancia", () => {
+    expect(veredictoDeNombre("GLASWERKEN VAN DAMME SA", "GLASWERKEN VAN DAMME NV")).toBe("DISCREPANCIA");
+    expect(veredictoDeNombre("GLASWERKEN VAN DAMME", "GLASWERKEN VAN DAMME NV")).toBe("DISCREPANCIA");
+  });
+
+  it("y con otro nombre, también", () => {
+    expect(veredictoDeNombre("GLASWERKEN DE SMET SA-NV", "GLASWERKEN VAN DAMME NV")).toBe("DISCREPANCIA");
+  });
+});
+
+/**
  * Dos formas societarias que significan lo mismo (Opinión R 776 / TA 692rev)
  *
  * El crédito nombra al ordenante «OOO [X]» y el papel lo nombra «[X] Ltd». El panel: *«"OOO Country D"
