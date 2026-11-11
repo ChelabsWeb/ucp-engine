@@ -1599,6 +1599,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^BL (.+) → el plazo del embarque venció el (.+), pero el 47A admite presentar después: (.+) — lo que queda como límite es el vencimiento del crédito \((.+)\), y la presentación está dentro$/g,
     "B/L $1 → the period counted from shipment ended on $2, but field 47A allows later presentation: $3 — what remains as the limit is the expiry of the credit ($4), and the presentation is within it",
   ],
+  /* La clase presentada contra la pedida. A mano: sale de una plantilla. */
+  [
+    / — y el crédito pide otra clase de documento: (.+)\. Se examinó con el artículo que le corresponde al documento presentado, que no es el que el crédito nombra: verificar si el crédito admite esa clase$/g,
+    " — and the credit calls for another class of document: $1. It was examined under the article that applies to the document presented, which is not the one the credit names: check whether the credit allows that class",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,

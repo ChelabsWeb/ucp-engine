@@ -2925,6 +2925,82 @@ describe("la tolerancia expresa de la cantidad sobre bultos (arts. 1 y 30 b)", (
   });
 });
 
+/**
+ * La clase del documento presentado contra la clase que pide el crédito.
+ *
+ * El motor determina de qué clase es el papel —marítimo, aéreo, multimodal— y lo examina con el
+ * artículo que le corresponde. Lo que no hacía era preguntar si **eso es lo que el crédito pidió**: un
+ * air waybill contra un 46A de «full set of clean on board ocean bills of lading» salía con la regla de
+ * la clase en OK y sin una sola línea que lo dijera. El examen era correcto y era de otro documento.
+ *
+ * Sale a verificar y no a discrepancia, por dos motivos. La clase se deduce —del título, de la forma
+ * del número, de los lugares— y puede estar mal. Y la ICC decide por el contenido y no por el título
+ * (R 638: *«it is the content of the document that determines the applicable article of UCP 600 and
+ * not the title»*): un «multimodal transport bill of lading» que muestra un embarque de puerto a puerto
+ * con su anotación de a bordo puede cumplir el artículo 20.
+ */
+describe("la clase del documento presentado contra la que pide el crédito", () => {
+  const MARITIMO = [
+    "1. SIGNED COMMERCIAL INVOICE",
+    "2. FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING MADE OUT TO ORDER",
+  ];
+  const con = (exigidos: string[], titulo: string, condiciones: string[] = [], extra: Parameters<typeof doc>[0] = {}) =>
+    reglasUCP({
+      lc: { ...LC, documentosExigidos: exigidos, condicionesAdicionales: condiciones },
+      credito: CTX,
+      docs: [{ tipo: "BL", campos: doc({ tipoTransporte: campo(titulo), ...extra }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-transporte-clase");
+
+  it.each(["AIR WAYBILL", "MULTIMODAL TRANSPORT BILL OF LADING", "NON-NEGOTIABLE SEA WAYBILL", "CMR"])(
+    "el crédito pide un conocimiento marítimo y se presenta «%s»: lo dice",
+    (titulo) => {
+      const r = con(MARITIMO, titulo);
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("el crédito pide");
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bdocumento\b|\bverificar\b/i);
+    },
+  );
+
+  it("el marítimo contra el marítimo sigue en OK", () => {
+    expect(con(MARITIMO, "OCEAN BILL OF LADING")?.estado).toBe("OK");
+  });
+
+  it("si el 47A admite la clase presentada, no avisa", () => {
+    expect(
+      con(MARITIMO, "MULTIMODAL TRANSPORT BILL OF LADING", ["MULTIMODAL TRANSPORT DOCUMENT IS ACCEPTABLE"])?.estado,
+    ).toBe("OK");
+    expect(
+      con(MARITIMO, "NON-NEGOTIABLE SEA WAYBILL", ["SEA WAYBILL ACCEPTABLE IN LIEU OF BILL OF LADING"])?.estado,
+    ).toBe("OK");
+  });
+
+  it("y una prohibición no es un permiso", () => {
+    expect(
+      con(MARITIMO, "MULTIMODAL TRANSPORT BILL OF LADING", ["MULTIMODAL TRANSPORT DOCUMENT IS NOT ACCEPTABLE"])?.estado,
+    ).toBe("ATENCION");
+  });
+
+  it("una línea que ofrece alternativas o que no nombra una clase no opina", () => {
+    expect(con(["2. BILL OF LADING OR AIR WAYBILL CONSIGNED TO APPLICANT"], "AIR WAYBILL")?.estado).toBe("OK");
+    expect(con(["2. TRANSPORT DOCUMENT EVIDENCING DISPATCH TO THE APPLICANT"], "AIR WAYBILL")?.estado).toBe("OK");
+  });
+
+  it("el fletamento contra un conocimiento marítimo no entra acá: lo decide el 20 (a) (vi)", () => {
+    expect(
+      con(MARITIMO, "CHARTER PARTY BILL OF LADING", [], { charterParty: campo("AS PER CHARTER PARTY") })?.estado,
+    ).toBe("OK");
+  });
+
+  it("cada clase contra su propia línea cumple", () => {
+    expect(con(["2. AIR WAYBILL CONSIGNED TO APPLICANT"], "AIR WAYBILL")?.estado).toBe("OK");
+    expect(con(["2. MULTIMODAL TRANSPORT DOCUMENT IN 3 ORIGINALS"], "COMBINED TRANSPORT BILL OF LADING")?.estado).toBe(
+      "OK",
+    );
+    expect(con(["2. COPY OF ROADWAYBILL"], "CMR")?.estado).toBe("OK");
+  });
+});
+
 describe("lo que el crédito admite en el 47A", () => {
   const con = (condiciones: string[], bl: Parameters<typeof doc>[0] = {}, seguro?: Parameters<typeof doc>[0]) =>
     reglasUCP({
