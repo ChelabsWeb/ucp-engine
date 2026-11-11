@@ -5,6 +5,7 @@ import {
   cantidadesDelCredito,
   claveDoc,
   coincideLugar,
+  GENERICAS_DE_LUGAR,
   listaEntreComillas,
   palabrasQueFaltanDelProForma,
   parseNumero,
@@ -2016,12 +2017,45 @@ function reglasTransporte(
       enDoc
         ? (() => {
             const v = veredictoLugar(enDoc, puertoLC, k === "puertoEmbarque");
+            /*
+             * **El puerto de carga que está en la anotación de a bordo y no en el casillero.**
+             *
+             * Tres Opiniones lo deciden igual. R 458 —crédito de Bangkok a Kuwait, casillero «Port of
+             * loading: Singapore», y al pie «Laden on board the Vessel M, May 9, 1999. Port of loading
+             * Bangkok, Thailand»—: *«The inclusion of the on board notation which incorporates not only
+             * the name of the vessel but also the port of loading specified in the credit would render
+             * the bill of lading as being acceptable. This is despite the port of Singapore being quoted
+             * in the pre-printed "port of loading" box»*. R 460 lo repite en su primer ejemplo, y R 462
+             * agrega que las palabras «port of loading» no hacen falta: alcanza el nombre del puerto.
+             *
+             * La regla miraba el casillero y nada más, así que rechazaba un conocimiento con trasbordo
+             * emitido de la forma más corriente que hay.
+             *
+             * **Solo la carga, y solo el puerto.** La anotación de a bordo habla de dónde se cargó: el
+             * segundo ejemplo de R 460 tiene la misma anotación y el puerto de **descarga** mal, y ahí
+             * la discrepancia vale. Y se busca el **nombre del puerto** del crédito —lo que va antes de
+             * la coma—, no el país: «Port of loading Laem Chabang, Thailand» no es Bangkok.
+             */
+            const anotacion = k === "puertoEmbarque" ? (val(bl, "onBoard") ?? "") : "";
+            /*
+             * El nombre del puerto, como lo escribe un 44E de verdad: «MONTEVIDEO PORT IN URUGUAY»,
+             * «PORT OF BANGKOK», «BANGKOK, THAILAND». Se corta en la coma o en el «in» que introduce el
+             * país y se sacan las palabras que no nombran nada.
+             */
+            const delPuerto = norm(puertoLC.split(/,|\bin\b/i)[0] ?? "")
+              .split(" ")
+              .filter((w) => w.length > 2 && !GENERICAS_DE_LUGAR.has(w.toUpperCase()) && w !== "the");
+            const enLaAnotacion = new Set(norm(anotacion).split(" "));
+            const laAnotacionDaElPuerto =
+              v.estado === "DISCREPANCIA" && delPuerto.length > 0 && delPuerto.every((w) => enLaAnotacion.has(w));
             return regla(
               `ucp-20a-iii-${k}`,
               fuentePuertos,
               `Puerto ${cual} el que indica el crédito ("${puertoLC}")`,
-              v.estado,
-              `el documento dice "${enDoc}"${v.nota}`,
+              laAnotacionDaElPuerto ? "OK" : v.estado,
+              laAnotacionDaElPuerto
+                ? `el casillero dice "${enDoc}", pero la anotación de a bordo da el puerto de carga del crédito: "${anotacion.slice(0, 110)}" — con eso el conocimiento es aceptable aunque el casillero diga otro puerto (Opiniones R 458 y R 460 de la ICC), y no hace falta que la anotación diga las palabras «port of loading» (R 462)`
+                : `el documento dice "${enDoc}"${v.nota}`,
             );
           })()
         : sinLeer(`ucp-20a-iii-${k}`, fuentePuertos, `Puerto ${cual} el que indica el crédito`, `el puerto ${cual}`),
