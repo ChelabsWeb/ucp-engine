@@ -1623,6 +1623,11 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el documento lo emite (.+), que es el beneficiario, como pide el crédito$/g,
     "the document is issued by $1, which is the beneficiary, as the credit requires",
   ],
+  /* R 366: el «or» del 45A */
+  [
+    /^la factura dice (.+) y pesa (.+) · el crédito da dos formas de medir la cantidad y una es (.+): el peso entra en la tolerancia, y alcanza con cumplir una de las dos \(Opinión R 366 de la ICC\)$/g,
+    "the invoice states $1 and weighs $2 · the credit gives two ways of measuring the quantity and one is $3: the weight is within the tolerance, and meeting one of the two is enough (ICC Opinion R 366)",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,

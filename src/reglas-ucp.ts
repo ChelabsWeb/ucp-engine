@@ -3409,14 +3409,51 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
         ),
       );
     } else {
+      /*
+       * **El crédito que da dos formas de medir la cantidad (Opinión R 366).**
+       *
+       * «About 180 bales **or** about 90,388.60lbs»: *«The credit provided two alternative methods of
+       * calculation of the goods shipped … Whilst the number of bales falls outside the 10% tolerance,
+       * the quantity by weight falls within the guideline … There is no discrepancy with regard to the
+       * quantity of goods shipped.»* Alcanza con cumplir una. La factura puede contar en la otra unidad
+       * —fardos— y traer el peso aparte; si el 45A ofrece la alternativa con un «or» pegado a la
+       * cantidad y ese peso entra en la tolerancia, cumple.
+       *
+       * Solo concluye a favor: si el peso tampoco entra, no se sabe qué dice la otra alternativa —los
+       * fardos no se leen como cantidad— y la regla sigue a verificar.
+       */
+      const alrededor = (texto45A ?? "").slice(Math.max(0, pedido.en - 60), pedido.en + 40);
+      const ofreceAlternativa = /\d[\d.,]*\s*[a-z]+\s+or\s+(?:about\s+|approximately\s+|circa\s+)?$/i.test(
+        (texto45A ?? "").slice(Math.max(0, pedido.en - 60), pedido.en),
+      );
+      const pesoFac = factura ? (val(factura, "pesoNeto") ?? val(factura, "pesoBruto")) : null;
+      const mPeso = pesoFac ? /(\d[\d.,]*)\s*([a-z]+)/i.exec(pesoFac) : null;
+      const nPeso = mPeso ? parseNumero(mPeso[1] ?? "") : null;
+      const pesoEnKg = nPeso !== null && mPeso ? aKg(nPeso, mPeso[2] ?? "") : null;
+      const tolAlt = /\b(about|approximately|circa|aproximadamente|aprox)\b/i.test(alrededor)
+        ? 0.1
+        : toleranciaDeCantidad(lc);
+      const cumplePorPeso =
+        ofreceAlternativa &&
+        enKgPedido !== null &&
+        pesoEnKg !== null &&
+        Math.abs(pesoEnKg - enKgPedido) / enKgPedido <= tolAlt + 1e-9;
       out.push(
-        regla(
-          "ucp-30b-cantidad",
-          "UCP 600 30b",
-          "Cantidad de la factura dentro de lo que pide el crédito",
-          "ATENCION",
-          `la factura dice ${cantFac} ${uniFac ?? ""} y el crédito ${pedido.valor} ${pedido.unidad}: magnitudes que no se pueden comparar, verificar a mano`.trim(),
-        ),
+        cumplePorPeso
+          ? regla(
+              "ucp-30b-cantidad",
+              "UCP 600 30a",
+              "Cantidad de la factura dentro de lo que pide el crédito",
+              "OK",
+              `la factura dice ${cantFac} ${uniFac ?? ""} y pesa ${pesoFac} · el crédito da dos formas de medir la cantidad y una es ${pedido.valor} ${pedido.unidad}: el peso entra en la tolerancia, y alcanza con cumplir una de las dos (Opinión R 366 de la ICC)`,
+            )
+          : regla(
+              "ucp-30b-cantidad",
+              "UCP 600 30b",
+              "Cantidad de la factura dentro de lo que pide el crédito",
+              "ATENCION",
+              `la factura dice ${cantFac} ${uniFac ?? ""} y el crédito ${pedido.valor} ${pedido.unidad}: magnitudes que no se pueden comparar, verificar a mano`.trim(),
+            ),
       );
     }
   }
