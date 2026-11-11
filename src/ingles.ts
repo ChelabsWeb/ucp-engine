@@ -1981,6 +1981,12 @@ const REEMPLAZOS: [RegExp, string][] = [
     "The credit calls for a charter party bill of lading and the one presented is such",
   ],
   [/^el 46A lo exige y el documento dice /g, "field 46A calls for it and the document states "],
+  /* R 420: el fletamento que el crédito admite en el 47A */
+  [
+    /^El crédito admite un conocimiento sujeto a fletamento y el presentado lo es$/g,
+    "The credit allows a charter party bill of lading and the one presented is one",
+  ],
+  [/^el 47A lo admite y el documento dice /g, "field 47A allows it and the document states "],
   // ── el crédito contra el contrato de venta (`contrato.ts`) ──
   [/^Documento no pactado$/g, "Document not agreed"],
   [/^no está en el contrato$/g, "not in the contract"],
