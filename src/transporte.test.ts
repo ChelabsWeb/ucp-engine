@@ -226,6 +226,33 @@ describe("«signed by the master» declara una capacidad (laudo DOCDEX 247)", ()
 });
 
 /**
+ * El capitán que firma «on behalf of Owners» (Opinión **R 835 / TA 800rev**)
+ *
+ * Un conocimiento de fletamento firmado por el capitán, con un sello que trae el nombre del buque, la
+ * palabra «Master» y «on behalf of Owners». No son dos capacidades entre las que hubiera que tachar una
+ * —el caso de R 354—: *«The signature on the CPBL is identified as that of the master (captain). The
+ * master is signing for and on behalf of the owner.»* — **«The document is acceptable.»**
+ */
+describe("el capitán que firma por el armador (Opinión R 835)", () => {
+  it("es el capitán, y no es ambigua", () => {
+    for (const t of [
+      "CAPT. J. SMITH AS MASTER ON BEHALF OF OWNERS",
+      "SIGNED CAPT. J. SMITH · STAMP: M/V OCEAN STAR, MASTER, ON BEHALF OF OWNERS",
+      "M/V OCEAN STAR MASTER FOR AND ON BEHALF OF THE OWNERS",
+    ]) {
+      const r = leerFirma(t);
+      expect(r.capacidad, t).toBe("CAPITAN");
+      expect(r.ambigua, t).toBeUndefined();
+    }
+  });
+
+  it("y el preimpreso de R 354 sigue siendo ambiguo", () => {
+    expect(leerFirma("FOR THE MASTER/FOR THE CARRIER").ambigua).toBe(true);
+    expect(leerFirma("AS AGENTS FOR THE MASTER / FOR THE OWNERS").ambigua).toBe(true);
+  });
+});
+
+/**
  * El bloque que declara **dos** capacidades a la vez (Opinión **R 354**)
  *
  * Un conocimiento preimpreso con «Signed **for the master/for the carrier** as agents», firmado por un
