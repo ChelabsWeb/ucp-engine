@@ -107,6 +107,35 @@ describe("la nota de peso", () => {
     expect(peso?.evidencia).toContain("54.040");
   });
 
+  /*
+   * **Una diferencia chica no es «coincide» (Opinión R 445).**
+   *
+   * La regla daba OK hasta medio punto de desvío, con el título «el peso coincide» y dos cifras
+   * distintas en la evidencia. Esa banda es exactamente donde vive la diferencia entre un ullage report
+   * y un conocimiento —las tablas de calibración del buque contra las de tierra—, y la Opinión dice que
+   * ahí *«the issuing bank would be entitled to reject documents if there was an indication of the
+   * weights being different»*, salvo que el crédito lo admita. Ahora el OK es para lo que coincide salvo
+   * redondeo; lo que difiere poco va a verificar con las dos cifras y la Opinión, y lo que difiere
+   * mucho sigue siendo discrepancia.
+   */
+  it("una diferencia de un tercio de punto va a verificar nombrando R 445, no pasa como «coincide»", () => {
+    const r = correr([
+      { exigencia: item, campos: doc({ pesoBruto: campo("53.850,00 Kgs") }), nombreArchivo: "Weight note" },
+    ]);
+    const peso = r.find((x) => x.id.startsWith("cert-peso-"));
+    expect(peso?.estado).toBe("ATENCION");
+    expect(peso?.evidencia).toContain("R 445");
+    expect(peso?.evidencia).toContain("190");
+    expect(textoEnIngles(peso?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bdifieren\b|\bcrédito\b/i);
+  });
+
+  it("y lo que difiere solo por redondeo sigue cumpliendo", () => {
+    const r = correr([
+      { exigencia: item, campos: doc({ pesoBruto: campo("54.040,40 Kgs") }), nombreArchivo: "Weight note" },
+    ]);
+    expect(r.find((x) => x.id.startsWith("cert-peso-"))?.estado).toBe("OK");
+  });
+
   it("compara kilos contra toneladas sin confundirse", () => {
     const r = correr([
       { exigencia: item, campos: doc({ pesoBruto: campo("54,04 MT") }), nombreArchivo: "Weight note" },

@@ -1217,6 +1217,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     " — the deadline fell on a day when the bank is closed and is extended to the first following banking day (art. 29 a)",
   ],
   [/^documento (.+) · embarque (.+)$/g, "document $1 · shipment $2"],
+  /* R 445: la diferencia chica. Antes que las dos de abajo, que están ancladas al final. */
+  [
+    /^nota de peso (.+) kg · el packing (.+) kg — difieren en (.+) kg: es poco, pero no es redondeo, y la Opinión R 445 de la ICC admite el rechazo cuando los pesos de dos documentos difieren, salvo que el crédito diga que se aceptan\. Verificar en el crédito$/g,
+    "weight note $1 kg · packing list $2 kg — they differ by $3 kg: it is small, but it is not rounding, and ICC Opinion R 445 allows refusal where the weights on two documents differ, unless the credit states that such differences are acceptable. Check the credit",
+  ],
+  [
+    /^nota de peso (.+) kg · el conocimiento (.+) kg — difieren en (.+) kg: es poco, pero no es redondeo, y la Opinión R 445 de la ICC admite el rechazo cuando los pesos de dos documentos difieren, salvo que el crédito diga que se aceptan\. Verificar en el crédito$/g,
+    "weight note $1 kg · bill of lading $2 kg — they differ by $3 kg: it is small, but it is not rounding, and ICC Opinion R 445 allows refusal where the weights on two documents differ, unless the credit states that such differences are acceptable. Check the credit",
+  ],
   [/^nota de peso (.+) kg · el packing (.+) kg$/g, "weight note $1 kg · packing list $2 kg"],
   [/^nota de peso (.+) kg · el conocimiento (.+) kg$/g, "weight note $1 kg · bill of lading $2 kg"],
   [
