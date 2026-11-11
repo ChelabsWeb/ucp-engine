@@ -517,6 +517,22 @@ export function leerFirma(texto: string): FirmaDeTransporte {
     cap("CHARTERER|CHARTERERS") && "FLETADOR",
     cap("COURIER|COURIER SERVICE") && "COURIER",
   ].filter(Boolean);
+  /*
+   * **El capitán que firma «on behalf of Owners» no declara dos capacidades (Opinión R 835 / TA 800rev).**
+   *
+   * Un fletamento firmado por el capitán con un sello que dice el nombre del buque, «Master» y «on behalf
+   * of Owners»: *«The signature on the CPBL is identified as that of the master (captain). The master is
+   * signing for and on behalf of the owner. … The document is acceptable.»* No es el preimpreso de R 354
+   * —dos alternativas entre las que había que tachar una—: acá la palabra del capitán va **pegada** a la
+   * del armador por «on behalf of», o sea que una dice quién firma y la otra por quién.
+   */
+  if (
+    /\b(?:MASTERS?|CAPTAIN|CAPT)\b[\s.,·:;-]*(?:(?:FOR\s+AND\s+)?ON\s+BEHALF\s+OF|FOR)\s+(?:THE\s+)?(?:SHIP\s*)?OWNERS?\b/.test(
+      t,
+    )
+  ) {
+    return { capacidad: "CAPITAN", porAgente: false };
+  }
   if (declaradas.length > 1) return { capacidad: null, porAgente, ambigua: true };
 
   if (cap(TRANSPORTISTA)) return { capacidad: "TRANSPORTISTA", porAgente };
