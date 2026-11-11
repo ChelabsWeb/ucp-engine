@@ -46,6 +46,43 @@ describe("una condición que sí se acredita con un documento", () => {
   });
 });
 
+/**
+ * El documento de transporte que no se llama «bill of lading» también es un documento (Opinión R 411).
+ *
+ * La consulta de esa Opinión es sobre condiciones como «shipment must be effected by/through ABC», y la
+ * respuesta tiene dos mitades. Escrita así, sin documento, **se descarta** por el 13 (c) —el 14 (h) de
+ * hoy—. Pero el propio panel cambia la redacción para poder contestar: *«to answer your question
+ * requires that we look at a letter of credit which specifies "Air Waybill must evidence dispatch
+ * effected by (or through) ABC" or similar»* — y sobre **esa** dice qué espera ver un banco.
+ *
+ * La lista de `mencionaDocumento` tenía «bill of lading», «B/L» y «AWB», y no «air waybill» escrito
+ * entero ni ningún otro documento de transporte por su nombre: sobre el ejemplo textual de la Opinión
+ * el motor aconsejaba «los bancos la tienen por no puesta». Es la octava cara del consejo del 14 (h),
+ * que es el que más daño puede hacer, y la tercera lista de nombres de documento del motor que se
+ * queda atrás de las otras dos.
+ */
+describe("una condición que nombra un documento de transporte no se descarta (R 411)", () => {
+  it.each([
+    "AIR WAYBILL MUST EVIDENCE DISPATCH EFFECTED BY ABC LOGISTICS.",
+    "AIRWAYBILL MUST EVIDENCE DISPATCH EFFECTED THROUGH ABC LOGISTICS.",
+    "SEA WAYBILL MUST SHOW THE CONTAINER NUMBER.",
+    "CMR MUST SHOW THE TRUCK PLATE NUMBER.",
+    "ROAD WAYBILL TO EVIDENCE DELIVERY TO THE WAREHOUSE.",
+    "DRAFTS MUST BE MARKED DRAWN UNDER THIS CREDIT.",
+    "BILL OF EXCHANGE MUST INDICATE THE CREDIT NUMBER.",
+  ])("no se marca como no documentaria: %s", (condicion) => {
+    expect(noDocumentarias(conCondiciones(condicion))).toEqual([]);
+  });
+
+  /* Y la otra mitad, que es la primera frase de la conclusión: sin documento, se descarta. */
+  it.each(["SHIPMENT MUST BE EFFECTED BY ABC LOGISTICS.", "SHIPMENT THROUGH ABC LOGISTICS."])(
+    "y sin documento sigue descartándose: %s",
+    (condicion) => {
+      expect(noDocumentarias(conCondiciones(condicion))).toHaveLength(1);
+    },
+  );
+});
+
 describe("las cláusulas que no son condiciones sino parámetros del crédito", () => {
   /**
    * Una tolerancia o un permiso de embarque parcial no se acreditan con ningún documento porque no

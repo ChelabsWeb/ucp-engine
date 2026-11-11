@@ -1122,6 +1122,35 @@ describe("el nombre del notify contra el del ordenante", () => {
 
     const ORDENANTE = OP.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
 
+    /*
+     * **Y las formas que faltaban, que son las del expediente real.**
+     *
+     * Midiendo el disparador contra los 46A del banco de pruebas: de 102 créditos que piden un notify en
+     * la línea del transporte, **16 no activaban la regla**, y diez de ellos nombran al ordenante por su
+     * rol con otra redacción —«NOTIFYING APPLICANT», que es como lo escribe el crédito del expediente de
+     * referencia y el de la Opinión R 444; «NOTIFY APPLICANTS»; «NOTIFYING THE APPLICANT»; «NOTIFY THE
+     * ABOVENAMED APPLICANT»—. Es la decimosexta de «el motor reconocía una redacción y no la otra».
+     */
+    it.each([
+      "FULL SET 3/3 CLEAN ON BOARD OCEAN BILLS OF LADING MADE OUT TO ORDER NOTIFYING APPLICANT INDICATING FREIGHT AMOUNT",
+      "FULL SET OF BILLS OF LADING MADE OUT TO ORDER, NOTIFYING THE APPLICANT",
+      "FULL SET OF BILLS OF LADING MADE OUT TO ORDER AND NOTIFY APPLICANTS",
+      "FULL SET OF BILLS OF LADING NOTIFY THE ABOVENAMED APPLICANT AND MARKED FREIGHT PREPAID",
+      "FULL SET OF BILLS OF LADING NOTIFY THE ABOVE-NAMED APPLICANT",
+    ])("«%s» activa la regla", (exigencia) => {
+      expect(conExigencia(exigencia, ORDENANTE)?.estado).toBe("OK");
+      expect(conExigencia(exigencia, "OTRA EMPRESA DISTINTA S.A.")?.estado).toBe("DISCREPANCIA");
+    });
+
+    /* Y el freno de siempre: un tercero nombrado no se compara contra el ordenante. */
+    it.each([
+      "FULL SET OF BILLS OF LADING NOTIFY PACIFIC MACHINERY TRADING LTD",
+      "FULL SET OF BILLS OF LADING NOTIFY BUYERS",
+      "CERTIFICATE NOTIFYING THE SHIPPING AGENT OF THE APPLICANT",
+    ])("«%s» no la activa", (exigencia) => {
+      expect(conExigencia(exigencia, "OTRA EMPRESA DISTINTA S.A.")).toBeUndefined();
+    });
+
     it("«NOTIFY ACCOUNTEE» activa la regla, que es el caso del laudo", () => {
       const r = conExigencia("AIR WAYBILL CONSIGNED TO APPLICANT MARKED NOTIFY ACCOUNTEE", ORDENANTE);
       expect(r?.estado).toBe("OK");

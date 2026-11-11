@@ -99,8 +99,15 @@ export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null |
   const NOMBRE_TRANSPORTE =
     /\b(bills?\s+of\s+lading|b\/?ls?|air\s*way\s*bills?|awbs?|air\s+consignment\s+notes?|sea\s*way\s*bills?|consignment\s+notes?|cmr|(?:rail|road|truck)\s*way\s*bills?|cartas?\s+de\s+porte|inland\s+waterway|multimodal|combined\s+transport|intermodal|through\s+bill|courier\s+receipt|post\s+receipt|transport\s+document|conocimiento)\b/i;
   const COPIA = /\b(photocopy|photocopies|copy|copies)\b/i;
-  const iCopia = linea.search(COPIA);
-  const iNombre = linea.search(NOMBRE_TRANSPORTE);
+  /*
+   * Y el plural entre paréntesis, que es como lo escribe un mensaje SWIFT: «BILL(S) OF LADING». El apareo
+   * normaliza la puntuación y esta lista no, así que «COPY OF MARINE BILL(S) OF LADING» apareaba y no
+   * era «solo una copia». Lo encontró, en su primera corrida, el control que compara las dos listas
+   * (`apareo-46a.test.ts`) — la tercera vez que se desalinean, después de «CMR» y de la carretera.
+   */
+  const sinParentesis = linea.replace(/\(s\)/gi, "s");
+  const iCopia = sinParentesis.search(COPIA);
+  const iNombre = sinParentesis.search(NOMBRE_TRANSPORTE);
   return iCopia >= 0 && iNombre >= 0 && iCopia < iNombre;
 }
 
@@ -1272,7 +1279,20 @@ export function precheckPresentacion(input: {
      * notify a nombre de un tercero: «NOTIFY PARTY: XYZ CO LTD» no activa la comparación contra el
      * ordenante, porque ahí el crédito nombró a otro y compararlo sería inventar una discrepancia.
      */
-    if (/NOTIFY(?:\s+PARTY)?\s*:?\s*(?:APPLICANT|ACCOUNTEE|OPENER)\b/i.test(reglaBL)) {
+    /*
+     * **Y la palabra y el artículo, que eran la mitad de las redacciones.** Medido contra los 46A del
+     * banco de pruebas: de 102 créditos que piden un notify en la línea del transporte, 16 no activaban
+     * esta regla, y diez nombran al ordenante por su rol escrito de otra manera —«NOTIFY**ING**
+     * APPLICANT», que es el crédito del expediente de referencia y el de la Opinión R 444; «NOTIFY
+     * APPLICANT**S**»; «NOTIFYING **THE** APPLICANT»; «NOTIFY THE **ABOVENAMED** APPLICANT»—. Los otros
+     * seis nombran a un tercero o dicen «BUYERS», y siguen afuera a propósito: el comprador no es
+     * siempre el ordenante, y no hay autoridad para suponerlo.
+     */
+    if (
+      /NOTIFY(?:ING)?(?:\s+PARTY)?\s*:?\s*(?:THE\s+)?(?:ABOVE[\s-]*NAMED\s+)?(?:APPLICANTS?|ACCOUNTEE|OPENER)\b/i.test(
+        reglaBL,
+      )
+    ) {
       const nt = val(bl, "notify") ?? val(bl, "importador");
       const cliente = op.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
       /*

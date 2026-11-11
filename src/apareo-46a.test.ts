@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { claveDoc } from "./consistencia";
+import { pideSoloCopiaDelTransporte } from "./presentacion";
 
 /**
  * El apareo de la línea del 46A, contra una batería de redacciones reales.
@@ -313,6 +314,46 @@ describe("el apareo de la línea del 46A", () => {
  * por la primera prueba que coincida.** El corte en «in lieu of» hace que mande la cabeza de la línea, que
  * es donde el crédito nombra el documento.
  */
+/**
+ * Dos listas que tienen que decir lo mismo, y se desalinearon dos veces.
+ *
+ * `claveDoc` decide qué línea del 46A es la del documento de transporte, y `pideSoloCopiaDelTransporte`
+ * —que vive en `presentacion.ts` y no importa nada de acá a propósito, porque ese módulo se sincroniza—
+ * tiene **su propia lista de nombres** para decidir si esa línea pide una copia en lugar del original.
+ * Su comentario dice que va «alineada» con la del apareo, y nada lo controlaba: se quedó sin «CMR» una
+ * vez y sin la carretera otra (Opinión R 465), y las dos veces el síntoma fue el mismo — la línea
+ * apareaba y **el plazo del 14 (c) seguía corriendo sobre una copia**.
+ *
+ * El control sale de la batería y no de una lista aparte: toda línea que el apareo reconoce como
+ * transporte, puesta detrás de «COPY OF», tiene que ser «solo una copia». Una redacción nueva que
+ * entre a la batería y no a la otra lista se pone roja acá.
+ */
+describe("los nombres de transporte del apareo y los de la copia son los mismos", () => {
+  /* El nombre del documento, sin lo que lo cuenta ni lo que le sigue. */
+  const nombres = BATERIA.filter(([, clave]) => clave === "BL")
+    .map(([linea]) =>
+      linea
+        .replace(
+          /\b(FULL SET( OF)?( AT LEAST)?|ORIGINALS?|\d\/\d|PLUS \d NON NEGOTIABLE COPIES|IN \d (ORIGINALS|COPIES))\b/g,
+          " ",
+        )
+        .replace(/^\s*(COPY OF|OF)\s+/, "")
+        .replace(/\s+/g, " ")
+        .trim(),
+    )
+    .filter((n) => !/\bCOP(Y|IES)\b/.test(n));
+
+  it("hay con qué medir", () => {
+    expect(nombres.length).toBeGreaterThanOrEqual(15);
+  });
+
+  it.each(nombres)("«COPY OF %s» es solo una copia", (nombre) => {
+    const linea = `COPY OF ${nombre}`;
+    expect(claveDoc(linea), "la línea tiene que seguir siendo la del transporte").toBe("BL");
+    expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(true);
+  });
+});
+
 describe("la carta de indemnidad (laudo DOCDEX 372)", () => {
   it("tiene clave propia y no se la lleva el transporte", () => {
     expect(claveDoc("LETTER OF INDEMNITY ISSUED BY THE BENEFICIARY")).toBe("INDEMNIDAD");

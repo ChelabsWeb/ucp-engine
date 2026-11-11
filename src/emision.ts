@@ -312,7 +312,13 @@ export function esParametroDelCredito(condicion: string): boolean {
  * sacar del crédito dos condiciones que funcionan.
  */
 export function mencionaDocumento(texto: string): boolean {
-  return /\b(certificates?|certificat|invoices?|documents?|declarations?|statements?|bills? of lading|b\/ls?|packing|lists?|notes?|reports?|receipts?|cop(y|ies)|awbs?|polic(y|ies))\b/i.test(
+  /*
+   * Los documentos de transporte y la letra, por su nombre: estaban «bill of lading», «B/L» y «AWB» y
+   * nada más. El ejemplo textual de la Opinión R 411 —«Air Waybill must evidence dispatch effected by
+   * (or through) ABC»— salía descartado por el 14 (h), que es lo contrario de lo que esa Opinión dice
+   * de él.
+   */
+  return /\b(certificates?|certificat|invoices?|documents?|declarations?|statements?|bills? of lading|b\/ls?|packing|lists?|notes?|reports?|receipts?|cop(y|ies)|awbs?|polic(y|ies)|(?:air|sea|road|rail|truck)? ?way ?bills?|cmr|drafts?|bills? of exchange)\b/i.test(
     texto,
   );
 }
