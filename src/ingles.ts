@@ -1614,6 +1614,15 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el documento califica el buque como previsto y la anotación dice (.+), que (no nombra ningún buque|no tiene fecha|no tiene fecha ni nombra ningún buque): con «intended vessel» la anotación de a bordo tiene que traer las dos cosas, aunque el documento tenga además la leyenda de a bordo preimpresa \(Opinión R 675 de la ICC\)$/g,
     "the document qualifies the vessel as intended and the on board notation reads $1, which lacks the date and/or the name of the vessel: with «intended vessel» the on board notation must carry both, even where the document also bears pre-printed on board wording (ICC Opinion R 675)",
   ],
+  /* R 632: dos transportistas en el mismo CMR */
+  [
+    /^el documento nombra como transportista a (.+) y en la casilla de la firma del transportista firma (.+), que no figura como transportista sucesivo: con dos nombres no queda claro quién actúa como transportista \(Opinión R 632 de la ICC; la R 466, que admite al sucesivo, no se aplica\)$/g,
+    "the document names $1 as carrier and $2 signs in the carrier's signature box, without being shown as a successive carrier: with two names there is no clear indication of the party acting as carrier (ICC Opinion R 632; R 466, which allows the successive carrier, does not apply)",
+  ],
+  [
+    /^el documento lo emite (.+), que es el beneficiario, como pide el crédito$/g,
+    "the document is issued by $1, which is the beneficiary, as the credit requires",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,

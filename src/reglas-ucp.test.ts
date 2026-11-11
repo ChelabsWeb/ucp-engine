@@ -2422,6 +2422,57 @@ describe("la cantidad, con lo que la auditoría encontró", () => {
   });
 });
 
+/**
+ * Dos transportistas en el mismo CMR, y ninguno dicho «sucesivo» (Opinión R 632).
+ *
+ * Es el par de R 466. Allá la casilla 16 nombra a un transportista, la 17 —«Successive carriers»— a
+ * otro, y firma el sucesivo: aceptable. Acá la 16 dice «Company S», la 23 —«Signature and name of the
+ * carrier»— dice «Company C» con su firma, y la 17 está vacía: *«The CMR evidences two carrier names,
+ * and therefore there is no clear indication of the party that is acting as carrier … ICC Opinion R 466
+ * is not applicable in this case … the CMR is discrepant.»*
+ *
+ * El motor leía la firma —«firma el transportista»— y daba OK sin mirar que el papel nombraba a dos.
+ */
+describe("dos transportistas en el mismo documento y ninguno sucesivo (R 632)", () => {
+  const cmr = (firma: string) =>
+    buscar(
+      [{ tipo: "BL", campos: doc({ tipoTransporte: campo("CMR"), firmaTransporte: campo(firma) }) }],
+      "ucp-firma-transporte",
+    );
+
+  it("la casilla 16 nombra a uno y la 23 firma otro: discrepancia, con los dos nombres y las dos Opiniones", () => {
+    const r = cmr("BOX 16 CARRIER: COMPANY S · BOX 23 SIGNATURE OF CARRIER: COMPANY C");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("COMPANY S");
+    expect(r?.evidencia).toContain("COMPANY C");
+    expect(r?.evidencia).toContain("R 632");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\btransportista\b|\bcasilla\b|\bfirma\b/i);
+  });
+
+  it("con otra redacción del rótulo de la firma, también", () => {
+    expect(
+      cmr("CARRIER: TRANSPORTS DUPONT SA / SIGNATURE AND STAMP OF THE CARRIER: SPEDITION MEIER GMBH")?.estado,
+    ).toBe("DISCREPANCIA");
+  });
+
+  it("si firma el mismo que la casilla nombra, cumple", () => {
+    expect(cmr("BOX 16 CARRIER: COMPANY S · BOX 23 SIGNATURE OF CARRIER: COMPANY S")?.estado).toBe("OK");
+  });
+
+  it("y si el que firma está en la casilla de los sucesivos, es R 466 y cumple", () => {
+    expect(
+      cmr(
+        "BOX 16 CARRIER: TRANSPORTS DUPONT SA · BOX 17 SUCCESSIVE CARRIERS: TRANSPORTS MARTIN SARL · BOX 23 SIGNATURE OF CARRIER: TRANSPORTS MARTIN SARL AS SUCCESSIVE CARRIER",
+      )?.estado,
+    ).toBe("OK");
+  });
+
+  it("una firma corriente, sin casillas, no entra acá", () => {
+    expect(cmr("TRANSPORTS DUPONT SA AS CARRIER")?.estado).toBe("OK");
+    expect(cmr("SPEDITION MEIER GMBH AS AGENT FOR THE CARRIER TRANSPORTS DUPONT SA")?.estado).toBe("OK");
+  });
+});
+
 describe("con qué capacidad se firmó el documento de transporte (inciso (a) (i))", () => {
   /*
    * No existía ninguna regla del inciso (a) (i) en ningún artículo del 19 al 25: se miraban puertos,

@@ -14,6 +14,7 @@ import {
 } from "./consistencia";
 import { fmtFecha, parseFecha } from "./fechas";
 import {
+  comparaISBP,
   cotejarIncotermISBP,
   creditoExigeIngles,
   esFacturaComercial,
@@ -1887,6 +1888,54 @@ function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPres
         fuente,
         "Con qué capacidad se firmó el documento de transporte",
         "el bloque de firma",
+      ),
+    ];
+  }
+
+  /*
+   * **Dos transportistas en el mismo papel, y ninguno dicho «sucesivo» (Opinión R 632).**
+   *
+   * Es el par de R 466. Un CMR trae una casilla para el transportista (16), otra para los sucesivos
+   * (17) y otra para la firma (23). Si la 16 nombra a uno y en la 23 firma **otro** que no está en la
+   * 17: *«The CMR evidences two carrier names, and therefore there is no clear indication of the party
+   * that is acting as carrier … ICC Opinion R 466 is not applicable in this case … the CMR is
+   * discrepant.»* El motor leía «firma el transportista» y daba OK.
+   *
+   * Solo corre cuando el texto trae **los dos rótulos** —el del transportista y el de la firma—, que es
+   * como una persona o el lector transcriben un formulario con casillas. Una firma corriente —«X AS
+   * CARRIER», «Y AS AGENT FOR THE CARRIER X»— no entra: ahí el agente y el transportista son dos
+   * nombres a propósito, y eso es lo que el artículo admite.
+   */
+  const SEPARA = /\s*(?:·|\||\/|;|\bBOX\s*\d+\b)\s*/i;
+  const tramos = texto
+    .split(SEPARA)
+    .map((t) => t.trim())
+    .filter(Boolean);
+  const valorDe = (rotulo: RegExp) => {
+    const t = tramos.find((x) => rotulo.test(x));
+    return t
+      ? t
+          .replace(rotulo, "")
+          .replace(/\bAS\s+(?:SUCCESSIVE\s+)?CARRIER\b.*$/i, "")
+          .trim()
+      : null;
+  };
+  const nombrado = valorDe(/^CARRIER\s*:\s*/i);
+  const firmante = valorDe(/^SIGNATURE\b[^:]*\bCARRIER\s*:\s*/i);
+  const sucesivos = valorDe(/^SUCCESSIVE\s+CARRIERS?\s*:\s*/i);
+  if (
+    nombrado &&
+    firmante &&
+    comparaISBP(nombrado, firmante) === "DISTINTO" &&
+    !(sucesivos && comparaISBP(sucesivos, firmante) !== "DISTINTO")
+  ) {
+    return [
+      regla(
+        "ucp-firma-transporte",
+        fuente,
+        "Con qué capacidad se firmó el documento de transporte",
+        "DISCREPANCIA",
+        `el documento nombra como transportista a "${nombrado}" y en la casilla de la firma del transportista firma "${firmante}", que no figura como transportista sucesivo: con dos nombres no queda claro quién actúa como transportista (Opinión R 632 de la ICC; la R 466, que admite al sucesivo, no se aplica)`,
       ),
     ];
   }
