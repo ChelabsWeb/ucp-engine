@@ -1614,6 +1614,28 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^el documento califica el buque como previsto y la anotación dice (.+), que (no nombra ningún buque|no tiene fecha|no tiene fecha ni nombra ningún buque): con «intended vessel» la anotación de a bordo tiene que traer las dos cosas, aunque el documento tenga además la leyenda de a bordo preimpresa \(Opinión R 675 de la ICC\)$/g,
     "the document qualifies the vessel as intended and the on board notation reads $1, which lacks the date and/or the name of the vessel: with «intended vessel» the on board notation must carry both, even where the document also bears pre-printed on board wording (ICC Opinion R 675)",
   ],
+  /* R 838: las tres casillas del CMR */
+  [
+    /^la casilla del transportista trae (\d+) nombres y la de la firma lleva el sello de uno de ellos, (.+): eso lo identifica como el transportista \(Opinión R 838 de la ICC\)$/g,
+    "the carrier box shows $1 names and the signature box bears the stamp of one of them, $2: that identifies it as the carrier (ICC Opinion R 838)",
+  ],
+  [
+    /^la casilla del transportista trae (\d+) nombres y la de la firma dice (.+), que no identifica a ninguno de ellos: el documento no indica quién es el transportista \(Opinión R 838 de la ICC\)$/g,
+    "the carrier box shows $1 names and the signature box reads $2, which identifies neither of them: the document does not indicate who the carrier is (ICC Opinion R 838)",
+  ],
+  [
+    /^firma (.+) en la casilla de la firma del transportista, y es el que la casilla del transportista nombra \(Opinión R 838 de la ICC\)$/g,
+    "signed by $1 in the carrier's signature box, and it is the party named in the carrier box (ICC Opinion R 838)",
+  ],
+  [
+    /^firma (.+) en la casilla de la firma del transportista, y figura como transportista sucesivo \(Opiniones R 466 y R 838 de la ICC\)$/g,
+    "signed by $1 in the carrier's signature box, and it is shown as successive carrier (ICC Opinions R 466 and R 838)",
+  ],
+  /* R 851: «duplicate» sobre un documento de carretera */
+  [
+    /^dice (.+): el artículo 24 \(b\) \(ii\) admite la marca «duplicate» solo en un documento ferroviario, y sobre uno de carretera indica que no es el original \(Opinión R 851 de la ICC\)$/g,
+    "reads $1: article 24 (b) (ii) accepts the marking «duplicate» on a rail transport document only, and on a road transport document it indicates that it is not the original (ICC Opinion R 851)",
+  ],
   /* R 632: dos transportistas en el mismo CMR */
   [
     /^el documento nombra como transportista a (.+) y en la casilla de la firma del transportista firma (.+), que no figura como transportista sucesivo: con dos nombres no queda claro quién actúa como transportista \(Opinión R 632 de la ICC; la R 466, que admite al sucesivo, no se aplica\)$/g,
