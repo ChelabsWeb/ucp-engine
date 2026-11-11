@@ -438,6 +438,32 @@ export function veredictoDeNombre(
   ) {
     return "ATENCION";
   }
+  /*
+   * **El papel agrega una forma societaria a la que el crédito trae (Opinión R 893 / TA 875rev).**
+   *
+   * El crédito a favor de «Company NV» y la factura emitida por «Company SA-NV» —la misma forma en
+   * neerlandés y en francés, como la escribe media Bélgica—: *«The fact that the invoice indicates, as
+   * part of the beneficiary details, a company legal form in addition to that indicated in the credit,
+   * does not in itself create a discrepancy, particularly as both legal forms have the same meaning»*.
+   *
+   * **El veredicto dependía del orden**, medido: «… NV SA» daba OK —el nombre del crédito entero y algo
+   * más detrás— y «… SA-NV», que es como lo escribe la Opinión, daba DISCREPANCIA, porque la forma
+   * agregada cae **antes** de la del crédito y rompe el prefijo. Es el mismo hecho y ahora da lo mismo.
+   * Solo en esta dirección —el papel trae **todas** las formas del crédito y alguna más, sobre el mismo
+   * nombre—: si le falta la del crédito, sigue siendo R 455.
+   */
+  const formasDe = (ws: string[]) => ws.filter((w) => FORMAS_SOCIETARIAS.has(w));
+  const fDoc = formasDe(pa);
+  const fCre = formasDe(pb);
+  if (
+    fCre.length > 0 &&
+    fDoc.length > fCre.length &&
+    fCre.every((w) => fDoc.includes(w)) &&
+    sinForma(pa).length >= 1 &&
+    sinForma(pa).join(" ") === sinForma(pb).join(" ")
+  ) {
+    return "OK";
+  }
   let i = 0;
   while (i < pa.length && i < pb.length && pa[i] === pb[i]) i++;
   const colas = [...pa.slice(i), ...pb.slice(i)];
