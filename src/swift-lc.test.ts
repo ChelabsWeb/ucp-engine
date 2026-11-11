@@ -302,6 +302,34 @@ describe("parseMT700 — la LC real del caso CSU2025099, sin IA", () => {
     const sinNada = sin39.replace(/ *\+7\)A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND\n *VALUE ALLOWED\.\n/, "");
     expect(parseMT700(sinNada)!.lc.tolerancia).toBeNull();
   });
+  /*
+   * La tolerancia del 47A escrita sin la palabra «tolerance», que es como la escribe la mayoría: «5 PCT
+   * MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE». La búsqueda pedía la palabra, así que un crédito
+   * sin 39A y con esa condición quedaba sin tolerancia y el examen rechazaba un +8 % que el crédito
+   * admite. Y dos líneas más abajo el propio intérprete ya buscaba «more or less» para saber a qué se
+   * aplica: dos patrones para el mismo concepto.
+   */
+  it.each([
+    ["10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE", 0.1],
+    ["5 PER CENT MORE OR LESS BOTH IN QUANTITY AND CREDIT AMOUNT ALLOWED", 0.05],
+    ["TEN PERCENT MORE OR LESS BOTH ON QUANTITY AND CREDIT AMOUNT ACCEPTABLE", 0.1],
+    ["QUANTITY AND AMOUNT +/- 5 PCT ACCEPTABLE", 0.05],
+  ])("sin 39A: «%s» es la tolerancia", (condicion, esperada) => {
+    const sw = MT710_CSU2025099.replace(/ *39A: Percentage Credit Amt Tolerance\n *10\/10\n/, "").replace(
+      / *\+7\)A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND\n *VALUE ALLOWED\.\n/,
+      `          +7)${condicion}\n`,
+    );
+    expect(parseMT700(sw)!.lc.tolerancia).toBe(esperada);
+  });
+
+  it("y una condición que dice «more or less» de otra cosa no inventa una tolerancia", () => {
+    const sw = MT710_CSU2025099.replace(/ *39A: Percentage Credit Amt Tolerance\n *10\/10\n/, "").replace(
+      / *\+7\)A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND\n *VALUE ALLOWED\.\n/,
+      "          +7)SHIPMENT MORE OR LESS IN EQUAL MONTHLY LOTS\n",
+    );
+    expect(parseMT700(sw)!.lc.tolerancia).toBeNull();
+  });
+
   it("texto que no es SWIFT → null (la IA se encarga)", () => {
     expect(parseMT700("Carta de crédito irrevocable a favor de Cerealsur por USD 54.150")).toBeNull();
   });

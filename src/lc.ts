@@ -260,7 +260,11 @@ export function parseTolerancia(texto: string | number | null | undefined): numb
   if (/\b(about|approximately|circa|aprox)/.test(t)) return 0.1;
   // 39B/47A reales: "not allowed", "none", "nil", "no tolerance", "sin tolerancia", "exact"
   if (/\b(sin tolerancia|no tolerance|not allowed|none|nil|exact|exacto|no permitida)\b/.test(t)) return 0;
-  const m = /([\d]+(?:[.,]\d+)?)\s*(%|pct|por ?ciento|percent)/.exec(t);
+  /* «TEN PERCENT MORE OR LESS», en letras, que es como lo escribe el 47A del laudo DOCDEX 223 */
+  const EN_LETRAS: Record<string, number> = { two: 2, three: 3, five: 5, ten: 10, fifteen: 15, twenty: 20 };
+  const letras = /\b(two|three|five|ten|fifteen|twenty)\s*(%|pct|por ?ciento|per ?cent)/.exec(t);
+  if (letras) return (EN_LETRAS[letras[1]!] ?? 0) / 100;
+  const m = /([\d]+(?:[.,]\d+)?)\s*(%|pct|por ?ciento|per ?cent)/.exec(t);
   if (m) {
     const n = Number(m[1].replace(",", "."));
     return Number.isFinite(n) && n >= 0 && n <= 50 ? n / 100 : null;
