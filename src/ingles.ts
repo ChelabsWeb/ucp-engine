@@ -2388,6 +2388,11 @@ const REEMPLAZOS: [RegExp, string][] = [
   // Sobre el texto original, no sobre el ya traducido: ningún patrón puede dar por hecho
   // que otro corrió antes, porque el orden lo decide la especificidad y no la escritura.
   [/^el documento dice\b/g, "the document says"],
+  /* R 459: dos anotaciones de a bordo. Antes que «BL a bordo», y a mano: sale de una plantilla. */
+  [
+    /, fuera de plazo, pero la anotación de a bordo trae otra fecha que está dentro: si esa primera anotación es del puerto de carga que el crédito admite, es la fecha del embarque y la segunda es información adicional \(Opinión R 459 de la ICC\); si es un pre-acarreo desde otro lugar, manda la del buque oceánico \(Opinión R 350\)\. Verificar en el papel$/g,
+    ", out of time, but the on board notation carries another date that is within it: if that first notation is from the port of loading the credit allows, it is the date of shipment and the second one is additional information (ICC Opinion R 459); if it is pre-carriage from elsewhere, the ocean vessel's date governs (Opinion R 350). Check on the document itself",
+  ],
   [/^BL a bordo\b/g, "B/L on board"],
   [/^originales emitidos:/g, "originals issued:"],
   [/\bel crédito nombra a\b/g, "the credit names"],

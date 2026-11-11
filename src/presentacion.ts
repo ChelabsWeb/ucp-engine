@@ -1734,14 +1734,40 @@ export function precheckPresentacion(input: {
         estado: "ATENCION",
         evidencia: `la copia dice ${ab}, y la fecha de una copia no determina si el embarque fue tardío (Opinión TA 767rev): verificar a mano`,
       });
-    } else if (f && l)
+    } else if (f && l) {
+      /*
+       * **Dos anotaciones de a bordo, y cuál fecha decide (Opinión R 459).**
+       *
+       * El crédito admitía embarcar desde «Any European Port» hasta el 30 de abril, y el conocimiento
+       * traía dos anotaciones: «Shipped on board Vessel A ex Dublin on 26.04.01 arrived Antwerp
+       * 30/04/01» y «Shipped on board per ocean vessel F123 at Antwerp on 02 May 2001». El emisor rechazó
+       * por embarque tardío tomando la segunda, y la ICC dijo que no: *«The date, 26.04.01, would be
+       * taken as the date of shipment … The second on board notation relating to the shipment on the
+       * vessel F123 would be considered additional information»*.
+       *
+       * Esta regla recibe **una** fecha —la que alguien cargó o el modelo leyó— y con la segunda
+       * rechazaba igual que el emisor. Cuál manda depende de si el puerto de la primera anotación es el
+       * puerto de carga que el crédito admite: acá sí; en R 350 / R 457 era un pre-acarreo y manda el
+       * buque oceánico. Eso el motor no lo sabe —no sabe si Dublín está en Europa—, pero sí ve que la
+       * anotación trae **otra fecha que está dentro del plazo**, y con eso no puede afirmar que el
+       * embarque fue tardío. Solo ablanda: una sola fecha, o todas fuera de plazo, sigue siendo
+       * discrepancia.
+       */
+      const otrasFechas = (val(bl, "onBoard") ?? "")
+        .match(/\d{1,2}[./-]\d{1,2}[./-]\d{2,4}|\d{1,2}[\s-][a-z]{3,9}[\s-]\d{2,4}/gi)
+        ?.map((t) => parseFecha(t))
+        .filter((d): d is Date => d !== null);
+      const hayOtraEnPlazo = f > l && (otrasFechas ?? []).some((d) => d <= l);
       reglas.push({
         id: "ultimo-embarque",
         fuente: "44C",
         regla: `A bordo a más tardar el ${lc.limiteEmbarque}`,
-        estado: f > l ? "DISCREPANCIA" : "OK",
-        evidencia: `BL a bordo ${ab}`,
+        estado: f > l ? (hayOtraEnPlazo ? "ATENCION" : "DISCREPANCIA") : "OK",
+        evidencia: hayOtraEnPlazo
+          ? `BL a bordo ${ab}, fuera de plazo, pero la anotación de a bordo trae otra fecha que está dentro: si esa primera anotación es del puerto de carga que el crédito admite, es la fecha del embarque y la segunda es información adicional (Opinión R 459 de la ICC); si es un pre-acarreo desde otro lugar, manda la del buque oceánico (Opinión R 350). Verificar en el papel`
+          : `BL a bordo ${ab}`,
       });
+    }
   }
 
   const faltan = reglas.filter((r) => r.estado === "FALTA").length;

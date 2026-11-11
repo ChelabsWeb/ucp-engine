@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generarChecklist } from "./checklist";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
+import { textoEnIngles } from "./ingles";
 import { ablandarPorISBP } from "./isbp";
 import {
   admiteCopiaDelTransporte,
@@ -1110,6 +1111,74 @@ describe("el nombre del notify contra el del ordenante", () => {
    * ACCOUNTEE»** —vocabulario estándar de estos créditos, y el del laudo— dejaba la exigencia **sin
    * examinar**. Desde el tablero eso se ve igual que un crédito que no pide notify.
    */
+  /**
+   * Dos anotaciones de a bordo, y la fecha que decide el embarque tardío (Opinión R 459)
+   *
+   * El crédito admitía embarcar desde «Any European Port» hasta el 30 de abril. El conocimiento traía
+   * dos anotaciones —«Shipped on board Vessel A ex Dublin on 26.04.01 arrived Antwerp 30/04/01» y
+   * «Shipped on board per ocean vessel F123 at Antwerp on 02 May 2001»— y el emisor rechazó por
+   * embarque tardío tomando la segunda. La ICC: *«The date, 26.04.01, would be taken as the date of
+   * shipment. Under the terms of this credit, late shipment would not have occurred. The second on
+   * board notation … would be considered additional information»*.
+   *
+   * El motor recibe **una** fecha de embarque, la que alguien cargó, y si es la segunda rechazaba igual
+   * que el emisor. Cuál de las dos manda depende de si el puerto de la primera es el que el crédito
+   * admite —acá sí; en R 350 era un pre-acarreo y manda el buque oceánico—, y eso el motor no lo sabe.
+   * Lo que sí ve es que la anotación trae **otra fecha dentro del plazo**, y entonces no rechaza: lo
+   * pone delante de una persona con las dos Opiniones.
+   */
+  describe("dos anotaciones de a bordo y el último embarque (R 459)", () => {
+    const con = (fechaEmbarque: string, onBoard: string) =>
+      precheckPresentacion({
+        lc,
+        docs: [
+          {
+            tipo: "BL" as const,
+            campos: {
+              ...BL,
+              fechaEmbarque: { valor: fechaEmbarque, confianza: 1 },
+              onBoard: { valor: onBoard, confianza: 1 },
+            },
+          },
+        ],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((r) => r.id === "ultimo-embarque");
+    const DOS =
+      "SHIPPED ON BOARD VESSEL A EX DUBLIN ON 26.04.25 ARRIVED ANTWERP 30/04/25 · SHIPPED ON BOARD PER OCEAN VESSEL F123 AT ANTWERP ON 02 MAY 2025";
+
+    it("cargada la segunda fecha, la primera está en plazo: va a verificar, nombrando la Opinión", () => {
+      const r = con("02-may-2025", DOS);
+      expect(r?.estado).toBe("ATENCION");
+      expect(r?.evidencia).toContain("R 459");
+      expect(r?.evidencia).toContain("R 350");
+    });
+
+    it("cargada la primera, cumple", () => {
+      expect(con("26-abr-2025", DOS)?.estado).toBe("OK");
+    });
+
+    it("y el aviso se traduce entero", () => {
+      const en = textoEnIngles(con("02-may-2025", DOS)?.evidencia ?? "");
+      expect(en).not.toMatch(/[áéíóúñ¿¡]|\bfuera de plazo\b|\banotación\b|\bverificar\b/i);
+      expect(en).toContain("R 459");
+    });
+
+    it("y con una sola anotación fuera de plazo sigue siendo discrepancia", () => {
+      expect(con("02-may-2025", "SHIPPED ON BOARD PER OCEAN VESSEL F123 AT ANTWERP ON 02 MAY 2025")?.estado).toBe(
+        "DISCREPANCIA",
+      );
+      expect(con("02-may-2025", "")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("dos anotaciones, las dos fuera de plazo: discrepancia", () => {
+      expect(
+        con("05-may-2025", "SHIPPED ON BOARD VESSEL A 02.05.25 · SHIPPED ON BOARD VESSEL B 05 MAY 2025")?.estado,
+      ).toBe("DISCREPANCIA");
+    });
+  });
+
   describe("las formas de pedir el notify (DOCDEX 205)", () => {
     const conExigencia = (exigencia: string, enElBL: string) =>
       precheckPresentacion({
