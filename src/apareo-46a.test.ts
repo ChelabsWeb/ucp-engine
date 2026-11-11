@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { claveDoc } from "./consistencia";
+import { mencionaDocumento } from "./emision";
 import { pideSoloCopiaDelTransporte } from "./presentacion";
 
 /**
@@ -351,6 +352,21 @@ describe("los nombres de transporte del apareo y los de la copia son los mismos"
     const linea = `COPY OF ${nombre}`;
     expect(claveDoc(linea), "la línea tiene que seguir siendo la del transporte").toBe("BL");
     expect(pideSoloCopiaDelTransporte(["SIGNED COMMERCIAL INVOICE", linea])).toBe(true);
+  });
+});
+
+/**
+ * Y la tercera lista: lo que el 14 (h) entiende por «un documento».
+ *
+ * `mencionaDocumento` decide si una condición del 47A nombra un documento que la acredite; si no, el
+ * motor aconseja tenerla por no puesta. Tenía «bill of lading», «B/L» y «AWB», y ningún otro documento
+ * de transporte por su nombre: la Opinión R 411 lo encontró con su propio ejemplo. El control es el
+ * mismo que el de la copia y sale de la misma batería: **todo lo que el apareo reconoce como un
+ * documento del 46A es un documento también para el 14 (h)**.
+ */
+describe("todo documento que el apareo reconoce es un documento para el 14 (h)", () => {
+  it.each(BATERIA.map(([linea]) => linea))("«%s» nombra un documento", (linea) => {
+    expect(mencionaDocumento(linea)).toBe(true);
   });
 });
 
