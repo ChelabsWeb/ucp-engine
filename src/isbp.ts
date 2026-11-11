@@ -697,7 +697,14 @@ export type EmisorAdmitido = "CUALQUIERA" | "CUALQUIERA_MENOS_BENEFICIARIO" | "E
  * clasificado como «cualquiera lo puede emitir» y el nombre que el crédito puso no se comparaba con
  * nada.
  */
-export const NOMBRA_AL_EMISOR = /\b(?:issued|signed)\s+(?:and\s+signed\s+)?by\b|\bemitido por\b|\bfirmado por\b/;
+/*
+ * **Y «report by X», sin verbo, que es la Opinión R 450.** Su 46A pide un «Inspection report **by**
+ * Lloyd's agent in Country T» y la captura no veía ahí ningún emisor: el certificado salía sin regla, y
+ * pasaba limpio hasta emitido por el beneficiario. Entra solo pegado al nombre del documento, que es
+ * donde «by» no puede ser otra cosa —«SENT BY COURIER» y «CERTIFIED BY» no cambian—.
+ */
+export const NOMBRA_AL_EMISOR =
+  /\b(?:issued|signed)\s+(?:and\s+signed\s+)?by\b|\b(?:certificates?|reports?|surveys?|analysis|inspection)\s+by\b|\bemitido por\b|\bfirmado por\b/;
 
 export function emisorAdmitido(textoExigencia: string): EmisorAdmitido {
   const t = normISBP(textoExigencia);

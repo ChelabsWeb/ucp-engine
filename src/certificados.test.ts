@@ -107,6 +107,35 @@ describe("la nota de peso", () => {
     expect(peso?.evidencia).toContain("54.040");
   });
 
+  /*
+   * **Una diferencia chica no es «coincide» (Opinión R 445).**
+   *
+   * La regla daba OK hasta medio punto de desvío, con el título «el peso coincide» y dos cifras
+   * distintas en la evidencia. Esa banda es exactamente donde vive la diferencia entre un ullage report
+   * y un conocimiento —las tablas de calibración del buque contra las de tierra—, y la Opinión dice que
+   * ahí *«the issuing bank would be entitled to reject documents if there was an indication of the
+   * weights being different»*, salvo que el crédito lo admita. Ahora el OK es para lo que coincide salvo
+   * redondeo; lo que difiere poco va a verificar con las dos cifras y la Opinión, y lo que difiere
+   * mucho sigue siendo discrepancia.
+   */
+  it("una diferencia de un tercio de punto va a verificar nombrando R 445, no pasa como «coincide»", () => {
+    const r = correr([
+      { exigencia: item, campos: doc({ pesoBruto: campo("53.850,00 Kgs") }), nombreArchivo: "Weight note" },
+    ]);
+    const peso = r.find((x) => x.id.startsWith("cert-peso-"));
+    expect(peso?.estado).toBe("ATENCION");
+    expect(peso?.evidencia).toContain("R 445");
+    expect(peso?.evidencia).toContain("190");
+    expect(textoEnIngles(peso?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bdifieren\b|\bcrédito\b/i);
+  });
+
+  it("y lo que difiere solo por redondeo sigue cumpliendo", () => {
+    const r = correr([
+      { exigencia: item, campos: doc({ pesoBruto: campo("54.040,40 Kgs") }), nombreArchivo: "Weight note" },
+    ]);
+    expect(r.find((x) => x.id.startsWith("cert-peso-"))?.estado).toBe("OK");
+  });
+
   it("compara kilos contra toneladas sin confundirse", () => {
     const r = correr([
       { exigencia: item, campos: doc({ pesoBruto: campo("54,04 MT") }), nombreArchivo: "Weight note" },
@@ -265,6 +294,51 @@ describe("quién puede emitir cada certificado", () => {
         expect(t).not.toMatch(/[áéíóúñ¿¡]|\bel crédito\b|\bel papel\b|\bdocumento\b|\bverificar\b/i);
         expect(t).toContain("R 403");
       }
+    });
+  });
+
+  /*
+   * **«Inspection report BY Lloyd's agent» nombra al emisor igual que «issued by» (Opinión R 450).**
+   *
+   * El crédito de esa Opinión pedía un «Inspection report by Lloyd's agent in Country T», lo emitieron
+   * unos peritos que actuaban **para** el agente de Lloyd's, y el panel: *«the report was issued by
+   * surveyors acting for Lloyd's agent and would not be acceptable under the terms of the credit»*. La
+   * captura conocía «issued by» y «signed by», así que sobre esa línea el certificado salía **sin regla
+   * de emisor** — medido: hasta emitido por el propio beneficiario pasaba limpio.
+   *
+   * Entra solo detrás del nombre del documento —«certificate by», «report by», «survey by»—, que es
+   * donde «by» no puede ser otra cosa: «SENT BY COURIER» y «SIGNED BY» siguen como estaban. Medido
+   * contra los 46A del banco de pruebas: ninguna línea de ningún crédito cambia.
+   */
+  describe("«report by X» nombra al emisor (R 450)", () => {
+    const R450 = "INSPECTION REPORT BY LLOYD S AGENT IN COUNTRY T, WHO WILL INSPECT THE MATERIAL AT THE LOADING PORT";
+    const emitidoPor = (emisor: string, exigencia = R450) =>
+      correr([{ exigencia, campos: doc({ emisor: campo(emisor) }) }]).find((x) => x.id.startsWith("cert-emisor-"));
+
+    it("la captura lo lee, y se corta donde termina el nombre", () => {
+      expect(emisorQueNombra(R450)).toBe("LLOYD S AGENT IN COUNTRY T");
+      expect(emisorQueNombra("SURVEY REPORT BY SGS")).toBe("SGS");
+      expect(emisorQueNombra("CERTIFICATE OF ANALYSIS BY AN INDEPENDENT LABORATORY")).toBeDefined();
+    });
+
+    it("emitido por otro va a verificar: «agent» es una función y no un nombre", () => {
+      expect(emitidoPor("COMPANY B")?.estado).toBe("ATENCION");
+    });
+
+    it("emitido por el agente de Lloyd's, cumple", () => {
+      expect(emitidoPor("COMPANY A, LLOYD S AGENT IN COUNTRY T")?.estado).toBe("OK");
+    });
+
+    it("y emitido por el beneficiario es discrepancia, que antes pasaba sin regla", () => {
+      expect(emitidoPor("CEREALSUR S.A")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it.each([
+      "BENEFICIARY CERTIFICATE THAT DOCUMENTS WERE SENT BY COURIER TO THE APPLICANT",
+      "CERTIFICATE OF ORIGIN",
+      "PACKING LIST IN 3 COPIES",
+    ])("«%s» no nombra a nadie", (exigencia) => {
+      expect(emisorQueNombra(exigencia)).toBeUndefined();
     });
   });
 

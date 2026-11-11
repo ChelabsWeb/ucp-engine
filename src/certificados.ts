@@ -836,14 +836,30 @@ export function reglasCertificados(input: {
       const suyo = pesoEnKg(c.campos);
       const otro = pesoEnKg(packing?.campos ?? ({} as CamposDoc)) ?? pesoEnKg(bl?.campos ?? ({} as CamposDoc));
       const deQuien = pesoEnKg(packing?.campos ?? ({} as CamposDoc)) !== null ? "el packing" : "el conocimiento";
+      /* un kilo, o una parte en diez mil: lo que cambia al pasar de toneladas a kilos o al redondear */
+      const esRedondeo =
+        suyo !== null && otro !== null && (Math.abs(suyo - otro) <= 1 || Math.abs(suyo - otro) / otro <= 0.0001);
       out.push(
         suyo !== null && otro !== null
           ? regla(
               `cert-peso-${sufijo}`,
               "UCP 600 14d",
               `${nombre}: el peso coincide con ${deQuien}`,
-              Math.abs(suyo - otro) / otro <= 0.005 ? "OK" : "DISCREPANCIA",
-              `nota de peso ${suyo.toLocaleString("es-UY")} kg · ${deQuien} ${otro.toLocaleString("es-UY")} kg`,
+              /*
+               * **Tres bandas y no dos, por la Opinión R 445.** Daba OK hasta medio punto de desvío —con
+               * el título «el peso coincide» y dos cifras distintas debajo—, y esa banda es donde vive
+               * la diferencia entre un ullage report y un conocimiento. La Opinión le da la razón al
+               * emisor que rechazó: *«the issuing bank would be entitled to reject documents if there
+               * was an indication of the weights being different»*, y dice cómo se evita —*«the credit
+               * should make reference to the fact that weights differing between these documents are
+               * acceptable»*—. El OK queda para lo que coincide salvo redondeo; lo que difiere poco va
+               * a una persona con las dos cifras, porque el motor no lee si el crédito lo admite.
+               */
+              esRedondeo ? "OK" : Math.abs(suyo - otro) / otro <= 0.005 ? "ATENCION" : "DISCREPANCIA",
+              `nota de peso ${suyo.toLocaleString("es-UY")} kg · ${deQuien} ${otro.toLocaleString("es-UY")} kg` +
+                (!esRedondeo && Math.abs(suyo - otro) / otro <= 0.005
+                  ? ` — difieren en ${Math.abs(suyo - otro).toLocaleString("es-UY")} kg: es poco, pero no es redondeo, y la Opinión R 445 de la ICC admite el rechazo cuando los pesos de dos documentos difieren, salvo que el crédito diga que se aceptan. Verificar en el crédito`
+                  : ""),
             )
           : regla(
               `cert-peso-${sufijo}`,
