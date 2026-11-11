@@ -1646,6 +1646,15 @@ function reglasTerrestre(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresenta
   const esFerroviario = /rail|ferrocarril|tren|waterway|navegable/i.test(val(doc, "tipoTransporte") ?? "");
   if (marca) {
     const duplicado = /duplicate|duplicado/i.test(marca);
+    /*
+     * **«Duplicate» sobre un documento de carretera es discrepancia (Opinión R 851 / TA 781rev).** El
+     * 24 (b) (ii) lo admite como original solo en el ferroviario — *«no such allowance is made for road
+     * transport documents»* — y el párrafo de la ISBP sobre «Original / Duplicate / Triplicate» no se
+     * aplica porque las UCP definen acá qué es el original. Solo concluye cuando la marca dice
+     * «duplicate» **y nada más**: si también dice «original» o para quién es el ejemplar, hay dos
+     * ejemplares transcritos en un campo y eso se mira.
+     */
+    const soloDuplicado = duplicado && !/original|consignor|shipper|sender|exp[eé]did|remitente|cargador/i.test(marca);
     out.push(
       regla(
         "ucp-24b",
@@ -1653,10 +1662,12 @@ function reglasTerrestre(ctx: ContextoCredito, doc: DocAnalizado): ReglaPresenta
         esFerroviario
           ? "Un documento ferroviario marcado «duplicate» se acepta como original"
           : "El documento es el original para el expedidor o no lleva marca de destinatario",
-        esFerroviario || !duplicado ? "OK" : "ATENCION",
+        esFerroviario || !duplicado ? "OK" : soloDuplicado ? "DISCREPANCIA" : "ATENCION",
         esFerroviario && duplicado
           ? `dice "${marca}", y el artículo 24 (b) (ii) lo acepta como original`
-          : `dice "${marca}"`,
+          : soloDuplicado
+            ? `dice "${marca}": el artículo 24 (b) (ii) admite la marca «duplicate» solo en un documento ferroviario, y sobre uno de carretera indica que no es el original (Opinión R 851 de la ICC)`
+            : `dice "${marca}"`,
       ),
     );
   }
@@ -1911,29 +1922,102 @@ function reglaFirmaTransporte(bl: DocAnalizado, modo: ModoTransporte): ReglaPres
     .split(SEPARA)
     .map((t) => t.trim())
     .filter(Boolean);
+  const TRANSPORTISTA = "(?:CARRIERS?|TRANSPORTERS?)";
+  const ROTULO_NOMBRADO = new RegExp(`^${TRANSPORTISTA}\\s*:\\s*`, "i");
+  const ROTULO_FIRMA = new RegExp(`^SIGNATURE\\b[^:]*\\b${TRANSPORTISTA}\\s*:\\s*`, "i");
+  const ROTULO_SUCESIVO = new RegExp(
+    `^(?:SUCCESSIVE\\s+${TRANSPORTISTA}|${TRANSPORTISTA}\\s+SUCCESSIVE)\\s*:\\s*`,
+    "i",
+  );
+  const limpio = (t: string, rotulo: RegExp) =>
+    t
+      .replace(rotulo, "")
+      .replace(/\bAS\s+(?:SUCCESSIVE\s+)?CARRIER\b.*$/i, "")
+      .trim();
   const valorDe = (rotulo: RegExp) => {
     const t = tramos.find((x) => rotulo.test(x));
-    return t
-      ? t
-          .replace(rotulo, "")
-          .replace(/\bAS\s+(?:SUCCESSIVE\s+)?CARRIER\b.*$/i, "")
-          .trim()
-      : null;
+    return t ? limpio(t, rotulo) : null;
   };
-  const nombrado = valorDe(/^CARRIER\s*:\s*/i);
-  const firmante = valorDe(/^SIGNATURE\b[^:]*\bCARRIER\s*:\s*/i);
-  const sucesivos = valorDe(/^SUCCESSIVE\s+CARRIERS?\s*:\s*/i);
-  if (
-    nombrado &&
-    firmante &&
-    comparaISBP(nombrado, firmante) === "DISTINTO" &&
-    !(sucesivos && comparaISBP(sucesivos, firmante) !== "DISTINTO")
-  ) {
+  /*
+   * **La casilla del transportista puede traer dos sellos (Opinión R 838 / TA 819rev).** Se juntan los
+   * tramos rotulados y los que vienen **sin rótulo** inmediatamente después: «CARRIER: A; B» son dos
+   * nombres en la misma casilla, que es como se transcriben dos sellos.
+   */
+  const CON_ROTULO = /^[A-Z][A-Z ]*:/i;
+  const nombrados: string[] = [];
+  let enLaCasilla = false;
+  for (const t of tramos) {
+    if (ROTULO_NOMBRADO.test(t)) {
+      enLaCasilla = true;
+      const n = limpio(t, ROTULO_NOMBRADO);
+      if (n) nombrados.push(n);
+    } else if (enLaCasilla && !CON_ROTULO.test(t)) {
+      nombrados.push(t);
+    } else {
+      enLaCasilla = false;
+    }
+  }
+  const nombrado = nombrados[0] ?? null;
+  const firmante = valorDe(ROTULO_FIRMA);
+  const sucesivos = valorDe(ROTULO_SUCESIVO);
+  /* Una firma sin sello ni nombre: el papel dice que alguien firmó y no quién. */
+  const firmaSinNombre =
+    firmante !== null &&
+    /^(?:(?:HAND\s*WRITTEN|MANUAL|ILLEGIBLE)\s+)?(?:SIGNATURE|SIGNED)\b|\b(?:WITHOUT|NO)\s+(?:ANY\s+)?STAMP\b|^ILLEGIBLE\b/i.test(
+      firmante,
+    );
+  const es = (a: string, b: string) => comparaISBP(a, b) !== "DISTINTO";
+  const TITULO = "Con qué capacidad se firmó el documento de transporte";
+
+  if (nombrados.length >= 2 && firmante !== null) {
+    const quien = firmaSinNombre ? null : nombrados.find((n) => es(n, firmante));
+    return [
+      quien
+        ? regla(
+            "ucp-firma-transporte",
+            fuente,
+            TITULO,
+            "OK",
+            `la casilla del transportista trae ${nombrados.length} nombres y la de la firma lleva el sello de uno de ellos, "${quien}": eso lo identifica como el transportista (Opinión R 838 de la ICC)`,
+          )
+        : regla(
+            "ucp-firma-transporte",
+            fuente,
+            TITULO,
+            "DISCREPANCIA",
+            `la casilla del transportista trae ${nombrados.length} nombres y la de la firma dice "${firmante}", que no identifica a ninguno de ellos: el documento no indica quién es el transportista (Opinión R 838 de la ICC)`,
+          ),
+    ];
+  }
+
+  if (nombrado && firmante && !firmaSinNombre) {
+    if (es(nombrado, firmante)) {
+      return [
+        regla(
+          "ucp-firma-transporte",
+          fuente,
+          TITULO,
+          "OK",
+          `firma "${firmante}" en la casilla de la firma del transportista, y es el que la casilla del transportista nombra (Opinión R 838 de la ICC)`,
+        ),
+      ];
+    }
+    if (sucesivos && es(sucesivos, firmante)) {
+      return [
+        regla(
+          "ucp-firma-transporte",
+          fuente,
+          TITULO,
+          "OK",
+          `firma "${firmante}" en la casilla de la firma del transportista, y figura como transportista sucesivo (Opiniones R 466 y R 838 de la ICC)`,
+        ),
+      ];
+    }
     return [
       regla(
         "ucp-firma-transporte",
         fuente,
-        "Con qué capacidad se firmó el documento de transporte",
+        TITULO,
         "DISCREPANCIA",
         `el documento nombra como transportista a "${nombrado}" y en la casilla de la firma del transportista firma "${firmante}", que no figura como transportista sucesivo: con dos nombres no queda claro quién actúa como transportista (Opinión R 632 de la ICC; la R 466, que admite al sucesivo, no se aplica)`,
       ),

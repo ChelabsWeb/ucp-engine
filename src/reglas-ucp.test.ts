@@ -2517,6 +2517,88 @@ describe("dos transportistas en el mismo documento y ninguno sucesivo (R 632)", 
   });
 });
 
+/**
+ * Las tres casillas del CMR, cuatro maneras de llenarlas (Opinión R 838 / TA 819rev).
+ *
+ * *«Where field 16 embodies two stamps, without further explanation as to the role of the parties, data
+ * is inconclusive and does not identify the carrier. A sole signature in field 23 … does not remedy the
+ * failure to identify the carrier. Where field 23 includes a signature, as well as a stamp of one of the
+ * companies included in field 16, it could be construed that this company is acting as the carrier.»*
+ */
+describe("dos sellos en la casilla del transportista (R 838)", () => {
+  const cmr = (firma: string) =>
+    buscar(
+      [{ tipo: "BL", campos: doc({ tipoTransporte: campo("CMR"), firmaTransporte: campo(firma) }) }],
+      "ucp-firma-transporte",
+    );
+  const F23 = "BOX 23 SIGNATURE AND STAMP OF TRANSPORTER";
+
+  it("CMR 1: dos sellos en la 16 y una firma sin sello en la 23 — discrepancia", () => {
+    const r = cmr(`BOX 16 TRANSPORTER: COMPANY A; COMPANY B · ${F23}: HANDWRITTEN SIGNATURE WITHOUT STAMP`);
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("R 838");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\btransportista\b|\bcasilla\b|\bfirma\b/i);
+  });
+
+  it("CMR 2: dos sellos en la 16 y el sello de uno de ellos en la 23 — cumple", () => {
+    const r = cmr(`BOX 16 TRANSPORTER: COMPANY A; COMPANY B · ${F23}: COMPANY B`);
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toContain("COMPANY B");
+    expect(r?.evidencia).toContain("R 838");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\btransportista\b|\bcasilla\b|\bfirma\b/i);
+  });
+
+  it("y un tercero en la 23, que no es ninguno de los dos, no lo remedia", () => {
+    expect(cmr(`BOX 16 TRANSPORTER: COMPANY A; COMPANY B · ${F23}: COMPANY C`)?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("CMR 3: A en la 16, B en la 17 y firma B — cumple", () => {
+    const r = cmr(`BOX 16 TRANSPORTER: COMPANY A · BOX 17 TRANSPORTER SUCCESSIVE: COMPANY B · ${F23}: COMPANY B`);
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toContain("R 466");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\btransportista\b|\bcasilla\b|\bfirma\b/i);
+  });
+
+  it("CMR 4: A en la 16, B en la 17 y firma A — cumple", () => {
+    const r = cmr(`BOX 16 TRANSPORTER: COMPANY A · BOX 17 TRANSPORTER SUCCESSIVE: COMPANY B · ${F23}: COMPANY A`);
+    expect(r?.estado).toBe("OK");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\btransportista\b|\bcasilla\b|\bfirma\b/i);
+  });
+
+  it("un solo nombre en la 16 y una firma sin sello en la 23 no es la discrepancia de R 632", () => {
+    expect(cmr(`BOX 16 CARRIER: COMPANY S · BOX 23 SIGNATURE OF CARRIER: HANDWRITTEN SIGNATURE`)?.estado).not.toBe(
+      "DISCREPANCIA",
+    );
+    expect(cmr(`BOX 16 CARRIER: COMPANY S · BOX 23 SIGNATURE OF CARRIER: SIGNED`)?.estado).not.toBe("DISCREPANCIA");
+  });
+});
+
+/**
+ * «Duplicate» sobre un documento de carretera (Opinión R 851 / TA 781rev): *«while UCP 600 sub-article
+ * 24 (b) (ii) states "A rail transport document marked 'duplicate' will be accepted as an original." no
+ * such allowance is made for road transport documents»* — **«The discrepancy is valid.»**
+ */
+describe("un documento de carretera marcado «duplicate» (R 851)", () => {
+  const marca = (titulo: string, juego: string) =>
+    buscar([{ tipo: "BL", campos: doc({ tipoTransporte: campo(titulo), juegoOriginales: campo(juego) }) }], "ucp-24b");
+
+  it("es discrepancia, con la Opinión", () => {
+    const r = marca("TRUCK CONSIGNMENT NOTE", "DUPLICATE");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("R 851");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bdice\b|\bcarretera\b/i);
+  });
+
+  it("el ferroviario sigue valiendo como original", () => {
+    expect(marca("RAIL WAYBILL", "DUPLICATE")?.estado).toBe("OK");
+  });
+
+  it("y si la marca trae también el original, no se concluye", () => {
+    expect(marca("CMR", "1 ORIGINAL FOR SENDER AND 1 DUPLICATE")?.estado).toBe("ATENCION");
+    expect(marca("CMR", "ORIGINAL FOR SHIPPER")?.estado).toBe("OK");
+  });
+});
+
 describe("con qué capacidad se firmó el documento de transporte (inciso (a) (i))", () => {
   /*
    * No existía ninguna regla del inciso (a) (i) en ningún artículo del 19 al 25: se miraban puertos,
