@@ -1302,6 +1302,31 @@ describe("repetir la zona no es nombrar un puerto de carga (laudo DOCDEX 361)", 
     },
   );
 
+  /*
+   * **Una barra en el casillero del documento no es una zona: es «puerto/país» (Opinión R 453).**
+   *
+   * La rama de arriba usaba la misma prueba para el crédito y para el papel, y esa prueba toma
+   * cualquier barra entre dos palabras por una lista de alternativas. En un 44E tiene sentido
+   * —«HAMBURG/ROTTERDAM»—; en el casillero de un conocimiento la barra es casi siempre «IZMIR/TURKEY»,
+   * «QINGDAO/CHINA». Con el crédito y el papel de la Opinión R 453, que dicen los dos «Izmir/Turkey»,
+   * el motor daba **DISCREPANCIA** con el texto «eso es la zona que nombra el crédito y no un puerto»:
+   * rechazaba dos cadenas idénticas. El motor no sabe si Turquía es un país —no sabe geografía—, así
+   * que no afirma ninguna de las dos lecturas: si el crédito también es ambiguo, va a verificar
+   * diciéndolas; si el crédito nombra un puerto, compara como siempre.
+   */
+  it("«IZMIR/TURKEY» contra «IZMIR/TURKEY» no es discrepancia: va a verificar con las dos lecturas", () => {
+    const r = conCarga("IZMIR/TURKEY", "IZMIR/TURKEY");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).not.toContain("eso es la zona");
+    expect(r?.evidencia).toContain("barra");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bbarra\b|\bcrédito\b|\bpuerto\b/i);
+  });
+
+  it("y con el crédito nombrando un puerto, «QINGDAO/CHINA» en el papel cumple sin más", () => {
+    expect(conCarga("QINGDAO, CHINA", "QINGDAO/CHINA")?.estado).toBe("OK");
+    expect(conCarga("QINGDAO, CHINA", "SHANGHAI/CHINA")?.estado).toBe("DISCREPANCIA");
+  });
+
   it("y el puerto real dentro de la zona sigue saliendo a verificar, no a rechazar", () => {
     const r = conCarga("ANY NORTH EUROPEAN PORT", "ANTWERP, BELGIUM");
     expect(r?.estado, "el motor no sabe geografía y no conviene que la sepa").toBe("ATENCION");

@@ -1179,6 +1179,9 @@ function reglasQuienEmite(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[]
  * Marcar discrepancia sobre un embarque correcto —Rotterdam contra «EUROPEAN MAIN PORTS»— es peor
  * que pedir que alguien lo mire: la discrepancia falsa cuesta el fee, la demora y la confianza.
  */
+/** Una barra entre dos palabras, que en un 44E suele separar alternativas y en un papel, puerto y país. */
+const SOLO_UNA_BARRA = /[A-Z]{3,}\s*\/\s*[A-Z]{3,}/i;
+
 function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): { estado: EstadoRegla; nota: string } {
   /*
    * **Repetir la zona no es nombrar un puerto**, y eso el motor sí lo puede decidir.
@@ -1204,6 +1207,25 @@ function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): {
    * eso ya está medido en el caso del CPBL con rango de puertos de descarga. El laudo habla de *«ports of
    * loading»* y el cambio no se extiende más allá de lo que decide.
    */
+  /*
+   * **Una barra en el casillero del documento no es, por sí sola, una zona (Opinión R 453).**
+   *
+   * `esZonaDeLugares` toma cualquier barra entre dos palabras por una lista de alternativas. En el 44E
+   * de un crédito es lo razonable —«HAMBURG/ROTTERDAM»—; en el casillero de un conocimiento es casi
+   * siempre «IZMIR/TURKEY», y con el crédito y el papel de R 453 diciendo los dos eso mismo la rama de
+   * abajo daba DISCREPANCIA con «eso es la zona que nombra el crédito y no un puerto». Sin geografía no
+   * se puede saber cuál de las dos cosas es, así que no se afirma ninguna.
+   */
+  const sinBarra = enDoc.replace(/\s*\/\s*/g, ", ");
+  if (esLaCarga && SOLO_UNA_BARRA.test(enDoc) && !esZonaDeLugares(sinBarra)) {
+    if (!esZonaDeLugares(delCredito)) {
+      return coincideLugar(sinBarra, delCredito) ? { estado: "OK", nota: "" } : { estado: "DISCREPANCIA", nota: "" };
+    }
+    return {
+      estado: "ATENCION",
+      nota: " — el casillero trae una barra y el motor no sabe si separa dos puertos o un puerto y su país: si son dos puertos, el documento tiene que nombrar el puerto real de carga (laudo DOCDEX 361); si es puerto y país, cumple. Verificar en el papel",
+    };
+  }
   if (esLaCarga && esZonaDeLugares(enDoc)) {
     return {
       estado: "DISCREPANCIA",
