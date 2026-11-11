@@ -762,7 +762,8 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
           ? `la factura llama a la mercadería "${cambiaLaCategoria}" y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
           : niega
             ? `la factura dice "${niega}" sobre la mercadería que el crédito nombra, y el crédito no lo dice en ninguna parte: eso niega la naturaleza de la mercadería y el laudo DOCDEX 351 lo da por discrepancia, sin que importe si fue un error de tipeo · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
-            : `factura: "${merc.slice(0, 70)}" · crédito 45A: "${ctx.mercaderia.slice(0, 70)}"`,
+            : /* cuando lo que coincidió fue el 45A entero, se muestra el entero: la parte recortada no lo explica */
+              `factura: "${merc.slice(0, 70)}" · crédito 45A: "${(!coincideDescripcion(merc, ctx.mercaderia) && coincideConElCredito(merc, ctx) ? (ctx.mercaderiaCompleta ?? ctx.mercaderia) : ctx.mercaderia).slice(0, 90)}"`,
       ),
     );
   }
