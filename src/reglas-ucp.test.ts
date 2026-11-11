@@ -3001,6 +3001,135 @@ describe("la clase del documento presentado contra la que pide el crédito", () 
   });
 });
 
+/**
+ * La zona franca es parte del nombre del lugar (Opinión R 594).
+ *
+ * El crédito pedía transporte a «Alexandria Port (free zone)», el casillero del conocimiento decía
+ * «Alexandria» y la zona franca aparecía solo junto a la descripción de la mercadería —«CFR Alexandria
+ * Port Free Zone»—. *«A free zone is a specific part of the port where import duties and associated
+ * costs are maintained at a level lower than the main port area … The bill of lading is discrepant.»*
+ * El comparador de lugares daba OK: «ALEXANDRIA» está contenido en el nombre del crédito.
+ */
+describe("la zona franca que el crédito nombra y el documento no (R 594)", () => {
+  const destino = (enElCredito: string, enElDocumento: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, puertoDestino: enElCredito },
+      docs: [{ tipo: "BL", campos: doc({ puertoDestino: campo(enElDocumento) }) }],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-20a-iii-puertoDestino");
+
+  it("«ALEXANDRIA» contra «ALEXANDRIA PORT (FREE ZONE)» es discrepancia y nombra la Opinión", () => {
+    const r = destino("ALEXANDRIA PORT (FREE ZONE)", "ALEXANDRIA");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("R 594");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bzona\b|\bpuerto\b/i);
+  });
+
+  it.each(["ALEXANDRIA PORT (FREE ZONE)", "ALEXANDRIA FREE ZONE", "ALEXANDRIA FREE TRADE ZONE"])(
+    "y «%s» en el casillero cumple",
+    (enElDocumento) => {
+      expect(destino("ALEXANDRIA PORT (FREE ZONE)", enElDocumento)?.estado).toBe("OK");
+    },
+  );
+
+  it("sin zona franca en el crédito, nada cambia", () => {
+    expect(destino("ALEXANDRIA PORT", "ALEXANDRIA")?.estado).toBe("OK");
+    expect(destino("ALEXANDRIA", "ALEXANDRIA FREE ZONE")?.estado).toBe("OK");
+  });
+});
+
+/**
+ * «Intended vessel»: la anotación de a bordo tiene que traer la fecha **y** el buque (Opinión R 675).
+ *
+ * *«The bill of lading under both queries would be discrepant … the principle remains that the on board
+ * notation would require the name of the vessel and the date the goods are loaded on board.»* Las dos
+ * consultas tienen la anotación sin fecha, una con la leyenda de a bordo preimpresa refiriéndose al
+ * buque previsto y otra con la leyenda preimpresa simple: discrepante en las dos, así que acá la
+ * duda de «preimpresa o agregada» que deja en aviso a la regla general no existe.
+ *
+ * El motor miraba solo la fecha: sin fecha avisaba, y con fecha y **sin buque** daba OK.
+ */
+describe("«intended vessel»: la anotación con fecha y con buque (R 675)", () => {
+  const con = (buque: string, onBoard: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: CTX,
+      docs: [
+        {
+          tipo: "BL",
+          campos: doc({ buque: campo(buque), onBoard: campo(onBoard), puertoEmbarque: campo("MONTEVIDEO") }),
+        },
+      ],
+      hoy: HOY,
+    }).find((r) => r.id === "ucp-20a-ii");
+
+  it("la anotación nombra el buque real y no tiene fecha: discrepancia, nombrando la Opinión", () => {
+    const r = con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD MV AURORA");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("R 675");
+  });
+
+  it("la anotación tiene fecha y no nombra ningún buque: discrepancia", () => {
+    const r = con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD 20-MAY-2025");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("R 675");
+  });
+
+  it("con fecha y con buque, cumple — aunque sea el mismo que el previsto", () => {
+    expect(con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD MV AURORA 20-MAY-2025")?.estado).toBe("OK");
+    expect(con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD MV STELLA 20-MAY-2025")?.estado).toBe("OK");
+  });
+
+  it("sin «intended», la anotación sin fecha sigue saliendo a verificar y no a discrepancia", () => {
+    expect(con("MV STELLA", "SHIPPED ON BOARD")?.estado).toBe("ATENCION");
+    expect(con("MV STELLA", "SHIPPED ON BOARD 20-MAY-2025")?.estado).toBe("OK");
+  });
+
+  it("los dos textos nuevos se traducen", () => {
+    for (const r of [
+      con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD MV AURORA"),
+      con("INTENDED VESSEL STELLA", "SHIPPED ON BOARD 20-MAY-2025"),
+    ])
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bbuque\b|\banotación\b|\bfecha\b/i);
+  });
+});
+
+/**
+ * El 45A que nombra el producto **después** del término de entrega (Opinión R 698).
+ *
+ * La descripción que el examen compara se corta en el incoterm, pensando en «57 MTS OF FISH MEAL … CFR
+ * COLOMBO». El crédito de esa Opinión lo escribe al revés —«Origin Russia, FOBT Vostochniy, Russia, Abt
+ * 60.000 MTS Bituminous Coal»— y entonces lo que quedaba para comparar era «ORIGIN RUSSIA»: un
+ * conocimiento que dice «BITUMINOUS COAL», que es el producto, salía a verificar.
+ */
+describe("el 45A con el producto después del término de entrega (R 698)", () => {
+  const CREDITO = {
+    mercaderia: "ORIGIN RUSSIA",
+    mercaderiaCompleta: "ORIGIN RUSSIA FOBT VOSTOCHNIY, RUSSIA ABT 60.000 MTS BITUMINOUS COAL",
+  };
+  const con = (tipo: "FACTURA" | "BL", mercaderia: string) =>
+    reglasUCP({
+      lc: LC,
+      credito: { ...CTX, ...CREDITO },
+      docs: [{ tipo, campos: doc({ mercaderia: campo(mercaderia) }) }],
+      hoy: HOY,
+    }).find((r) => r.id === (tipo === "FACTURA" ? "ucp-18c" : "ucp-14e-BL"));
+
+  it("el conocimiento que nombra el producto cumple", () => {
+    expect(con("BL", "BITUMINOUS COAL")?.estado).toBe("OK");
+  });
+
+  it("y la factura que lo describe como el crédito, también", () => {
+    expect(con("FACTURA", "RUSSIAN BITUMINOUS COAL FOBT VOSTOCHNIY, RUSSIA")?.estado).toBe("OK");
+  });
+
+  it("otra mercadería sigue saliendo a verificar", () => {
+    expect(con("BL", "ANTHRACITE FINES")?.estado).toBe("ATENCION");
+    expect(con("FACTURA", "CRUDE PALM OIL")?.estado).toBe("ATENCION");
+  });
+});
+
 describe("lo que el crédito admite en el 47A", () => {
   const con = (condiciones: string[], bl: Parameters<typeof doc>[0] = {}, seguro?: Parameters<typeof doc>[0]) =>
     reglasUCP({

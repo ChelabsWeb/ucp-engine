@@ -757,7 +757,7 @@ function reglasFactura(lc: LcInfo, ctx: ContextoCredito, fac: DocAnalizado): Reg
         "ucp-18c",
         "UCP 600 18c",
         "La descripción de la mercadería en la factura se corresponde con la del crédito",
-        cambiaLaCategoria || niega ? "DISCREPANCIA" : coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
+        cambiaLaCategoria || niega ? "DISCREPANCIA" : coincideConElCredito(merc, ctx) ? "OK" : "ATENCION",
         cambiaLaCategoria
           ? `la factura llama a la mercadería "${cambiaLaCategoria}" y el crédito no lo dice en ninguna parte: eso indica otra categoría de mercadería y la Opinión TA 756 lo da por discrepancia · factura: "${merc.slice(0, 60)}" · crédito 45A: "${ctx.mercaderia.slice(0, 60)}"`
           : niega
@@ -1232,6 +1232,26 @@ function veredictoLugar(enDoc: string, delCredito: string, esLaCarga = false): {
     return {
       estado: "DISCREPANCIA",
       nota: " — eso es la zona que nombra el crédito y no un puerto: el documento tiene que indicar el puerto real de carga, que es lo que exige el inciso (a) (iii) y lo que el laudo DOCDEX 361 declara discrepancia válida (ISBP 745 G5 (g))",
+    };
+  }
+  /*
+   * **La zona franca es parte del nombre del lugar (Opinión R 594).** Crédito a «Alexandria Port (free
+   * zone)», casillero «Alexandria», y la zona franca solo junto a la descripción de la mercadería:
+   * *«A free zone is a specific part of the port … The fact that the bill of lading, in describing the
+   * goods that had been shipped, quoted the term "CFR Alexandria Free Zone" does not infer that the
+   * shipment was effected to the Free Zone area. The bill of lading is discrepant.»* El comparador daba
+   * OK porque un nombre está contenido en el otro. Va en una sola dirección: si el crédito no la nombra,
+   * que el papel la agregue no cambia nada.
+   */
+  const ZONA_FRANCA = /\bfree\s*(?:trade\s*)?zone\b|\bzona\s+franca\b|\bftz\b/i;
+  if (
+    ZONA_FRANCA.test(delCredito) &&
+    !ZONA_FRANCA.test(enDoc) &&
+    coincideLugar(enDoc, delCredito.replace(ZONA_FRANCA, " "))
+  ) {
+    return {
+      estado: "DISCREPANCIA",
+      nota: " — el crédito nombra la zona franca y el casillero no: una zona franca es una parte determinada del puerto, y que el documento la mencione en otro lado no dice que el embarque haya ido ahí (Opinión R 594 de la ICC)",
     };
   }
   if (coincideLugar(enDoc, delCredito)) return { estado: "OK", nota: "" };
@@ -2122,24 +2142,53 @@ function reglasTransporte(
   const intended = /intended|previsto|\bany\s+additional\s+vessel\b|\badditional\s+vessel\b/i.test(
     `${buque ?? ""} ${onBoard ?? ""}`,
   );
+  /*
+   * **Con «intended vessel» la anotación tiene que traer la fecha Y el buque (Opinión R 675).**
+   *
+   * *«The bill of lading under both queries would be discrepant … the principle remains that the on
+   * board notation would require the name of the vessel and the date the goods are loaded on board.»*
+   * Las dos consultas tienen la anotación sin fecha —una con la leyenda preimpresa refiriéndose al buque
+   * previsto, otra con la leyenda simple— y la respuesta es la misma, así que acá no existe la duda de
+   * «preimpresa o agregada» que deja en aviso a la rama general. Se miraba solo la fecha: sin fecha
+   * avisaba, y con fecha y sin buque daba OK.
+   */
+  const anotacionConIntended = (() => {
+    if (!onBoard || !intended) return null;
+    const conFecha = fechaEnTexto(onBoard) !== null;
+    const { nombraAlBuque, sobra } = buqueDeLaAnotacion(
+      onBoard,
+      (buque ?? "").replace(/\b(?:intended|previsto|vessel|buque)\b|\bm\s*\/?\s*v\b\.?/gi, " ").trim(),
+      val(bl, "puertoEmbarque"),
+    );
+    const conBuque = nombraAlBuque || sobra.length > 0;
+    return { conFecha, conBuque };
+  })();
   out.push(
-    onBoard
+    onBoard && anotacionConIntended && !(anotacionConIntended.conFecha && anotacionConIntended.conBuque)
       ? regla(
           "ucp-20a-ii",
           "UCP 600 20a-ii",
-          "Anotación de a bordo con fecha de embarque",
-          fechaEnTexto(onBoard) ? "OK" : "ATENCION",
-          fechaEnTexto(onBoard) ? `dice "${onBoard}"` : `dice "${onBoard}" — no se le leyó una fecha`,
+          "Con «intended vessel» hace falta anotación de a bordo con fecha y buque real",
+          "DISCREPANCIA",
+          `el documento califica el buque como previsto y la anotación dice "${onBoard}", ${anotacionConIntended.conFecha ? "que no nombra ningún buque" : anotacionConIntended.conBuque ? "que no tiene fecha" : "que no tiene fecha ni nombra ningún buque"}: con «intended vessel» la anotación de a bordo tiene que traer las dos cosas, aunque el documento tenga además la leyenda de a bordo preimpresa (Opinión R 675 de la ICC)`,
         )
-      : intended
+      : onBoard
         ? regla(
             "ucp-20a-ii",
             "UCP 600 20a-ii",
-            "Con «intended vessel» hace falta anotación de a bordo con fecha y buque real",
-            "DISCREPANCIA",
-            `el documento califica el buque como previsto y no se leyó la anotación de a bordo`,
+            "Anotación de a bordo con fecha de embarque",
+            fechaEnTexto(onBoard) ? "OK" : "ATENCION",
+            fechaEnTexto(onBoard) ? `dice "${onBoard}"` : `dice "${onBoard}" — no se le leyó una fecha`,
           )
-        : sinLeer("ucp-20a-ii", "UCP 600 20a-ii", "Anotación de a bordo con fecha", "la anotación de a bordo"),
+        : intended
+          ? regla(
+              "ucp-20a-ii",
+              "UCP 600 20a-ii",
+              "Con «intended vessel» hace falta anotación de a bordo con fecha y buque real",
+              "DISCREPANCIA",
+              `el documento califica el buque como previsto y no se leyó la anotación de a bordo`,
+            )
+          : sinLeer("ucp-20a-ii", "UCP 600 20a-ii", "Anotación de a bordo con fecha", "la anotación de a bordo"),
   );
 
   /*
@@ -2887,6 +2936,22 @@ function esLaMismaUnidad(a: string | null | undefined, b: string | null | undefi
   return forma(a) === forma(b);
 }
 
+/**
+ * La descripción de un documento contra la del crédito, mirando el 45A entero si la parte recortada no
+ * alcanza.
+ *
+ * `ctx.mercaderia` es el 45A **hasta el término de entrega**, pensando en «57 MTS OF FISH MEAL … CFR
+ * COLOMBO». El crédito de la Opinión R 698 lo escribe al revés —«Origin Russia, FOBT Vostochniy, Russia,
+ * Abt 60.000 MTS Bituminous Coal»— y lo que quedaba para comparar era «ORIGIN RUSSIA»: un conocimiento
+ * que dice «BITUMINOUS COAL», que es exactamente el producto, salía a verificar. Solo ablanda: se prueba
+ * el 45A entero cuando la parte recortada no coincidió.
+ */
+function coincideConElCredito(enDocumento: string, ctx: ContextoCredito): boolean {
+  if (ctx.mercaderia && coincideDescripcion(enDocumento, ctx.mercaderia)) return true;
+  const entero = ctx.mercaderiaCompleta;
+  return Boolean(entero && entero !== ctx.mercaderia && coincideDescripcion(enDocumento, entero));
+}
+
 function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[], hoy: Date): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
 
@@ -2918,7 +2983,7 @@ function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[],
             `ucp-14e-${d.tipo}`,
             "UCP 600 14e",
             `${nombre}: la descripción de la mercadería no contradice al crédito`,
-            coincideDescripcion(merc, ctx.mercaderia) ? "OK" : "ATENCION",
+            coincideConElCredito(merc, ctx) ? "OK" : "ATENCION",
             `dice "${merc.slice(0, 70)}"`,
           ),
         );
