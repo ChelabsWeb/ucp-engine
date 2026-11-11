@@ -151,6 +151,9 @@ const BATERIA: [linea: string, clave: string][] = [
 
   /* ── peso, inspección, fumigación, análisis ── */
   ["WEIGHT NOTE IN 03 FOLD", "PESO"],
+  /* El certificado de cantidad de una carga líquida: Opinión R 445. */
+  ["ULLAGE REPORT", "PESO"],
+  ["ULLAGE REPORT ISSUED BY AN INDEPENDENT SURVEYOR AT LOADING PORT", "PESO"],
   ["CERTIFICATE OF WEIGHT AND QUALITY ISSUED BY AN INDEPENDENT SURVEYOR", "PESO"],
   ["WEIGHT CERTIFICATE SHOWING THE SAME WEIGHT AS THE BILL OF LADING", "PESO"],
   ["INSPECTION CERTIFICATE ISSUED BY SGS PRIOR TO SHIPMENT", "INSPECCION"],

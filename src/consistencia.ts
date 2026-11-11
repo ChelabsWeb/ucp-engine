@@ -1970,7 +1970,15 @@ function clavePorTexto(s: string): string {
   if (/health|sanitary|sanitario|veterinar/.test(s)) return "SANITARIO";
   if (/halal/.test(s)) return "HALAL";
   if (/insurance|seguro/.test(s)) return "SEGURO";
-  if (/weight|peso/.test(s)) return "PESO";
+  /*
+   * Y el **ullage report**, que es el certificado de cantidad de una carga líquida: lo que se midió en
+   * los tanques del buque. Caía en `TXT:` y entonces no lo miraba ninguna regla; la Opinión R 445 es
+   * ese papel —la cifra del ullage report era menor que la de los demás documentos— y el panel le da
+   * la razón al emisor: *«the issuing bank would be entitled to reject documents if there was an
+   * indication of the weights being different»*. Va con la nota de peso porque se examina igual: su
+   * cifra contra la de los otros papeles, por el 14 (d).
+   */
+  if (/weight|peso|\bullage\b/.test(s)) return "PESO";
   /*
    * El certificado de recepción del transitario (FCR), que **no** es un documento de transporte.
    *
