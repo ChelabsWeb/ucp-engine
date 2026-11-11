@@ -412,7 +412,27 @@ export function toleranciaDeImporte(lc: LcInfo | null | undefined): number {
  * nada. Decía «si el crédito da más, vale más», que era la mitad de la regla.
  */
 export function toleranciaDeCantidad(lc: LcInfo | null | undefined, enBultos = false): number {
-  if (enBultos) return 0;
+  /*
+   * **En bultos no corre el 5 % del inciso; lo que el crédito escribió sobre la cantidad, sí.**
+   *
+   * La exclusión del 30 (b) —«provided the credit does not state the quantity in terms of a stipulated
+   * number of packing units or individual items»— es del **5 % por omisión**. Si el crédito dice «10
+   * PCT MORE OR LESS IN **QUANTITY** AND AMOUNT ACCEPTABLE», eso es un término del crédito y rige por
+   * el artículo 1, se cuente en toneladas o en cartones. Devolvía cero siempre, así que un crédito de
+   * 800 cartones con esa condición rechazaba 864.
+   *
+   * Se pide que la condición **nombre la cantidad**. Un 39A solo no alcanza: es la tolerancia del
+   * importe, y extenderla a un número de bultos sería inventar un permiso.
+   */
+  if (enBultos) {
+    const laNombra = (lc?.condicionesAdicionales ?? []).some(
+      (c) =>
+        /toleran|more\s+or\s+less|plus\s+or\s+minus|\+\s*\/\s*-|±/i.test(c) &&
+        /\b(?:quantity|qty|cantidad)\b/i.test(c) &&
+        !/\b(?:not|no)\s+(?:allowed|acceptable|permitted)\b/i.test(c),
+    );
+    return laNombra && lc?.tolerancia != null && lc.toleranciaAplicaA !== "IMPORTE" ? lc.tolerancia : 0;
+  }
   // una declarada «solo en valor» no mueve la de cantidad: ahí vuelve a regir el 5 % del 30 (b)
   if (lc?.toleranciaAplicaA === "IMPORTE") return TOLERANCIA_DEFAULT;
   /*

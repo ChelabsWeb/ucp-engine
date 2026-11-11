@@ -2893,6 +2893,38 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
  * Los cuatro se miran frase por frase y sin negación, con la misma función: «COVER NOTE NOT
  * ACCEPTABLE» no es un permiso.
  */
+/**
+ * La tolerancia que el crédito escribe sobre la cantidad vale también cuando la cantidad va en bultos.
+ *
+ * La exclusión del 30 (b) para bultos y unidades es del 5 % **por omisión**. Lo que el crédito dice
+ * expresamente —«10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE»— es un término del crédito.
+ */
+describe("la tolerancia expresa de la cantidad sobre bultos (arts. 1 y 30 b)", () => {
+  const con = (condiciones: string[], tolerancia: number | null, cantidad: string) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia, toleranciaAplicaA: "AMBAS", condicionesAdicionales: condiciones },
+      credito: { ...CTX, mercaderia: "800 CARTONS OF HAND TOOLS", mercaderiaCompleta: "800 CARTONS OF HAND TOOLS" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo("CARTONS") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("con la condición que nombra la cantidad, 864 cartones contra 800 ±10 % cumple", () => {
+    expect(con(["10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE"], 0.1, "864")?.estado).toBe("OK");
+  });
+
+  it("y fuera de esa tolerancia sigue siendo discrepancia", () => {
+    expect(con(["10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE"], 0.1, "900")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("un 39A solo no se extiende a los bultos: es tolerancia del importe", () => {
+    expect(con([], 0.1, "864")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("ni una condición que habla solo del importe", () => {
+    expect(con(["10 PCT MORE OR LESS IN AMOUNT ACCEPTABLE"], 0.1, "864")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
 describe("lo que el crédito admite en el 47A", () => {
   const con = (condiciones: string[], bl: Parameters<typeof doc>[0] = {}, seguro?: Parameters<typeof doc>[0]) =>
     reglasUCP({
