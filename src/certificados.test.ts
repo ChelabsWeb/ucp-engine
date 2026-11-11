@@ -268,6 +268,51 @@ describe("quién puede emitir cada certificado", () => {
     });
   });
 
+  /*
+   * **«Inspection report BY Lloyd's agent» nombra al emisor igual que «issued by» (Opinión R 450).**
+   *
+   * El crédito de esa Opinión pedía un «Inspection report by Lloyd's agent in Country T», lo emitieron
+   * unos peritos que actuaban **para** el agente de Lloyd's, y el panel: *«the report was issued by
+   * surveyors acting for Lloyd's agent and would not be acceptable under the terms of the credit»*. La
+   * captura conocía «issued by» y «signed by», así que sobre esa línea el certificado salía **sin regla
+   * de emisor** — medido: hasta emitido por el propio beneficiario pasaba limpio.
+   *
+   * Entra solo detrás del nombre del documento —«certificate by», «report by», «survey by»—, que es
+   * donde «by» no puede ser otra cosa: «SENT BY COURIER» y «SIGNED BY» siguen como estaban. Medido
+   * contra los 46A del banco de pruebas: ninguna línea de ningún crédito cambia.
+   */
+  describe("«report by X» nombra al emisor (R 450)", () => {
+    const R450 = "INSPECTION REPORT BY LLOYD S AGENT IN COUNTRY T, WHO WILL INSPECT THE MATERIAL AT THE LOADING PORT";
+    const emitidoPor = (emisor: string, exigencia = R450) =>
+      correr([{ exigencia, campos: doc({ emisor: campo(emisor) }) }]).find((x) => x.id.startsWith("cert-emisor-"));
+
+    it("la captura lo lee, y se corta donde termina el nombre", () => {
+      expect(emisorQueNombra(R450)).toBe("LLOYD S AGENT IN COUNTRY T");
+      expect(emisorQueNombra("SURVEY REPORT BY SGS")).toBe("SGS");
+      expect(emisorQueNombra("CERTIFICATE OF ANALYSIS BY AN INDEPENDENT LABORATORY")).toBeDefined();
+    });
+
+    it("emitido por otro va a verificar: «agent» es una función y no un nombre", () => {
+      expect(emitidoPor("COMPANY B")?.estado).toBe("ATENCION");
+    });
+
+    it("emitido por el agente de Lloyd's, cumple", () => {
+      expect(emitidoPor("COMPANY A, LLOYD S AGENT IN COUNTRY T")?.estado).toBe("OK");
+    });
+
+    it("y emitido por el beneficiario es discrepancia, que antes pasaba sin regla", () => {
+      expect(emitidoPor("CEREALSUR S.A")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it.each([
+      "BENEFICIARY CERTIFICATE THAT DOCUMENTS WERE SENT BY COURIER TO THE APPLICANT",
+      "CERTIFICATE OF ORIGIN",
+      "PACKING LIST IN 3 COPIES",
+    ])("«%s» no nombra a nadie", (exigencia) => {
+      expect(emisorQueNombra(exigencia)).toBeUndefined();
+    });
+  });
+
   /* Y el freno: un nombre propio sigue rechazando, que es la mitad que el corte sostiene. */
   it("pero un nombre propio distinto sigue siendo discrepancia", () => {
     const r = correr([
