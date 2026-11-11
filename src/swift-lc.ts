@@ -565,9 +565,29 @@ export function parseMT700(textoSwift: string): LcSwift | null {
    * Lo que decide qué significa esa redacción es `plazoHastaElVencimiento` en `lc.ts`; lo único que
    * hace el parser es **no perder el dato**, que es su trabajo.
    */
-  const texto48 = texto(cs, "48").trim();
-  const dias = /(\d{1,3})/.exec(texto48)?.[1] ?? null;
-  const plazoPresentacion = dias ? `${dias} días desde la fecha de embarque (campo 48)` : texto48;
+  const texto48Crudo = texto(cs, "48").trim();
+  /*
+   * **El plazo de presentación escrito en el 47A, cuando el campo 48 no vino.**
+   *
+   * «DOCUMENTS MUST BE PRESENTED WITHIN 10 DAYS AFTER THE DATE OF SHIPMENT» es una condición adicional
+   * corriente en créditos que no usan el 48. Sin leerla, el examen caía en los 21 días del 14 (c) y una
+   * presentación a los quince días contra un crédito que dio diez pasaba sin marcar, que es la
+   * discrepancia más corriente del negocio. El 48 manda cuando está; esto solo llena su ausencia.
+   */
+  const plazoEnEl47A = texto48Crudo
+    ? null
+    : (condiciones
+        .map((c) =>
+          /\bpresent\w*\b[^.;]{0,60}?\bwithin\s+(\d{1,3})\s*(?:calendar\s+)?days\s+(?:after|from|of)\b[^.;]{0,40}?\b(?:shipment|b\/?l|bills? of lading|transport document|on board)\b[^.;]*/i.exec(
+            c,
+          ),
+        )
+        .find((m) => m) ?? null);
+  const texto48 = texto48Crudo || (plazoEnEl47A?.[0] ?? "").trim();
+  const dias = plazoEnEl47A ? plazoEnEl47A[1]! : (/(\d{1,3})/.exec(texto48)?.[1] ?? null);
+  const plazoPresentacion = dias
+    ? `${dias} días desde la fecha de embarque (${plazoEnEl47A ? "condición del 47A" : "campo 48"})`
+    : texto48;
 
   const docs = listaSwift(campo(cs, "46A"));
   const bienes = (campo(cs, "45A") ?? []).join(" ").replace(/\s+/g, " ").trim();

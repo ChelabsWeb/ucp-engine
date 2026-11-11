@@ -98,6 +98,34 @@ function sujetoAFletamento(valor: string): boolean {
   return !/\bno\b|\bnot\b|\bsin\b|\bnon\b/i.test(valor);
 }
 
+/**
+ * La clase que **nombra** un texto: el título de un documento, o la línea del 46A que lo pide.
+ *
+ * Devuelve `null` cuando no nombra ninguna —«TRANSPORT DOCUMENT EVIDENCING DISPATCH»— o cuando ofrece
+ * más de una —«BILL OF LADING OR AIR WAYBILL»—, que es un crédito que admite las dos.
+ */
+export function modoQueNombra(textoLibre: string): ModoTransporte | null {
+  const t = textoLibre.toUpperCase();
+  const clases: ModoTransporte[] = [];
+  if (/MULTIMODAL|COMBINED TRANSPORT|INTERMODAL|THROUGH BILL/.test(t)) clases.push("MULTIMODAL");
+  if (/AIR ?WAY ?BILL|\bAWB\b|AIR CONSIGNMENT|AIR TRANSPORT/.test(t)) clases.push("AEREO");
+  if (/SEA ?WAY ?BILL|NON.?NEGOTIABLE SEA/.test(t)) clases.push("SEA_WAYBILL");
+  if (
+    /\bCMR\b|CONSIGNMENT NOTE|CARTA DE PORTE|\bRAIL|TRUCK|\bROAD ?WAY|INLAND WATERWAY/.test(
+      t.replace(/AIR CONSIGNMENT NOTE/g, ""),
+    )
+  )
+    clases.push("TERRESTRE");
+  if (/COURIER|POST RECEIPT|CERTIFICATE OF POSTING|EXPRESS RECEIPT/.test(t)) clases.push("COURIER");
+  if (/CHARTER[\s-]*PART/.test(t)) clases.push("FLETAMENTO");
+  const sinLasOtras = t.replace(
+    /MULTIMODAL[^,;]*BILLS? OF LADING|COMBINED TRANSPORT[^,;]*BILLS? OF LADING|CHARTER[\s-]*PARTY BILLS?(?:\(S\))? OF LADING/g,
+    "",
+  );
+  if (/BILLS?(?:\(S\))? OF LADING|\bB\/LS?\b|CONOCIMIENTO/.test(sinLasOtras)) clases.push("MARITIMO");
+  return clases.length === 1 ? clases[0]! : null;
+}
+
 export function modoDelDocumento(campos: CamposDoc): ClaseDeTransporte {
   const charter = texto(campos, "charterParty");
   if (sujetoAFletamento(charter)) {

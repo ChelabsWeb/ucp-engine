@@ -330,6 +330,34 @@ describe("parseMT700 — la LC real del caso CSU2025099, sin IA", () => {
     expect(parseMT700(sw)!.lc.tolerancia).toBeNull();
   });
 
+  /*
+   * El plazo de presentación escrito en el 47A, con el campo 48 vacío. Sin él el examen usa los 21 días
+   * del 14 (c), y una presentación a los 15 días contra un crédito que dio 10 pasaba sin marcar.
+   */
+  it.each([
+    ["DOCUMENTS MUST BE PRESENTED WITHIN 10 DAYS AFTER THE DATE OF SHIPMENT", "10"],
+    ["DOCUMENTS TO BE PRESENTED WITHIN 15 DAYS AFTER SHIPMENT DATE BUT WITHIN THE VALIDITY OF THE CREDIT", "15"],
+    ["PRESENTATION OF DOCUMENTS WITHIN 7 DAYS FROM B/L DATE", "7"],
+  ])("sin 48: «%s» da el plazo", (condicion, dias) => {
+    const sw = MT710_CSU2025099.replace(/ *48: Period for Presentation in Days\n *21\n/, "").replace(
+      / *\+7\)A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND\n *VALUE ALLOWED\.\n/,
+      `          +7)${condicion}\n`,
+    );
+    const r = parseMT700(sw)!;
+    expect(r.lc.plazoPresentacion).toMatch(new RegExp(`^${dias} días`));
+    expect(r.lc.plazoPresentacion).toContain("47A");
+  });
+
+  it("con el 48 escrito manda el 48, y una condición que no habla del plazo no lo inventa", () => {
+    const con48 = MT710_CSU2025099.replace(
+      / *\+7\)A TOLERANCE OF 10 PCT MORE OR LESS IN QUANTITY AND\n *VALUE ALLOWED\.\n/,
+      "          +7)DOCUMENTS MUST BE PRESENTED WITHIN 10 DAYS AFTER THE DATE OF SHIPMENT\n",
+    );
+    expect(parseMT700(con48)!.lc.plazoPresentacion).toMatch(/^21 días/);
+    const sin = MT710_CSU2025099.replace(/ *48: Period for Presentation in Days\n *21\n/, "");
+    expect(parseMT700(sin)!.lc.plazoPresentacion).not.toMatch(/días/);
+  });
+
   it("texto que no es SWIFT → null (la IA se encarga)", () => {
     expect(parseMT700("Carta de crédito irrevocable a favor de Cerealsur por USD 54.150")).toBeNull();
   });

@@ -46,6 +46,7 @@ import {
   leerFirma,
   type ModoTransporte,
   modoDelDocumento,
+  modoQueNombra,
   NOMBRE_CAPACIDAD,
   NOMBRE_MODO,
 } from "./transporte";
@@ -3341,15 +3342,47 @@ export function reglasUCP(input: {
   if (bl) {
     const exigidos = input.lc.documentosExigidos ?? [];
     const clase = modoDelDocumento(bl.campos);
+    /*
+     * **Y si esa clase es la que el crédito pidió**, que no lo preguntaba nadie.
+     *
+     * Se determinaba la clase del papel, se lo examinaba con su artículo y la regla salía en OK. Contra
+     * un 46A de «full set of clean on board ocean bills of lading», un air waybill pasaba así: el examen
+     * era correcto y era de otro documento. Lo encontró una batería de condiciones del 47A, no una
+     * Opinión.
+     *
+     * Sale a verificar y no a discrepancia. La clase se **deduce** —del título, de la forma del número,
+     * de los lugares— y puede estar mal; y la ICC decide por el contenido y no por el título (R 638:
+     * «it is the content of the document that determines the applicable article of UCP 600 and not the
+     * title»). No opina cuando la línea no nombra una clase o nombra más de una, cuando el 47A admite
+     * la presentada, ni entre el marítimo y el fletamento, que decide el 20 (a) (vi).
+     */
+    const lineaDelTransporte = exigidos.find((d) => claveDoc(d) === "BL");
+    const pedida = lineaDelTransporte ? modoQueNombra(lineaDelTransporte) : null;
+    const PERMISO: Partial<Record<ModoTransporte, RegExp>> = {
+      MULTIMODAL: /multimodal|combined transport|intermodal/i,
+      AEREO: /air ?way ?bills?|\bawbs?\b|air transport/i,
+      SEA_WAYBILL: /sea ?way ?bills?/i,
+      TERRESTRE: /\bcmr\b|road ?way ?bills?|rail ?way ?bills?|truck/i,
+      COURIER: /courier|post receipt/i,
+    };
+    const noEsLaPedida =
+      pedida !== null &&
+      clase.modo !== "SIN_DETERMINAR" &&
+      clase.modo !== pedida &&
+      !(pedida === "MARITIMO" && clase.modo === "FLETAMENTO") &&
+      !(pedida === "FLETAMENTO" && clase.modo === "MARITIMO") &&
+      !(PERMISO[clase.modo] && fraseQueAdmite(input.lc.condicionesAdicionales, PERMISO[clase.modo]!));
     out.push(
       regla(
         "ucp-transporte-clase",
         articuloDelModo(clase.modo),
         "Clase del documento de transporte",
-        clase.modo === "SIN_DETERMINAR" ? "ATENCION" : "OK",
+        clase.modo === "SIN_DETERMINAR" || noEsLaPedida ? "ATENCION" : "OK",
         clase.modo === "SIN_DETERMINAR"
           ? `${clase.porQue}. Se examinó con el artículo 20, el del conocimiento marítimo: si el documento es aéreo, terrestre o multimodal, este examen no corresponde.`
-          : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
+          : noEsLaPedida
+            ? `${NOMBRE_MODO[clase.modo]}: ${clase.porQue} — y el crédito pide otra clase de documento: "${(lineaDelTransporte ?? "").slice(0, 90)}". Se examinó con el artículo que le corresponde al documento presentado, que no es el que el crédito nombra: verificar si el crédito admite esa clase`
+            : `${NOMBRE_MODO[clase.modo]}: ${clase.porQue}`,
       ),
     );
     /*

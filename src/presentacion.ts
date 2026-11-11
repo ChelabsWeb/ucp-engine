@@ -978,7 +978,6 @@ export function precheckPresentacion(input: {
     });
 
   /* ---- 47A / UCP: reglas formales sobre lo analizado ---- */
-  const cond = (lc.condicionesAdicionales ?? []).join(" ").toUpperCase();
   /*
    * Que el documento cite el número del crédito: quién lo pide cambia el veredicto y la fuente.
    *
@@ -1008,8 +1007,20 @@ export function precheckPresentacion(input: {
    * exigírselo a los demás es lo que ese panel declaró sin fundamento.
    */
   const dondeDebeCitarse = documentosQueDebenCitarElNumeroLC(lc);
-  const exigeFechaDesdeLC =
-    /ON OR AFTER THE (LETTER OF CREDIT|L\/?C) DATE|DATED (PRIOR|BEFORE).{0,30}(LETTER OF CREDIT|L\/?C)/.test(cond);
+  /*
+   * **La prohibición, no el permiso.** Buscaba «DATED PRIOR … L/C» en todo el 47A, y esas palabras
+   * están igual en «…ARE NOT ACCEPTABLE» y en «…ARE ACCEPTABLE»: con el permiso escrito, un documento
+   * anterior al crédito salía en discrepancia. Se mira frase por frase, y la que habla de documentos
+   * anteriores solo exige cuando los rechaza.
+   */
+  const exigeFechaDesdeLC = (lc.condicionesAdicionales ?? [])
+    .flatMap((c) => c.toUpperCase().split(/[.;]\s+|[.;]$/))
+    .some(
+      (f) =>
+        /ON OR AFTER THE (LETTER OF CREDIT|L\/?C|CREDIT)( ISSU\w+)? DATE/.test(f) ||
+        (/\b(DATED|ISSUED)\b.{0,12}\b(PRIOR|BEFORE)\b.{0,40}\b(LETTER OF CREDIT|L\/?C|CREDIT)\b/.test(f) &&
+          /\bNOT\b|\bNO\b|UNACCEPTABLE|PROHIBIT|\bREJECT/.test(f)),
+    );
   for (const d of docs) {
     const nombre = d.nombreArchivo ?? d.tipo;
     /*
@@ -1315,9 +1326,21 @@ export function precheckPresentacion(input: {
      * seis nombran a un tercero o dicen «BUYERS», y siguen afuera a propósito: el comprador no es
      * siempre el ordenante, y no hay autoridad para suponerlo.
      */
+    /*
+     * **Y la exigencia escrita en el 47A**, no solo en la línea del conocimiento: «BILL OF LADING MUST
+     * SHOW NOTIFY PARTY: APPLICANT». Se toma la frase que nombra al documento de transporte, para que
+     * «BENEFICIARY MUST NOTIFY APPLICANT OF SHIPMENT DETAILS BY FAX» —que le habla al beneficiario y no
+     * al papel— no la active.
+     */
+    const notifyEnEl47A = (lc.condicionesAdicionales ?? [])
+      .flatMap((c) => c.split(/[.;]\s+|[.;]$/))
+      .filter((f) =>
+        /\b(?:bills?\s+of\s+lading|b\/?ls?|transport\s+documents?|air\s*way\s*bills?|awbs?|way\s*bills?)\b/i.test(f),
+      )
+      .join(" ");
     if (
       /NOTIFY(?:ING)?(?:\s+PARTY)?\s*:?\s*(?:THE\s+)?(?:ABOVE[\s-]*NAMED\s+)?(?:APPLICANTS?|ACCOUNTEE|OPENER)\b/i.test(
-        reglaBL,
+        `${reglaBL} ${notifyEnEl47A}`,
       )
     ) {
       const nt = val(bl, "notify") ?? val(bl, "importador");

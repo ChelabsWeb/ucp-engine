@@ -1222,6 +1222,78 @@ describe("el nombre del notify contra el del ordenante", () => {
     });
   });
 
+  /**
+   * El notify que el crédito pide en el 47A y no en la línea del conocimiento
+   *
+   * `bl-notify` buscaba la exigencia solo en la línea del 46A. Un crédito puede escribirla aparte —«BILL
+   * OF LADING MUST SHOW NOTIFY PARTY: APPLICANT»—, y entonces la regla no corría y un conocimiento que
+   * notifica a otro pasaba sin que nadie lo mirara.
+   */
+  describe("el notify exigido en las condiciones adicionales", () => {
+    const con = (condiciones: string[], enElBL: string) =>
+      precheckPresentacion({
+        lc: {
+          ...lc,
+          documentosExigidos: ["FULL SET OF BILLS OF LADING MADE OUT TO ORDER"],
+          condicionesAdicionales: condiciones,
+        },
+        docs: [{ tipo: "BL" as const, campos: { ...BL, notify: { valor: enElBL, confianza: 1 } } }],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((r) => r.id === "bl-notify");
+    const ORDENANTE = OP.legs.find((l) => l.tipo === "VENTA")?.contraparte ?? "";
+
+    it.each([
+      "BILL OF LADING MUST SHOW NOTIFY PARTY: APPLICANT",
+      "B/L TO BE MARKED NOTIFY APPLICANT",
+      "TRANSPORT DOCUMENT NOTIFYING THE APPLICANT",
+    ])("«%s» activa la regla", (condicion) => {
+      expect(con([condicion], ORDENANTE)?.estado).toBe("OK");
+      expect(con([condicion], "OTRA EMPRESA DISTINTA S.A.")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("una condición que habla de notificar otra cosa no la activa", () => {
+      expect(
+        con(["BENEFICIARY MUST NOTIFY APPLICANT OF SHIPMENT DETAILS BY FAX"], "OTRA EMPRESA DISTINTA S.A."),
+      ).toBeUndefined();
+    });
+  });
+
+  /**
+   * «Documents dated prior to L/C date are ACCEPTABLE» es un permiso, y activaba la exigencia contraria
+   *
+   * La regla que pide los documentos fechados el día del crédito o después buscaba «DATED PRIOR … L/C»
+   * en el 47A, y esas palabras están igual en la prohibición y en el permiso. Con el permiso escrito, un
+   * documento anterior al crédito salía en discrepancia: el motor rechazaba lo que la condición admite.
+   */
+  describe("los documentos fechados antes del crédito: el permiso no es la prohibición", () => {
+    const con = (condiciones: string[]) =>
+      precheckPresentacion({
+        lc: { ...lc, condicionesAdicionales: condiciones },
+        docs: [{ tipo: "BL" as const, campos: { ...BL, fechaDocumento: { valor: "01-mar-2025", confianza: 1 } } }],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: HOY,
+      }).reglas.find((r) => r.id === "fecha-BL");
+
+    it.each([
+      "DOCUMENTS DATED PRIOR TO L/C DATE ARE ACCEPTABLE",
+      "DOCUMENTS DATED PRIOR TO THE LETTER OF CREDIT ISSUANCE DATE ACCEPTABLE.",
+    ])("«%s» no exige nada", (condicion) => {
+      expect(con([condicion])).toBeUndefined();
+    });
+
+    it.each([
+      "ALL DOCUMENTS SHOULD BEAR A DATE ON OR AFTER THE LETTER OF CREDIT DATE.",
+      "DOCUMENTS DATED PRIOR TO L/C DATE ARE NOT ACCEPTABLE",
+      "DOCUMENTS DATED PRIOR TO THE DATE OF THIS CREDIT ARE NOT ACCEPTABLE",
+      "DOCUMENTS DATED BEFORE THE L/C ISSUING DATE WILL NOT BE ACCEPTED",
+    ])("«%s» sí exige, y un documento anterior es discrepancia", (condicion) => {
+      expect(con([condicion])?.estado).toBe("DISCREPANCIA");
+    });
+  });
+
   describe("las formas de pedir el notify (DOCDEX 205)", () => {
     const conExigencia = (exigencia: string, enElBL: string) =>
       precheckPresentacion({
