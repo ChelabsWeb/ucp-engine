@@ -323,6 +323,70 @@ describe("documento de transporte — artículos 20, 26 y 27", () => {
     expect(r?.estado).toBe("DISCREPANCIA");
   });
 
+  /*
+   * **El puerto de carga que está en la anotación de a bordo y no en el casillero (R 458, R 460, R 462).**
+   *
+   * Tres Opiniones dicen lo mismo. R 458: crédito de Bangkok a Kuwait, casillero «Port of loading:
+   * Singapore», y al pie «Laden on board the Vessel M, May 9, 1999. Port of loading Bangkok, Thailand» —
+   * *«The inclusion of the on board notation which incorporates not only the name of the vessel but also
+   * the port of loading specified in the credit would render the bill of lading as being acceptable.
+   * This is despite the port of Singapore being quoted in the pre-printed "port of loading" box»*. R 460
+   * lo repite en su primer ejemplo, y R 462 agrega que las palabras «port of loading» no hacen falta.
+   *
+   * El motor miraba el casillero y nada más: rechazaba el conocimiento que las tres declaran aceptable.
+   */
+  describe("el puerto de carga que da la anotación de a bordo (R 458)", () => {
+    const con = (casillero: string, onBoard: string) =>
+      buscar(
+        [{ tipo: "BL", campos: doc({ puertoEmbarque: campo(casillero), onBoard: campo(onBoard) }) }],
+        "ucp-20a-iii-puertoEmbarque",
+      );
+
+    it("el casillero dice otro puerto y la anotación el del crédito: cumple, nombrando la Opinión", () => {
+      const r = con("BUENOS AIRES", "LADEN ON BOARD THE VESSEL M, MAY 9, 2025. PORT OF LOADING MONTEVIDEO, URUGUAY");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("R 458");
+      expect(r?.evidencia).toContain("BUENOS AIRES");
+    });
+
+    it("y las palabras «port of loading» no hacen falta (R 462)", () => {
+      expect(con("BUENOS AIRES", "SHIPPED ON BOARD VESSEL M AT MONTEVIDEO 09.05.25")?.estado).toBe("OK");
+    });
+
+    it("otro puerto del mismo país en la anotación no lo arregla", () => {
+      expect(
+        con("BUENOS AIRES", "LADEN ON BOARD VESSEL M 09.05.25. PORT OF LOADING NUEVA PALMIRA, URUGUAY")?.estado,
+      ).toBe("DISCREPANCIA");
+    });
+
+    it("ni una anotación que no nombra ningún puerto", () => {
+      expect(con("BUENOS AIRES", "SHIPPED ON BOARD 09.05.25")?.estado).toBe("DISCREPANCIA");
+    });
+
+    /* Y no cruza al otro casillero: es el segundo ejemplo de R 460, donde la discrepancia vale. */
+    it("la anotación no cura el puerto de descarga", () => {
+      const r = buscar(
+        [
+          {
+            tipo: "BL",
+            campos: doc({
+              puertoEmbarque: campo("MONTEVIDEO, URUGUAY"),
+              puertoDestino: campo("ROTTERDAM"),
+              onBoard: campo(`SHIPPED ON BOARD 09.05.25 AT MONTEVIDEO FOR ${CTX.puertoDestino}`),
+            }),
+          },
+        ],
+        "ucp-20a-iii-puertoDestino",
+      );
+      expect(r?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("el texto nuevo se traduce", () => {
+      const r = con("BUENOS AIRES", "LADEN ON BOARD THE VESSEL M, MAY 9, 2025. PORT OF LOADING MONTEVIDEO, URUGUAY");
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcasillero\b|\banotación\b|\bcrédito\b/i);
+    });
+  });
+
   it("20a-iii: el puerto del caso de referencia coincide con el 44E del crédito", () => {
     const r = buscar(
       [{ tipo: "BL", campos: doc({ puertoEmbarque: campo("MONTEVIDEO, URUGUAY") }) }],
@@ -1237,6 +1301,31 @@ describe("repetir la zona no es nombrar un puerto de carga (laudo DOCDEX 361)", 
       expect(r?.evidencia).toContain("DOCDEX 361");
     },
   );
+
+  /*
+   * **Una barra en el casillero del documento no es una zona: es «puerto/país» (Opinión R 453).**
+   *
+   * La rama de arriba usaba la misma prueba para el crédito y para el papel, y esa prueba toma
+   * cualquier barra entre dos palabras por una lista de alternativas. En un 44E tiene sentido
+   * —«HAMBURG/ROTTERDAM»—; en el casillero de un conocimiento la barra es casi siempre «IZMIR/TURKEY»,
+   * «QINGDAO/CHINA». Con el crédito y el papel de la Opinión R 453, que dicen los dos «Izmir/Turkey»,
+   * el motor daba **DISCREPANCIA** con el texto «eso es la zona que nombra el crédito y no un puerto»:
+   * rechazaba dos cadenas idénticas. El motor no sabe si Turquía es un país —no sabe geografía—, así
+   * que no afirma ninguna de las dos lecturas: si el crédito también es ambiguo, va a verificar
+   * diciéndolas; si el crédito nombra un puerto, compara como siempre.
+   */
+  it("«IZMIR/TURKEY» contra «IZMIR/TURKEY» no es discrepancia: va a verificar con las dos lecturas", () => {
+    const r = conCarga("IZMIR/TURKEY", "IZMIR/TURKEY");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).not.toContain("eso es la zona");
+    expect(r?.evidencia).toContain("barra");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bbarra\b|\bcrédito\b|\bpuerto\b/i);
+  });
+
+  it("y con el crédito nombrando un puerto, «QINGDAO/CHINA» en el papel cumple sin más", () => {
+    expect(conCarga("QINGDAO, CHINA", "QINGDAO/CHINA")?.estado).toBe("OK");
+    expect(conCarga("QINGDAO, CHINA", "SHANGHAI/CHINA")?.estado).toBe("DISCREPANCIA");
+  });
 
   it("y el puerto real dentro de la zona sigue saliendo a verificar, no a rechazar", () => {
     const r = conCarga("ANY NORTH EUROPEAN PORT", "ANTWERP, BELGIUM");

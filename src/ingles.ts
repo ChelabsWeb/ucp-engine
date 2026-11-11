@@ -1575,6 +1575,16 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^se aplica ±10 % a la cantidad que esa palabra acompaña, y no el 5 % del 30 \(b\)$/g,
     "±10 % is applied to the quantity that word qualifies, and not the 5 % of article 30 (b)",
   ],
+  /* R 458 / R 460 / R 462: el puerto de carga que da la anotación. A mano: sale de una plantilla. */
+  [
+    /^el casillero dice (.+), pero la anotación de a bordo da el puerto de carga del crédito: (.+) — con eso el conocimiento es aceptable aunque el casillero diga otro puerto \(Opiniones R 458 y R 460 de la ICC\), y no hace falta que la anotación diga las palabras «port of loading» \(R 462\)$/g,
+    "the box reads $1, but the on board notation gives the port of loading stated in the credit: $2 — with that the bill of lading is acceptable even though the box shows another port (ICC Opinions R 458 and R 460), and the notation does not need to carry the words «port of loading» (R 462)",
+  ],
+  /* R 453: la barra en el casillero del puerto de carga */
+  [
+    / — el casillero trae una barra y el motor no sabe si separa dos puertos o un puerto y su país: si son dos puertos, el documento tiene que nombrar el puerto real de carga \(laudo DOCDEX 361\); si es puerto y país, cumple\. Verificar en el papel$/g,
+    " — the box carries a slash and the engine cannot tell whether it separates two ports or a port and its country: if two ports, the document must name the actual port of loading (DOCDEX Decision 361); if port and country, it complies. Check on the document itself",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,
