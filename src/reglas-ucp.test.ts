@@ -2353,6 +2353,50 @@ describe("dos unidades que el motor no conoce no son la misma unidad (R 366)", (
   });
 
   /*
+   * **Y el «or» del 45A, que es la conclusión de la Opinión y no se aplicaba.** *«The credit provided two
+   * alternative methods of calculation of the goods shipped: a) a stipulated number of packing units …
+   * and b) a quantity of goods by weight … Whilst the number of bales falls outside the 10% tolerance,
+   * the quantity by weight falls within the guideline … There is no discrepancy with regard to the
+   * quantity of goods shipped.»* Con la factura contando en fardos, el motor decía que no podía
+   * comparar. Ahora, si el crédito ofrece las dos formas y la factura trae además el peso, se mide por
+   * el peso: alcanza con cumplir una.
+   */
+  describe("el crédito que da dos formas de medir la cantidad", () => {
+    const conPeso = (cantidadFardos: string, pesoNeto: string, mercaderia = ALGODON) =>
+      reglasUCP({
+        lc: { ...LC, tolerancia: null },
+        credito: { ...CTX, mercaderia, mercaderiaCompleta: mercaderia },
+        docs: [
+          {
+            tipo: "FACTURA",
+            campos: doc({ cantidad: campo(cantidadFardos), unidad: campo("BALES"), pesoNeto: campo(pesoNeto) }),
+          },
+        ],
+        hoy: HOY,
+      }).find((x) => x.id === "ucp-30b-cantidad");
+
+    it("160 fardos que pesan 84.304 libras: cumple por el peso, y nombra la Opinión", () => {
+      const r = conPeso("160", "84304 LBS");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("R 366");
+      expect(r?.evidencia).toContain("84304");
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bfactura\b|\bpeso\b/i);
+    });
+
+    it("si el peso también queda fuera, no afirma nada: sigue a verificar", () => {
+      expect(conPeso("160", "70000 LBS")?.estado).toBe("ATENCION");
+    });
+
+    it("sin peso en la factura sigue como estaba", () => {
+      expect(cantidad(ALGODON, "160", "BALES")?.estado).toBe("ATENCION");
+    });
+
+    it("y un crédito que no ofrece alternativa no usa el peso para saltear la cantidad", () => {
+      expect(conPeso("160", "84304 LBS", "ABOUT 90,388.60LBS RAW COTTON IN 180 BALES")?.estado).toBe("ATENCION");
+    });
+  });
+
+  /*
    * Y el anuncio de la tolerancia, que decía «±5 %» sobre un crédito que dice «about» y que nombra
    * fardos: las dos cosas que la Opinión corrige en su primer párrafo —*«Reference to "about 180 bales"
    * is a stipulated number of packing units and would therefore not be subject to the 5% tolerance»*—.
