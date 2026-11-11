@@ -599,15 +599,20 @@ export function reglasCertificados(input: {
                     ? `lo emite el beneficiario "${emisor}" y el crédito nombra a un tercero`
                     : ilegible
                       ? `no se pudo leer el nombre del emisor —el papel trae "${corto(emisor ?? "", 30)}" y queda vacío al normalizarlo— y el crédito lo pide emitido por ${corto(nombrado, 40)}: el párrafo A21 (e) admite el nombre y los sellos en otro idioma, así que ${creditoExigeIngles(input.lc) ? "con la cláusula del crédito que exige los documentos en inglés la discrepancia vale (Opinión TA 886rev)" : "esto se verifica a mano y no se rechaza (Opinión TA 886rev)"}`
-                      : !distinto
-                        ? `el documento lo emite "${emisor}"`
-                        : porRelacion
-                          ? elPapelMuestraLaRelacion
-                            ? `el documento lo emite "${emisor}", que se presenta como quien el crédito describe: el banco no tiene que averiguar si ese nombramiento es cierto (Opinión R 403 de la ICC). Verificar en el papel`
-                            : `el documento lo emite "${emisor}" y lo leído no muestra que sea quien el crédito describe: el crédito no da un nombre contra el cual cotejar, así que el papel tiene que mostrarlo en su faz. Si no lo muestra es discrepante, y el banco no tiene que averiguar quién es el firmante (Opinión R 403 de la ICC). Verificar en el papel`
-                          : porFuncion
-                            ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
-                            : `el documento lo emite "${emisor}"`,
+                      : /* El crédito pide que lo emita el beneficiario, y lo emite él: decía «verificar que sea el
+                           organismo que el crédito nombra» debajo de un OK, porque la palabra «BENEFICIARY» no
+                           coincide con ninguna razón social y la evidencia caía en la rama de la función. */
+                        nombraAlBeneficiario && esElBeneficiario
+                        ? `el documento lo emite "${emisor}", que es el beneficiario, como pide el crédito`
+                        : !distinto
+                          ? `el documento lo emite "${emisor}"`
+                          : porRelacion
+                            ? elPapelMuestraLaRelacion
+                              ? `el documento lo emite "${emisor}", que se presenta como quien el crédito describe: el banco no tiene que averiguar si ese nombramiento es cierto (Opinión R 403 de la ICC). Verificar en el papel`
+                              : `el documento lo emite "${emisor}" y lo leído no muestra que sea quien el crédito describe: el crédito no da un nombre contra el cual cotejar, así que el papel tiene que mostrarlo en su faz. Si no lo muestra es discrepante, y el banco no tiene que averiguar quién es el firmante (Opinión R 403 de la ICC). Verificar en el papel`
+                            : porFuncion
+                              ? `el documento lo emite "${emisor}": verificar que sea el organismo que el crédito nombra`
+                              : `el documento lo emite "${emisor}"`,
               )
             : regla(
                 `cert-emisor-${sufijo}`,

@@ -342,6 +342,22 @@ describe("quién puede emitir cada certificado", () => {
     });
   });
 
+  /*
+   * **Un OK que decía «verificar».** Cuando el crédito pide el documento «issued by beneficiary» y lo
+   * emite el beneficiario, la regla salía en OK con la evidencia de la rama de la función —«verificar
+   * que sea el organismo que el crédito nombra»—, porque «BENEFICIARY» no coincide con ninguna razón
+   * social. El estado y el texto decían cosas distintas. Lo encontró sondear la Opinión R 757.
+   */
+  it("emitido por el beneficiario cuando el crédito lo pide: OK, y la evidencia no manda a verificar", () => {
+    const r = correr([
+      { exigencia: "CERTIFICATE OF ORIGIN ISSUED BY BENEFICIARY", campos: doc({ emisor: campo("CEREALSUR S.A") }) },
+    ]).find((x) => x.id.startsWith("cert-emisor-"));
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).not.toContain("verificar");
+    expect(r?.evidencia).toContain("beneficiario");
+    expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bbeneficiario\b|\bcrédito\b/i);
+  });
+
   /* Y el freno: un nombre propio sigue rechazando, que es la mitad que el corte sostiene. */
   it("pero un nombre propio distinto sigue siendo discrepancia", () => {
     const r = correr([
