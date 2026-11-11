@@ -52,6 +52,33 @@ import type { DocumentRow, LcInfo, OperationDetail } from "./types";
  * ORIGINAL B/LS PLUS 2 NON NEGOTIABLE COPIES» exige originales y se examina como siempre. Lo que
  * cambia es el crédito que pide **únicamente** una copia o fotocopia, que es el caso de la Opinión.
  */
+/**
+ * La frase de las condiciones adicionales que **admite** algo, si la hay.
+ *
+ * Los artículos de las UCP rigen «unless expressly modified or excluded by the credit» (art. 1), y el
+ * crédito los modifica casi siempre en el 47A: «charterparty B/L acceptable», «stale documents
+ * acceptable», «insurance cover note acceptable». Cada regla que aplica un artículo por omisión tiene
+ * que hacer esta pregunta, y se hacía de a una y distinto en cada lugar —o no se hacía—.
+ *
+ * Se mira **frase por frase**, para que la negación de otra frase de la misma condición no anule el
+ * permiso, y **sin negación**: «acceptable» está adentro de «NOT ACCEPTABLE», y un crédito que prohíbe
+ * algo se leía como uno que lo admite. Devuelve la frase, para que la evidencia la muestre y una
+ * persona vea su alcance.
+ */
+export function fraseQueAdmite(condiciones: string[] | null | undefined, que: RegExp): string | null {
+  for (const c of condiciones ?? []) {
+    for (const frase of c.split(/[.;]\s+|[.;]$/)) {
+      if (
+        que.test(frase) &&
+        /acceptable|accepted|allowed|permitted|acepta|permit/i.test(frase) &&
+        !/\b(not|no|never|nor|neither)\b|unacceptable|inaceptable|prohib/i.test(frase)
+      )
+        return frase.trim();
+    }
+  }
+  return null;
+}
+
 export function pideSoloCopiaDelTransporte(documentosExigidos: string[] | null | undefined): boolean {
   /*
    * Y la línea tiene que **ser** la del documento de transporte, no una que lo mencione.
@@ -1665,6 +1692,24 @@ export function precheckPresentacion(input: {
      * veintiún días y lo presentaba como si el crédito no hubiera fijado plazo: el silencio contado
      * como conformidad, y encima sobre la discrepancia más corriente del negocio.
      */
+    /*
+     * **«Stale documents acceptable»**, y su forma larga —«documents presented later than 21 days after
+     * shipment date but within the validity of the credit are acceptable»—. El 14 (c) da veintiún días
+     * por omisión y un crédito lo modifica con esa frase: lo que queda como límite es el vencimiento.
+     * Esta regla no leía el 47A y rechazaba la presentación que el crédito admite.
+     *
+     * Solo cuenta cuando hace falta —la presentación ya pasó el plazo del embarque— y cuando está
+     * dentro del vencimiento; pasado el vencimiento no hay condición que valga.
+     */
+    const fraseStale = fraseQueAdmite(
+      lc.condicionesAdicionales,
+      /\bstale\b|\b(?:presented|presentation)\b[^.;]*\b(?:later|after)\b[^.;]*\b21\s*(?:calendar\s+)?days\b/i,
+    );
+    const vence = parseFecha(lc.vencimiento ?? "");
+    const stale =
+      fraseStale && !lim.plazoNoLeido && diasParaPresentar < 0 && vence && (yaPresentada ?? hoy) <= vence
+        ? fraseStale
+        : null;
     const porElVencimiento = lim.hastaElVencimiento;
     /*
      * Y si el límite cayó en día cerrado, la evidencia lo dice: el artículo 29 (a) lo corre al primer
@@ -1685,26 +1730,30 @@ export function precheckPresentacion(input: {
           : `Presentar dentro de ${lim.dias} días del BL y antes del vencimiento`,
       estado: lim.plazoNoLeido
         ? "ATENCION"
-        : diasParaPresentar < 0
-          ? "DISCREPANCIA"
-          : yaPresentada
-            ? "OK"
-            : diasParaPresentar <= 3
-              ? "ATENCION"
-              : "OK",
-      evidencia: lim.plazoNoLeido
-        ? `el campo 48 dice "${lc.plazoPresentacion}" y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 (c) para la cuenta, pero si esa redacción fija otro plazo manda el crédito. Verificar a mano`
-        : porElVencimiento
-          ? yaPresentada
-            ? `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — un campo 48 así desplaza los 21 días del artículo 14 (c) (Deutsche Bank v CIMB, Commercial Court de Inglaterra); la ICC nunca contestó este punto`
-            : `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
-          : lim.base === "FECHA_DEL_BL"
-            ? yaPresentada
-              ? `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — así lo resolvió Fortis Bank v Indian Overseas Bank (Court of Appeal de Inglaterra)`
-              : `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
+        : stale
+          ? "OK"
+          : diasParaPresentar < 0
+            ? "DISCREPANCIA"
             : yaPresentada
-              ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}${corrido}`
-              : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}${corrido}`,
+              ? "OK"
+              : diasParaPresentar <= 3
+                ? "ATENCION"
+                : "OK",
+      evidencia: stale
+        ? `BL ${op.blReal} → el plazo del embarque venció el ${lim.limite.toLocaleDateString("es-UY")}, pero el 47A admite presentar después: "${stale}" — lo que queda como límite es el vencimiento del crédito (${lc.vencimiento}), y la presentación está dentro`
+        : lim.plazoNoLeido
+          ? `el campo 48 dice "${lc.plazoPresentacion}" y no se le pudo leer un plazo: el examen usó los 21 días del artículo 14 (c) para la cuenta, pero si esa redacción fija otro plazo manda el crédito. Verificar a mano`
+          : porElVencimiento
+            ? yaPresentada
+              ? `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — un campo 48 así desplaza los 21 días del artículo 14 (c) (Deutsche Bank v CIMB, Commercial Court de Inglaterra); la ICC nunca contestó este punto`
+              : `BL ${op.blReal} → el campo 48 fija el plazo hasta el vencimiento, ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
+            : lim.base === "FECHA_DEL_BL"
+              ? yaPresentada
+                ? `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")} — así lo resolvió Fortis Bank v Indian Overseas Bank (Court of Appeal de Inglaterra)`
+                : `el campo 48 cuenta desde la fecha del conocimiento, ${lim.fechaBL.toLocaleDateString("es-UY")}, y no desde el a bordo → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}`
+              : yaPresentada
+                ? `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · presentada ${yaPresentada.toLocaleDateString("es-UY")}${corrido}`
+                : `BL ${op.blReal} → límite ${lim.limite.toLocaleDateString("es-UY")} · ${diasParaPresentar >= 0 ? `quedan ${diasParaPresentar} días` : `venció hace ${-diasParaPresentar} días`}${corrido}`,
     });
   } else {
     reglas.push({

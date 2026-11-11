@@ -33,6 +33,7 @@ import {
   type DocAnalizado,
   ES_RECIBO_DE_AGENTE,
   type EstadoRegla,
+  fraseQueAdmite,
   pideSoloCopiaDelTransporte,
   type ReglaPresentacion,
 } from "./presentacion";
@@ -2403,6 +2404,22 @@ function reglasTransporte(
               `cláusula leída: "${defecto}"`,
             );
           const declara = DECLARA_DEFECTO.test(defecto);
+          /*
+           * **El crédito que admite un documento con cláusulas.** El artículo 27 es la regla por
+           * omisión —«a bank will only accept a clean transport document»— y «claused B/L acceptable»
+           * la modifica. La regla no leía el 47A. Sale a verificar y no en OK, a propósito: el permiso
+           * puede ser general o estar atado a una cláusula —«…acceptable for atmospheric rust»—, y eso
+           * se ve leyendo la frase al lado de lo que el papel dice.
+           */
+          const admiteClausulas = fraseQueAdmite(condiciones, /\b(?:claused|unclean|foul|dirty)\b/i);
+          if (declara && admiteClausulas)
+            return regla(
+              "ucp-27",
+              "UCP 600 27",
+              "Documento de transporte limpio",
+              "ATENCION",
+              `cláusula leída: "${defecto}" — el 47A admite un documento con cláusulas: "${admiteClausulas}". Verificar que la del documento esté dentro de lo que esa condición admite`,
+            );
           return regla(
             "ucp-27",
             "UCP 600 27",
@@ -2573,16 +2590,19 @@ function reglasSeguro(
     }
   }
 
-  // 28c: las notas de cobertura no se aceptan
+  // 28c: las notas de cobertura no se aceptan — salvo que el crédito diga que sí, y lo dice en el 47A
   const tipo = val(seg, "tipoSeguro");
+  const admiteNotaDeCobertura = fraseQueAdmite(lc.condicionesAdicionales, /cover\s*notes?|notas? de cobertura/i);
   if (tipo) {
     out.push(
       regla(
         "ucp-28c",
         "UCP 600 28c",
         "No es una nota de cobertura (cover note)",
-        /cover note|nota de cobertura/i.test(tipo) ? "DISCREPANCIA" : "OK",
-        `el documento se presenta como "${tipo}"`,
+        /cover note|nota de cobertura/i.test(tipo) && !admiteNotaDeCobertura ? "DISCREPANCIA" : "OK",
+        /cover note|nota de cobertura/i.test(tipo) && admiteNotaDeCobertura
+          ? `el documento se presenta como "${tipo}", y el 47A la admite: "${admiteNotaDeCobertura}"`
+          : `el documento se presenta como "${tipo}"`,
       ),
     );
   }
@@ -2684,13 +2704,22 @@ function reglasSeguro(
                 "ATENCION",
                 `seguro ${fSeg} · embarque ${fEmb} — el documento menciona una cobertura efectiva: si corre desde una fecha no posterior al embarque, el artículo lo admite; verificarlo a mano`,
               )
-            : regla(
-                "ucp-28e",
-                "UCP 600 28e",
-                "El seguro no está fechado después del embarque",
-                "DISCREPANCIA",
-                `seguro ${fSeg} · embarque ${fEmb}`,
-              )
+            : (() => {
+                /* El crédito puede admitirlo, y lo dice en el 47A: el 28 (e) es la regla por omisión. */
+                const admite = fraseQueAdmite(
+                  lc.condicionesAdicionales,
+                  /insurance[^.;]*\bdated\b[^.;]*\b(?:later|after|subsequent)\b/i,
+                );
+                return regla(
+                  "ucp-28e",
+                  "UCP 600 28e",
+                  "El seguro no está fechado después del embarque",
+                  admite ? "OK" : "DISCREPANCIA",
+                  admite
+                    ? `seguro ${fSeg} · embarque ${fEmb} — el 47A admite el seguro fechado después: "${admite}"`
+                    : `seguro ${fSeg} · embarque ${fEmb}`,
+                );
+              })()
       : /*
          * Y cuando falta un dato, el aviso dice **cuál**.
          *

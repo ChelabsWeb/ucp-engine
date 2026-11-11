@@ -521,7 +521,17 @@ export function parseMT700(textoSwift: string): LcSwift | null {
   const t39 = /(\d{1,2})\s*\/\s*(\d{1,2})/.exec(texto(cs, "39A"));
   if (t39) tolerancia = Math.max(Number(t39[1]), Number(t39[2])) / 100;
   else {
-    const c = condiciones.find((x) => /toleran/i.test(x));
+    /*
+     * Con o sin la palabra «tolerance». La mayoría de los créditos la escribe «5 PCT MORE OR LESS IN
+     * QUANTITY AND AMOUNT ACCEPTABLE», y la búsqueda pedía la palabra: sin 39A, esa condición no se
+     * leía y el examen rechazaba lo que el crédito admite. Se pide además un porcentaje al lado, para
+     * que «SHIPMENT MORE OR LESS IN EQUAL LOTS» no invente una tolerancia.
+     */
+    const PORCENTAJE =
+      /(?:\d+(?:[.,]\d+)?|\b(?:two|three|five|ten|fifteen|twenty))\s*(?:%|pct|per\s*cent|percent|por\s*ciento)/i;
+    const c = condiciones.find(
+      (x) => /toleran/i.test(x) || (/more\s+or\s+less|plus\s+or\s+minus|\+\s*\/\s*-|±/i.test(x) && PORCENTAJE.test(x)),
+    );
     if (c) tolerancia = parseTolerancia(c.replace(/pct/i, "%"));
   }
 

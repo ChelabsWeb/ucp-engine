@@ -1585,6 +1585,20 @@ const REEMPLAZOS: [RegExp, string][] = [
     / — el casillero trae una barra y el motor no sabe si separa dos puertos o un puerto y su país: si son dos puertos, el documento tiene que nombrar el puerto real de carga \(laudo DOCDEX 361\); si es puerto y país, cumple\. Verificar en el papel$/g,
     " — the box carries a slash and the engine cannot tell whether it separates two ports or a port and its country: if two ports, the document must name the actual port of loading (DOCDEX Decision 361); if port and country, it complies. Check on the document itself",
   ],
+  /* Lo que el crédito admite en el 47A: cuatro reglas. A mano, porque salen de plantillas. */
+  [
+    / — el 47A admite un documento con cláusulas: (.+)\. Verificar que la del documento esté dentro de lo que esa condición admite$/g,
+    " — field 47A allows a claused document: $1. Check that the clause on the document falls within what that condition allows",
+  ],
+  [
+    /^el documento se presenta como (.+), y el 47A la admite: (.+)$/g,
+    "the document is presented as $1, and field 47A allows it: $2",
+  ],
+  [/ — el 47A admite el seguro fechado después: /g, " — field 47A allows the insurance document to be dated later: "],
+  [
+    /^BL (.+) → el plazo del embarque venció el (.+), pero el 47A admite presentar después: (.+) — lo que queda como límite es el vencimiento del crédito \((.+)\), y la presentación está dentro$/g,
+    "B/L $1 → the period counted from shipment ended on $2, but field 47A allows later presentation: $3 — what remains as the limit is the expiry of the credit ($4), and the presentation is within it",
+  ],
   /* UCP 600 14a — el «on board» que pide el crédito sobre un documento multimodal */
   [
     /^El crédito pide el documento «on board» y el documento lo evidencia con fecha$/g,

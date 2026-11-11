@@ -2880,6 +2880,146 @@ describe("el buque de la anotación de a bordo (R 350 contra TA 743rev)", () => 
  * El fundamento es el **14 (a)** y no el 19 ni el 20, que es lo que permite afirmarlo sin el texto de
  * la ISBP: los documentos se examinan contra los términos del crédito.
  */
+/**
+ * Lo que el crédito admite en el 47A, y cuatro reglas que no lo leían.
+ *
+ * Los artículos de las UCP son la regla **por omisión**: el artículo 1 dice que obligan «unless
+ * expressly modified or excluded by the credit», y el lugar donde un crédito los modifica es casi
+ * siempre el campo 47A. Dos permisos ya se habían encontrado de a uno, cada uno con su Opinión —el
+ * multimodal (R 638) y el fletamento (R 420)—. Esta batería salió de preguntar lo mismo por los demás:
+ * un crédito limpio, una condición adicional corriente, y el papel haciendo exactamente lo que la
+ * condición admite. El motor rechazaba en los cuatro.
+ *
+ * Los cuatro se miran frase por frase y sin negación, con la misma función: «COVER NOTE NOT
+ * ACCEPTABLE» no es un permiso.
+ */
+/**
+ * La tolerancia que el crédito escribe sobre la cantidad vale también cuando la cantidad va en bultos.
+ *
+ * La exclusión del 30 (b) para bultos y unidades es del 5 % **por omisión**. Lo que el crédito dice
+ * expresamente —«10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE»— es un término del crédito.
+ */
+describe("la tolerancia expresa de la cantidad sobre bultos (arts. 1 y 30 b)", () => {
+  const con = (condiciones: string[], tolerancia: number | null, cantidad: string) =>
+    reglasUCP({
+      lc: { ...LC, tolerancia, toleranciaAplicaA: "AMBAS", condicionesAdicionales: condiciones },
+      credito: { ...CTX, mercaderia: "800 CARTONS OF HAND TOOLS", mercaderiaCompleta: "800 CARTONS OF HAND TOOLS" },
+      docs: [{ tipo: "FACTURA", campos: doc({ cantidad: campo(cantidad), unidad: campo("CARTONS") }) }],
+      hoy: HOY,
+    }).find((x) => x.id === "ucp-30b-cantidad");
+
+  it("con la condición que nombra la cantidad, 864 cartones contra 800 ±10 % cumple", () => {
+    expect(con(["10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE"], 0.1, "864")?.estado).toBe("OK");
+  });
+
+  it("y fuera de esa tolerancia sigue siendo discrepancia", () => {
+    expect(con(["10 PCT MORE OR LESS IN QUANTITY AND AMOUNT ACCEPTABLE"], 0.1, "900")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("un 39A solo no se extiende a los bultos: es tolerancia del importe", () => {
+    expect(con([], 0.1, "864")?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("ni una condición que habla solo del importe", () => {
+    expect(con(["10 PCT MORE OR LESS IN AMOUNT ACCEPTABLE"], 0.1, "864")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+describe("lo que el crédito admite en el 47A", () => {
+  const con = (condiciones: string[], bl: Parameters<typeof doc>[0] = {}, seguro?: Parameters<typeof doc>[0]) =>
+    reglasUCP({
+      lc: { ...LC, condicionesAdicionales: condiciones },
+      credito: CTX,
+      docs: [
+        { tipo: "FACTURA", campos: doc({ incoterm: campo("CIF COLOMBO") }) },
+        {
+          tipo: "BL",
+          campos: doc({ fechaEmbarque: campo("08-APR-2025"), onBoard: campo("SHIPPED ON BOARD 08-APR-2025"), ...bl }),
+        },
+      ],
+      seguro: seguro ? { campos: doc(seguro) } : undefined,
+      hoy: HOY,
+    });
+  const regla = (r: ReturnType<typeof con>, id: string) => r.find((x) => x.id === id);
+
+  describe("el conocimiento con cláusulas (art. 27)", () => {
+    const SUCIO = { clausulaDefecto: campo("PACKAGING DAMAGED") };
+
+    it("sin permiso es discrepancia, como siempre", () => {
+      expect(regla(con([], SUCIO), "ucp-27")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it.each(["CLAUSED BILLS OF LADING ARE ACCEPTABLE", "CLAUSED B/L ACCEPTABLE.", "UNCLEAN BILL OF LADING ALLOWED"])(
+      "«%s»: no rechaza, y muestra la condición para que una persona vea su alcance",
+      (condicion) => {
+        const r = regla(con([condicion], SUCIO), "ucp-27");
+        expect(r?.estado).toBe("ATENCION");
+        expect(r?.evidencia).toContain("47A");
+        expect(r?.evidencia).toContain("PACKAGING DAMAGED");
+      },
+    );
+
+    it("y una prohibición no es un permiso", () => {
+      expect(regla(con(["CLAUSED BILLS OF LADING ARE NOT ACCEPTABLE"], SUCIO), "ucp-27")?.estado).toBe("DISCREPANCIA");
+    });
+  });
+
+  describe("la nota de cobertura (art. 28 c)", () => {
+    const NOTA = { tipoSeguro: campo("COVER NOTE"), fechaSeguro: campo("07-APR-2025") };
+
+    it("sin permiso es discrepancia", () => {
+      expect(regla(con([], {}, NOTA), "ucp-28c")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("«INSURANCE COVER NOTE ACCEPTABLE»: cumple, y dice por qué", () => {
+      const r = regla(con(["INSURANCE COVER NOTE ACCEPTABLE"], {}, NOTA), "ucp-28c");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("47A");
+    });
+
+    it("«COVER NOTES ARE NOT ACCEPTABLE» sigue siendo discrepancia", () => {
+      expect(regla(con(["COVER NOTES ARE NOT ACCEPTABLE"], {}, NOTA), "ucp-28c")?.estado).toBe("DISCREPANCIA");
+    });
+  });
+
+  describe("el seguro fechado después del embarque (art. 28 e)", () => {
+    const TARDE = { tipoSeguro: campo("INSURANCE POLICY"), fechaSeguro: campo("15-APR-2025") };
+
+    it("sin permiso es discrepancia", () => {
+      expect(regla(con([], {}, TARDE), "ucp-28e")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("con el permiso escrito, cumple", () => {
+      const r = regla(
+        con(["INSURANCE DOCUMENT DATED LATER THAN THE DATE OF SHIPMENT IS ACCEPTABLE"], {}, TARDE),
+        "ucp-28e",
+      );
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("47A");
+    });
+  });
+
+  it("los textos nuevos se traducen", () => {
+    const textos = [
+      regla(con(["CLAUSED B/L ACCEPTABLE"], { clausulaDefecto: campo("PACKAGING DAMAGED") }), "ucp-27"),
+      regla(con(["INSURANCE COVER NOTE ACCEPTABLE"], {}, { tipoSeguro: campo("COVER NOTE") }), "ucp-28c"),
+      regla(
+        con(
+          ["INSURANCE DOCUMENT DATED LATER THAN THE DATE OF SHIPMENT IS ACCEPTABLE"],
+          {},
+          {
+            tipoSeguro: campo("INSURANCE POLICY"),
+            fechaSeguro: campo("15-APR-2025"),
+          },
+        ),
+        "ucp-28e",
+      ),
+    ];
+    for (const r of textos)
+      expect(textoEnIngles(r?.evidencia ?? "x")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\badmite\b|\bcláusula\b/i);
+  });
+});
+
 describe("el «on board» que pide el crédito sobre un documento multimodal", () => {
   const PIDE_ON_BOARD = ["1. SIGNED COMMERCIAL INVOICE.", "2. FULL SET CLEAN ON BOARD BILL OF LADING."];
   const NO_LO_PIDE = ["1. SIGNED COMMERCIAL INVOICE.", "2. MULTIMODAL TRANSPORT DOCUMENT IN 3 ORIGINALS."];

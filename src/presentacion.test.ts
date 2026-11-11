@@ -1179,6 +1179,49 @@ describe("el nombre del notify contra el del ordenante", () => {
     });
   });
 
+  /**
+   * «Stale documents acceptable», que es la condición adicional más corriente sobre el plazo
+   *
+   * El artículo 14 (c) da veintiún días desde el embarque **por omisión**, y un crédito lo modifica con
+   * esa frase —o con su forma larga, «documents presented later than 21 days after shipment date but
+   * within the validity of the credit are acceptable»—: lo que queda como límite es el vencimiento. La
+   * regla del plazo no leía el 47A y rechazaba la presentación que el crédito admite.
+   */
+  describe("«stale documents acceptable» (art. 14 c, modificado por el crédito)", () => {
+    const con = (condiciones: string[], presentada: string) =>
+      precheckPresentacion({
+        lc: { ...lc, condicionesAdicionales: condiciones },
+        docs: [{ tipo: "BL" as const, campos: BL }],
+        op: OP,
+        empresaRazonSocial: "CEREALSUR S.A.",
+        hoy: new Date(`${presentada}T12:00:00`),
+        presentadaEl: new Date(`${presentada}T12:00:00`),
+      }).reglas.find((r) => r.id === "plazo");
+
+    it("sin la condición, pasados los 21 días es discrepancia", () => {
+      expect(con([], "2025-05-20")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it.each([
+      "STALE DOCUMENTS ACCEPTABLE",
+      "STALE B/L ACCEPTABLE.",
+      "DOCUMENTS PRESENTED LATER THAN 21 DAYS AFTER SHIPMENT DATE BUT WITHIN THE VALIDITY OF THE CREDIT ARE ACCEPTABLE",
+    ])("«%s»: pasados los 21 días y antes del vencimiento, cumple", (condicion) => {
+      const r = con([condicion], "2025-05-20");
+      expect(r?.estado).toBe("OK");
+      expect(r?.evidencia).toContain("47A");
+      expect(textoEnIngles(r?.evidencia ?? "")).not.toMatch(/[áéíóúñ¿¡]|\bcrédito\b|\bvencimiento\b/i);
+    });
+
+    it("pero no pasado el vencimiento", () => {
+      expect(con(["STALE DOCUMENTS ACCEPTABLE"], "2025-07-15")?.estado).toBe("DISCREPANCIA");
+    });
+
+    it("y «STALE DOCUMENTS NOT ACCEPTABLE» no es un permiso", () => {
+      expect(con(["STALE DOCUMENTS NOT ACCEPTABLE"], "2025-05-20")?.estado).toBe("DISCREPANCIA");
+    });
+  });
+
   describe("las formas de pedir el notify (DOCDEX 205)", () => {
     const conExigencia = (exigencia: string, enElBL: string) =>
       precheckPresentacion({
