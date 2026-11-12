@@ -316,3 +316,55 @@ describe("el vencimiento contra el banco designado (Grains v Bank of India)", ()
     expect(con(new Date(2012, 3, 18), new Date(2012, 3, 2))?.estado).toBe("DISCREPANCIA");
   });
 });
+
+/**
+ * La cantidad de embarques que el crédito fija (Opinión R 650 / TA 671).
+ *
+ * El 43P dice «allowed» a secas, el 47A no dice nada, y el 45A dice «whole quantity to be shipped in two
+ * lots». Llega un tercer embarque: *«Qualification as to the number of shipments to be made can be stated
+ * anywhere on the credit and not just in field 43P or 47A.»* — **«The issuing bank was entitled to refuse
+ * the documents presented as a third drawing.»** El motor decía «Giro número 3 … los parciales están
+ * permitidos» y nada más.
+ */
+describe("la cantidad de embarques que el crédito fija (R 650)", () => {
+  const EN_DOS = "TOTAL QUANTITY 3385 CBM AND WHOLE QUANTITY IS TO BE SHIPPED IN TWO LOTS";
+  const giro = (anteriores: Presentacion[], mercaderia45A: string | null = EN_DOS, parciales = "ALLOWED") =>
+    buscar(reglasDeGiro({ lc: LC, actual: pres(), anteriores, parciales, mercaderia45A }), "giro-lotes");
+  const antes = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      pres({ referencia: `G-${i + 1}`, importe: 100, fechaEmbarque: `0${i + 1}-mar-2025` }),
+    );
+
+  it("el tercer giro contra un crédito de dos lotes sale a verificar, con la Opinión", () => {
+    const r = giro(antes(2));
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("R 650");
+    expect(r?.evidencia).toContain("IN TWO LOTS");
+  });
+
+  it("el segundo entra", () => {
+    expect(giro(antes(1))?.estado).toBe("OK");
+  });
+
+  it("lo lee del 43P y del 47A también, y con la cifra en números", () => {
+    expect(giro(antes(2), null, "ALLOWED FOR TWO LOTS")?.estado).toBe("ATENCION");
+    expect(
+      buscar(
+        reglasDeGiro({
+          lc: {
+            ...LC,
+            condicionesAdicionales: ["SHIPMENT OF THE QUANTITY OF THIS L/C IS TO BE EFFECTED IN 2 SHIPMENTS"],
+          },
+          actual: pres(),
+          anteriores: antes(2),
+          parciales: "ALLOWED",
+        }),
+        "giro-lotes",
+      )?.estado,
+    ).toBe("ATENCION");
+  });
+
+  it("un crédito que no fija la cantidad no emite nada", () => {
+    expect(giro(antes(2), "3385 CBM OF SAWN TIMBER")).toBeUndefined();
+  });
+});

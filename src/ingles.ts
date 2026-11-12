@@ -2509,6 +2509,16 @@ const REEMPLAZOS: [RegExp, string][] = [
     /^El crédito prohíbe los giros parciales y ya hay una presentación anterior$/g,
     "The credit prohibits partial drawings and there is already an earlier presentation",
   ],
+  /* R 650: la cantidad de embarques que el crédito fija */
+  [/^El crédito fija la cantidad de embarques: (.+)$/g, "The credit fixes the number of shipments: $1"],
+  [
+    /^esta es la presentación número (\d+) y el crédito dice (.+): la cantidad de embarques puede estar fijada en cualquier parte del crédito, y un embarque de más es motivo de rechazo \(Opinión R 650 de la ICC\)\. Verificar que no sean juegos del mismo viaje, que el artículo 31 \(b\) no cuenta como embarques distintos$/g,
+    "this is presentation number $1 and the credit says $2: the number of shipments may be fixed anywhere in the credit, and one shipment too many is a ground for refusal (ICC Opinion R 650). Check that these are not sets covering the same journey, which article 31 (b) does not count as separate shipments",
+  ],
+  [
+    /^presentación número (\d+) de las (\d+) que el crédito admite$/g,
+    "presentation number $1 of the $2 the credit allows",
+  ],
   [/^Giro número (\d+) contra el mismo crédito$/g, "Drawing number $1 against the same credit"],
   [/^los parciales están permitidos por defecto$/g, "partial drawings are allowed by default"],
   [/^los parciales están permitidos /g, "partial drawings are allowed "],
