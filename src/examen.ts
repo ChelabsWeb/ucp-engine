@@ -197,6 +197,8 @@ export function examinarPresentacion(input: {
         feriados: input.feriados,
         horario: input.horario,
         cuotas: input.cuotas,
+        /* la cantidad de embarques puede estar fijada en el 45A (Opinión R 650) */
+        mercaderia45A: input.credito?.mercaderiaCompleta ?? input.credito?.mercaderia ?? null,
       })
     : [];
 

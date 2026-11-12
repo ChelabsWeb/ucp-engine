@@ -285,6 +285,11 @@ export function reglasDeGiro(input: {
   cuotas?: Cuota[];
   /** el día en que se corre el examen: sin él no hay reloj del artículo 16 (d) */
   hoy?: Date;
+  /**
+   * El 45A entero. Hace falta para una sola cosa: la cantidad de embarques que el crédito fija puede
+   * estar escrita ahí y no en el 43P ni en el 47A (Opinión R 650).
+   */
+  mercaderia45A?: string | null;
 }): ReglaPresentacion[] {
   const anteriores = input.anteriores ?? [];
   const out: ReglaPresentacion[] = [];
@@ -342,6 +347,41 @@ export function reglasDeGiro(input: {
           : `los parciales están permitidos${input.parciales ? ` (43P: ${input.parciales})` : " por defecto"}`,
       ),
     );
+  }
+
+  /*
+   * **La cantidad de embarques que el crédito fija (Opinión R 650 / TA 671).**
+   *
+   * El 43P dice «allowed», el 47A nada, y el 45A «whole quantity to be shipped in two lots». Llega un
+   * tercer embarque y la regla de arriba decía «Giro número 3 … los parciales están permitidos»:
+   * *«Qualification as to the number of shipments to be made can be stated anywhere on the credit and not
+   * just in field 43P or 47A. … The issuing bank was entitled to refuse the documents presented as a
+   * third drawing.»*
+   *
+   * **Sale a verificar y no a discrepancia, y el motivo es el artículo 31 (b):** lo que el crédito limita
+   * son **embarques** y lo que el motor cuenta son **presentaciones**. Varios juegos que evidencian el
+   * mismo medio y el mismo viaje no son embarques distintos aunque lleven otra fecha, y el viaje no tiene
+   * campo. Así que el motor pone la cuenta delante de una persona con la frase del crédito.
+   */
+  const NUMEROS: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6 };
+  const dondeLoDice = [input.parciales ?? "", input.mercaderia45A ?? "", ...(input.lc.condicionesAdicionales ?? [])];
+  const LOTES = /\b(?:in|for)\s+(two|three|four|five|six|\d{1,2})\s+(?:equal\s+)?(?:lots?|shipments?|consignments?)\b/i;
+  const fraseDeLotes = dondeLoDice.map((t) => LOTES.exec(t)).find((m) => m !== null);
+  if (fraseDeLotes) {
+    const n = NUMEROS[fraseDeLotes[1]!.toLowerCase()] ?? Number(fraseDeLotes[1]);
+    const este = anteriores.length + 1;
+    if (n >= 2)
+      out.push(
+        regla(
+          "giro-lotes",
+          "UCP 600 31a",
+          `El crédito fija la cantidad de embarques: "${fraseDeLotes[0].toUpperCase()}"`,
+          este > n ? "ATENCION" : "OK",
+          este > n
+            ? `esta es la presentación número ${este} y el crédito dice "${fraseDeLotes[0].toUpperCase()}": la cantidad de embarques puede estar fijada en cualquier parte del crédito, y un embarque de más es motivo de rechazo (Opinión R 650 de la ICC). Verificar que no sean juegos del mismo viaje, que el artículo 31 (b) no cuenta como embarques distintos`
+            : `presentación número ${este} de las ${n} que el crédito admite`,
+        ),
+      );
   }
 
   /* 32B y 30: el total girado no puede pasarse del tope del crédito */
