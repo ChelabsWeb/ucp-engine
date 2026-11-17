@@ -2493,6 +2493,8 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [/\b(\d+) originales\b/g, "$1 originals"],
   [/\b(\d+) copias\b/g, "$1 copies"],
+  /* El singular, que `ejemplaresDe` escribe cuando el crédito pide una sola: «1 original + 1 copia». */
+  [/\b1 copia\b/g, "1 copy"],
   [/^documento /g, "document "],
   [/\bLC emitida\b/g, "credit issued"],
   [/^dice\b/g, "says"],

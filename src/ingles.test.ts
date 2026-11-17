@@ -315,6 +315,9 @@ describe("cobertura sobre el expediente de referencia", () => {
       "Not in the set · 2 required: 1 original + 1 copy is enough (art. 17 e)",
     );
     expect(quedaEspanol(textoEnIngles(`No está en el paquete · ${tres}`))).toBeNull();
+    /* Y el singular suelto, que encontró el banco de pruebas de cotejo en seis hallazgos. */
+    expect(textoEnIngles("No está en el paquete · 1 original + 1 copia")).toBe("Not in the set · 1 original + 1 copy");
+    expect(textoEnIngles("Analizado (FACTURA) · 1 copia")).toBe("Examined (INVOICE) · 1 copy");
   });
 });
 
