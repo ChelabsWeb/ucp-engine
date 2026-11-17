@@ -2477,6 +2477,20 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/^Analizado\b/g, "Examined"],
   [/^No está en el paquete\b/g, "Not in the set"],
   [/\bsin cantidad indicada\b/g, "no number of copies stated"],
+  /*
+   * Los ejemplares del artículo 17 (e). La frase cambió con el caso R 338 —de «3 originales» a
+   * «3 ejemplares: alcanza 1 original + 2 copias»— y acá quedó la entrada vieja, así que en inglés
+   * salía mitad y mitad: «3 ejemplares: alcanza 1 original + 2 copies». Va antes que la de las
+   * copias sueltas, que es la que se comía la última palabra.
+   */
+  [
+    /\b(\d+) ejemplares: alcanza 1 original \+ 1 copia \(art\. 17 e\)/g,
+    "$1 required: 1 original + 1 copy is enough (art. 17 e)",
+  ],
+  [
+    /\b(\d+) ejemplares: alcanza 1 original \+ (\d+) copias \(art\. 17 e\)/g,
+    "$1 required: 1 original + $2 copies are enough (art. 17 e)",
+  ],
   [/\b(\d+) originales\b/g, "$1 originals"],
   [/\b(\d+) copias\b/g, "$1 copies"],
   [/^documento /g, "document "],
@@ -2748,7 +2762,7 @@ export function manualEnIngles(m: VerificacionManual): VerificacionManual {
 const SOLO_ESPANOL =
   // «no» queda afuera a propósito: en inglés significa lo mismo y aparece en «no number stated».
   // Lo mismo «la», que es una nota musical, y «sin», que es una palabra inglesa.
-  /\b(el|los|las|una|del|al|que|se|con|por|para|desde|hasta|está|estan|están|dice|debe|hay|más|pero|como|cuando|donde|según|entre|cada|todo|toda|todos|todas|esto|esta|este|esa|ese|sus|día|días|fecha|número|cantidad|paquete|originales|copias|factura|crédito|banco|documento|documentos|mercadería|embarque|presentación|beneficiario|ordenante|emisor|emitida|emitido|verificar|leyó|firmado|sellado|contar|nombra|girados|tope)\b/i;
+  /\b(el|los|las|una|del|al|que|se|con|por|para|desde|hasta|está|estan|están|dice|debe|hay|más|pero|como|cuando|donde|según|entre|cada|todo|toda|todos|todas|esto|esta|este|esa|ese|sus|día|días|fecha|número|cantidad|paquete|originales|copias|copia|ejemplares|alcanza|factura|crédito|banco|documento|documentos|mercadería|embarque|presentación|beneficiario|ordenante|emisor|emitida|emitido|verificar|leyó|firmado|sellado|contar|nombra|girados|tope)\b/i;
 
 /**
  * Los meses en español, pero solo dentro de una fecha.

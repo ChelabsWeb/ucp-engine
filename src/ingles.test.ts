@@ -3,6 +3,7 @@ import type { CamposDoc, TipoDocExterno } from "./consistencia";
 import { examinarPresentacion } from "./examen";
 import { contextoDesdeSwift, DOCUMENTOS_CSU2025099, parseMT700, SWIFT_CSU2025099 } from "./index";
 import { manualEnIngles, quedaEspanol, reglaEnIngles, textoEnIngles } from "./ingles";
+import { ejemplaresDe } from "./presentacion";
 
 /**
  * La prueba que importa es de **cobertura**: sobre el expediente de referencia, ningún hallazgo puede
@@ -300,6 +301,20 @@ describe("cobertura sobre el expediente de referencia", () => {
     expect(quedaEspanol("la descripción de la mercadería")).not.toBeNull();
     expect(quedaEspanol("Not in the set · 2 originals")).toBeNull();
     expect(quedaEspanol("Clean transport document")).toBeNull();
+  });
+
+  it("los ejemplares del artículo 17 (e) salen enteros en inglés, con una copia y con varias", () => {
+    /* La frase sale de `ejemplaresDe` y no escrita acá: el día que cambie otra vez, este test
+       tiene que ponerse rojo en vez de seguir traduciendo una frase que el motor ya no emite. */
+    const dos = ejemplaresDe("CERTIFICATE OF URUGUAY ORIGIN IN 02 FOLD").texto;
+    const tres = ejemplaresDe("WEIGHT NOTE IN 03 FOLD.").texto;
+    expect(quedaEspanol(dos)).not.toBeNull();
+    expect(textoEnIngles(dos)).toBe("2 required: 1 original + 1 copy is enough (art. 17 e)");
+    expect(textoEnIngles(tres)).toBe("3 required: 1 original + 2 copies are enough (art. 17 e)");
+    expect(textoEnIngles(`No está en el paquete · ${dos}`)).toBe(
+      "Not in the set · 2 required: 1 original + 1 copy is enough (art. 17 e)",
+    );
+    expect(quedaEspanol(textoEnIngles(`No está en el paquete · ${tres}`))).toBeNull();
   });
 });
 
