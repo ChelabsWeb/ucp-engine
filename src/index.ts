@@ -64,6 +64,7 @@ export {
    */
   DOC_DEMO,
   LC_DEMO,
+  mismoPeso,
   normalizarCamposDoc,
   normalizarLC,
   normConfianza,
@@ -74,6 +75,8 @@ export {
   SCHEMA_LC,
   schemaPara,
   TIPO_DOC_LABEL,
+  TOPE_DE_CAMPOS_POR_LECTURA,
+  tandasDeLectura,
 } from "./consistencia";
 export type { ContratoDeVenta, Desvio, DiferenciaContrato, ExtraCredito } from "./contrato";
 /** El crédito que llegó contra el contrato que se firmó (UCP 600 art. 4 a: son cosas separadas). */
