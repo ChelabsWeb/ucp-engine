@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generarChecklist } from "./checklist";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 as MT710_CSU2025099 } from "./fixtures";
-import { textoEnIngles } from "./ingles";
+import { quedaEspanol, textoEnIngles } from "./ingles";
 import { ablandarPorISBP } from "./isbp";
 import {
   admiteCopiaDelTransporte,
@@ -1485,10 +1485,16 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
    */
   const POR_ENDOSO = "2. FULL SET OF CLEAN ON BOARD OCEAN BILL OF LADING ENDORSED TO THE ORDER OF THE ISSUING BANK.";
 
-  it("el conocimiento a la orden, bajo un crédito que pide el endoso, va a verificar y no a discrepancia", () => {
+  /*
+   * Hasta el 25-nov-2026 esto salía en ATENCION diciendo «el endoso va al dorso y el motor no tiene
+   * campo para leerlo». El campo existe (`endoso`) y lo juzga `bl-endoso`, así que el casillero ya no
+   * carga con una duda que no es suya: «TO ORDER» es exactamente lo que este crédito necesita.
+   */
+  it("el conocimiento a la orden, bajo un crédito que pide el endoso, cumple en el casillero", () => {
     const r = con(POR_ENDOSO, "TO ORDER");
-    expect(r?.estado).toBe("ATENCION");
-    expect(r?.evidencia).toContain("endoso va al dorso");
+    expect(r?.estado).toBe("OK");
+    expect(r?.evidencia).toContain("el endoso se examina aparte");
+    expect(r?.evidencia).not.toContain("no tiene campo");
   });
 
   it("y si el papel ya nombra al banco, cumple igual", () => {
@@ -1498,6 +1504,134 @@ describe("bl-consignee resuelve el rol del banco emisor (TA 765rev)", () => {
   /* El freno: con «CONSIGNED» el casillero sí es lo que se compara, y un «TO ORDER» pelado no alcanza. */
   it("pero con «consigned to the order of» el casillero sigue decidiendo", () => {
     expect(con(EXIGENCIA, "TO ORDER")?.estado).toBe("DISCREPANCIA");
+  });
+});
+
+/**
+ * El endoso del documento de transporte (`bl-endoso`)
+ *
+ * El campo `endoso` entró el 25-nov-2026, cuando la lectura dejó de ser una sola llamada y el tope de la
+ * gramática dejó de decidir qué examina el motor. Era el hueco que el laudo **DOCDEX 363** dejó declarado
+ * y el que hacía salir a `bl-consignee` diciendo «el motor no tiene campo para leerlo».
+ *
+ * Tres decisiones, y las tres son frenos:
+ *
+ * - **Un endoso que no se leyó no rechaza.** El endoso va casi siempre al dorso, y un campo vacío no
+ *   distingue «no está endosado» de «no se cargó esa hoja». La Opinión TA 814rev4 declara válida la
+ *   discrepancia «NOT ENDORSED», y el motor igual no la puede afirmar: sale a verificar diciendo qué mirar.
+ * - **La regla señala y no concluye.** El mismo laudo 363 declara **inválida** la discrepancia por una
+ *   palabra omitida en el endoso, así que comparar el texto contra el 46A y rechazar es justo lo que no
+ *   hay que hacer. Lo más que hace una diferencia es mandar el papel a una persona.
+ * - **Quién tiene que endosar sale del propio documento**: el embarcador cuando va «to order» o a su
+ *   orden —TA 814rev4: «issued 'to order' or 'to order of the shipper' and blank endorsed by the
+ *   shipper»— y la parte nombrada cuando va a la orden de alguien.
+ */
+describe("bl-endoso: el endoso que el crédito pide (TA 814rev4 y laudo DOCDEX 363)", () => {
+  const EN_BLANCO = "2. FULL SET OF CLEAN ON BOARD OCEAN BILLS OF LADING MADE OUT TO ORDER AND BLANK ENDORSED.";
+  const A_LA_ORDEN = "2. FULL SET OF CLEAN ON BOARD OCEAN BILL OF LADING ENDORSED TO THE ORDER OF THE ISSUING BANK.";
+  const con = (exigencia: string, endoso: string | null, consignatario = "TO ORDER", bancoEmisor = "TEST BANK") =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia], bancoEmisor },
+      docs: [
+        {
+          tipo: "BL" as const,
+          campos: {
+            ...BL,
+            consignatario: campo(consignatario),
+            ...(endoso === null ? {} : { endoso: campo(endoso) }),
+          },
+        },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === "bl-endoso");
+
+  it("un crédito que no pide endoso no tiene regla de endoso", () => {
+    expect(
+      con("2. FULL SET OF BILLS OF LADING CONSIGNED TO THE ORDER OF THE ISSUING BANK.", "MOLSUR SA"),
+    ).toBeUndefined();
+  });
+
+  it("endosado en blanco por el embarcador, cumple", () => {
+    const r = con(EN_BLANCO, "FOR MOLSUR SA (SIGNATURE) AUTHORISED SIGNATORY");
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toBe("46A");
+    expect(r?.evidencia).toContain("MOLSUR SA");
+  });
+
+  it("sin endoso leído va a verificar y nunca a discrepancia: el dorso puede no haberse cargado", () => {
+    const r = con(EN_BLANCO, null);
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("dorso");
+  });
+
+  it("un endoso que nombra a quién se endosa, bajo un crédito que lo pide en blanco, va a verificar", () => {
+    const r = con(EN_BLANCO, "DELIVER TO THE ORDER OF OTRO BANCO SA · MOLSUR SA");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("en blanco");
+  });
+
+  it("si en el endoso no se reconoce al embarcador, va a verificar nombrando a quién le toca", () => {
+    const r = con(EN_BLANCO, "(SIGNATURE)");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("MOLSUR SA");
+    expect(r?.evidencia).toContain("TA 814rev4");
+  });
+
+  /* El laudo DOCDEX 363: una palabra de menos en el endoso **no** es discrepancia. */
+  it("una palabra de menos en el nombre de quien endosa no rechaza", () => {
+    const r = con(EN_BLANCO, "FOR MOLSUR (SIGNATURE)");
+    expect(r?.estado).not.toBe("DISCREPANCIA");
+    expect(r?.evidencia).toContain("DOCDEX 363");
+  });
+
+  it("a la orden de una parte nombrada, endosa esa parte y no el embarcador", () => {
+    expect(con(EN_BLANCO, "MERIDIAN BANK PLC (SIGNATURE)", "TO THE ORDER OF MERIDIAN BANK PLC")?.estado).toBe("OK");
+    expect(con(EN_BLANCO, "MOLSUR SA (SIGNATURE)", "TO THE ORDER OF MERIDIAN BANK PLC")?.estado).toBe("ATENCION");
+  });
+
+  it("«to order of shipper» lo endosa el embarcador", () => {
+    expect(con(EN_BLANCO, "MOLSUR SA (SIGNATURE)", "TO ORDER OF SHIPPER")?.estado).toBe("OK");
+  });
+
+  it("endosado a la orden del banco que el crédito nombra por su rol, cumple", () => {
+    const r = con(A_LA_ORDEN, "DELIVER TO THE ORDER OF TEST BANK · MOLSUR SA (SIGNATURE)");
+    expect(r?.estado).toBe("OK");
+  });
+
+  it("endosado a la orden de otro, va a verificar con los dos nombres a la vista y no rechaza", () => {
+    const r = con(A_LA_ORDEN, "DELIVER TO THE ORDER OF OTRO BANCO SA · MOLSUR SA");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("OTRO BANCO SA");
+    expect(r?.evidencia).toContain("TEST BANK");
+  });
+
+  it("si el crédito lo pide a la orden del emisor y el emisor no se leyó, va a verificar", () => {
+    expect(con(A_LA_ORDEN, "DELIVER TO THE ORDER OF TEST BANK", "TO ORDER", "—")?.estado).toBe("ATENCION");
+  });
+
+  it("y sin endoso leído, el pedido a la orden también va a verificar", () => {
+    expect(con(A_LA_ORDEN, null)?.estado).toBe("ATENCION");
+  });
+
+  it("ninguna de sus salidas queda con castellano en el aviso en inglés", () => {
+    const salidas = [
+      con(EN_BLANCO, "FOR MOLSUR SA (SIGNATURE)"),
+      con(EN_BLANCO, null),
+      con(EN_BLANCO, "DELIVER TO THE ORDER OF OTRO BANCO SA"),
+      con(EN_BLANCO, "(SIGNATURE)"),
+      con(EN_BLANCO, "X", "TO ORDER"),
+      con(A_LA_ORDEN, "DELIVER TO THE ORDER OF TEST BANK"),
+      con(A_LA_ORDEN, "DELIVER TO THE ORDER OF OTRO BANCO SA"),
+      con(A_LA_ORDEN, "DELIVER TO THE ORDER OF TEST BANK", "TO ORDER", "—"),
+      con(A_LA_ORDEN, null),
+    ];
+    for (const r of salidas) {
+      for (const texto of [r?.regla ?? "", r?.evidencia ?? ""]) {
+        expect(quedaEspanol(textoEnIngles(texto)), texto).toBeNull();
+      }
+    }
   });
 });
 

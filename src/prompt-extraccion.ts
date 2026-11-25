@@ -44,6 +44,11 @@ export const PROMPT_EXAMEN =
   "- buque: the vessel name, including any qualifier such as 'INTENDED VESSEL'.\n" +
   "- charterParty: any indication that the document is subject to a charter party. Leave empty if there is none.\n" +
   "- onDeck: any clause about the goods being carried on deck, transcribed in full — 'shipped on deck' and 'may be carried on deck' are different things.\n" +
+  "- endoso: any endorsement on the transport document, verbatim and whole — the stamp or wording by which the shipper or the consignee " +
+  "transfers it, usually on the REVERSE: who endorses and, if it says so, to whose order ('DELIVER TO THE ORDER OF …'). " +
+  "If there is only a signature with no legible name, write what is legible followed by '(signature)'. " +
+  "Leave it empty if no endorsement is visible on the pages you were given: the carrier's signature on the face and the pre-printed terms on the reverse are NOT an endorsement, " +
+  "and never build it from the consignee box or from what the credit asks for.\n" +
   "- clausulaDefecto: any clause or notation expressly declaring the goods or their packaging defective (torn, stained, wet, rusty, short…). Leave empty if the document carries none; do NOT write 'clean' yourself.\n" +
   "- firmaTransporte: the signature block, verbatim and whole — who signed and in what capacity, e.g. " +
   "'ABC SHIPPING LTD AS AGENT FOR THE CARRIER XYZ LINES', 'SIGNED BY THE MASTER', 'FOR AND ON BEHALF OF THE CARRIER'. " +
