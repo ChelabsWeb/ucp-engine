@@ -2287,12 +2287,55 @@ const REEMPLAZOS: [RegExp, string][] = [
    * anclado a una sola mitad deja la otra sin traducir, que es el defecto que ya costó cuatro veces.
    */
   [
-    /\bque es lo que permite endosarlo, y el crédito pide el \*\*endoso\*\* a la orden de\b/g,
-    "which is what makes it endorsable, and the credit requires the **endorsement** to the order of",
+    /, que es lo que permite endosarlo: el endoso se examina aparte$/g,
+    ", which is what makes it endorsable: the endorsement is examined separately",
+  ],
+  /*
+   * `bl-endoso`: el endoso que el crédito pide, leído del campo `endoso` (25-nov-2026).
+   *
+   * Cada evidencia lleva una o dos citas en el medio —el texto del endoso y el nombre de quien
+   * endosa—, así que va partida en prefijo, medio y cola: `textoEnIngles` saca las citas y deja
+   * huecos, y un patrón que cruce un hueco no coincide nunca.
+   */
+  [
+    /^El documento de transporte lleva el endoso en blanco que el crédito pide$/g,
+    "The transport document bears the blank endorsement the credit requires",
   ],
   [
-    /\bel endoso va al dorso y el motor no tiene campo para leerlo \(laudo DOCDEX 363\), así que hay que verificarlo en el papel\b/g,
-    "the endorsement is on the reverse and the engine has no field to read it (DOCDEX Decision 363), so it must be checked on the document itself",
+    /^El documento de transporte va endosado a la orden de quien el crédito nombra \(/g,
+    "The transport document is endorsed to the order of the party the credit names (",
+  ],
+  [
+    /^El documento de transporte va endosado a la orden del banco emisor/g,
+    "The transport document is endorsed to the order of the issuing bank",
+  ],
+  [
+    /^no se leyó ningún endoso: suele ir al dorso del documento, así que hay que cargar esa hoja o verificarlo en el papel\. Un campo vacío no dice que el endoso falte$/g,
+    "no endorsement was read: it is usually on the reverse of the document, so that page must be loaded or the endorsement checked on the document itself. An empty field does not mean the endorsement is missing",
+  ],
+  [/^el endoso dice /g, "the endorsement reads "],
+  [
+    / y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano$/g,
+    " and the credit requires it to the order of the issuing bank, which was not read: check by hand",
+  ],
+  [/ y el crédito lo pide a la orden de /g, " and the credit requires it to the order of "],
+  [
+    /\buna palabra de menos en un endoso no es discrepancia \(laudo DOCDEX 363\), así que se verifica en el papel en vez de rechazarse$/g,
+    "a word missing from an endorsement is not a discrepancy (DOCDEX Decision 363), so it is checked on the document itself instead of refused",
+  ],
+  [
+    /, que nombra a favor de quién se endosa, y el crédito lo pide en blanco: verificar en el papel$/g,
+    ", which names the party it is endorsed to, and the credit requires it in blank: check on the document itself",
+  ],
+  [
+    / y no se leyó quién embarca, que es quien tiene que endosarlo: verificar a mano$/g,
+    " and the shipper, who is the party that has to endorse it, was not read: check by hand",
+  ],
+  [/, sin nombrar a favor de quién, y lo endosa /g, ", naming no endorsee, and it is endorsed by "],
+  [/ y no se reconoce en él a /g, " and it does not show "],
+  [
+    /, que es quien tiene que endosarlo \(Opinión TA 814rev4\)(?=:)/g,
+    ", the party that has to endorse it (Opinion TA 814rev4)",
   ],
   /* El importe que el 47A deja fluctuar sin enmienda (KEB v SCB y laudo DOCDEX 281). */
   [

@@ -1120,6 +1120,11 @@ export function precheckPresentacion(input: {
      */
     const exigeEndosoEnBlanco = EXIGE_ENDOSO_EN_BLANCO.test(reglaBL);
     /*
+     * Lo que `bl-endoso` necesita saber del pedido «endorsed to the order of X», que se resuelve más
+     * abajo junto con el rol del banco emisor: a la orden de quién, y si ese nombre no se pudo leer.
+     */
+    let endosoALaOrdenDe: { pedido: string; nombre: string } | null = null;
+    /*
      * **A quién** lo consigna, cuando el crédito lo nombra derecho en vez de pedirlo a la orden.
      *
      * El nombre se corta donde empieza la descripción del documento —«MARKED», «NOTIFY», «SHOWING»,
@@ -1249,11 +1254,14 @@ export function precheckPresentacion(input: {
        * Lo encontró el laudo DOCDEX 262, cuyo 46A lo escribe así y donde el emisor levantó cuatro
        * motivos y **ninguno** fue éste.
        *
-       * Y lo que corresponde es avisar y no dictaminar, porque **no hay campo para el endoso del dorso**
-       * —el hueco que dejó declarado el laudo DOCDEX 363— así que el motor no puede saber si está hecho.
+       * Antes esto salía a verificar, porque **no había campo para el endoso del dorso** —el hueco que
+       * dejó declarado el laudo DOCDEX 363—. Desde el 25-nov-2026 el campo existe y lo juzga
+       * `bl-endoso`, así que el casillero cumple con lo suyo: «TO ORDER» es lo que este crédito
+       * necesita, y la duda sobre el endoso vive en su propia regla en vez de teñir ésta.
        */
       const porEndoso = /\bENDORSED\s+(?:TO\s+(?:THE\s+)?ORDER\s+OF|IN\s+FAVOU?R\s+OF)\b/i.test(reglaBL);
       const aLaOrdenSinNombre = Boolean(consig) && /\bORDER\b|\bORDEN\b/i.test(consig!) && !ok;
+      if (porEndoso) endosoALaOrdenDe = { pedido: esRol ? "" : ordenDe, nombre: aQuien };
       reglas.push({
         id: "bl-consignee",
         fuente: "46A",
@@ -1261,15 +1269,91 @@ export function precheckPresentacion(input: {
           ? `BL consignado a la orden del banco emisor${delRol ? ` ("${delRol}")` : ""}`
           : `BL consignado "to the order of ${ordenDe}"`,
         estado:
-          !consig || (esRol && !delRol) || (porEndoso && aLaOrdenSinNombre) ? "ATENCION" : ok ? "OK" : "DISCREPANCIA",
+          !consig || (esRol && !delRol) ? "ATENCION" : ok || (porEndoso && aLaOrdenSinNombre) ? "OK" : "DISCREPANCIA",
         evidencia: !consig
           ? "no se leyó el consignee"
           : esRol && !delRol
             ? `dice "${consig}" y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano`
             : porEndoso && aLaOrdenSinNombre
-              ? `dice "${consig}", que es lo que permite endosarlo, y el crédito pide el **endoso** a la orden de ${aQuien || ordenDe}: el endoso va al dorso y el motor no tiene campo para leerlo (laudo DOCDEX 363), así que hay que verificarlo en el papel`
+              ? `dice "${consig}", que es lo que permite endosarlo: el endoso se examina aparte`
               : `dice "${consig}"`,
       });
+    }
+    /*
+     * El endoso, cuando el crédito lo pide.
+     *
+     * Dos pedidos distintos entran acá: «BLANK ENDORSED» y «ENDORSED TO THE ORDER OF X». En los dos el
+     * dato sale del campo `endoso`, que se lee del dorso del documento si esa hoja se cargó.
+     *
+     * **La regla señala y no concluye: nunca sale en DISCREPANCIA.** Tres motivos, y cada uno tiene
+     * una autoridad o un límite del esquema detrás:
+     *
+     * - **Un endoso que no se leyó no es un endoso que falta.** El campo vacío no distingue «no está
+     *   endosado» de «no se cargó el dorso», y la Opinión TA 814rev4 declara válida la discrepancia
+     *   «NOT ENDORSED» —o sea que la falta rechaza—, pero el motor no puede afirmar la falta desde el
+     *   silencio. Es el tercer estado del campo que el esquema todavía no tiene.
+     * - **Una palabra de menos en el endoso no es discrepancia** (laudo DOCDEX 363: *«omission of a
+     *   word from the endorsement on the bill of lading, was not considered as valid»*). Comparar el
+     *   texto contra el nombre y rechazar por la diferencia es exactamente lo que ese panel anuló.
+     * - **Un endoso nominativo donde el crédito lo pide en blanco** probablemente no cumple, pero no
+     *   hay una Opinión en la mano que lo diga, y este repositorio no rechaza apoyado en una
+     *   práctica que no pudo leer. Sale a verificar con el texto a la vista.
+     *
+     * **Quién tiene que endosar sale del propio documento**, no del crédito: si va «to order» o a la
+     * orden del embarcador, el embarcador —TA 814rev4: *«issued 'to order' or 'to order of the
+     * shipper' and blank endorsed by the shipper»*—; si va a la orden de una parte nombrada, esa
+     * parte, que es la única que puede endosarlo (laudo DOCDEX 288).
+     */
+    if (exigeEndosoEnBlanco || endosoALaOrdenDe) {
+      const endoso = val(bl, "endoso");
+      const dice = endoso ? `el endoso dice "${cortoDeTexto(endoso, 120)}"` : "";
+      const NO_RECHAZA =
+        "una palabra de menos en un endoso no es discrepancia (laudo DOCDEX 363), así que se verifica en el papel en vez de rechazarse";
+      const SIN_LEER =
+        "no se leyó ningún endoso: suele ir al dorso del documento, así que hay que cargar esa hoja o verificarlo en el papel. Un campo vacío no dice que el endoso falte";
+      if (endosoALaOrdenDe) {
+        const { pedido, nombre } = endosoALaOrdenDe;
+        const loNombra = Boolean(endoso && nombre) && norm(endoso!).includes(norm(nombre));
+        reglas.push({
+          id: "bl-endoso",
+          fuente: "46A",
+          regla: pedido
+            ? `El documento de transporte va endosado a la orden de quien el crédito nombra ("${pedido}")`
+            : `El documento de transporte va endosado a la orden del banco emisor${nombre ? ` ("${nombre}")` : ""}`,
+          estado: loNombra ? "OK" : "ATENCION",
+          evidencia: !endoso
+            ? SIN_LEER
+            : !nombre
+              ? `${dice} y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano`
+              : loNombra
+                ? dice
+                : `${dice} y el crédito lo pide a la orden de "${nombre}": ${NO_RECHAZA}`,
+        });
+      } else {
+        const nombraEndosatario = endoso
+          ? /\b(?:TO\s+(?:THE\s+)?ORDER\s+OF|DELIVER\s+TO|PAY\s+TO|IN\s+FAVOU?R\s+OF)\b/i.test(endoso)
+          : false;
+        /* a la orden de una parte nombrada endosa esa parte; «to order» y «to order of shipper», el embarcador */
+        const nombrado = consig ? (/\bORDER\s+OF\s+(?:THE\s+)?(.+)$/i.exec(consig)?.[1] ?? "").trim() : "";
+        const delConsignatario = nombrado && !/^(?:SHIPPER|CONSIGNOR)\b/i.test(nombrado) ? nombrado : "";
+        const quien = delConsignatario || (val(bl, "exportador") ?? "");
+        const loEndosa = Boolean(endoso && quien) && norm(endoso!).includes(norm(quien));
+        reglas.push({
+          id: "bl-endoso",
+          fuente: "46A",
+          regla: "El documento de transporte lleva el endoso en blanco que el crédito pide",
+          estado: endoso && !nombraEndosatario && loEndosa ? "OK" : "ATENCION",
+          evidencia: !endoso
+            ? SIN_LEER
+            : nombraEndosatario
+              ? `${dice}, que nombra a favor de quién se endosa, y el crédito lo pide en blanco: verificar en el papel`
+              : !quien
+                ? `${dice} y no se leyó quién embarca, que es quien tiene que endosarlo: verificar a mano`
+                : loEndosa
+                  ? `${dice}, sin nombrar a favor de quién, y lo endosa "${quien}"`
+                  : `${dice} y no se reconoce en él a "${quien}", que es quien tiene que endosarlo (Opinión TA 814rev4): ${NO_RECHAZA}`,
+        });
+      }
     }
     /*
      * La marca de flete, solo si el crédito la pide.

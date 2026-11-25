@@ -175,6 +175,19 @@ export interface CamposDoc {
   buque?: CampoDoc; // "STELLA AUSTRAL" — o "INTENDED VESSEL …"
   charterParty?: CampoDoc; // indicación de estar sujeto a contrato de fletamento
   onDeck?: CampoDoc; // "SHIPPED ON DECK" / "may be carried on deck"
+  /**
+   * El endoso del documento de transporte, tal cual: quién lo endosa y, si lo nombra, a favor de quién.
+   *
+   * Va casi siempre **al dorso**, así que solo se lee si esa hoja se cargó —la mesa acepta varios
+   * archivos por documento desde el 25-nov-2026—. Es el campo que el laudo DOCDEX 363 dejó declarado
+   * como hueco, y entró cuando la lectura se partió en tandas: hasta entonces `BL` estaba en el tope
+   * de la gramática y no había lugar. Lo lee `bl-endoso`, que **señala y no concluye**: el mismo
+   * laudo declara inválida la discrepancia por una palabra omitida en el endoso.
+   *
+   * Y es **un dato por campo**: el endoso no se mete en `consignatario` ni al revés, porque uno dice
+   * a nombre de quién se emitió el documento y el otro quién lo transfirió después.
+   */
+  endoso?: CampoDoc; // "FOR MOLSUR SA (signature)" / "DELIVER TO THE ORDER OF MERIDIAN BANK PLC"
   /** cómo se titula el documento de transporte: de ahí sale con qué artículo se lo examina (19 a 25) */
   tipoTransporte?: CampoDoc;
   /** cómo se titula el documento: una factura «proforma» no satisface la exigencia (ISBP 821 C1) */
@@ -799,6 +812,7 @@ export const SCHEMA_DOC = {
     buque: campoSchema,
     charterParty: campoSchema,
     onDeck: campoSchema,
+    endoso: campoSchema,
     tipoTransporte: campoSchema,
     tipoDocumento: campoSchema,
     clausulaDefecto: campoSchema,
@@ -930,6 +944,11 @@ export const PROMPT_DOC =
   "anotación de a bordo, dejalo VACÍO, no copies la fecha de emisión. " +
   "onDeck = la mención de estiba sobre cubierta ('SHIPPED ON DECK', 'ON DECK'), vacío si no aparece; no confundir " +
   "con 'ON DECK AT SHIPPER'S RISK' impreso en las condiciones generales, que no dice dónde viajó esta carga. " +
+  "endoso = el endoso del documento, tal cual y entero: el sello o la leyenda con que el embarcador o el consignatario " +
+  "lo transfiere, que suele estar al DORSO — quién endosa y, si lo dice, a la orden de quién ('DELIVER TO THE ORDER OF …'). " +
+  "Si solo hay una firma sin nombre legible, poné lo legible seguido de '(signature)'. Vacío si en las hojas que recibiste " +
+  "no se ve ningún endoso; la firma del transportista en el frente y las condiciones impresas del dorso NO son un endoso, " +
+  "y no lo armes con el consignatario ni con lo que pida el crédito. " +
   "clausulaDefecto = cualquier anotación sobre el estado defectuoso de la mercadería o del embalaje ('BAGS TORN', " +
   "'STAINED'), vacío si el documento está limpio. " +
   "juegoOriginales = cuántos originales se emitieron, tal cual ('3/3', 'THREE (3)', 'ZERO (0)'). " +
@@ -2491,6 +2510,14 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
      * comparar con el campo cargado a mano, sin poder recibirlo de la pantalla.
      */
     "pesoNeto",
+    /*
+     * El vigesimosexto: el **endoso**, que es el hueco que el laudo DOCDEX 363 dejó declarado.
+     *
+     * Con la lectura en tandas entra sin sacar a nadie (26 → 13 + 13). Lo lee `bl-endoso` cuando el
+     * crédito pide el documento endosado —en blanco o a la orden de alguien— y la pantalla deriva su
+     * casilla de esta lista, así que se puede cargar a mano aunque el dorso no se haya escaneado.
+     */
+    "endoso",
   ],
   LC: [
     "exportador",
