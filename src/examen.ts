@@ -231,8 +231,15 @@ export function examinarPresentacion(input: {
      * seguro va en la misma lista: su línea del 46A es una exigencia como las demás.
      */
     otros: [
-      ...(input.certificados ?? []).map((c) => ({ exigencia: c.exigencia, nombreArchivo: c.nombreArchivo })),
-      ...(input.seguro ? [{ exigencia: "INSURANCE", nombreArchivo: input.seguro.nombreArchivo }] : []),
+      /* con sus campos: la regla de ejemplares lee de ahí cuántos originales y copias llegaron */
+      ...(input.certificados ?? []).map((c) => ({
+        exigencia: c.exigencia,
+        nombreArchivo: c.nombreArchivo,
+        campos: c.campos,
+      })),
+      ...(input.seguro
+        ? [{ exigencia: "INSURANCE", nombreArchivo: input.seguro.nombreArchivo, campos: input.seguro.campos }]
+        : []),
     ],
     op,
     empresaRazonSocial: input.empresaRazonSocial,
