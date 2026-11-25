@@ -95,6 +95,13 @@ export interface ContextoCredito {
   bancoReembolsador?: string | null;
   /** 50: el ordenante, a cuyo nombre se emite la factura (art. 18a-ii) */
   aplicante?: string | null;
+  /**
+   * 50, de la segunda línea en adelante: la dirección del ordenante **como el crédito la da**.
+   *
+   * La necesita la segunda oración del artículo 14 (j): cuando esa dirección aparece en el
+   * consignatario o el notify de un documento de transporte, tiene que ser ésta (Opinión R 733).
+   */
+  aplicanteDireccion?: string | null;
   /** 59: el beneficiario, que es quien tiene que emitir la factura (art. 18a-i) */
   beneficiario?: string | null;
   /** 43P: "ALLOWED" / "NOT ALLOWED" */
@@ -3128,8 +3135,155 @@ function coincideConElCredito(enDocumento: string, ctx: ContextoCredito): boolea
   return Boolean(entero && entero !== ctx.mercaderia && coincideDescripcion(enDocumento, entero));
 }
 
+/**
+ * Si dos direcciones dan la misma ubicación, **sin saber geografía**.
+ *
+ * El criterio es el de la Opinión R 733 / TA 702rev: la dirección del documento *«does not imply that
+ * it need be exactly the same, merely that it not give a different location»*, y agregar datos que el
+ * crédito no da no es motivo de rechazo (conclusión 3). El motor no tiene tabla de topónimos y no
+ * conviene que la tenga —`coincideLugar` da false entre «WIEN» y «VIENNA», que es el mismo lugar—,
+ * así que la línea es mecánica y tiene tres salidas:
+ *
+ * - **IGUAL**: una dirección está contenida en la otra. La del documento más corta es «no tiene que
+ *   ser idéntica»; la del documento más larga es «datos agregados».
+ * - **DISTINTA**: las dos traen números —el de la calle, el código postal— y **no comparten ninguno**,
+ *   y además cada una tiene palabras que la otra no. Es el caso de la Opinión: otra calle con otro
+ *   número, en la misma ciudad o en otra.
+ * - **INCIERTA**: todo lo demás. Dos textos que difieren y comparten el número pueden ser el mismo
+ *   lugar escrito en otro idioma, y sin números no hay con qué decidir.
+ *
+ * Los números largos se descartan: siete cifras o más es un teléfono, y un teléfono agregado no
+ * puede fabricar una dirección distinta.
+ */
+const GENERICOS_DE_DIRECCION = new Set(
+  "the and off road street avenue building bldg floor office suite box tel telephone phone fax email mail attn attention".split(
+    " ",
+  ),
+);
+export function mismaUbicacion(delDocumento: string, delCredito: string): "IGUAL" | "INCIERTA" | "DISTINTA" {
+  const partes = (t: string) => {
+    const crudas = t
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+    const numeros = new Set(
+      crudas.filter((x) => /^\d+$/.test(x) && x.length < 7).map((x) => x.replace(/^0+(?=\d)/, "")),
+    );
+    const palabras = new Set(crudas.filter((x) => /^[a-z]{3,}$/.test(x) && !GENERICOS_DE_DIRECCION.has(x)));
+    return { numeros, palabras, todo: new Set([...numeros, ...palabras]) };
+  };
+  const d = partes(delDocumento);
+  const c = partes(delCredito);
+  if (d.todo.size === 0 || c.todo.size === 0) return "INCIERTA";
+  const contenida = (a: Set<string>, b: Set<string>) => [...a].every((x) => b.has(x));
+  /* del documento al crédito se comparan también los números; del crédito al documento, igual */
+  if (contenida(d.todo, c.todo) || contenida(c.todo, d.todo)) return "IGUAL";
+  const compartenNumero = [...d.numeros].some((x) => c.numeros.has(x));
+  const cadaUnaTieneLoSuyo =
+    [...d.palabras].some((x) => !c.palabras.has(x)) && [...c.palabras].some((x) => !d.palabras.has(x));
+  if (d.numeros.size > 0 && c.numeros.size > 0 && !compartenNumero && cadaUnaTieneLoSuyo) return "DISTINTA";
+  return "INCIERTA";
+}
+
+/**
+ * La segunda oración del artículo 14 (j): la dirección del ordenante en el consignatario o el notify
+ * de un documento de transporte tiene que ser la del crédito.
+ *
+ * Lo decide la Opinión **R 733 / TA 702rev** —*«the content of sub-article 14 (j) would prevail when
+ * the consignee and notify party are stated to be the applicant. In this event, the address and any
+ * contact details must be those stated in the credit»*— y es **el contrapeso del laudo DOCDEX 265**:
+ * la primera oración del mismo inciso dice que las direcciones del beneficiario y del ordenante no
+ * tienen que coincidir; la segunda hace la excepción para estos dos casilleros.
+ *
+ * Tres frenos, y cada uno sale del texto del artículo:
+ *
+ * - **solo cuando el casillero nombra al ordenante.** La dirección de otra parte no es asunto de
+ *   este inciso;
+ * - **solo cuando la dirección aparece** («when the address … appear»). Un casillero con el nombre
+ *   solo no dispara nada, y un crédito que no da dirección tampoco: ahí cualquier dirección es un
+ *   dato agregado;
+ * - **una dirección leída con poca confianza no decide**: sale a verificar.
+ *
+ * Y si la dirección no vino en su campo pero el casillero la trae pegada al nombre —que es como la
+ * carga una persona a mano—, se toma lo que queda después del nombre.
+ */
+function reglasDireccionDelOrdenante(ctx: ContextoCredito, bl: DocAnalizado): ReglaPresentacion[] {
+  const ordenante = ctx.aplicante?.trim();
+  const delCredito = ctx.aplicanteDireccion?.trim();
+  if (!ordenante || !delCredito) return [];
+  const plano = (t: string) =>
+    t
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const out: ReglaPresentacion[] = [];
+  for (const [casillero, campoNombre, campoDireccion] of [
+    ["consignatario", "consignatario", "direccionConsignatario"],
+    ["notify", "notify", "direccionNotify"],
+  ] as const) {
+    const nombre = val(bl, campoNombre);
+    if (!nombre) continue;
+    const loNombra =
+      plano(nombre).includes(plano(ordenante)) ||
+      veredictoDeNombre(nombre.replace(/^.*\border\s+of\s+/i, ""), ordenante) === "OK";
+    if (!loNombra) continue;
+    const crudo = bl.campos[campoDireccion];
+    const leida = crudo?.valor.trim() ?? "";
+    const pocaConfianza = Boolean(leida) && (crudo?.confianza ?? 0) < 0.4;
+    /* la dirección pegada al nombre: lo que queda del casillero después del nombre del ordenante */
+    const i = plano(nombre).indexOf(plano(ordenante));
+    const pegada =
+      i >= 0
+        ? plano(nombre)
+            .slice(i + plano(ordenante).length)
+            .trim()
+        : "";
+    const direccion = leida || (/[a-z]{3,}/.test(pegada) ? pegada.toUpperCase() : "");
+    if (!direccion) continue;
+    const id = `ucp-14j-${casillero}`;
+    const texto =
+      casillero === "consignatario"
+        ? "La dirección del ordenante en el consignatario es la del crédito"
+        : "La dirección del ordenante en el notify es la del crédito";
+    const lasDos = `el documento da "${direccion}" · el crédito da "${delCredito}"`;
+    if (pocaConfianza) {
+      out.push(
+        regla(
+          id,
+          "UCP 600 14j",
+          texto,
+          "ATENCION",
+          `${lasDos}: la dirección se leyó con poca confianza, verificar a mano`,
+        ),
+      );
+      continue;
+    }
+    const v = mismaUbicacion(direccion, delCredito);
+    out.push(
+      regla(
+        id,
+        "UCP 600 14j",
+        texto,
+        v === "IGUAL" ? "OK" : v === "DISTINTA" ? "DISCREPANCIA" : "ATENCION",
+        v === "IGUAL"
+          ? lasDos
+          : v === "DISTINTA"
+            ? `${lasDos}: es otra ubicación, y cuando la dirección del ordenante aparece en este casillero tiene que ser la del crédito (Opinión R 733)`
+            : `${lasDos}: no coinciden y el motor no puede decir si es otra ubicación o la misma escrita de otra forma. No tiene que ser idéntica, solo no dar otra ubicación (Opinión R 733): verificar a mano`,
+      ),
+    );
+  }
+  return out;
+}
+
 function reglasGenerales(lc: LcInfo, ctx: ContextoCredito, docs: DocAnalizado[], hoy: Date): ReglaPresentacion[] {
   const out: ReglaPresentacion[] = [];
+  const transporte = docs.find((d) => d.tipo === "BL");
+  if (transporte) out.push(...reglasDireccionDelOrdenante(ctx, transporte));
 
   for (const d of docs) {
     const nombre = d.nombreArchivo ?? NOMBRE[d.tipo];

@@ -169,6 +169,18 @@ export interface CamposDoc {
   referenciaProforma?: CampoDoc; // factura: "goods are shipped as per proforma invoice no. 2025099 dtd 04.03.2025"
   flete?: CampoDoc; // BL: "FREIGHT PREPAID" / "FREIGHT COLLECT"; factura: el flete desglosado ("FREIGHT 8.094,00")
   notify?: CampoDoc; // BL: notify party
+  /**
+   * La dirección postal que el documento de transporte imprime en el casillero del consignatario y en
+   * el del notify, **sin el nombre de la parte**.
+   *
+   * Existen por la segunda oración del artículo 14 (j): cuando la dirección del **ordenante** aparece
+   * como parte del consignatario o del notify de un documento de transporte, tiene que ser la del
+   * crédito. La Opinión R 733 / TA 702rev declara válidas las dos discrepancias, y el motor no las
+   * veía porque no sabía cuál parte del texto era la dirección. Entraron el 25-nov-2026, cuando la
+   * lectura se partió en tandas. Las lee `ucp-14j-*`.
+   */
+  direccionConsignatario?: CampoDoc;
+  direccionNotify?: CampoDoc;
   hsCode?: CampoDoc; // "2301.20.00" (D4)
   /* documento de transporte (UCP 600 arts. 20, 26, 27) */
   onBoard?: CampoDoc; // "SHIPPED ON BOARD 08-APR-2025"
@@ -807,6 +819,8 @@ export const SCHEMA_DOC = {
     referenciaProforma: campoSchema,
     flete: campoSchema,
     notify: campoSchema,
+    direccionConsignatario: campoSchema,
+    direccionNotify: campoSchema,
     hsCode: campoSchema,
     onBoard: campoSchema,
     buque: campoSchema,
@@ -944,6 +958,9 @@ export const PROMPT_DOC =
   "anotación de a bordo, dejalo VACÍO, no copies la fecha de emisión. " +
   "onDeck = la mención de estiba sobre cubierta ('SHIPPED ON DECK', 'ON DECK'), vacío si no aparece; no confundir " +
   "con 'ON DECK AT SHIPPER'S RISK' impreso en las condiciones generales, que no dice dónde viajó esta carga. " +
+  "direccionConsignatario y direccionNotify = la dirección postal impresa en el casillero del CONSIGNEE y en el del NOTIFY " +
+  "PARTY de un documento de transporte, tal cual y SIN el nombre de la parte, sin teléfonos ni correos; vacío si el casillero " +
+  "solo trae el nombre. No la completes con la dirección que figure en otro lugar del documento ni en el crédito. " +
   "endoso = el endoso del documento, tal cual y entero: el sello o la leyenda con que el embarcador o el consignatario " +
   "lo transfiere, que suele estar al DORSO — quién endosa y, si lo dice, a la orden de quién ('DELIVER TO THE ORDER OF …'). " +
   "Si solo hay una firma sin nombre legible, poné lo legible seguido de '(signature)'. Vacío si en las hojas que recibiste " +
@@ -2518,6 +2535,12 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
      * casilla de esta lista, así que se puede cargar a mano aunque el dorso no se haya escaneado.
      */
     "endoso",
+    /*
+     * Y las dos direcciones, por la segunda oración del artículo 14 (j) (Opinión R 733 / TA 702rev):
+     * veintiocho campos, dos tandas de catorce.
+     */
+    "direccionConsignatario",
+    "direccionNotify",
   ],
   LC: [
     "exportador",
