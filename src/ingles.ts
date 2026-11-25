@@ -2290,6 +2290,29 @@ const REEMPLAZOS: [RegExp, string][] = [
     /, que es lo que permite endosarlo: el endoso se examina aparte$/g,
     ", which is what makes it endorsable: the endorsement is examined separately",
   ],
+  /* `ucp-14j-*`: la dirección del ordenante en el consignatario o el notify (Opinión R 733). */
+  [
+    /^La dirección del ordenante en el consignatario es la del crédito$/g,
+    "The applicant's address in the consignee details is the one stated in the credit",
+  ],
+  [
+    /^La dirección del ordenante en el notify es la del crédito$/g,
+    "The applicant's address in the notify party details is the one stated in the credit",
+  ],
+  [/^el documento da /g, "the document gives "],
+  [/ · el crédito da /g, " · the credit gives "],
+  [
+    /: la dirección se leyó con poca confianza, verificar a mano$/g,
+    ": the address was read with low confidence, check by hand",
+  ],
+  [
+    /: es otra ubicación, y cuando la dirección del ordenante aparece en este casillero tiene que ser la del crédito \(Opinión R 733\)$/g,
+    ": it is a different location, and when the applicant's address appears in these details it must be as stated in the credit (Opinion R 733)",
+  ],
+  [
+    /: no coinciden y el motor no puede decir si es otra ubicación o la misma escrita de otra forma\. No tiene que ser idéntica, solo no dar otra ubicación \(Opinión R 733\): verificar a mano$/g,
+    ": they do not match and the engine cannot tell whether it is a different location or the same one written differently. It need not be exactly the same, merely not give a different location (Opinion R 733): check by hand",
+  ],
   /*
    * `bl-endoso`: el endoso que el crédito pide, leído del campo `endoso` (25-nov-2026).
    *

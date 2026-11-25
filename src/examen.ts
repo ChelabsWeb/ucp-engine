@@ -71,6 +71,8 @@ export function contextoDesdeSwift(p: LcSwift): ContextoCredito {
     mercaderiaCompleta: p.extra.bienes,
     bancoReembolsador: p.extra.bancoReembolsador,
     aplicante: p.extra.aplicante[0] ?? null,
+    // del 50, lo que sigue al nombre: la dirección que la segunda oración del 14 (j) manda respetar
+    aplicanteDireccion: p.extra.aplicante.slice(1).join(", ").replace(/\s+/g, " ").trim() || null,
     // El 59: sin él, la regla del artículo 18 (a) (i) no puede decidir quién emitió la factura.
     beneficiario: p.extra.beneficiario[0] ?? null,
     parciales: p.extra.parciales,

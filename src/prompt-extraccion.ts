@@ -45,6 +45,9 @@ export const PROMPT_EXAMEN =
   "- charterParty: any indication that the document is subject to a charter party. Leave empty if there is none.\n" +
   "- onDeck: any clause about the goods being carried on deck — 'shipped on deck' and 'may be carried on deck' are different things, so keep the verb exactly as printed. " +
   "Transcribe only the sentence that mentions the deck, not the whole paragraph of terms around it: at most about 250 characters, cut at the end of the sentence or clause and never before the words that say whether the goods ARE on deck or MAY be carried there.\n" +
+  "- direccionConsignatario / direccionNotify: on a transport document, the postal address printed in the CONSIGNEE box and in the NOTIFY PARTY box, " +
+  "verbatim and WITHOUT the party's name, phone numbers or e-mail. Leave it empty if the box shows only a name; " +
+  "never fill it from an address printed elsewhere on the document or from the credit.\n" +
   "- endoso: any endorsement on the transport document, verbatim and whole — the stamp or wording by which the shipper or the consignee " +
   "transfers it, usually on the REVERSE: who endorses and, if it says so, to whose order ('DELIVER TO THE ORDER OF …'). " +
   "If there is only a signature with no legible name, write what is legible followed by '(signature)'. " +

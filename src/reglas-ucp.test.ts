@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { CamposDoc } from "./consistencia";
 import { contextoDesdeSwift } from "./examen";
 import { SWIFT_CSU2025099 } from "./fixtures";
-import { textoEnIngles } from "./ingles";
+import { quedaEspanol, textoEnIngles } from "./ingles";
 import type { DocAnalizado } from "./presentacion";
 import { type ContextoCredito, reglasUCP } from "./reglas-ucp";
 import { parseMT700 } from "./swift-lc";
@@ -4136,5 +4136,143 @@ describe("costos adicionales al flete (laudo DOCDEX 384)", () => {
 
   it("y sin marca de flete leída se sale a verificar", () => {
     expect(con("")?.estado).toBe("ATENCION");
+  });
+});
+
+/**
+ * La dirección del ordenante en el consignatario o el notify (art. 14 (j), segunda oración)
+ *
+ * La **Opinión R 733 / TA 702rev** declara válidas dos discrepancias sobre un air waybill: el ordenante
+ * como consignatario con la dirección de **otra ciudad**, y como notify con **otra calle** en la misma.
+ * Y fija el criterio con el que hay que comparar: *«does not imply that it need be exactly the same,
+ * merely that it not give a different location»*, más la conclusión 3 —agregar datos de contacto que el
+ * crédito no da no es motivo de rechazo—.
+ *
+ * El motor no sabe geografía y no conviene que la sepa (`coincideLugar` da false entre «WIEN» y
+ * «VIENNA»), así que la línea es mecánica: **solo rechaza cuando hasta los números de la dirección
+ * difieren**. Una dirección contenida en la otra cumple; lo demás va a verificar.
+ */
+describe("ucp-14j: la dirección del ordenante en el documento de transporte (Opinión R 733)", () => {
+  const ctx: ContextoCredito = {
+    ...CTX,
+    aplicante: "COMPANY X",
+    aplicanteDireccion: "HEAD OFFICE, 14 NARODNI, PRAHA, CZECH REPUBLIC",
+  };
+  const con = (
+    over: Partial<Record<keyof CamposDoc, { valor: string; confianza: number }>>,
+    credito: ContextoCredito = ctx,
+  ) => reglasUCP({ lc: LC, credito, docs: [{ tipo: "BL", campos: doc(over) }], hoy: HOY });
+  const notify = (direccion: string, credito: ContextoCredito = ctx) =>
+    con({ notify: campo("COMPANY X"), direccionNotify: campo(direccion) }, credito).find(
+      (r) => r.id === "ucp-14j-notify",
+    );
+
+  it("otra calle y otro número en la misma ciudad: la discrepancia vale", () => {
+    const r = notify("LOGISTICS DEPARTMENT, 8 OLSANSKA, PRAHA, CZECH REPUBLIC");
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.fuente).toBe("UCP 600 14j");
+    expect(r?.evidencia).toContain("R 733");
+  });
+
+  it("otra ciudad en el consignatario: la discrepancia vale", () => {
+    const r = con({
+      consignatario: campo("COMPANY X"),
+      direccionConsignatario: campo("BRNO BRANCH, 3 LIDICKA, BRNO, CZECH REPUBLIC"),
+    }).find((x) => x.id === "ucp-14j-consignatario");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("la misma dirección, cumple", () => {
+    expect(notify("HEAD OFFICE, 14 NARODNI, PRAHA, CZECH REPUBLIC")?.estado).toBe("OK");
+  });
+
+  /* «does not imply that it need be exactly the same» */
+  it("la dirección abreviada del crédito cumple: no tiene que ser idéntica", () => {
+    expect(notify("14 NARODNI, PRAHA")?.estado).toBe("OK");
+    expect(notify("NO.14, NARODNI ST., PRAHA, CZECH REPUBLIC")?.estado).toBe("OK");
+  });
+
+  /* Conclusión 3: «The addition of contact details not given in the credit would not be a reason for refusal». */
+  it("datos agregados que el crédito no da no rechazan", () => {
+    const r = notify("HEAD OFFICE, 14 NARODNI, PRAHA 1, 110 00, CZECH REPUBLIC, TEL 420 224 951 111, ATTN MR NOVAK");
+    expect(r?.estado).toBe("OK");
+  });
+
+  /* El motor no sabe que Prague es Praha, y por eso no decide: comparten el número de la calle. */
+  it("la misma dirección en otro idioma va a verificar, no a discrepancia", () => {
+    const r = notify("14 NARODNI STREET, PRAGUE, CZECHIA");
+    expect(r?.estado).toBe("ATENCION");
+    expect(r?.evidencia).toContain("otra ubicación");
+  });
+
+  it("si el crédito no da números, una dirección distinta va a verificar: no hay con qué rechazar", () => {
+    const sinNumeros = { ...ctx, aplicanteDireccion: "OFF HARBOUR ROAD, NEGOMBO, GAMPAHA, SRI LANKA" };
+    expect(notify("45 MAIN STREET, COLOMBO, SRI LANKA", sinNumeros)?.estado).toBe("ATENCION");
+    expect(notify("OFF HARBOUR ROAD, NEGOMBO, SRI LANKA", sinNumeros)?.estado).toBe("OK");
+  });
+
+  it("el cero a la izquierda de un código no hace otra dirección", () => {
+    const c = { ...ctx, aplicanteDireccion: "NO,12 HARBOUR ROAD, COLOMBO 03, SRI LANKA" };
+    expect(notify("12 HARBOUR RD, COLOMBO 3, SRI LANKA", c)?.estado).toBe("OK");
+  });
+
+  /* La segunda oración del 14 (j) habla del ordenante: la dirección de otra parte no es asunto suyo. */
+  it("si el casillero no nombra al ordenante, no hay regla", () => {
+    const r = con({
+      notify: campo("OTRA EMPRESA LTD"),
+      direccionNotify: campo("8 OLSANSKA, PRAHA, CZECH REPUBLIC"),
+    }).find((x) => x.id === "ucp-14j-notify");
+    expect(r).toBeUndefined();
+  });
+
+  it("«to the order of» el ordenante también lo nombra", () => {
+    const r = con({
+      consignatario: campo("TO THE ORDER OF COMPANY X"),
+      direccionConsignatario: campo("3 LIDICKA, BRNO, CZECH REPUBLIC"),
+    }).find((x) => x.id === "ucp-14j-consignatario");
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  /* «when the address … appear»: sin dirección en el casillero el artículo no se dispara. */
+  it("sin dirección en el casillero no hay regla, y sin dirección en el crédito tampoco", () => {
+    expect(con({ notify: campo("COMPANY X") }).find((x) => x.id === "ucp-14j-notify")).toBeUndefined();
+    expect(notify("8 OLSANSKA, PRAHA", { ...ctx, aplicanteDireccion: null })).toBeUndefined();
+    expect(notify("8 OLSANSKA, PRAHA", { ...ctx, aplicante: null })).toBeUndefined();
+  });
+
+  it("una dirección leída con poca confianza va a verificar y no decide", () => {
+    const r = con({
+      notify: campo("COMPANY X"),
+      direccionNotify: campo("8 OLSANSKA, PRAHA, CZECH REPUBLIC", 0.3),
+    }).find((x) => x.id === "ucp-14j-notify");
+    expect(r?.estado).toBe("ATENCION");
+  });
+
+  /* La dirección dentro del propio casillero, como la carga una persona a mano. */
+  it("si la dirección viene pegada al nombre en el casillero, se lee de ahí", () => {
+    const r = con({ notify: campo("COMPANY X, LOGISTICS DEPARTMENT, 8 OLSANSKA, PRAHA, CZECH REPUBLIC") }).find(
+      (x) => x.id === "ucp-14j-notify",
+    );
+    expect(r?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("ninguna salida deja castellano en el aviso en inglés", () => {
+    const salidas = [
+      notify("LOGISTICS DEPARTMENT, 8 OLSANSKA, PRAHA, CZECH REPUBLIC"),
+      notify("HEAD OFFICE, 14 NARODNI, PRAHA, CZECH REPUBLIC"),
+      notify("14 NARODNI STREET, PRAGUE, CZECHIA"),
+      con({ notify: campo("COMPANY X"), direccionNotify: campo("8 OLSANSKA", 0.3) }).find(
+        (x) => x.id === "ucp-14j-notify",
+      ),
+      con({ consignatario: campo("COMPANY X"), direccionConsignatario: campo("3 LIDICKA, BRNO") }).find(
+        (x) => x.id === "ucp-14j-consignatario",
+      ),
+    ];
+    for (const r of salidas) {
+      expect(r).toBeDefined();
+      for (const texto of [r?.regla ?? "", r?.evidencia ?? ""]) {
+        expect(quedaEspanol(textoEnIngles(texto)), texto).toBeNull();
+      }
+    }
   });
 });
