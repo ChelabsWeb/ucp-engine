@@ -2290,6 +2290,34 @@ const REEMPLAZOS: [RegExp, string][] = [
     /, que es lo que permite endosarlo: el endoso se examina aparte$/g,
     ", which is what makes it endorsable: the endorsement is examined separately",
   ],
+  /* `46A+n-ejemplares`: cuántos originales y copias llegaron (laudo DOCDEX 250). */
+  [
+    /^Se presentó la cantidad de originales y copias que el crédito pide$/g,
+    "The number of originals and copies the credit requires was presented",
+  ],
+  [/^presentados — originales: /g, "presented — originals: "],
+  [/ · pedidos — originales: todo el juego, copias: /g, " · required — originals: the full set, copies: "],
+  [/ · pedidos — originales: /g, " · required — originals: "],
+  [/, copias: /g, ", copies: "],
+  [/\bsin cargar\b/g, "not entered"],
+  [/\bilegible\b/g, "not a number"],
+  [/ \((\d+) por el 47A\)/g, " ($1 under field 47A)"],
+  [
+    /: una de las cifras cargadas no es un número, verificar a mano$/g,
+    ": one of the figures entered is not a number, check by hand",
+  ],
+  [
+    /: el crédito pide el juego completo y no se leyó cuántos originales se emitieron, verificar a mano$/g,
+    ": the credit requires the full set and the number of originals issued was not read, check by hand",
+  ],
+  [
+    /: la cantidad exigida de originales y copias tiene que presentarse, y completarla después no lo subsana \(ISBP 645 párrafo 71, laudo DOCDEX 250\)$/g,
+    ": the required number of originals and copies must be presented, and supplying the rest later does not cure it (ISBP 645 paragraph 71, DOCDEX Decision 250)",
+  ],
+  [
+    /: falta cargar una de las dos cifras y con la otra sola no alcanza, verificar a mano$/g,
+    ": one of the two figures has not been entered and the other alone is not enough, check by hand",
+  ],
   /* `ucp-14j-*`: la dirección del ordenante en el consignatario o el notify (Opinión R 733). */
   [
     /^La dirección del ordenante en el consignatario es la del crédito$/g,

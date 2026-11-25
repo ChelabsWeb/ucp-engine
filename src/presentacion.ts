@@ -605,6 +605,38 @@ export function ejemplaresDe(texto: string): Ejemplares {
   return { originales, copias, texto: partes.join(" + ") || "sin cantidad indicada" };
 }
 
+/**
+ * Las copias que el 47A agrega a un documento del 46A.
+ *
+ * «ONE ADDITIONAL COPY OF COMMERCIAL INVOICE AND TRANSPORT DOCUMENT SHOULD BE PROVIDED FOR OUR FILE»
+ * es la condición del laudo DOCDEX 250, y el panel la suma: *«altogether three original invoices and
+ * three copies of the invoice are required under the letter of credit»*. `clave` es la de `claveDoc`
+ * para la línea del 46A que se está contando.
+ *
+ * Angosto a propósito: pide el número, «additional» o «extra», y «copy/copies of». Una condición que
+ * hable de copias de otra manera no suma nada, y la regla de ejemplares cuenta solo lo que el 46A dice.
+ */
+export function copiasAdicionalesDel47A(condiciones: string[] | null | undefined, clave: string): number {
+  let n = 0;
+  for (const c of condiciones ?? []) {
+    const m =
+      /\b(ONE|TWO|THREE|FOUR|FIVE|SIX|AN?|\d{1,2})\s+(?:ADDITIONAL|EXTRA)\s+(?:PHOTO\s?)?COP(?:Y|IES)\s+OF\s+(.+?)(?=\s+(?:SHOULD|MUST|SHALL|IS|ARE|TO\s+BE|REQUIRED|FOR)\b|[.;]|$)/i.exec(
+        c.replace(/\s+/g, " "),
+      );
+    if (!m) continue;
+    const cuantas = /^AN?$/i.test(m[1]) ? 1 : (PALABRA_A_NUMERO[m[1].toUpperCase()] ?? Number(m[1]));
+    const nombrados = m[2].split(/\s*(?:,|&|\bAND\b)\s*/i).filter(Boolean);
+    const loNombra = nombrados.some(
+      (x) =>
+        /\b(?:ALL|EACH)\s+DOCUMENTS?\b/i.test(x) ||
+        claveDoc(x) === clave ||
+        (clave === "BL" && /\btransport\s+documents?\b/i.test(x)),
+    );
+    if (loNombra) n += cuantas;
+  }
+  return n;
+}
+
 /** "A DISCREPANCY FEE OF USD 80/- OR ITS EQUIVALENT WILL BE DEDUCTED…" → 80 */
 export function feeDiscrepancia(condiciones: string[] | null | undefined): number | null {
   for (const c of condiciones ?? []) {
@@ -715,7 +747,7 @@ export function precheckPresentacion(input: {
    * beneficiario, así que sin esto un certificado de análisis presentado dejaba su línea del
    * crédito en FALTA y `listo` no podía ser `true` en ningún crédito real.
    */
-  otros?: { exigencia: string; nombreArchivo?: string }[];
+  otros?: { exigencia: string; nombreArchivo?: string; campos?: CamposDoc }[];
   /**
    * El **45A entero**, para la proforma que el crédito nombra ahí y no en la línea de la factura.
    *
@@ -767,7 +799,7 @@ export function precheckPresentacion(input: {
     op.documentos.find((d) => nombres.includes(d.nombre));
   /** Si una exigencia del 46A llegó presentada como certificado o seguro. */
   const usados = new Set<number>();
-  const presentado = (texto: string): { nombreArchivo?: string } | undefined => {
+  const presentado = (texto: string): { nombreArchivo?: string; campos?: CamposDoc } | undefined => {
     const lista = input.otros ?? [];
     const k = claveDoc(texto);
     // por el texto exacto primero —el examinador eligió contra qué línea carga cada papel— y
@@ -849,6 +881,86 @@ export function precheckPresentacion(input: {
      * midiendo el actual— sino que se **dice**: el segundo documento que la línea nombra no se está
      * apareando por separado. Nunca rechaza; es una verificación.
      */
+    /*
+     * Cuántos ejemplares llegaron, si alguien los contó.
+     *
+     * El laudo **DOCDEX 250** declara válido —por unanimidad— el rechazo por cuatro facturas donde el
+     * crédito pedía seis, con el párrafo 71 de la ISBP 645 transcripto: *«The required number of
+     * originals and copies must be presented»*. Y agrega que presentar las que faltaban después no lo
+     * subsana. El motor no lo veía porque la mesa no tenía dónde escribir el conteo.
+     *
+     * Lo que pide el crédito sale de `ejemplaresDe` —que ya aplica el 17 (e): «IN 3 FOLD» es un original
+     * y dos copias— más lo que agregue el 47A. Y lo que llegó lo carga una persona, en dos campos del
+     * propio documento. Cuatro decisiones:
+     *
+     * - **sin ningún conteo cargado no hay regla.** Lo que se afirma arriba es que el documento está;
+     *   contar sigue siendo de quien tiene los papeles;
+     * - **un original de más sirve de copia** (17 d: donde el crédito pide copias se admiten originales),
+     *   así que se compara el total, y aparte que los originales alcancen;
+     * - **el juego completo sin número** («FULL SET OF BILLS OF LADING») se cuenta contra los originales
+     *   que el propio documento dice que se emitieron (20 a iv), y si eso no se leyó no se decide;
+     * - **una cifra sin cargar no es un cero**: si con lo cargado no alcanza y falta la otra, va a
+     *   verificar.
+     */
+    {
+      const delPapel = analizado?.campos ?? pres?.campos;
+      const cifra = (k: "originalesPresentados" | "copiasPresentadas"): number | null | "ilegible" => {
+        const v = delPapel?.[k]?.valor.trim() ?? "";
+        if (!v) return null;
+        return /^\d{1,3}$/.test(v) ? Number(v) : "ilegible";
+      };
+      const O = cifra("originalesPresentados");
+      const C = cifra("copiasPresentadas");
+      if (delPapel && !laPrimera && (O !== null || C !== null)) {
+        const adicionales = copiasAdicionalesDel47A(lc.condicionesAdicionales, k);
+        const esJuegoSinNumero = ej.originales == null && /\bFULL\s+SET\b/i.test(texto);
+        const mJuego = esJuegoSinNumero
+          ? /\b(\d)\s*\/\s*(\d)\b|\b(ONE|TWO|THREE|FOUR|FIVE|SIX)\b|\b(\d)\b/i.exec(
+              delPapel.juegoOriginales?.valor ?? "",
+            )
+          : null;
+        const delJuego = mJuego
+          ? Number(mJuego[2] ?? mJuego[4] ?? PALABRA_A_NUMERO[(mJuego[3] ?? "").toUpperCase()] ?? Number.NaN)
+          : null;
+        const soloCopia = ej.originales == null && /\bCOP(?:Y|IES)\b/i.test(texto) && !/\bORIGINAL/i.test(texto);
+        const juegoSinDato = esJuegoSinNumero && !(delJuego && delJuego > 0);
+        const minOriginales = esJuegoSinNumero ? (delJuego ?? 0) : (ej.originales ?? (soloCopia ? 0 : 1));
+        const copiasPedidas = (ej.copias ?? 0) + adicionales;
+        const total = minOriginales + copiasPedidas;
+        const ilegible = O === "ilegible" || C === "ilegible";
+        const o = typeof O === "number" ? O : null;
+        const c = typeof C === "number" ? C : null;
+        const faltanOriginales = o !== null && o < minOriginales;
+        const faltaTotal = o !== null && c !== null && o + c < total;
+        const alcanza = (o ?? 0) + (c ?? 0) >= total && (o !== null ? o >= minOriginales : minOriginales === 0);
+        const estado =
+          ilegible || juegoSinDato
+            ? "ATENCION"
+            : faltanOriginales || faltaTotal
+              ? "DISCREPANCIA"
+              : alcanza
+                ? "OK"
+                : "ATENCION";
+        const mostrar = (x: number | null | "ilegible") =>
+          x === null ? "sin cargar" : x === "ilegible" ? "ilegible" : String(x);
+        const cuenta = `presentados — originales: ${mostrar(O)}, copias: ${mostrar(C)} · pedidos — originales: ${juegoSinDato ? "todo el juego" : minOriginales}, copias: ${copiasPedidas}${adicionales ? ` (${adicionales} por el 47A)` : ""}`;
+        reglas.push({
+          id: `${id}-ejemplares`,
+          fuente: adicionales ? `${id} · 47A` : id,
+          regla: "Se presentó la cantidad de originales y copias que el crédito pide",
+          estado,
+          evidencia: ilegible
+            ? `${cuenta}: una de las cifras cargadas no es un número, verificar a mano`
+            : juegoSinDato
+              ? `${cuenta}: el crédito pide el juego completo y no se leyó cuántos originales se emitieron, verificar a mano`
+              : estado === "DISCREPANCIA"
+                ? `${cuenta}: la cantidad exigida de originales y copias tiene que presentarse, y completarla después no lo subsana (ISBP 645 párrafo 71, laudo DOCDEX 250)`
+                : estado === "OK"
+                  ? cuenta
+                  : `${cuenta}: falta cargar una de las dos cifras y con la otra sola no alcanza, verificar a mano`,
+        });
+      }
+    }
     const segundo = segundoDocumentoDeLaLinea(texto);
     if (segundo) {
       const tipoSegundo = TIPO_DE_CLAVE[segundo];

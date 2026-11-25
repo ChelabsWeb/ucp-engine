@@ -207,6 +207,17 @@ export interface CamposDoc {
   clausulaDefecto?: CampoDoc; // cláusula que declara la mercadería o el embalaje defectuoso
   juegoOriginales?: CampoDoc; // "three (3) original Bills of Lading" / "COPY NON NEGOTIABLE" / "ZERO (0)"
   /**
+   * Cuántos originales y cuántas copias de este documento **llegaron en la presentación**.
+   *
+   * Los carga una persona y **no se le piden al modelo** —no están en `SCHEMA_DOC` ni en
+   * `CAMPOS_POR_TIPO`—: un escaneo es un ejemplar y no dice cuántos hay sobre la mesa. Existen por el
+   * laudo DOCDEX 250, que declara válida la discrepancia por cuatro facturas donde el crédito pedía
+   * seis (ISBP ¶71: «The required number of originals and copies must be presented»). Los lee la
+   * regla `46A+n-ejemplares`, y sin ninguno de los dos cargados esa regla no existe.
+   */
+  originalesPresentados?: CampoDoc;
+  copiasPresentadas?: CampoDoc;
+  /**
    * El bloque de firma del documento de transporte, copiado tal cual.
    *
    * Es lo que decide el inciso (a) (i) de los siete artículos del transporte, y la capacidad
@@ -2617,6 +2628,14 @@ export function tandasDeLectura(
   for (let i = 0; i < campos.length; i += porTanda) tandas.push(campos.slice(i, i + porTanda));
   return tandas;
 }
+
+/**
+ * Los dos campos de conteo, que la pantalla agrega a **todo** documento presentado.
+ *
+ * Van aparte de `CAMPOS_POR_TIPO` porque esa lista es lo que se le pide al modelo, y esto no se le
+ * pide: lo cuenta una persona con los papeles en la mano.
+ */
+export const CAMPOS_DE_CONTEO: (keyof CamposDoc)[] = ["originalesPresentados", "copiasPresentadas"];
 
 export function schemaPara(campos: readonly (keyof CamposDoc)[]) {
   return {

@@ -1636,6 +1636,177 @@ describe("bl-endoso: el endoso que el crédito pide (TA 814rev4 y laudo DOCDEX 3
 });
 
 /**
+ * Contar ejemplares (laudo DOCDEX 250 e ISBP ¶71)
+ *
+ * El 46A pedía «SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS AND 2 COPIES», el 47A agregaba «ONE ADDITIONAL
+ * COPY OF COMMERCIAL INVOICE AND TRANSPORT DOCUMENT … FOR OUR FILE», se presentaron cuatro facturas y el
+ * panel declaró **válido** el rechazo por unanimidad: *«The required number of originals and copies must
+ * be presented»*. El motor no lo veía porque no había dónde escribir cuántos papeles llegaron.
+ *
+ * `originalesPresentados` y `copiasPresentadas` los carga **una persona**: un escaneo es un ejemplar y
+ * no dice cuántos hay sobre la mesa, así que no se le piden al modelo. Sin ninguno de los dos cargados
+ * no hay regla, igual que antes.
+ */
+describe("ejemplares: cuántos originales y copias llegaron (laudo DOCDEX 250)", () => {
+  const FACTURA_250 = "1. SIGNED COMMERCIAL INVOICE IN 3 ORIGINALS AND 2 COPIES INDICATING THE L/C NO.";
+  const ADICIONAL = "ONE ADDITIONAL COPY OF COMMERCIAL INVOICE AND TRANSPORT DOCUMENT SHOULD BE PROVIDED FOR OUR FILE";
+  const con = (
+    o: {
+      exigidos?: string[];
+      condiciones?: string[];
+      originales?: string;
+      copias?: string;
+      tipo?: "FACTURA" | "BL" | "PACKING";
+      extra?: Partial<CamposDoc>;
+    },
+    idLinea = "46A+1",
+  ) =>
+    precheckPresentacion({
+      lc: {
+        ...lc,
+        documentosExigidos: o.exigidos ?? [FACTURA_250],
+        condicionesAdicionales: o.condiciones ?? [ADICIONAL],
+      },
+      docs: [
+        {
+          tipo: o.tipo ?? ("FACTURA" as const),
+          campos: {
+            ...(o.tipo === "BL" ? BL : o.tipo === "PACKING" ? PACKING : FACTURA),
+            ...(o.originales === undefined ? {} : { originalesPresentados: campo(o.originales, 1) }),
+            ...(o.copias === undefined ? {} : { copiasPresentadas: campo(o.copias, 1) }),
+            ...o.extra,
+          },
+        },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((r) => r.id === `${idLinea}-ejemplares`);
+
+  it("sin cargar ningún conteo no hay regla: el conteo sigue siendo de una persona", () => {
+    expect(con({})).toBeUndefined();
+  });
+
+  it("el caso del laudo: tres originales y una copia donde el crédito pide seis ejemplares", () => {
+    const r = con({ originales: "3", copias: "1" });
+    expect(r?.estado).toBe("DISCREPANCIA");
+    expect(r?.fuente).toBe("46A+1 · 47A");
+    expect(r?.evidencia).toContain("DOCDEX 250");
+    expect(r?.evidencia).toContain("47A");
+  });
+
+  /* La copia del 47A es la que decide: cinco alcanzarían sin ella y con ella no. */
+  it("cinco ejemplares no alcanzan cuando el 47A agrega el sexto", () => {
+    expect(con({ originales: "3", copias: "2" })?.estado).toBe("DISCREPANCIA");
+  });
+
+  it("con los seis, cumple", () => {
+    expect(con({ originales: "3", copias: "3" })?.estado).toBe("OK");
+  });
+
+  it("sin la condición del 47A alcanzan cinco, y la fuente es solo la línea del 46A", () => {
+    const r = con({ condiciones: [], originales: "3", copias: "2" });
+    expect(r?.estado).toBe("OK");
+    expect(r?.fuente).toBe("46A+1");
+  });
+
+  /* 17 (d): donde el crédito pide copias, un original también sirve. */
+  it("originales de más en lugar de copias cumplen", () => {
+    expect(con({ originales: "6", copias: "0" })?.estado).toBe("OK");
+  });
+
+  it("menos originales de los que el crédito nombra es discrepancia aunque el total alcance", () => {
+    expect(con({ originales: "2", copias: "4" })?.estado).toBe("DISCREPANCIA");
+  });
+
+  /* 17 (e) y Opinión R 338: «IN 3 FOLD» se cumple con un original y dos copias. */
+  it("«IN 03 FOLD»: un original y dos copias cumplen, y dos ejemplares no", () => {
+    const pl = ["1. PACKING LIST IN 03 FOLD"];
+    expect(con({ exigidos: pl, condiciones: [], tipo: "PACKING", originales: "1", copias: "2" })?.estado).toBe("OK");
+    expect(con({ exigidos: pl, condiciones: [], tipo: "PACKING", originales: "1", copias: "1" })?.estado).toBe(
+      "DISCREPANCIA",
+    );
+  });
+
+  it("una línea sin cantidad pide un original, y cero originales es discrepancia", () => {
+    const pl = ["1. PACKING LIST"];
+    expect(con({ exigidos: pl, condiciones: [], tipo: "PACKING", originales: "1" })?.estado).toBe("OK");
+    expect(con({ exigidos: pl, condiciones: [], tipo: "PACKING", originales: "0", copias: "2" })?.estado).toBe(
+      "DISCREPANCIA",
+    );
+  });
+
+  it("si falta cargar una de las dos cifras y la otra no alcanza, va a verificar", () => {
+    const r = con({ originales: "3" });
+    expect(r?.estado).toBe("ATENCION");
+    expect(con({ copias: "3" })?.estado).toBe("ATENCION");
+  });
+
+  it("un valor que no es un número no decide", () => {
+    expect(con({ originales: "tres", copias: "1" })?.estado).toBe("ATENCION");
+  });
+
+  it("el juego completo con su número: dos de tres conocimientos es discrepancia", () => {
+    const blLinea = ["1. FULL SET OF 3/3 ORIGINAL BILLS OF LADING MADE OUT TO ORDER"];
+    expect(con({ exigidos: blLinea, condiciones: [], tipo: "BL", originales: "2", copias: "0" })?.estado).toBe(
+      "DISCREPANCIA",
+    );
+    expect(con({ exigidos: blLinea, condiciones: [], tipo: "BL", originales: "3", copias: "0" })?.estado).toBe("OK");
+  });
+
+  it("y el transporte también recibe la copia adicional del 47A", () => {
+    const blLinea = ["1. FULL SET OF 3/3 ORIGINAL BILLS OF LADING MADE OUT TO ORDER"];
+    expect(con({ exigidos: blLinea, tipo: "BL", originales: "3", copias: "0" })?.estado).toBe("DISCREPANCIA");
+    expect(con({ exigidos: blLinea, tipo: "BL", originales: "3", copias: "1" })?.estado).toBe("OK");
+  });
+
+  /* «FULL SET» sin número: cuántos son lo dice el propio conocimiento, y si no lo dice no se decide. */
+  it("el juego completo sin número se cuenta contra los originales que el documento dice que se emitieron", () => {
+    const blLinea = ["1. FULL SET OF CLEAN ON BOARD BILLS OF LADING MADE OUT TO ORDER"];
+    const juego = (v: string) => ({ juegoOriginales: campo(v) });
+    expect(
+      con({ exigidos: blLinea, condiciones: [], tipo: "BL", originales: "2", copias: "0", extra: juego("3/3") })
+        ?.estado,
+    ).toBe("DISCREPANCIA");
+    expect(
+      con({ exigidos: blLinea, condiciones: [], tipo: "BL", originales: "3", copias: "0", extra: juego("THREE (3)") })
+        ?.estado,
+    ).toBe("OK");
+    expect(con({ exigidos: blLinea, condiciones: [], tipo: "BL", originales: "2", copias: "0" })?.estado).toBe(
+      "ATENCION",
+    );
+  });
+
+  it("una línea que pide solo una copia no exige original", () => {
+    const linea = ["1. COPY OF PACKING LIST"];
+    expect(con({ exigidos: linea, condiciones: [], tipo: "PACKING", originales: "0", copias: "1" })?.estado).toBe("OK");
+  });
+
+  it("ninguna salida deja castellano en el aviso en inglés", () => {
+    const salidas = [
+      con({ originales: "3", copias: "1" }),
+      con({ originales: "3", copias: "3" }),
+      con({ originales: "3" }),
+      con({ originales: "tres", copias: "1" }),
+      con({ condiciones: [], originales: "2", copias: "4" }),
+      con({
+        exigidos: ["1. FULL SET OF CLEAN ON BOARD BILLS OF LADING"],
+        condiciones: [],
+        tipo: "BL",
+        originales: "2",
+        copias: "0",
+      }),
+    ];
+    for (const r of salidas) {
+      expect(r).toBeDefined();
+      for (const texto of [r?.regla ?? "", r?.evidencia ?? ""]) {
+        expect(quedaEspanol(textoEnIngles(texto)), texto).toBeNull();
+      }
+    }
+  });
+});
+
+/**
  * El crédito que consigna **derecho a una parte nombrada** (laudo DOCDEX 204)
  *
  * `ordenDe` solo entendía «TO THE ORDER OF», así que un 46A que dice «SHOWING GOODS CONSIGNED TO COMPANY
