@@ -331,6 +331,29 @@ export function aKg(n: number, unidadTexto: string): number | null {
 }
 
 /**
+ * Si dos pesos son el mismo, **comparados en kilos** y con la banda del medio por ciento.
+ *
+ * Los cruces del bruto y del neto comparaban los números crudos, así que «53.960,00 Kgs» en el
+ * packing contra «53.96 MTS» en el conocimiento —la misma carga, escrita como la escribe cada
+ * papel— salía como contradicción con severidad ALTA, que rechaza la presentación. Lo destapó la
+ * primera lectura real del neto de un conocimiento (25-nov-2026): el papel del expediente lo
+ * imprime en toneladas y el packing en kilos.
+ *
+ * Cuando **los dos** traen una unidad que se puede llevar a kilos, se comparan en kilos. Si alguno
+ * no la trae, o trae una que la tabla no conoce, se comparan los números como estaban: es lo que
+ * se hacía, y adivinar la unidad que falta sería peor.
+ */
+export function mismoPeso(a: string, b: string): boolean {
+  const x = parseNumero(a),
+    y = parseNumero(b);
+  if (x == null || y == null) return false;
+  const xk = aKg(x, a),
+    yk = aKg(y, b);
+  const [p, q] = xk != null && yk != null ? [xk, yk] : [x, y];
+  return Math.abs(p - q) / Math.max(p, 1) < 0.005;
+}
+
+/**
  * La unidad, reducida a una sola forma.
  *
  * El catálogo del ERP de un trader escribe la misma unidad de dos maneras —CABEZAS y CAB,
@@ -1095,11 +1118,7 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
   cruce(
     "Peso bruto",
     "pesoBruto",
-    (a, b) => {
-      const x = parseNumero(a),
-        y = parseNumero(b);
-      return x != null && y != null && Math.abs(x - y) / Math.max(x, 1) < 0.005;
-    },
+    mismoPeso,
     "ALTA",
     "El peso bruto del BL tiene que coincidir con el del packing list / weight note.",
     0.6,
@@ -1118,11 +1137,7 @@ export function compararEntreDocumentos(docsTodos: { tipo: TipoDocExterno; campo
   cruce(
     "Peso neto",
     "pesoNeto",
-    (a, b) => {
-      const x = parseNumero(a),
-        y = parseNumero(b);
-      return x != null && y != null && Math.abs(x - y) / Math.max(x, 1) < 0.005;
-    },
+    mismoPeso,
     "ALTA",
     "El peso neto tiene que ser el mismo en la factura y en el packing list / weight note.",
     0.6,
@@ -2393,13 +2408,11 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
     "tipoBulto",
     "pesoBruto",
     /*
-     * El neto va **acá y en la factura, y no en el conocimiento**, y el motivo no es de criterio.
+     * El neto va acá, en la factura y —desde que la lectura se hace en tandas— en el conocimiento.
      *
-     * `BL` quedó en veinticuatro campos, que es el tope medido contra la API, así que no entra. La
-     * consecuencia hay que decirla porque es justo el par del laudo que pidió este campo: el cruce
-     * del 14 (d) sobre el peso **neto entre el packing y el conocimiento sigue sin poder correr**, y
-     * el que sí corre es packing contra factura. Para el otro hay que sacar un campo de `BL` o subir
-     * el tope, y las dos cosas se miden, no se suponen.
+     * Durante un mes no estuvo en `BL`, que había quedado en los veinticuatro campos del tope de la
+     * gramática, y el cruce del 14 (d) sobre el neto entre el packing y el conocimiento no se
+     * alcanzaba desde la pantalla. Ver `tandasDeLectura`.
      */
     "pesoNeto",
     "mercaderia",
@@ -2466,6 +2479,18 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
      */
     "firmaTransporte",
     "juegoOriginales",
+    /*
+     * El vigesimoquinto, y entra porque **la lectura dejó de ser una sola llamada** (25-nov-2026).
+     *
+     * El tope de veinticuatro sigue siendo el de la gramática, y es por llamada: `tandasDeLectura`
+     * parte la lista de un tipo en tandas que entran, y quien lee el papel hace una llamada por
+     * tanda y junta los campos. Con eso el tope deja de decidir qué mira el motor.
+     *
+     * Y el primero en pasar es el que más tiempo esperó: el **neto del conocimiento**, que es el par
+     * de la Opinión TA 832rev2 —packing contra conocimiento— y que el cruce del 14 (d) ya sabía
+     * comparar con el campo cargado a mano, sin poder recibirlo de la pantalla.
+     */
+    "pesoNeto",
   ],
   LC: [
     "exportador",
@@ -2509,7 +2534,41 @@ export const CAMPOS_POR_TIPO: Record<TipoDocExterno, (keyof CamposDoc)[]> = {
  * Medido contra la API: veintitrés campos con todos obligatorios compila en once segundos; treinta y
  * seis, aun todos obligatorios, ya no entra. Por eso además hace falta el esquema por tipo.
  */
-export function schemaPara(campos: (keyof CamposDoc)[]) {
+/**
+ * Cuántos campos admite la gramática de **una** llamada de lectura.
+ *
+ * Medido contra la API con un papel escaneado: veinticuatro compilan y veinticinco devuelven
+ * `400 invalid_request_error: "The compiled grammar is too large"`, de inmediato. Es la cantidad de
+ * campos y no el largo de los nombres. Ver el test de `consistencia.test.ts` que lo cuenta.
+ */
+export const TOPE_DE_CAMPOS_POR_LECTURA = 24;
+
+/**
+ * Parte los campos de un documento en las tandas que se le piden al modelo, una llamada por tanda.
+ *
+ * Existe porque el tope de la gramática estaba decidiendo qué examina el motor: el endoso del
+ * dorso, la dirección del consignatario y el neto del conocimiento tienen autoridad de la ICC
+ * detrás y no tenían lugar. De las cuatro salidas que estaban escritas —sacar un campo, dejarlo
+ * manual, partir la lectura, meter dos datos en uno— ésta es la única que escala.
+ *
+ * Las tandas salen **parejas y en el orden de la lista**: veinticinco campos son trece y doce, no
+ * veinticuatro y uno. Una tanda de un campo solo le quitaría al modelo el contexto de sus vecinos
+ * —el neto se lee al lado del bruto— y dos mitades compilan más rápido que una lista al borde.
+ * Un tipo que entra en una llamada sale en una sola tanda, igual que antes.
+ */
+export function tandasDeLectura(
+  campos: readonly (keyof CamposDoc)[],
+  tope: number = TOPE_DE_CAMPOS_POR_LECTURA,
+): (keyof CamposDoc)[][] {
+  if (campos.length === 0) return [];
+  const cuantas = Math.ceil(campos.length / tope);
+  const porTanda = Math.ceil(campos.length / cuantas);
+  const tandas: (keyof CamposDoc)[][] = [];
+  for (let i = 0; i < campos.length; i += porTanda) tandas.push(campos.slice(i, i + porTanda));
+  return tandas;
+}
+
+export function schemaPara(campos: readonly (keyof CamposDoc)[]) {
   return {
     type: "object",
     properties: Object.fromEntries(campos.map((c) => [c, campoSchema])),

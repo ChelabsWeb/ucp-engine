@@ -12,6 +12,7 @@ import {
   cotejarLCconOperacion,
   DOC_DEMO,
   LC_DEMO,
+  mismoPeso,
   normalizarCamposDoc,
   normConfianza,
   PROMPT_DOC,
@@ -20,6 +21,8 @@ import {
   schemaPara,
   TIPO_DOC_LABEL,
   type TipoDocExterno,
+  TOPE_DE_CAMPOS_POR_LECTURA,
+  tandasDeLectura,
 } from "./consistencia";
 import { operationDetails } from "./mock";
 import type { ChecklistRow, Empresa, MatrixRow } from "./types";
@@ -524,6 +527,35 @@ describe("compararEntreDocumentos — el peso neto", () => {
     ]);
     expect(alReves).toHaveLength(0);
   });
+
+  /*
+   * Los valores son los del expediente real (AMS2025061), leídos por el modelo el 25-nov-2026: el
+   * packing imprime los pesos en kilos y el conocimiento en toneladas. Comparados crudos, la misma
+   * carga rechazaba la presentación dos veces.
+   */
+  it("el mismo peso en kilos en un papel y en toneladas en el otro no se contradice", () => {
+    const c = compararEntreDocumentos([
+      { tipo: "PACKING", campos: conNeto("53.960,00 Kgs", "54.040,00 Kgs") },
+      { tipo: "BL", campos: conNeto("TOTAL NET WEIGHT: 53.96 MTS", "54.04 MT") },
+    ]);
+    expect(c.map((x) => x.campo)).not.toContain("Peso neto");
+    expect(c.map((x) => x.campo)).not.toContain("Peso bruto");
+  });
+
+  it("y un peso de verdad distinto se sigue contradiciendo aunque las unidades difieran", () => {
+    const c = compararEntreDocumentos([
+      { tipo: "PACKING", campos: conNeto("53.960,00 Kgs", "54.040,00 Kgs") },
+      { tipo: "BL", campos: conNeto("52.00 MTS", "54.04 MT") },
+    ]);
+    expect(c.find((x) => x.campo === "Peso neto")?.severidad).toBe("ALTA");
+    expect(c.map((x) => x.campo)).not.toContain("Peso bruto");
+  });
+
+  it("sin unidad en alguno de los dos se comparan los números como estaban", () => {
+    expect(mismoPeso("53960", "53.960,00 Kgs")).toBe(true);
+    expect(mismoPeso("53.96", "53.960,00 Kgs")).toBe(false);
+    expect(mismoPeso("", "53.960,00 Kgs")).toBe(false);
+  });
 });
 
 describe("compararEntreDocumentos — el BL dice cartons, el packing bags (caso CSU2025099)", () => {
@@ -832,11 +864,35 @@ describe("el esquema que se le manda al modelo", () => {
    * nombres **no compra lugar** y cada campo nuevo cuesta exactamente un lugar. Un campo nuevo se mide
    * igual que se midió éste, y este test sigue siendo el que avisa.
    */
-  it("ningún tipo se pasa de los veinticuatro campos que la gramática admite", () => {
-    for (const [tipo, campos] of Object.entries(CAMPOS_POR_TIPO)) {
-      expect(campos.length, `${tipo} tiene ${campos.length} campos`).toBeLessThanOrEqual(24);
+  /*
+   * Desde el 25-nov-2026 el tope es **por llamada y no por documento**: `tandasDeLectura` parte la
+   * lista de un tipo y quien lee hace una llamada por tanda. Lo que se vigila es que ninguna tanda
+   * se pase, que entre todas pidan cada campo una vez y solo una, y que salgan parejas.
+   */
+  it("ninguna tanda de lectura se pasa de los veinticuatro campos que la gramática admite", () => {
+    expect(TOPE_DE_CAMPOS_POR_LECTURA).toBe(24);
+    for (const [tipo, campos] of [...Object.entries(CAMPOS_POR_TIPO), ["SEGURO", CAMPOS_SEGURO] as const]) {
+      const tandas = tandasDeLectura(campos);
+      for (const t of tandas) {
+        expect(t.length, `una tanda de ${tipo} tiene ${t.length} campos`).toBeLessThanOrEqual(24);
+      }
+      expect(tandas.flat(), `las tandas de ${tipo} piden cada campo una vez, en orden`).toEqual([...campos]);
     }
-    expect(CAMPOS_SEGURO.length).toBeLessThanOrEqual(24);
+  });
+
+  it("un tipo que entra en una llamada no se parte, y uno que no entra sale en tandas parejas", () => {
+    expect(tandasDeLectura(CAMPOS_POR_TIPO.FACTURA)).toHaveLength(1);
+    const letras = (n: number) => Array.from({ length: n }, () => "mercaderia" as const);
+    expect(tandasDeLectura(letras(24))).toHaveLength(1);
+    expect(tandasDeLectura(letras(25)).map((t) => t.length)).toEqual([13, 12]);
+    expect(tandasDeLectura(letras(49)).map((t) => t.length)).toEqual([17, 17, 15]);
+    expect(tandasDeLectura([])).toEqual([]);
+  });
+
+  it("el conocimiento ya no entra en una sola llamada, y el neto es el campo que lo pasó", () => {
+    expect(CAMPOS_POR_TIPO.BL.length).toBeGreaterThan(TOPE_DE_CAMPOS_POR_LECTURA);
+    expect(CAMPOS_POR_TIPO.BL, "el par de la Opinión TA 832rev2 es packing contra conocimiento").toContain("pesoNeto");
+    expect(new Set(CAMPOS_POR_TIPO.BL).size, "ningún campo repetido").toBe(CAMPOS_POR_TIPO.BL.length);
   });
 
   /*
