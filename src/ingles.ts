@@ -1691,6 +1691,19 @@ const REEMPLAZOS: [RegExp, string][] = [
   [/\besa indicación\b/g, "that indication"],
   [/\bla fecha del seguro\b/g, "the insurance date"],
   [/\bla fecha de emisión\b/g, "the date of issuance"],
+  /* TA 862: la fecha de emisión que quien examina afirma que falta */
+  [
+    /^quien examinó indicó que el documento no trae fecha de emisión, y dice /g,
+    "the examiner stated that the document bears no date of issuance, and it states ",
+  ],
+  [
+    /: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión, y la del vuelo no la reemplaza \(Opinión TA 862\)$/g,
+    ": an air transport document must always indicate its date of issuance, and the flight date does not replace it (ICC Opinion TA 862)",
+  ],
+  [
+    /^quien examinó indicó que el documento no trae fecha de emisión: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión \(Opinión TA 862\)$/g,
+    "the examiner stated that the document bears no date of issuance: an air transport document must always indicate its date of issuance (ICC Opinion TA 862)",
+  ],
   /* TA 862: sin fecha de emisión y con notación de vuelo */
   [
     /^no se leyó la fecha de emisión y el documento trae una notación de vuelo, /g,

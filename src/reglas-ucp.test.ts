@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { ofreceAusencia } from "./ausencia";
 import type { CamposDoc } from "./consistencia";
 import { contextoDesdeSwift } from "./examen";
 import { SWIFT_CSU2025099 } from "./fixtures";
@@ -1052,6 +1053,70 @@ describe("el documento de transporte aéreo (UCP 600 art. 23)", () => {
     );
     expect(r?.estado).toBe("ATENCION");
     expect(r?.evidencia).not.toContain("TA 862");
+  });
+
+  /*
+   * El tercer estado: quien examina afirma que el papel no trae la fecha. Ahí ya no es silencio, y la
+   * Opinión TA 862 dice que la discrepancia vale — con notación de vuelo (el caso) o sin ella.
+   */
+  describe("23a-iii: la fecha de emisión marcada «no figura en el papel»", () => {
+    const AUSENTE = { valor: "", confianza: 0, ausente: true };
+    const r23 = (over = {}) => corrAereo(over).find((x) => x.id === "ucp-23a-iii");
+
+    it("es discrepancia, con la notación de vuelo a la vista", () => {
+      const r = r23({ fechaDocumento: AUSENTE, onBoard: campo("FLIGHT DATE: 16 DEC 2015") });
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).toContain("TA 862");
+      expect(r?.evidencia).toContain("FLIGHT DATE: 16 DEC 2015");
+    });
+
+    it("y sin notación de vuelo también", () => {
+      const r = r23({ fechaDocumento: AUSENTE, onBoard: campo("") });
+      expect(r?.estado).toBe("DISCREPANCIA");
+      expect(r?.evidencia).toContain("TA 862");
+    });
+
+    it("sin la marca, el campo vacío sigue sin rechazar", () => {
+      expect(r23({ fechaDocumento: campo(""), onBoard: campo("FLIGHT DATE: 16 DEC 2015") })?.estado).toBe("ATENCION");
+    });
+
+    it("lo leído manda sobre la marca", () => {
+      expect(r23({ fechaDocumento: { valor: "08-APR-2025", confianza: 1, ausente: true } })?.estado).toBe("OK");
+    });
+
+    it("la marca no rechaza un marítimo: fuera del aéreo no hay autoridad que lo diga", () => {
+      const rs = reglasUCP({
+        lc: LC,
+        credito: CTX,
+        docs: [{ tipo: "BL", campos: doc({ fechaDocumento: AUSENTE }) }],
+        hoy: HOY,
+      });
+      const conFecha = reglasUCP({
+        lc: LC,
+        credito: CTX,
+        docs: [{ tipo: "BL", campos: doc({ fechaDocumento: campo("") }) }],
+        hoy: HOY,
+      });
+      expect(rs.map((x) => `${x.id}:${x.estado}`)).toEqual(conFecha.map((x) => `${x.id}:${x.estado}`));
+    });
+
+    it("ninguna de las dos salidas queda con castellano en inglés", () => {
+      for (const over of [
+        { fechaDocumento: AUSENTE, onBoard: campo("FLIGHT DATE: 16 DEC 2015") },
+        { fechaDocumento: AUSENTE, onBoard: campo("") },
+      ]) {
+        const texto = r23(over)?.evidencia ?? "";
+        expect(quedaEspanol(textoEnIngles(texto)), texto).toBeNull();
+      }
+    });
+
+    it("la pantalla la ofrece solo en el aéreo, y el endoso en todo documento de transporte", () => {
+      expect(ofreceAusencia("BL", "fechaDocumento", aereo())).toBe(true);
+      expect(ofreceAusencia("BL", "fechaDocumento", doc({}))).toBe(false);
+      expect(ofreceAusencia("FACTURA", "fechaDocumento", aereo())).toBe(false);
+      expect(ofreceAusencia("BL", "endoso", doc({}))).toBe(true);
+      expect(ofreceAusencia("BL", "buque", aereo())).toBe(false);
+    });
   });
 
   it("23a-v: alcanza el original del expedidor aunque el crédito pida el juego completo", () => {

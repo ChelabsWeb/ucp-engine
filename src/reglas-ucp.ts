@@ -1762,42 +1762,63 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
   const emision = val(awb, "fechaDocumento");
   const notacion = val(awb, "onBoard") ?? "";
   const esSoloVuelo = /flight|vuelo/i.test(notacion) && !/actual date of shipment|fecha real/i.test(notacion);
+  /*
+   * **La fecha de emisión que falta, cuando quien examina lo afirma** (Opinión TA 862).
+   *
+   * Con el campo vacío esta regla manda a verificar, porque no sabe si la fecha falta o si nadie la
+   * cargó. Marcada «no figura en el papel» ya no es silencio, y la Opinión no deja margen: «An air
+   * transport document must always include a date of issuance». La notación de vuelo no la salva —es
+   * justo lo que el banco presentador argumentó y la ICC rechazó—, así que la rama no depende de que
+   * la haya: solo la cita cuando está. Lo leído manda sobre la marca.
+   */
+  const faltaLaEmision = !emision && awb.campos.fechaDocumento?.ausente === true;
   out.push(
-    emision
+    faltaLaEmision
       ? regla(
           "ucp-23a-iii",
           "UCP 600 23a-iii",
-          "La fecha de embarque es la de emisión, salvo notación del embarque real",
-          "OK",
-          esSoloVuelo
-            ? `rige la fecha de emisión, "${emision}": el número de vuelo y su fecha no cuentan para determinar la fecha de embarque`
-            : `rige la fecha de emisión, "${emision}"`,
+          "Fecha de emisión del documento aéreo",
+          "DISCREPANCIA",
+          notacion
+            ? `quien examinó indicó que el documento no trae fecha de emisión, y dice "${notacion}": un documento de transporte aéreo tiene que indicar siempre su fecha de emisión, y la del vuelo no la reemplaza (Opinión TA 862)`
+            : "quien examinó indicó que el documento no trae fecha de emisión: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión (Opinión TA 862)",
         )
-      : esSoloVuelo
-        ? /*
-           * Sin fecha de emisión y con una notación de vuelo: el aviso nombra la Opinión TA 862.
-           *
-           * El motor no puede concluir, y el motivo es el límite más de fondo que tiene: un campo vacío
-           * significa las dos cosas a la vez —que el papel no trae la fecha, que es la discrepancia que
-           * la ICC declara válida, o que nadie la cargó todavía, que no es nada—. Resolver eso necesita
-           * un tercer estado en el esquema («ausente en el papel») y es una decisión de producto.
-           *
-           * Lo que sí puede hacer es no dejar al examinador buscando la Opinión: la frase le dice qué
-           * mirar y cuál es la respuesta si el papel de verdad no la trae.
-           *
-           *   «The date of issuance of an air transport document will be considered as the date of
-           *   shipment, unless the air transport document contains a specific notation of the actual
-           *   date of shipment. However, neither UCP 600 nor ISBP 745 indicates that the reverse is
-           *   permitted. An air transport document must always include a date of issuance.»
-           */
-          regla(
+      : emision
+        ? regla(
             "ucp-23a-iii",
             "UCP 600 23a-iii",
-            "Fecha de emisión del documento aéreo",
-            "ATENCION",
-            `no se leyó la fecha de emisión y el documento trae una notación de vuelo, "${notacion}": si el papel no trae fecha de emisión es discrepancia, porque la del vuelo no la reemplaza (Opinión TA 862). Verificar en el papel`,
+            "La fecha de embarque es la de emisión, salvo notación del embarque real",
+            "OK",
+            esSoloVuelo
+              ? `rige la fecha de emisión, "${emision}": el número de vuelo y su fecha no cuentan para determinar la fecha de embarque`
+              : `rige la fecha de emisión, "${emision}"`,
           )
-        : sinLeer("ucp-23a-iii", "UCP 600 23a-iii", "Fecha de emisión del documento aéreo", "la fecha de emisión"),
+        : esSoloVuelo
+          ? /*
+             * Sin fecha de emisión y con una notación de vuelo: el aviso nombra la Opinión TA 862.
+             *
+             * El motor no puede concluir, y el motivo es el límite más de fondo que tiene: un campo vacío
+             * significa las dos cosas a la vez —que el papel no trae la fecha, que es la discrepancia que
+             * la ICC declara válida, o que nadie la cargó todavía, que no es nada—. Eso lo resuelve el
+             * tercer estado del campo («no figura en el papel»), que es la rama de arriba: sin esa marca,
+             * esta sigue avisando.
+             *
+             * Lo que sí puede hacer es no dejar al examinador buscando la Opinión: la frase le dice qué
+             * mirar y cuál es la respuesta si el papel de verdad no la trae.
+             *
+             *   «The date of issuance of an air transport document will be considered as the date of
+             *   shipment, unless the air transport document contains a specific notation of the actual
+             *   date of shipment. However, neither UCP 600 nor ISBP 745 indicates that the reverse is
+             *   permitted. An air transport document must always include a date of issuance.»
+             */
+            regla(
+              "ucp-23a-iii",
+              "UCP 600 23a-iii",
+              "Fecha de emisión del documento aéreo",
+              "ATENCION",
+              `no se leyó la fecha de emisión y el documento trae una notación de vuelo, "${notacion}": si el papel no trae fecha de emisión es discrepancia, porque la del vuelo no la reemplaza (Opinión TA 862). Verificar en el papel`,
+            )
+          : sinLeer("ucp-23a-iii", "UCP 600 23a-iii", "Fecha de emisión del documento aéreo", "la fecha de emisión"),
   );
 
   // 23a-iv: aeropuerto de salida y de destino, los que fija el crédito

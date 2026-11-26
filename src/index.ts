@@ -13,6 +13,8 @@
 export { generarAlertasDeOperacion } from "./alertas";
 export type { InsumoAML, SenalAML } from "./aml";
 export { contenedorCierra, senalesAML } from "./aml";
+/** Dónde se ofrece «no figura en el papel». */
+export { ofreceAusencia } from "./ausencia";
 export type { ContextoBackToBack, DescalceBackToBack, RiesgoBackToBack } from "./back-to-back";
 /** Los dos créditos de un back-to-back: dónde queda descubierto el banco que emite el segundo. */
 export { resumenBackToBack, revisarBackToBack } from "./back-to-back";
@@ -48,7 +50,6 @@ export type {
 /** Comparación campo a campo y entre documentos (UCP 600 art. 14d). */
 export {
   aKg,
-  CAMPOS_CON_AUSENCIA,
   CAMPOS_DE_CONTEO,
   CAMPOS_POR_TIPO,
   CAMPOS_SEGURO,
