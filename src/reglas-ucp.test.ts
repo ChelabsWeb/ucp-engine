@@ -1070,6 +1070,15 @@ describe("el documento de transporte aéreo (UCP 600 art. 23)", () => {
       expect(r?.evidencia).toContain("FLIGHT DATE: 16 DEC 2015");
     });
 
+    it("la frase del vuelo va solo cuando la anotación es de vuelo", () => {
+      const conVuelo = r23({ fechaDocumento: AUSENTE, onBoard: campo("FLIGHT DATE: 16 DEC 2015") })?.evidencia ?? "";
+      const sinVuelo = r23({ fechaDocumento: AUSENTE, onBoard: campo("RECEIVED FOR CARRIAGE") })?.evidencia ?? "";
+      expect(conVuelo).toContain("la del vuelo no la reemplaza");
+      expect(sinVuelo).not.toContain("vuelo");
+      expect(sinVuelo).toContain("RECEIVED FOR CARRIAGE");
+      expect(quedaEspanol(textoEnIngles(sinVuelo)), sinVuelo).toBeNull();
+    });
+
     it("y sin notación de vuelo también", () => {
       const r = r23({ fechaDocumento: AUSENTE, onBoard: campo("") });
       expect(r?.estado).toBe("DISCREPANCIA");

@@ -231,6 +231,17 @@ export interface CamposDoc {
   originalesPresentados?: CampoDoc;
   copiasPresentadas?: CampoDoc;
   /**
+   * El origen que un **certificado de origen** declara, copiado de su casilla.
+   *
+   * Lo carga una persona y no se le pide al modelo, igual que el conteo de ejemplares. Existe para
+   * que la pregunta de `cert-origen` tenga una casilla propia: antes el origen se buscaba dentro del
+   * texto de la mercadería, del lugar y del número, y «el papel no indica el origen» —que es la
+   * discrepancia que la Opinión TA 864rev declara válida— no tenía dónde afirmarse. Marcada
+   * `ausente`, la regla rechaza. La pantalla la ofrece solo cuando el crédito nombra el país
+   * (`paisDeOrigenExigido`), que es cuando la regla corre.
+   */
+  origenDeclarado?: CampoDoc;
+  /**
    * El bloque de firma del documento de transporte, copiado tal cual.
    *
    * Es lo que decide el inciso (a) (i) de los siete artículos del transporte, y la capacidad
@@ -2649,6 +2660,12 @@ export function tandasDeLectura(
  * pide: lo cuenta una persona con los papeles en la mano.
  */
 export const CAMPOS_DE_CONTEO: (keyof CamposDoc)[] = ["originalesPresentados", "copiasPresentadas"];
+
+/**
+ * La casilla del origen, que la pantalla agrega a un certificado de origen cuando el crédito nombra
+ * el país. Aparte de `CAMPOS_CERTIFICADO` por el mismo motivo que el conteo: no es de la lectura.
+ */
+export const CAMPOS_DE_ORIGEN: (keyof CamposDoc)[] = ["origenDeclarado"];
 
 export function schemaPara(campos: readonly (keyof CamposDoc)[]) {
   return {

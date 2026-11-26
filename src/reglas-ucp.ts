@@ -1780,7 +1780,7 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
           "Fecha de emisión del documento aéreo",
           "DISCREPANCIA",
           notacion
-            ? `quien examinó indicó que el documento no trae fecha de emisión, y dice "${notacion}": un documento de transporte aéreo tiene que indicar siempre su fecha de emisión, y la del vuelo no la reemplaza (Opinión TA 862)`
+            ? `quien examinó indicó que el documento no trae fecha de emisión, y dice "${notacion}": un documento de transporte aéreo tiene que indicar siempre su fecha de emisión${esSoloVuelo ? ", y la del vuelo no la reemplaza" : ""} (Opinión TA 862)`
             : "quien examinó indicó que el documento no trae fecha de emisión: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión (Opinión TA 862)",
         )
       : emision
