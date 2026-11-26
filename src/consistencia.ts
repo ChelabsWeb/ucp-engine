@@ -73,7 +73,29 @@ const COLUMNA_DE_TIPO: Record<TipoDocExterno, "lc" | "invoice" | "packing" | "bl
 export interface CampoDoc {
   valor: string;
   confianza: number;
+  /**
+   * **El dato no figura en el papel**, dicho por la persona que lo tiene en la mano.
+   *
+   * Es el tercer estado que faltaba. Un campo vacío quería decir dos cosas a la vez —«no se leyó» y
+   * «el documento no lo trae»— y hay reglas cuyo veredicto depende de cuál sea: la Opinión TA 814rev4
+   * declara válida la discrepancia «NOT ENDORSED», y con el campo vacío el motor solo podía mandar a
+   * verificar. Con esto marcado, el silencio deja de ser silencio: es una afirmación de quien examina.
+   *
+   * **Lo marca una persona y nunca el modelo**: no está en el esquema de lectura, porque quien lee un
+   * escaneo no sabe si le dieron todas las hojas. Y solo se ofrece en los campos de
+   * `CAMPOS_CON_AUSENCIA`, que son los que alguna regla lee.
+   */
+  ausente?: boolean;
 }
+
+/**
+ * Los campos en los que la pantalla ofrece «no figura en el papel».
+ *
+ * Uno por regla que sepa qué hacer con la ausencia, y no todos de una vez: una casilla que ninguna
+ * regla lee es una pregunta al vacío. Empieza por el endoso, que es donde hay una Opinión que dice
+ * qué vale la falta.
+ */
+export const CAMPOS_CON_AUSENCIA: string[] = ["endoso"];
 
 /** RF-2.6: cómo se resolvió una discrepancia (trazabilidad: acción + cuándo). */
 export interface ResolucionDiscrepancia {
