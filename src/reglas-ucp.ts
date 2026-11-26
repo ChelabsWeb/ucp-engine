@@ -1799,8 +1799,9 @@ function reglasAereo(ctx: ContextoCredito, awb: DocAnalizado): ReglaPresentacion
              *
              * El motor no puede concluir, y el motivo es el límite más de fondo que tiene: un campo vacío
              * significa las dos cosas a la vez —que el papel no trae la fecha, que es la discrepancia que
-             * la ICC declara válida, o que nadie la cargó todavía, que no es nada—. Resolver eso necesita
-             * un tercer estado en el esquema («ausente en el papel») y es una decisión de producto.
+             * la ICC declara válida, o que nadie la cargó todavía, que no es nada—. Eso lo resuelve el
+             * tercer estado del campo («no figura en el papel»), que es la rama de arriba: sin esa marca,
+             * esta sigue avisando.
              *
              * Lo que sí puede hacer es no dejar al examinador buscando la Opinión: la frase le dice qué
              * mirar y cuál es la respuesta si el papel de verdad no la trae.
