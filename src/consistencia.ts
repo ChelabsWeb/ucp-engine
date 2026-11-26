@@ -82,20 +82,11 @@ export interface CampoDoc {
    * verificar. Con esto marcado, el silencio deja de ser silencio: es una afirmación de quien examina.
    *
    * **Lo marca una persona y nunca el modelo**: no está en el esquema de lectura, porque quien lee un
-   * escaneo no sabe si le dieron todas las hojas. Y solo se ofrece en los campos de
-   * `CAMPOS_CON_AUSENCIA`, que son los que alguna regla lee.
+   * escaneo no sabe si le dieron todas las hojas. Y solo se ofrece donde `ofreceAusencia` (en
+   * `ausencia.ts`) dice que alguna regla lo lee.
    */
   ausente?: boolean;
 }
-
-/**
- * Los campos en los que la pantalla ofrece «no figura en el papel».
- *
- * Uno por regla que sepa qué hacer con la ausencia, y no todos de una vez: una casilla que ninguna
- * regla lee es una pregunta al vacío. Empieza por el endoso, que es donde hay una Opinión que dice
- * qué vale la falta.
- */
-export const CAMPOS_CON_AUSENCIA: string[] = ["endoso"];
 
 /** RF-2.6: cómo se resolvió una discrepancia (trazabilidad: acción + cuándo). */
 export interface ResolucionDiscrepancia {
