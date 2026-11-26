@@ -48,6 +48,7 @@ export type {
 /** Comparación campo a campo y entre documentos (UCP 600 art. 14d). */
 export {
   aKg,
+  CAMPOS_CON_AUSENCIA,
   CAMPOS_DE_CONTEO,
   CAMPOS_POR_TIPO,
   CAMPOS_SEGURO,

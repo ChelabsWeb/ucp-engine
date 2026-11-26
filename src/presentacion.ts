@@ -1418,12 +1418,38 @@ export function precheckPresentacion(input: {
      */
     if (exigeEndosoEnBlanco || endosoALaOrdenDe) {
       const endoso = val(bl, "endoso");
+      /*
+       * **El endoso que falta, cuando quien examina lo afirma.**
+       *
+       * Con el campo vacío esta regla manda a verificar, porque no sabe si el endoso falta o si no se
+       * cargó el dorso. Marcado «no figura en el papel», ya no es silencio: la Opinión TA 814rev4
+       * declara válida la discrepancia «NOT ENDORSED» bajo un crédito que pide el endoso.
+       *
+       * **Un freno, y sale del laudo DOCDEX 288:** si el documento va a la orden de una parte nombrada
+       * —el banco emisor, típicamente—, solo esa parte puede endosarlo, y el panel obligó a pagar al
+       * emisor que rechazó por un endoso que el beneficiario no podía hacer. Ahí la falta no rechaza.
+       */
       const dice = endoso ? `el endoso dice "${cortoDeTexto(endoso, 120)}"` : "";
       const NO_RECHAZA =
         "una palabra de menos en un endoso no es discrepancia (laudo DOCDEX 363), así que se verifica en el papel en vez de rechazarse";
       const SIN_LEER =
         "no se leyó ningún endoso: suele ir al dorso del documento, así que hay que cargar esa hoja o verificarlo en el papel. Un campo vacío no dice que el endoso falte";
-      if (endosoALaOrdenDe) {
+      const faltaElEndoso = !endoso && bl.campos.endoso?.ausente === true;
+      if (faltaElEndoso) {
+        const nombradoEnElCasillero = consig ? (/\bORDER\s+OF\s+(?:THE\s+)?(.+)$/i.exec(consig)?.[1] ?? "").trim() : "";
+        const loEndosaOtro = Boolean(nombradoEnElCasillero) && !/^(?:SHIPPER|CONSIGNOR)\b/i.test(nombradoEnElCasillero);
+        reglas.push({
+          id: "bl-endoso",
+          fuente: "46A",
+          regla: endosoALaOrdenDe
+            ? "El documento de transporte va endosado como el crédito pide"
+            : "El documento de transporte lleva el endoso en blanco que el crédito pide",
+          estado: loEndosaOtro ? "ATENCION" : "DISCREPANCIA",
+          evidencia: loEndosaOtro
+            ? `quien examinó indicó que el documento no lleva endoso, y va a la orden de "${nombradoEnElCasillero}", que es la única parte que puede endosarlo: el beneficiario no tiene cómo cumplirlo, así que se verifica en vez de rechazarse (laudo DOCDEX 288)`
+            : "quien examinó indicó que el documento no lleva endoso, y el crédito lo pide endosado: la falta del endoso es discrepancia (Opinión TA 814rev4)",
+        });
+      } else if (endosoALaOrdenDe) {
         const { pedido, nombre } = endosoALaOrdenDe;
         const loNombra = Boolean(endoso && nombre) && norm(endoso!).includes(norm(nombre));
         reglas.push({

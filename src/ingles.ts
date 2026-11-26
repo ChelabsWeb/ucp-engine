@@ -2366,6 +2366,22 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   [/^el endoso dice /g, "the endorsement reads "],
   [
+    /^El documento de transporte va endosado como el crédito pide$/g,
+    "The transport document is endorsed as the credit requires",
+  ],
+  [
+    /^quien examinó indicó que el documento no lleva endoso, y el crédito lo pide endosado: la falta del endoso es discrepancia \(Opinión TA 814rev4\)$/g,
+    "the examiner stated that the document bears no endorsement, and the credit requires it endorsed: a missing endorsement is a discrepancy (Opinion TA 814rev4)",
+  ],
+  [
+    /^quien examinó indicó que el documento no lleva endoso, y va a la orden de /g,
+    "the examiner stated that the document bears no endorsement, and it is made out to the order of ",
+  ],
+  [
+    /, que es la única parte que puede endosarlo: el beneficiario no tiene cómo cumplirlo, así que se verifica en vez de rechazarse \(laudo DOCDEX 288\)$/g,
+    ", the only party that can endorse it: the beneficiary has no way to comply, so it is checked instead of refused (DOCDEX Decision 288)",
+  ],
+  [
     / y el crédito lo pide a la orden del banco emisor, que no se leyó: verificar a mano$/g,
     " and the credit requires it to the order of the issuing bank, which was not read: check by hand",
   ],

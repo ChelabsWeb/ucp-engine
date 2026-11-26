@@ -1615,6 +1615,67 @@ describe("bl-endoso: el endoso que el crédito pide (TA 814rev4 y laudo DOCDEX 3
     expect(con(A_LA_ORDEN, null)?.estado).toBe("ATENCION");
   });
 
+  /*
+   * El tercer estado: «no figura en el papel», marcado por quien examina. Ahí la falta deja de ser
+   * silencio y la Opinión TA 814rev4 dice qué vale.
+   */
+  const sinEndoso = (exigencia: string, consignatario = "TO ORDER") =>
+    precheckPresentacion({
+      lc: { ...lc, documentosExigidos: ["1. SIGNED COMMERCIAL INVOICE.", exigencia], bancoEmisor: "TEST BANK" },
+      docs: [
+        {
+          tipo: "BL" as const,
+          campos: {
+            ...BL,
+            consignatario: campo(consignatario),
+            endoso: { valor: "", confianza: 0, ausente: true },
+          },
+        },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.filter((r) => r.id === "bl-endoso");
+
+  it("marcado «no figura en el papel», el endoso que falta es discrepancia", () => {
+    for (const exigencia of [EN_BLANCO, A_LA_ORDEN]) {
+      const rs = sinEndoso(exigencia);
+      expect(rs).toHaveLength(1);
+      expect(rs[0].estado).toBe("DISCREPANCIA");
+      expect(rs[0].evidencia).toContain("TA 814rev4");
+      expect(quedaEspanol(textoEnIngles(rs[0].evidencia)), rs[0].evidencia).toBeNull();
+      expect(quedaEspanol(textoEnIngles(rs[0].regla)), rs[0].regla).toBeNull();
+    }
+  });
+
+  /* Laudo DOCDEX 288: a la orden del banco solo el banco puede endosarlo, y ese rechazo se anuló. */
+  it("pero si va a la orden de una parte nombrada, la falta no rechaza", () => {
+    const rs = sinEndoso(EN_BLANCO, "TO THE ORDER OF MERIDIAN BANK PLC");
+    expect(rs[0].estado).toBe("ATENCION");
+    expect(rs[0].evidencia).toContain("DOCDEX 288");
+    expect(quedaEspanol(textoEnIngles(rs[0].evidencia)), rs[0].evidencia).toBeNull();
+  });
+
+  it("y la marca no pesa si el endoso se leyó: lo leído manda", () => {
+    const r = precheckPresentacion({
+      lc: { ...lc, documentosExigidos: [EN_BLANCO], bancoEmisor: "TEST BANK" },
+      docs: [
+        {
+          tipo: "BL" as const,
+          campos: {
+            ...BL,
+            consignatario: campo("TO ORDER"),
+            endoso: { valor: "FOR MOLSUR SA (SIGNATURE)", confianza: 1, ausente: true },
+          },
+        },
+      ],
+      op: OP,
+      empresaRazonSocial: "CEREALSUR S.A.",
+      hoy: HOY,
+    }).reglas.find((x) => x.id === "bl-endoso");
+    expect(r?.estado).toBe("OK");
+  });
+
   it("ninguna de sus salidas queda con castellano en el aviso en inglés", () => {
     const salidas = [
       con(EN_BLANCO, "FOR MOLSUR SA (SIGNATURE)"),
