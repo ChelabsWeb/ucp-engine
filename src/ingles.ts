@@ -1290,6 +1290,14 @@ const REEMPLAZOS: [RegExp, string][] = [
   ],
   /* TA 864rev: el origen que el crédito nombra y el papel no indica */
   [
+    /^quien examinó indicó que el documento no indica el origen, y el crédito pide que indique origen ([A-Z]+): la discrepancia vale \(Opinión TA 864rev\)$/g,
+    "the examiner stated that the document does not indicate the origin, and the credit requires it to indicate $1 origin: the discrepancy is valid (ICC Opinion TA 864rev)",
+  ],
+  [
+    /^el documento declara como origen (.+) y el crédito pide origen ([A-Z]+): si no es el mismo país escrito de otra manera, es discrepancia\. Verificar a mano$/g,
+    "the document states $1 as the origin and the credit requires $2 origin: unless it is the same country written differently, it is a discrepancy. Check by hand",
+  ],
+  [
     /^no se leyó el origen ([A-Z]+); el documento dice (.+): verificar a mano, y si el papel de verdad no lo indica la discrepancia vale \(Opinión TA 864rev\)$/g,
     "the $1 origin was not read; the document states $2: check by hand, and if the paper really does not indicate it the discrepancy is valid (ICC Opinion TA 864rev)",
   ],
@@ -1699,6 +1707,10 @@ const REEMPLAZOS: [RegExp, string][] = [
   [
     /: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión, y la del vuelo no la reemplaza \(Opinión TA 862\)$/g,
     ": an air transport document must always indicate its date of issuance, and the flight date does not replace it (ICC Opinion TA 862)",
+  ],
+  [
+    /: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión \(Opinión TA 862\)$/g,
+    ": an air transport document must always indicate its date of issuance (ICC Opinion TA 862)",
   ],
   [
     /^quien examinó indicó que el documento no trae fecha de emisión: un documento de transporte aéreo tiene que indicar siempre su fecha de emisión \(Opinión TA 862\)$/g,

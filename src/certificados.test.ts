@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { aparearConExigencias, type DocCertificado, emisorQueNombra, reglasCertificados } from "./certificados";
+import { ofreceAusencia } from "./ausencia";
+import {
+  aparearConExigencias,
+  type DocCertificado,
+  emisorQueNombra,
+  paisDeOrigenExigido,
+  reglasCertificados,
+} from "./certificados";
 import type { CamposDoc } from "./consistencia";
 import { SWIFT_CSU2025099 } from "./fixtures";
-import { textoEnIngles } from "./ingles";
+import { quedaEspanol, textoEnIngles } from "./ingles";
 import { ablandarPorISBP } from "./isbp";
 import type { DocAnalizado } from "./presentacion";
 import { parseMT700 } from "./swift-lc";
@@ -988,6 +995,70 @@ describe("el certificado de origen y dónde está escrito el origen", () => {
       const r = correrAU({ mercaderia: campo(CUERPO) });
       expect(r?.estado).toBe("ATENCION");
       expect(r?.evidencia).toMatch(/TA 864rev/);
+    });
+
+    /*
+     * El tercer estado: la casilla del origen marcada «no figura en el papel». Es el hecho de la
+     * Opinión —el formulario no indica el origen— afirmado por quien lo leyó, y ahí la discrepancia vale.
+     */
+    describe("la casilla del origen, que carga quien tiene el papel", () => {
+      const AUSENTE = { valor: "", confianza: 0, ausente: true };
+
+      it("marcada ausente, con el cuerpo del acuerdo y nada más: discrepancia", () => {
+        const r = correrAU({ mercaderia: campo(CUERPO), origenDeclarado: AUSENTE });
+        expect(r?.estado).toBe("DISCREPANCIA");
+        expect(r?.evidencia).toMatch(/TA 864rev/);
+        expect(r?.evidencia).toMatch(/AUSTRALIA/);
+      });
+
+      it("lo leído manda: si otro campo declara el origen, sale OK", () => {
+        const r = correrAU({ mercaderia: campo(`${CUERPO} · COUNTRY OF ORIGIN: AUSTRALIA`), origenDeclarado: AUSENTE });
+        expect(r?.estado).toBe("OK");
+      });
+
+      it("y el criterio del formulario, que la Opinión admite, sigue a verificar", () => {
+        const r = correrAU({
+          mercaderia: campo("FEED BARLEY IN BULK · ORIGIN CRITERION: WO"),
+          origenDeclarado: AUSENTE,
+        });
+        expect(r?.estado).toBe("ATENCION");
+      });
+
+      it("escrita con el país, alcanza sin vocabulario de origen: la casilla es la del origen", () => {
+        const r = correrAU({ mercaderia: campo(CUERPO), origenDeclarado: campo("COMMONWEALTH OF AUSTRALIA") });
+        expect(r?.estado).toBe("OK");
+        expect(r?.evidencia).toMatch(/COMMONWEALTH OF AUSTRALIA/);
+      });
+
+      it("escrita con otro texto no rechaza: el motor no sabe si es el mismo país", () => {
+        const r = correrAU({ mercaderia: campo(CUERPO), origenDeclarado: campo("NEW ZEALAND") });
+        expect(r?.estado).toBe("ATENCION");
+        expect(r?.evidencia).toMatch(/NEW ZEALAND/);
+      });
+
+      it("con el acrónimo del formulario en la casilla, sigue la rama de la Opinión", () => {
+        const r = correrAU({ origenDeclarado: campo("WO") });
+        expect(r?.estado).toBe("ATENCION");
+        expect(r?.evidencia).toMatch(/criterio del formulario/);
+      });
+
+      it("ninguna salida nueva queda con castellano en inglés", () => {
+        for (const campos of [
+          { mercaderia: campo(CUERPO), origenDeclarado: AUSENTE },
+          { mercaderia: campo(CUERPO), origenDeclarado: campo("NEW ZEALAND") },
+        ]) {
+          const texto = correrAU(campos)?.evidencia ?? "";
+          expect(quedaEspanol(textoEnIngles(texto)), texto).toBeNull();
+        }
+      });
+
+      it("la pantalla la ofrece cuando el crédito nombra el país, y solo entonces", () => {
+        expect(paisDeOrigenExigido("+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY")).toMatch(/australia/i);
+        expect(paisDeOrigenExigido("CERTIFICATE OF ORIGIN ISSUED BY CHAMBER OF COMMERCE")).toBeNull();
+        expect(paisDeOrigenExigido("COMMERCIAL INVOICE IN 3 ORIGINALS")).toBeNull();
+        expect(ofreceAusencia("+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY", "origenDeclarado")).toBe(true);
+        expect(ofreceAusencia("+3)CERTIFICATE OF AUSTRALIA ORIGIN OF THE COMMODITY", "mercaderia")).toBe(false);
+      });
     });
 
     it("pero una mención suelta del mismo país en el mismo texto sí alcanza", () => {

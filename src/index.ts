@@ -31,7 +31,7 @@ export {
 } from "./blindaje";
 export type { DocCertificado } from "./certificados";
 /** Los demás documentos del 46A: origen, análisis, peso, certificados del beneficiario. */
-export { aparearConExigencias, CAMPOS_CERTIFICADO, reglasCertificados } from "./certificados";
+export { aparearConExigencias, CAMPOS_CERTIFICADO, paisDeOrigenExigido, reglasCertificados } from "./certificados";
 export type { AvisoRechazo, DestinoDocumentos, EncabezadoChecking, PlazoDeAviso } from "./checking-list";
 /** La hoja que el examinador firma y el aviso de rechazo del artículo 16. */
 export { avisoDeRechazo, checkingList, plazoDeAviso } from "./checking-list";
@@ -51,6 +51,7 @@ export type {
 export {
   aKg,
   CAMPOS_DE_CONTEO,
+  CAMPOS_DE_ORIGEN,
   CAMPOS_POR_TIPO,
   CAMPOS_SEGURO,
   claveDoc,
